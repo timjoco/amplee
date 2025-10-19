@@ -36,15 +36,6 @@ export default function AttendanceBar({ eventId }: { eventId: string }) {
 
       <Button
         size="small"
-        variant={mine === 'tentative' ? 'contained' : 'outlined'}
-        onClick={() => update('tentative')}
-        disabled={saving}
-      >
-        Tentative
-      </Button>
-
-      <Button
-        size="small"
         variant={mine === 'declined' ? 'contained' : 'outlined'}
         onClick={() => update('declined')}
         disabled={saving}

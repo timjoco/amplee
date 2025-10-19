@@ -1,8 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
-
+import AttendanceBar from '@/components/Events/AttendanceBar';
+import EventSheetHeader from '@/components/Events/EventSheetHeader';
+import { SIDE_NAV_WIDTH } from '@/components/Nav/SideNav';
 import { supabaseBrowser } from '@/lib/supabaseClient';
 import SendIcon from '@mui/icons-material/Send';
+
 import {
   Box,
   Button,
@@ -22,8 +25,6 @@ import {
   useMediaQuery,
 } from '@mui/material';
 import Grid from '@mui/material/Grid';
-
-import EventSheetHeader from '@/components/Events/EventSheetHeader';
 import { alpha, useTheme } from '@mui/material/styles';
 import {
   useCallback,
@@ -63,7 +64,7 @@ function RosterPanel({ bandId, eventId }: { bandId: string; eventId: string }) {
       .select('user_id')
       .eq('band_id', bandId);
 
-    if (mErr) return; // optionally set error UI
+    if (mErr) return;
 
     const ids = (members ?? []).map((m: any) => m.user_id);
     if (ids.length === 0) {
@@ -71,7 +72,6 @@ function RosterPanel({ bandId, eventId }: { bandId: string; eventId: string }) {
       return;
     }
 
-    // 2) Profiles for those users
     const { data: profiles, error: pErr } = await sb
       .from('profiles')
       .select('id, display_name, first_name')
@@ -100,7 +100,6 @@ function RosterPanel({ bandId, eventId }: { bandId: string; eventId: string }) {
         status: statusByUser.get(p.id) ?? 'pending',
       })) ?? [];
 
-    // Optional: keep original band_members order
     const orderIndex = new Map(ids.map((id, i) => [id, i]));
     merged.sort(
       (a, b) => orderIndex.get(a.user_id)! - orderIndex.get(b.user_id)!
@@ -111,7 +110,7 @@ function RosterPanel({ bandId, eventId }: { bandId: string; eventId: string }) {
 
   useEffect(() => {
     load();
-    // Realtime: update when attendance rows change for this event
+
     const ch = sb
       .channel(`event:${eventId}:attendance-roster`)
       .on(
@@ -141,7 +140,7 @@ function RosterPanel({ bandId, eventId }: { bandId: string; eventId: string }) {
 
   return (
     <Paper
-      variant="outlined"
+      // variant="outlined"
       sx={(t) => ({
         p: 1,
         borderRadius: 2,
@@ -159,11 +158,7 @@ function RosterPanel({ bandId, eventId }: { bandId: string; eventId: string }) {
       <List dense disablePadding>
         {rows.map((r) => (
           <ListItem key={r.user_id} sx={{ px: 1 }}>
-            <ListItemAvatar>
-              {/* <Avatar src={r.avatar_url ?? undefined}>
-                {r.name?.slice(0, 1).toUpperCase()}
-              </Avatar> */}
-            </ListItemAvatar>
+            <ListItemAvatar></ListItemAvatar>
             <ListItemText
               primary={
                 <Typography noWrap sx={{ fontWeight: 600 }}>
@@ -196,32 +191,6 @@ function RosterPanel({ bandId, eventId }: { bandId: string; eventId: string }) {
   );
 }
 
-export function useElementHeight<T extends HTMLElement>(
-  ref: React.RefObject<T>,
-  fallback = 0
-) {
-  const [h, setH] = useState(fallback);
-
-  useLayoutEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-
-    const measure = () => setH(el.getBoundingClientRect().height || 0);
-    measure();
-
-    const ro = new ResizeObserver(measure);
-    ro.observe(el);
-
-    window.addEventListener('resize', measure);
-    return () => {
-      ro.disconnect();
-      window.removeEventListener('resize', measure);
-    };
-  }, [ref]);
-
-  return h;
-}
-
 export default function EventSheet({
   eventId,
   bandId,
@@ -232,22 +201,18 @@ export default function EventSheet({
   bandName?: string;
   initialEvent: EventRow;
 }) {
+  const theme = useTheme();
   const [, setBandName] = useState<string>('Band');
   const [, setError] = useState<string | null>(null);
   const sb = useMemo(() => supabaseBrowser(), []);
   const [rosterOpen, setRosterOpen] = useState(false);
+  const mdUp = useMediaQuery(theme.breakpoints.up('md'), { noSsr: true });
+  const [mounted, setMounted] = useState(false);
+  const showDesktop = mounted && mdUp;
+
   const [tab, setTab] = useState<'chat' | 'setlist' | 'notes' | 'files'>(
     'chat'
   );
-
-  const theme = useTheme();
-  const mdUp = useMediaQuery(theme.breakpoints.up('md'), { noSsr: true });
-  const [mounted, setMounted] = useState(false);
-  const [composerH, setComposerH] = useState(72); // ← ChatTab reports into this
-
-  const showDesktop = mounted && mdUp;
-  const BOTTOM_NAV_H = showDesktop ? 0 : 56; // adjust if you have a bottom nav on mobile
-
   const startsAtLabel = useMemo(() => {
     try {
       const d = new Date(initialEvent.starts_at);
@@ -262,8 +227,11 @@ export default function EventSheet({
     }
   }, [initialEvent.starts_at]);
 
-  useEffect(() => setMounted(true), []);
+  const GUTTER_X = { xs: 1, sm: 2, md: 3, lg: 5, xl: 7 }; // horizontal padding
+  const GUTTER_Y = { xs: 1.5, sm: 2, md: 2.5, lg: 3, xl: 3 }; // vertical padding
+  const MAX_W = 2000;
 
+  useEffect(() => setMounted(true), []);
   useEffect(() => {
     (async () => {
       const { data: band, error: bandErr } = await sb
@@ -288,52 +256,44 @@ export default function EventSheet({
     <Box
       sx={{
         minHeight: '100dvh',
-        height: '100dvh',
+        bgcolor: '#0B0A10',
+        color: 'white',
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
-        bgcolor: '#0B0A10',
-        color: 'white',
       }}
     >
-      {/* SINGLE SCROLL CONTAINER (wraps header + main) */}
+      <Box component="header" sx={{ py: GUTTER_Y }}>
+        <Box sx={{ maxWidth: MAX_W, mx: 'auto', px: GUTTER_X }}>
+          <EventSheetHeader
+            backHref="/dashboard"
+            event={{
+              title: initialEvent.title,
+              type: initialEvent.type,
+              location: initialEvent.location,
+              is_booked: initialEvent.is_booked,
+            }}
+            startsAtLabel={startsAtLabel}
+            eventId={eventId}
+            tab={tab}
+            onTabChange={setTab}
+            attendanceBar={<AttendanceBar eventId={eventId} />}
+          />
+        </Box>
+      </Box>
+
       <Box
+        component="main"
         sx={{
           flex: 1,
           minHeight: 0,
           overflowY: 'auto',
           WebkitOverflowScrolling: 'touch',
-          display: 'flex',
-          flexDirection: 'column',
-          pb: `calc(${composerH}px + ${BOTTOM_NAV_H}px + env(safe-area-inset-bottom, 0px) + 8px)`,
-          scrollPaddingBottom: `calc(${composerH}px + ${BOTTOM_NAV_H}px + env(safe-area-inset-bottom, 0px) + 8px)`,
+          py: GUTTER_Y,
+          scrollbarGutter: 'stable both-edges',
         }}
       >
-        <EventSheetHeader
-          backHref="/dashboard"
-          event={{
-            title: initialEvent.title,
-            type: initialEvent.type,
-            location: initialEvent.location,
-            is_booked: initialEvent.is_booked,
-          }}
-          startsAtLabel={startsAtLabel}
-          eventId={eventId}
-          tab={tab}
-          onTabChange={setTab}
-        />
-
-        {/* MAIN (no overflow here; parent scrolls) */}
-        <Box
-          component="main"
-          sx={{
-            flex: 1,
-            minHeight: 0,
-            px: { xs: 2, md: 3 },
-            py: { xs: 1.5, md: 2 },
-            overflow: 'hidden',
-          }}
-        >
+        <Box sx={{ maxWidth: MAX_W, mx: 'auto', px: GUTTER_X, height: '100%' }}>
           {tab === 'chat' &&
             (showDesktop ? (
               // DESKTOP
@@ -343,18 +303,12 @@ export default function EventSheet({
                 sx={{ alignItems: 'stretch', height: '100%' }}
               >
                 <Grid size={{ xs: 12, md: 8 }} sx={{ minHeight: 0 }}>
-                  <ChatTab
-                    eventId={eventId}
-                    onComposerHeightChange={setComposerH}
-                  />
+                  <ChatTab eventId={eventId} />
                 </Grid>
 
                 <Grid
                   size={{ xs: 12, md: 4 }}
                   sx={{
-                    borderLeft: { md: '1px solid', xs: 'none' },
-                    borderColor: 'divider',
-                    pl: { md: 2, xs: 0 },
                     minHeight: 0,
                     height: '100%',
                     display: 'flex',
@@ -365,7 +319,7 @@ export default function EventSheet({
                     gap={1.5}
                     sx={{
                       position: { md: 'sticky' as const },
-                      top: { md: 104 }, // adjust to clear the header
+                      top: { md: 88 },
                     }}
                   >
                     <RosterPanel bandId={bandId} eventId={eventId} />
@@ -375,13 +329,40 @@ export default function EventSheet({
             ) : (
               // MOBILE
               <>
-                <ChatTab
-                  eventId={eventId}
-                  onComposerHeightChange={setComposerH}
+                <ChatTab eventId={eventId} />
+
+                <Box
+                  role="button"
+                  aria-label="Open roster"
+                  onClick={() => setRosterOpen(true)}
+                  onTouchStart={() => setRosterOpen(true)}
+                  sx={(t) => ({
+                    position: 'fixed',
+                    top: '50%',
+                    right: 0,
+                    transform: 'translateY(-50%)',
+                    zIndex: t.zIndex.drawer + 1,
+                    width: 16,
+                    height: 72,
+                    borderTopLeftRadius: 10,
+                    borderBottomLeftRadius: 10,
+                    bgcolor: 'rgba(255,255,255,0.12)',
+                    boxShadow: '0 0 0 1px rgba(255,255,255,0.08) inset',
+                    display: { xs: rosterOpen ? 'none' : 'flex', md: 'none' },
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    '&::after': {
+                      content: '""',
+                      display: 'block',
+                      width: 3,
+                      height: 34,
+                      borderRadius: 2,
+                      bgcolor: 'rgba(255,255,255,0.55)',
+                    },
+                  })}
                 />
 
-                {/* Roster opener + drawer unchanged */}
-                {/* ... */}
                 <SwipeableDrawer
                   anchor="right"
                   open={rosterOpen}
@@ -434,13 +415,7 @@ export default function EventSheet({
   );
 }
 
-function ChatTab({
-  eventId,
-  onComposerHeightChange,
-}: {
-  eventId: string;
-  onComposerHeightChange: (h: number) => void;
-}) {
+function ChatTab({ eventId }: { eventId: string }) {
   const theme = useTheme();
   const mdUp = useMediaQuery(theme.breakpoints.up('md'), { noSsr: true });
 
@@ -450,9 +425,10 @@ function ChatTab({
   const [input, setInput] = useState('');
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
+  // — Composer measurement —
   const composerRef = useRef<HTMLDivElement | null>(null);
   const [composerH, setComposerH] = useState(72);
-  const BOTTOM_NAV_H = mdUp ? 0 : 56;
+  const BOTTOM_NAV_H = mdUp ? 0 : 56; // adjust if your BottomNavigation differs
 
   const timeFmt = useMemo(
     () =>
@@ -467,9 +443,8 @@ function ChatTab({
 
   useLayoutEffect(() => {
     const measure = () => {
-      const h = composerRef.current?.offsetHeight || 72;
-      setComposerH(h);
-      onComposerHeightChange(h); // NEW: notify parent
+      if (composerRef.current)
+        setComposerH(composerRef.current.offsetHeight || 72);
     };
     measure();
     const obs = new ResizeObserver(measure);
@@ -479,9 +454,9 @@ function ChatTab({
       obs.disconnect();
       window.removeEventListener('resize', measure);
     };
-  }, [onComposerHeightChange]);
+  }, []);
 
-  // this is the initial
+  // — Initial load —
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -504,7 +479,7 @@ function ChatTab({
     };
   }, [sb, eventId]);
 
-  // this is for the realtime chat inserts
+  // — Realtime inserts —
   useEffect(() => {
     const ch = sb
       .channel(`event:${eventId}`)
@@ -551,15 +526,18 @@ function ChatTab({
         minHeight: 0,
         display: 'flex',
         flexDirection: 'column',
+        overflow: 'hidden',
       }}
     >
-      {/* Scroll area for messages */}
+      {/* Messages scroll area */}
       <Box
         sx={{
           flex: 1,
           minHeight: 0,
+          overflowY: 'auto',
+          WebkitOverflowScrolling: 'touch',
+          scrollbarGutter: 'stable both-edges',
           py: 2,
-          pr: 0.5,
           pb: `calc(${composerH}px + ${BOTTOM_NAV_H}px + env(safe-area-inset-bottom, 0px) + 8px)`,
           scrollPaddingBottom: `calc(${composerH}px + ${BOTTOM_NAV_H}px + env(safe-area-inset-bottom, 0px) + 8px)`,
         }}
@@ -573,7 +551,14 @@ function ChatTab({
             <CircularProgress size={22} />
           </Stack>
         ) : (
-          <Stack spacing={1.25}>
+          <Stack
+            spacing={1.25}
+            sx={{
+              px: { xs: 2, sm: 3, md: 4, lg: 6, xl: 8 },
+              maxWidth: 1600,
+              mx: 'auto',
+            }}
+          >
             {messages.map((m) => (
               <Stack key={m.id} direction="row" gap={1.25}>
                 <Box
@@ -586,6 +571,7 @@ function ChatTab({
                     placeItems: 'center',
                     fontSize: 12,
                     fontWeight: 800,
+                    flex: '0 0 auto',
                   }}
                 >
                   {String(m.user_id).slice(0, 2).toUpperCase()}
@@ -609,38 +595,52 @@ function ChatTab({
         )}
       </Box>
 
-      {/* Fixed composer above BottomNav */}
+      {/* Fixed composer (offset for SideNav on md+) */}
       <Box
         ref={composerRef}
         sx={{
           position: 'fixed',
-          left: 0,
+          left: { xs: 0, md: SIDE_NAV_WIDTH }, // keep clear of the fixed SideNav
           right: 0,
           bottom: `calc(${BOTTOM_NAV_H}px + env(safe-area-inset-bottom, 0px))`,
           zIndex: (t) => t.zIndex.appBar + 1,
-          bgcolor: 'rgba(11,10,16,0.98)',
-          borderTop: '1px solid rgba(255,255,255,0.08)',
         }}
       >
-        <Box sx={{ maxWidth: 1400, mx: 'auto', px: { xs: 2, md: 3 }, py: 1 }}>
-          <Box sx={{ display: 'flex', gap: 1 }}>
-            <TextField
-              fullWidth
-              size="small"
-              placeholder="Message the band…"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  send();
-                }
-              }}
-              InputProps={{ sx: { bgcolor: '#11131a', color: 'white' } }}
-            />
-            <IconButton color="primary" onClick={send} aria-label="Send">
-              <SendIcon />
-            </IconButton>
+        {/* Centered/bounded inner container */}
+        <Box
+          sx={{
+            maxWidth: 1600,
+            mx: 'auto',
+            px: { xs: 2, sm: 3, md: 4, lg: 6, xl: 8 },
+            py: 1,
+          }}
+        >
+          <Box
+            sx={{
+              bgcolor: 'rgba(11,10,16,0.98)',
+              borderTop: '1px solid rgba(255,255,255,0.08)',
+              backdropFilter: 'saturate(120%) blur(6px)',
+            }}
+          >
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <TextField
+                fullWidth
+                size="small"
+                placeholder="Message the band…"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    send();
+                  }
+                }}
+                InputProps={{ sx: { bgcolor: '#11131a', color: 'white' } }}
+              />
+              <IconButton color="primary" onClick={send} aria-label="Send">
+                <SendIcon />
+              </IconButton>
+            </Box>
           </Box>
         </Box>
       </Box>

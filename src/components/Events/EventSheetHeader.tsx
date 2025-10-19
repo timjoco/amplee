@@ -1,5 +1,6 @@
 'use client';
 
+import AttendanceBar from '@/components/Events/AttendanceBar';
 import ArrowBackIosIcon from '@mui/icons-material/ArrowBackIos';
 import {
   Box,
@@ -13,8 +14,6 @@ import {
   type Theme,
 } from '@mui/material';
 import NextLink from 'next/link';
-
-import AttendanceBar from '@/components/Events/AttendanceBar';
 
 type EventLite = {
   title: string;
@@ -33,6 +32,7 @@ export default function EventSheetHeader({
   tab,
   onTabChange,
   rightActions,
+  attendanceBar, // 👈 NEW
   sx,
 }: {
   backHref?: string;
@@ -42,11 +42,11 @@ export default function EventSheetHeader({
   tab: TabKey;
   onTabChange: (next: TabKey) => void;
   rightActions?: React.ReactNode;
+  attendanceBar?: React.ReactNode; // 👈 NEW
   sx?: SxProps<Theme>;
 }) {
   return (
     <Box
-      component="header"
       sx={{
         position: 'sticky',
         top: 'env(safe-area-inset-top, 0px)',
@@ -55,7 +55,6 @@ export default function EventSheetHeader({
         py: { xs: 1.5, md: 2 },
         background:
           'linear-gradient(180deg, rgba(11,10,16,0.98), rgba(11,10,16,0.94))',
-        borderBottom: '1px solid rgba(255,255,255,0.08)',
         ...sx,
       }}
     >
@@ -72,8 +71,23 @@ export default function EventSheetHeader({
             href={backHref}
             size="small"
             edge="start"
-            sx={{ color: 'white', p: 0.5, alignSelf: 'center' }}
             aria-label="Back"
+            centerRipple
+            sx={{
+              color: 'white',
+              p: 0.5,
+              // optional: also add a subtle focus ring for keyboard users
+              '&:focus-visible': {
+                outline: '2px solid',
+                outlineColor: 'primary.main',
+                outlineOffset: 2,
+                borderRadius: '9999px',
+              },
+              // tweak ripple color/opacity
+              '& .MuiTouchRipple-root .MuiTouchRipple-child': {
+                backgroundColor: 'rgba(99, 102, 241, 0.5)', // e.g., indigo w/ 50% alpha
+              },
+            }}
           >
             <ArrowBackIosIcon />
           </IconButton>
@@ -99,7 +113,6 @@ export default function EventSheetHeader({
           {!!rightActions && <Box sx={{ ml: 'auto' }}>{rightActions}</Box>}
         </Stack>
 
-        {/* Subtitle */}
         <Stack
           direction="row"
           alignItems="center"
@@ -114,22 +127,16 @@ export default function EventSheetHeader({
             {event.type} · {startsAtLabel}
             {event.location ? ` · ${event.location}` : ''}
           </Typography>
-
-          <AttendanceBar eventId={eventId} />
         </Stack>
+        <Stack>{attendanceBar ?? <AttendanceBar eventId={eventId} />}</Stack>
       </Box>
 
-      {/* Tabs (stay pinned because header is sticky) */}
       <Tabs
         value={tab}
         onChange={(_e, v) => onTabChange(v)}
         textColor="inherit"
         indicatorColor="primary"
-        sx={{
-          mt: 1,
-          mb: 0,
-          borderBottom: '1px solid rgba(255,255,255,0.08)',
-        }}
+        sx={{ mt: 1, mb: 0, borderBottom: '1px solid rgba(255,255,255,0.08)' }}
       >
         <Tab label="Chat" value="chat" />
         <Tab label="Setlist" value="setlist" />
