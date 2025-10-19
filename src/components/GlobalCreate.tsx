@@ -125,7 +125,7 @@ export default function GlobalCreate({
   const [bands, setBands] = useState<BandLite[]>([]);
   const [loadingBands, setLoadingBands] = useState(false);
 
-  // event band selection
+  // event band selection dropdown
   const [eventBand, setEventBand] = useState<BandLite | null>(null);
 
   // new band form
@@ -144,15 +144,12 @@ export default function GlobalCreate({
   const [eventLocation, setEventLocation] = useState('');
   const [creatingEvent, setCreatingEvent] = useState(false);
 
-  // useCreateBand hook
   const {
     createBand: createBandWithHook,
     loading: creatingBand,
     error: createBandError,
     resetError: resetCreateBandError,
   } = useCreateBand();
-
-  // add near the top of GlobalCreate()
 
   // --- SSR-safe mobile check ---
   const [mounted, setMounted] = useState(false);
@@ -175,7 +172,6 @@ export default function GlobalCreate({
   }, []);
 
   const allowTrigger = mounted && authed && isMobile;
-  // URL.createObjectURL cleanup
   useEffect(() => {
     return () => {
       if (avatarPreview) URL.revokeObjectURL(avatarPreview);
