@@ -3,7 +3,6 @@
 
 import { supabaseBrowser } from '@/lib/supabaseClient';
 import SendIcon from '@mui/icons-material/Send';
-
 import {
   Box,
   Button,
@@ -17,14 +16,14 @@ import {
   Paper,
   Stack,
   SwipeableDrawer,
-  Tab,
-  Tabs,
   TextField,
   Tooltip,
   Typography,
   useMediaQuery,
 } from '@mui/material';
 import Grid from '@mui/material/Grid';
+
+import EventSheetHeader from '@/components/Events/EventSheetHeader';
 import { alpha, useTheme } from '@mui/material/styles';
 import {
   useCallback,
@@ -47,177 +46,6 @@ type EventRow = {
   cnt_accepted?: number;
 };
 
-type AttStatus = 'accepted' | 'tentative' | 'declined' | 'pending';
-
-function useAttendance(eventId: string) {
-  const sb = useMemo(() => supabaseBrowser(), []);
-  const [mine, setMine] = useState<AttStatus>('pending');
-  const [counts, setCounts] = useState<{ accepted: number; total: number }>({
-    accepted: 0,
-    total: 0,
-  });
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const load = useCallback(async () => {
-    setError(null);
-
-    // my status
-    const { data: me, error: meErr } = await sb
-      .from('event_attendance')
-      .select('status')
-      .eq('event_id', eventId)
-      .limit(1);
-    if (!meErr && me?.[0]?.status) setMine(me[0].status as AttStatus);
-    if (meErr) setError(meErr.message);
-
-    // counts
-    const { data: all, error: cErr } = await sb
-      .from('event_attendance')
-      .select('status')
-      .eq('event_id', eventId);
-    if (!cErr) {
-      const total = all?.length ?? 0;
-      const accepted = (all ?? []).filter(
-        (r) => r.status === 'accepted'
-      ).length;
-      setCounts({ accepted, total });
-    } else {
-      setError(cErr.message);
-    }
-  }, [sb, eventId]);
-
-  useEffect(() => {
-    load();
-    const ch = sb
-      .channel(`event:${eventId}:attendance`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'event_attendance',
-          filter: `event_id=eq.${eventId}`,
-        },
-        () => load()
-      )
-      .subscribe();
-    return () => {
-      sb.removeChannel(ch);
-    };
-  }, [sb, eventId, load]);
-
-  const update = useCallback(
-    async (next: AttStatus) => {
-      if (next === 'pending' || next === mine) return; // no-op
-      setSaving(true);
-      setError(null);
-
-      // snapshot for rollback
-      const prevMine = mine;
-      const prevCounts = counts;
-
-      // optimistic counts: only the accepted tally changes
-      const applyCounts = (from: AttStatus, to: AttStatus) => {
-        let accepted = counts.accepted;
-        if (from === 'accepted') accepted -= 1;
-        if (to === 'accepted') accepted += 1;
-        setCounts({ accepted, total: counts.total }); // total unchanged
-      };
-
-      // optimistic UI
-      setMine(next);
-      applyCounts(prevMine, next);
-
-      try {
-        const {
-          data: { user },
-        } = await sb.auth.getUser();
-        if (!user) throw new Error('Sign in to respond');
-
-        const { error: upErr } = await sb.from('event_attendance').upsert(
-          {
-            event_id: eventId,
-            status: next,
-            responded_at: new Date().toISOString(),
-            // let DEFAULT auth.uid() set user_id
-          },
-          { onConflict: 'event_id,user_id' }
-        );
-
-        if (upErr) throw upErr;
-        // success: realtime will eventually refresh counts/roster too
-      } catch (e: any) {
-        // rollback optimistic UI
-        setMine(prevMine);
-        setCounts(prevCounts);
-
-        const msg = /row[- ]level security|RLS|42501/i.test(e?.message)
-          ? "You don't have permission to respond for this event."
-          : e?.message ?? 'Failed to update attendance.';
-        setError(msg);
-      } finally {
-        setSaving(false);
-      }
-    },
-    [sb, eventId, mine, counts]
-  );
-
-  return { mine, counts, saving, error, update };
-}
-
-function AttendanceBar({ eventId }: { eventId: string }) {
-  const { mine, counts, saving, error, update } = useAttendance(eventId);
-
-  return (
-    <Stack
-      direction="row"
-      alignItems="center"
-      spacing={1}
-      sx={{
-        py: 1,
-        borderBottom: '1px solid rgba(255,255,255,0.08)',
-        mb: 1.5,
-        flexWrap: 'wrap',
-        gap: 1,
-      }}
-    >
-      <Typography variant="body2" sx={{ opacity: 0.85 }}>
-        Attendance: {counts.accepted}/{counts.total} accepted
-      </Typography>
-      <Box sx={{ flex: 1 }} />
-      <Button
-        size="small"
-        variant={mine === 'accepted' ? 'contained' : 'outlined'}
-        onClick={() => update('accepted')}
-        disabled={saving}
-      >
-        Accept
-      </Button>
-      <Button
-        size="small"
-        variant={mine === 'tentative' ? 'contained' : 'outlined'}
-        onClick={() => update('tentative')}
-        disabled={saving}
-      >
-        Tentative
-      </Button>
-      <Button
-        size="small"
-        variant={mine === 'declined' ? 'contained' : 'outlined'}
-        onClick={() => update('declined')}
-        disabled={saving}
-      >
-        Decline
-      </Button>
-      {error && (
-        <Typography variant="caption" color="warning.main" sx={{ ml: 1 }}>
-          {error}
-        </Typography>
-      )}
-    </Stack>
-  );
-}
 function RosterPanel({ bandId, eventId }: { bandId: string; eventId: string }) {
   const sb = useMemo(() => supabaseBrowser(), []);
   const [rows, setRows] = useState<
@@ -368,6 +196,32 @@ function RosterPanel({ bandId, eventId }: { bandId: string; eventId: string }) {
   );
 }
 
+export function useElementHeight<T extends HTMLElement>(
+  ref: React.RefObject<T>,
+  fallback = 0
+) {
+  const [h, setH] = useState(fallback);
+
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+
+    const measure = () => setH(el.getBoundingClientRect().height || 0);
+    measure();
+
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+
+    window.addEventListener('resize', measure);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', measure);
+    };
+  }, [ref]);
+
+  return h;
+}
+
 export default function EventSheet({
   eventId,
   bandId,
@@ -386,17 +240,13 @@ export default function EventSheet({
     'chat'
   );
 
-  // top of EventSheet()
   const theme = useTheme();
-
-  // Always call the hook (fixed order). It's OK if we don't use the value yet.
   const mdUp = useMediaQuery(theme.breakpoints.up('md'), { noSsr: true });
-
   const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  const [composerH, setComposerH] = useState(72); // ← ChatTab reports into this
 
-  // Only *use* the media query after mount so SSR and first client paint match
   const showDesktop = mounted && mdUp;
+  const BOTTOM_NAV_H = showDesktop ? 0 : 56; // adjust if you have a bottom nav on mobile
 
   const startsAtLabel = useMemo(() => {
     try {
@@ -411,6 +261,8 @@ export default function EventSheet({
       return initialEvent.starts_at;
     }
   }, [initialEvent.starts_at]);
+
+  useEffect(() => setMounted(true), []);
 
   useEffect(() => {
     (async () => {
@@ -436,212 +288,159 @@ export default function EventSheet({
     <Box
       sx={{
         minHeight: '100dvh',
-        bgcolor: '#0B0A10',
-        color: 'white',
+        height: '100dvh',
         display: 'flex',
         flexDirection: 'column',
+        overflow: 'hidden',
+        bgcolor: '#0B0A10',
+        color: 'white',
       }}
     >
-      {/* HEADER (natural height, no scrolling) */}
+      {/* SINGLE SCROLL CONTAINER (wraps header + main) */}
       <Box
-        component="header"
-        sx={{ px: { xs: 2, md: 3 }, py: { xs: 1.5, md: 2 } }}
-      >
-        {/* Header */}
-        <Box sx={{ flex: '1 1 auto', minWidth: 0, mb: 1.5 }}>
-          <Stack
-            direction="row"
-            alignItems="center"
-            gap={1}
-            sx={{ mt: 0.5, flexWrap: 'wrap' }}
-          >
-            <Typography
-              variant="h5"
-              fontWeight={800}
-              noWrap
-              title={initialEvent.title}
-            >
-              {initialEvent.title}
-            </Typography>
-
-            {typeof initialEvent.is_booked === 'boolean' && (
-              <Chip
-                size="small"
-                label={initialEvent.is_booked ? 'Booked' : 'Unconfirmed'}
-                color={initialEvent.is_booked ? 'success' : 'warning'}
-              />
-            )}
-          </Stack>
-
-          {/* Subtitle */}
-          <Typography
-            variant="body2"
-            sx={{ opacity: 0.72, mt: 0.25 }}
-            suppressHydrationWarning
-          >
-            {initialEvent.type} · {startsAtLabel}
-            {initialEvent.location ? ` · ${initialEvent.location}` : ''}
-          </Typography>
-
-          <AttendanceBar eventId={eventId} />
-        </Box>
-
-        {/* Tabs (still in header) */}
-        <Tabs
-          value={tab}
-          onChange={(_e, v) => setTab(v)}
-          textColor="inherit"
-          indicatorColor="primary"
-          sx={{
-            mt: 1,
-            mb: 0, // tighter since content below has own spacing
-            borderBottom: '1px solid rgba(255,255,255,0.08)',
-          }}
-        >
-          <Tab label="Chat" value="chat" />
-          <Tab label="Setlist" value="setlist" />
-          <Tab label="Notes" value="notes" />
-          <Tab label="Files" value="files" />
-        </Tabs>
-      </Box>
-
-      {/* MAIN (fills remaining viewport; hosts internal scroll only) */}
-      <Box
-        component="main"
         sx={{
           flex: 1,
-          minHeight: 0, // 👈 critical for nested flex scroll
-          px: { xs: 2, md: 3 },
-          py: { xs: 1.5, md: 2 },
-          overflow: 'hidden', // the children manage their own scroll
+          minHeight: 0,
+          overflowY: 'auto',
+          WebkitOverflowScrolling: 'touch',
+          display: 'flex',
+          flexDirection: 'column',
+          pb: `calc(${composerH}px + ${BOTTOM_NAV_H}px + env(safe-area-inset-bottom, 0px) + 8px)`,
+          scrollPaddingBottom: `calc(${composerH}px + ${BOTTOM_NAV_H}px + env(safe-area-inset-bottom, 0px) + 8px)`,
         }}
       >
-        {tab === 'chat' &&
-          (showDesktop ? (
-            // DESKTOP
-            <Grid
-              container
-              columnSpacing={2}
-              sx={{ alignItems: 'stretch', height: '100%' }}
-            >
-              <Grid size={{ xs: 12, md: 8 }} sx={{ minHeight: 0 }}>
-                <ChatTab eventId={eventId} />
-              </Grid>
+        <EventSheetHeader
+          backHref="/dashboard"
+          event={{
+            title: initialEvent.title,
+            type: initialEvent.type,
+            location: initialEvent.location,
+            is_booked: initialEvent.is_booked,
+          }}
+          startsAtLabel={startsAtLabel}
+          eventId={eventId}
+          tab={tab}
+          onTabChange={setTab}
+        />
 
+        {/* MAIN (no overflow here; parent scrolls) */}
+        <Box
+          component="main"
+          sx={{
+            flex: 1,
+            minHeight: 0,
+            px: { xs: 2, md: 3 },
+            py: { xs: 1.5, md: 2 },
+            overflow: 'hidden',
+          }}
+        >
+          {tab === 'chat' &&
+            (showDesktop ? (
+              // DESKTOP
               <Grid
-                size={{ xs: 12, md: 4 }}
-                sx={{
-                  borderLeft: { md: '1px solid', xs: 'none' },
-                  borderColor: 'divider',
-                  pl: { md: 2, xs: 0 },
-                  minHeight: 0,
-                  height: '100%',
-                  display: 'flex',
-                  flexDirection: 'column',
-                }}
+                container
+                columnSpacing={2}
+                sx={{ alignItems: 'stretch', height: '100%' }}
               >
-                <Stack
-                  gap={1.5}
-                  sx={{ position: { md: 'sticky' as const }, top: { md: 88 } }}
-                >
-                  <RosterPanel bandId={bandId} eventId={eventId} />
-                </Stack>
-              </Grid>
-            </Grid>
-          ) : (
-            // MOBILE
-            <>
-              <ChatTab eventId={eventId} />
+                <Grid size={{ xs: 12, md: 8 }} sx={{ minHeight: 0 }}>
+                  <ChatTab
+                    eventId={eventId}
+                    onComposerHeightChange={setComposerH}
+                  />
+                </Grid>
 
-              {/* Edge Puller */}
-              <Box
-                role="button"
-                aria-label="Open roster"
-                onClick={() => setRosterOpen(true)}
-                onTouchStart={() => setRosterOpen(true)}
-                sx={(t) => ({
-                  position: 'fixed',
-                  top: '50%',
-                  right: 0,
-                  transform: 'translateY(-50%)',
-                  zIndex: t.zIndex.drawer + 1,
-                  width: 16,
-                  height: 72,
-                  borderTopLeftRadius: 10,
-                  borderBottomLeftRadius: 10,
-                  bgcolor: 'rgba(255,255,255,0.12)',
-                  boxShadow: '0 0 0 1px rgba(255,255,255,0.08) inset',
-                  display: { xs: rosterOpen ? 'none' : 'flex', md: 'none' },
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  '&::after': {
-                    content: '""',
-                    display: 'block',
-                    width: 3,
-                    height: 34,
-                    borderRadius: 2,
-                    bgcolor: 'rgba(255,255,255,0.55)',
-                  },
-                })}
-              />
-
-              <SwipeableDrawer
-                anchor="right"
-                open={rosterOpen}
-                onOpen={() => setRosterOpen(true)}
-                onClose={() => setRosterOpen(false)}
-                disableSwipeToOpen={false}
-                swipeAreaWidth={16}
-                PaperProps={{
-                  sx: {
-                    width: '90vw',
-                    maxWidth: 420,
-                    p: 1.5,
-                    right: 0,
-                    margin: 0,
-                    borderLeft: '1px solid',
+                <Grid
+                  size={{ xs: 12, md: 4 }}
+                  sx={{
+                    borderLeft: { md: '1px solid', xs: 'none' },
                     borderColor: 'divider',
-                    position: 'fixed',
-                    '&::before': {
-                      content: '""',
-                      position: 'absolute',
-                      left: 0,
-                      top: '50%',
-                      transform: 'translateY(-50%)',
-                      width: 3,
-                      height: 40,
-                      borderRadius: 2,
-                      bgcolor: 'rgba(255,255,255,0.45)',
-                    },
-                  },
-                }}
-              >
-                <Stack
-                  direction="row"
-                  alignItems="center"
-                  justifyContent="space-between"
-                  sx={{ mb: 1 }}
+                    pl: { md: 2, xs: 0 },
+                    minHeight: 0,
+                    height: '100%',
+                    display: 'flex',
+                    flexDirection: 'column',
+                  }}
                 >
-                  <Typography variant="subtitle1" fontWeight={700}>
-                    Roster
-                  </Typography>
-                  <Button onClick={() => setRosterOpen(false)}>Close</Button>
-                </Stack>
-                <RosterPanel bandId={bandId} eventId={eventId} />
-              </SwipeableDrawer>
-            </>
-          ))}
+                  <Stack
+                    gap={1.5}
+                    sx={{
+                      position: { md: 'sticky' as const },
+                      top: { md: 104 }, // adjust to clear the header
+                    }}
+                  >
+                    <RosterPanel bandId={bandId} eventId={eventId} />
+                  </Stack>
+                </Grid>
+              </Grid>
+            ) : (
+              // MOBILE
+              <>
+                <ChatTab
+                  eventId={eventId}
+                  onComposerHeightChange={setComposerH}
+                />
 
-        {/* {tab === 'setlist' && <SetlistTab eventId={eventId} />}
-        {tab === 'notes' && <NotesTab eventId={eventId} />}
-        {tab === 'files' && <FilesTab eventId={eventId} />} */}
+                {/* Roster opener + drawer unchanged */}
+                {/* ... */}
+                <SwipeableDrawer
+                  anchor="right"
+                  open={rosterOpen}
+                  onOpen={() => setRosterOpen(true)}
+                  onClose={() => setRosterOpen(false)}
+                  disableSwipeToOpen={false}
+                  swipeAreaWidth={16}
+                  PaperProps={{
+                    sx: {
+                      width: '90vw',
+                      maxWidth: 420,
+                      p: 1.5,
+                      right: 0,
+                      margin: 0,
+                      borderLeft: '1px solid',
+                      borderColor: 'divider',
+                      position: 'fixed',
+                      '&::before': {
+                        content: '""',
+                        position: 'absolute',
+                        left: 0,
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        width: 3,
+                        height: 40,
+                        borderRadius: 2,
+                        bgcolor: 'rgba(255,255,255,0.45)',
+                      },
+                    },
+                  }}
+                >
+                  <Stack
+                    direction="row"
+                    alignItems="center"
+                    justifyContent="space-between"
+                    sx={{ mb: 1 }}
+                  >
+                    <Typography variant="subtitle1" fontWeight={700}>
+                      Roster
+                    </Typography>
+                    <Button onClick={() => setRosterOpen(false)}>Close</Button>
+                  </Stack>
+                  <RosterPanel bandId={bandId} eventId={eventId} />
+                </SwipeableDrawer>
+              </>
+            ))}
+        </Box>
       </Box>
     </Box>
   );
 }
 
-function ChatTab({ eventId }: { eventId: string }) {
+function ChatTab({
+  eventId,
+  onComposerHeightChange,
+}: {
+  eventId: string;
+  onComposerHeightChange: (h: number) => void;
+}) {
   const theme = useTheme();
   const mdUp = useMediaQuery(theme.breakpoints.up('md'), { noSsr: true });
 
@@ -651,10 +450,9 @@ function ChatTab({ eventId }: { eventId: string }) {
   const [input, setInput] = useState('');
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
-  // — Composer measurement —
   const composerRef = useRef<HTMLDivElement | null>(null);
   const [composerH, setComposerH] = useState(72);
-  const BOTTOM_NAV_H = mdUp ? 0 : 56; // adjust if your BottomNavigation differs
+  const BOTTOM_NAV_H = mdUp ? 0 : 56;
 
   const timeFmt = useMemo(
     () =>
@@ -669,8 +467,9 @@ function ChatTab({ eventId }: { eventId: string }) {
 
   useLayoutEffect(() => {
     const measure = () => {
-      if (composerRef.current)
-        setComposerH(composerRef.current.offsetHeight || 72);
+      const h = composerRef.current?.offsetHeight || 72;
+      setComposerH(h);
+      onComposerHeightChange(h); // NEW: notify parent
     };
     measure();
     const obs = new ResizeObserver(measure);
@@ -680,9 +479,9 @@ function ChatTab({ eventId }: { eventId: string }) {
       obs.disconnect();
       window.removeEventListener('resize', measure);
     };
-  }, []);
+  }, [onComposerHeightChange]);
 
-  // — Initial load —
+  // this is the initial
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -705,7 +504,7 @@ function ChatTab({ eventId }: { eventId: string }) {
     };
   }, [sb, eventId]);
 
-  // — Realtime inserts —
+  // this is for the realtime chat inserts
   useEffect(() => {
     const ch = sb
       .channel(`event:${eventId}`)
@@ -742,17 +541,16 @@ function ChatTab({ eventId }: { eventId: string }) {
     const { error } = await sb
       .from('event_messages')
       .insert({ event_id: eventId, user_id: user.id, body });
-    if (error) setInput(body); // naive retry UX
+    if (error) setInput(body);
   }, [input, eventId, sb]);
 
   return (
     <Box
       sx={{
-        height: '100%', // fills EventSheet main area
+        height: '100%',
         minHeight: 0,
         display: 'flex',
         flexDirection: 'column',
-        overflow: 'hidden', // internal scroll only
       }}
     >
       {/* Scroll area for messages */}
@@ -760,7 +558,6 @@ function ChatTab({ eventId }: { eventId: string }) {
         sx={{
           flex: 1,
           minHeight: 0,
-          overflowY: 'auto',
           py: 2,
           pr: 0.5,
           pb: `calc(${composerH}px + ${BOTTOM_NAV_H}px + env(safe-area-inset-bottom, 0px) + 8px)`,

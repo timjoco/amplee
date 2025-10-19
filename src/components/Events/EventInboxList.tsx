@@ -18,7 +18,6 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import NoBandNoEventsPaper from '../Bands/NoBandNoEventsPaper';
 
-/** Minimal shapes */
 type EventRow = {
   id: string;
   band_id: string;
@@ -169,7 +168,7 @@ export default function EventInboxList({
           .filter((e) => e.bands?.id && e.bands?.avatar_url)
           .map((e) => [e.bands!.id, e.bands!.avatar_url as string])
       ).entries()
-    ); // [bandId, path]
+    );
 
     const nextAvatarMap: Record<string, string> = {};
     for (const [bandId, path] of uniqueBandPairs) {
@@ -187,12 +186,6 @@ export default function EventInboxList({
     load();
   }, [load]);
 
-  // Initial + manual refresh
-  useEffect(() => {
-    load();
-  }, [load]);
-
-  // Realtime: when a new message comes in for any event we’re showing, refresh last message
   useEffect(() => {
     const ch = sb
       .channel('dashboard:event-inbox')
@@ -201,7 +194,6 @@ export default function EventInboxList({
         { event: 'INSERT', schema: 'public', table: 'event_messages' },
         (payload) => {
           const msg = payload.new as LastMsg;
-          // only care if it’s for one of our events
           if (!eventIdsRef.current.includes(msg.event_id)) return;
           setLastMsgs((prev) => {
             const current = prev[msg.event_id];
@@ -223,8 +215,6 @@ export default function EventInboxList({
   }, [sb]);
 
   const onOpen = (bandId: string, eventId: string) => {
-    // jump straight into event chat
-    // (your EventSheet already defaults to the Chat tab)
     router.push(`/bands/${bandId}/events/${eventId}`);
   };
 
