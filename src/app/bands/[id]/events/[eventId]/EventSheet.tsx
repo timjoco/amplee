@@ -140,7 +140,6 @@ function RosterPanel({ bandId, eventId }: { bandId: string; eventId: string }) {
 
   return (
     <Paper
-      // variant="outlined"
       sx={(t) => ({
         p: 1,
         borderRadius: 2,
@@ -330,7 +329,6 @@ export default function EventSheet({
               // MOBILE
               <>
                 <ChatTab eventId={eventId} />
-
                 <Box
                   role="button"
                   aria-label="Open roster"
@@ -418,17 +416,14 @@ export default function EventSheet({
 function ChatTab({ eventId }: { eventId: string }) {
   const theme = useTheme();
   const mdUp = useMediaQuery(theme.breakpoints.up('md'), { noSsr: true });
-
   const sb = useMemo(() => supabaseBrowser(), []);
   const [messages, setMessages] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [input, setInput] = useState('');
   const bottomRef = useRef<HTMLDivElement | null>(null);
-
-  // — Composer measurement —
   const composerRef = useRef<HTMLDivElement | null>(null);
   const [composerH, setComposerH] = useState(72);
-  const BOTTOM_NAV_H = mdUp ? 0 : 56; // adjust if your BottomNavigation differs
+  const BOTTOM_NAV_H = mdUp ? 0 : 56;
 
   const timeFmt = useMemo(
     () =>
@@ -456,7 +451,7 @@ function ChatTab({ eventId }: { eventId: string }) {
     };
   }, []);
 
-  // — Initial load —
+  // handles initial load
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -479,7 +474,7 @@ function ChatTab({ eventId }: { eventId: string }) {
     };
   }, [sb, eventId]);
 
-  // — Realtime inserts —
+  // handles realtime inserts
   useEffect(() => {
     const ch = sb
       .channel(`event:${eventId}`)
@@ -529,7 +524,6 @@ function ChatTab({ eventId }: { eventId: string }) {
         overflow: 'hidden',
       }}
     >
-      {/* Messages scroll area */}
       <Box
         sx={{
           flex: 1,
@@ -595,18 +589,16 @@ function ChatTab({ eventId }: { eventId: string }) {
         )}
       </Box>
 
-      {/* Fixed composer (offset for SideNav on md+) */}
       <Box
         ref={composerRef}
         sx={{
           position: 'fixed',
-          left: { xs: 0, md: SIDE_NAV_WIDTH }, // keep clear of the fixed SideNav
+          left: { xs: 0, md: SIDE_NAV_WIDTH },
           right: 0,
           bottom: `calc(${BOTTOM_NAV_H}px + env(safe-area-inset-bottom, 0px))`,
           zIndex: (t) => t.zIndex.appBar + 1,
         }}
       >
-        {/* Centered/bounded inner container */}
         <Box
           sx={{
             maxWidth: 1600,

@@ -32,7 +32,7 @@ export default function EventSheetHeader({
   tab,
   onTabChange,
   rightActions,
-  attendanceBar, // 👈 NEW
+  attendanceBar,
   sx,
 }: {
   backHref?: string;
@@ -42,7 +42,7 @@ export default function EventSheetHeader({
   tab: TabKey;
   onTabChange: (next: TabKey) => void;
   rightActions?: React.ReactNode;
-  attendanceBar?: React.ReactNode; // 👈 NEW
+  attendanceBar?: React.ReactNode;
   sx?: SxProps<Theme>;
 }) {
   return (
@@ -76,16 +76,14 @@ export default function EventSheetHeader({
             sx={{
               color: 'white',
               p: 0.5,
-              // optional: also add a subtle focus ring for keyboard users
               '&:focus-visible': {
                 outline: '2px solid',
                 outlineColor: 'primary.main',
                 outlineOffset: 2,
                 borderRadius: '9999px',
               },
-              // tweak ripple color/opacity
               '& .MuiTouchRipple-root .MuiTouchRipple-child': {
-                backgroundColor: 'rgba(99, 102, 241, 0.5)', // e.g., indigo w/ 50% alpha
+                backgroundColor: 'rgba(99, 102, 241, 0.5)',
               },
             }}
           >

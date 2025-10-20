@@ -3,11 +3,15 @@
 import { supabaseBrowser } from '@/lib/supabaseClient';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-export type AttStatus = 'accepted' | 'tentative' | 'declined' | 'pending';
+// Raw DB enum we actually persist
+export type RawAtt = 'accepted' | 'pending';
+
+// (Optional) if other UI bits still call with legacy values, we accept them and normalize
+export type AttStatus = RawAtt | 'declined' | 'tentative';
 
 export function useAttendance(eventId: string) {
   const sb = useMemo(() => supabaseBrowser(), []);
-  const [mine, setMine] = useState<AttStatus>('pending');
+  const [mine, setMine] = useState<RawAtt>('pending');
   const [counts, setCounts] = useState<{ accepted: number; total: number }>({
     accepted: 0,
     total: 0,
@@ -15,23 +19,42 @@ export function useAttendance(eventId: string) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const normalize = (s: AttStatus | null | undefined): RawAtt =>
+    s === 'accepted' ? 'accepted' : 'pending';
+
   const load = useCallback(async () => {
     setError(null);
 
-    // my status
+    // who am I?
+    const {
+      data: { user },
+      error: autErr,
+    } = await sb.auth.getUser();
+    if (autErr) setError(autErr.message);
+    if (!user) {
+      setMine('pending');
+      setCounts({ accepted: 0, total: 0 });
+      return;
+    }
+
+    // my status (filter by user_id = auth.uid())
     const { data: me, error: meErr } = await sb
       .from('event_attendance')
       .select('status')
       .eq('event_id', eventId)
-      .limit(1);
-    if (!meErr && me?.[0]?.status) setMine(me[0].status as AttStatus);
-    if (meErr) setError(meErr.message);
+      .eq('user_id', user.id)
+      .limit(1)
+      .maybeSingle();
 
-    // counts
+    if (!meErr) setMine(normalize(me?.status as AttStatus));
+    else setError(meErr.message);
+
+    // counts for this event (simple: how many rows, how many accepted)
     const { data: all, error: cErr } = await sb
       .from('event_attendance')
       .select('status')
       .eq('event_id', eventId);
+
     if (!cErr) {
       const total = all?.length ?? 0;
       const accepted = (all ?? []).filter(
@@ -45,6 +68,8 @@ export function useAttendance(eventId: string) {
 
   useEffect(() => {
     load();
+
+    // realtime updates for this event's attendance
     const ch = sb
       .channel(`event:${eventId}:attendance`)
       .on(
@@ -58,49 +83,42 @@ export function useAttendance(eventId: string) {
         () => load()
       )
       .subscribe();
+
     return () => {
       sb.removeChannel(ch);
     };
   }, [sb, eventId, load]);
 
   const update = useCallback(
-    async (next: AttStatus) => {
-      if (next === 'pending' || next === mine) return;
+    async (nextInput: AttStatus) => {
+      // normalize any legacy value to DB-safe
+      const next: RawAtt = normalize(nextInput);
+      if (next === mine) return;
+
       setSaving(true);
       setError(null);
 
       const prevMine = mine;
       const prevCounts = counts;
 
-      const applyCounts = (from: AttStatus, to: AttStatus) => {
-        let accepted = counts.accepted;
-        if (from === 'accepted') accepted -= 1;
-        if (to === 'accepted') accepted += 1;
-        setCounts({ accepted, total: counts.total });
-      };
-
       // optimistic UI
+      const newAccepted =
+        counts.accepted +
+        (prevMine === 'accepted' ? -1 : 0) +
+        (next === 'accepted' ? 1 : 0);
       setMine(next);
-      applyCounts(prevMine, next);
+      setCounts({ accepted: newAccepted, total: counts.total });
 
       try {
-        const {
-          data: { user },
-        } = await sb.auth.getUser();
-        if (!user) throw new Error('Sign in to respond');
-
-        const { error: upErr } = await sb.from('event_attendance').upsert(
-          {
-            event_id: eventId,
-            status: next,
-            responded_at: new Date().toISOString(),
-          },
-          { onConflict: 'event_id,user_id' }
-        );
-
-        if (upErr) throw upErr;
+        // use RPC (clamps to allowed enum and sets responded_at)
+        const { error: rpcErr } = await sb.rpc('upsert_my_event_attendance', {
+          p_event_id: eventId,
+          p_status: next,
+        });
+        if (rpcErr) throw rpcErr;
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch (e: any) {
+        // rollback
         setMine(prevMine);
         setCounts(prevCounts);
 

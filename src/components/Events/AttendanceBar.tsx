@@ -1,10 +1,14 @@
 'use client';
 
+import { NeonIconButton } from '@/components/ui/NeonIconButton';
 import { useAttendance } from '@/hooks/useAttendance';
-import { Box, Button, Stack, Typography } from '@mui/material';
+import CheckIcon from '@mui/icons-material/Check';
+import CloseIcon from '@mui/icons-material/Close';
+import { Box, Stack, Typography } from '@mui/material';
 
 export default function AttendanceBar({ eventId }: { eventId: string }) {
   const { mine, counts, saving, error, update } = useAttendance(eventId);
+  // NOTE: `mine` should be the raw DB enum: 'accepted' | 'pending' | null
 
   return (
     <Stack
@@ -23,25 +27,31 @@ export default function AttendanceBar({ eventId }: { eventId: string }) {
         Attendance: {counts.accepted}/{counts.total} accepted
       </Typography>
 
+      <Stack direction="row" alignItems="center" spacing={1} sx={{ ml: 1 }}>
+        {/* CONFIRM -> writes 'accepted' */}
+        <NeonIconButton
+          title="Confirm"
+          colorKey="success"
+          selected={mine === 'accepted'}
+          disabled={saving}
+          onClick={() => update('accepted')}
+        >
+          <CheckIcon />
+        </NeonIconButton>
+
+        {/* SET PENDING (replaces old 'decline') -> writes 'pending' */}
+        <NeonIconButton
+          title="Set Pending"
+          colorKey="error"
+          selected={mine === 'pending' || mine == null}
+          disabled={saving}
+          onClick={() => update('pending')}
+        >
+          <CloseIcon />
+        </NeonIconButton>
+      </Stack>
+
       <Box sx={{ flex: 1 }} />
-
-      <Button
-        size="small"
-        variant={mine === 'accepted' ? 'contained' : 'outlined'}
-        onClick={() => update('accepted')}
-        disabled={saving}
-      >
-        Accept
-      </Button>
-
-      <Button
-        size="small"
-        variant={mine === 'declined' ? 'contained' : 'outlined'}
-        onClick={() => update('declined')}
-        disabled={saving}
-      >
-        Decline
-      </Button>
 
       {error && (
         <Typography variant="caption" color="warning.main" sx={{ ml: 1 }}>

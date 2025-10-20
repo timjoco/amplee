@@ -24,8 +24,12 @@ type EventRow = {
   title: string;
   type: 'show' | 'practice';
   starts_at: string | null;
+  ends_at: string | null;
   location: string | null;
-  is_booked: boolean; // NEW
+  notes: string | null;
+  is_cancelled: boolean;
+  is_booked: boolean; // derived in the view
+  my_event_status: 'pending' | 'confirmed' | 'cancelled'; // <-- the only status the UI sees
   bands: { id: string; name: string; avatar_url: string | null } | null;
 };
 
@@ -42,6 +46,7 @@ export default function EventInboxList({
 }) {
   const router = useRouter();
   const sb = useMemo(() => supabaseBrowser(), []);
+
   const [, setCreateOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<EventRow[]>([]);
@@ -58,7 +63,8 @@ export default function EventInboxList({
 
     // 1) Who am I?
     const { data: auth } = await sb.auth.getUser();
-    const userId = auth?.user?.id;
+    const userId = auth?.user?.id ?? null;
+
     if (!userId) {
       setRows([]);
       setLastMsgs({});
@@ -85,27 +91,30 @@ export default function EventInboxList({
       return;
     }
 
-    // 3) Fetch events for my bands
+    // 3) Fetch events WITH my tri-state status from the view
     const { data: events, error: eErr } = await sb
-      .from('events_with_booking')
+      .from('events_with_my_attendance')
       .select(
-        'id, band_id, title, type, starts_at, location, is_booked, bands(id, name, avatar_url)'
+        'id, band_id, title, type, starts_at, ends_at, location, notes, is_booked, is_cancelled, my_event_status, bands(id, name, avatar_url)'
       )
       .in('band_id', bandIds)
       .order('starts_at', { ascending: true })
       .limit(200);
-
     if (eErr) throw eErr;
 
-    // Normalize bands join
     const normalized: EventRow[] = (events ?? []).map((e: any) => ({
       id: String(e.id),
       band_id: String(e.band_id),
       title: String(e.title ?? ''),
       type: e.type === 'practice' ? 'practice' : 'show',
       starts_at: e.starts_at ?? null,
+      ends_at: e.ends_at ?? null,
       location: e.location ?? null,
-      is_booked: false,
+      notes: e.notes ?? null,
+      is_booked: Boolean(e.is_booked),
+      is_cancelled: Boolean(e.is_cancelled),
+      my_event_status:
+        (e.my_event_status as EventRow['my_event_status']) ?? 'pending',
       bands: Array.isArray(e.bands)
         ? e.bands[0]
           ? {
@@ -123,7 +132,7 @@ export default function EventInboxList({
         : null,
     }));
 
-    // 4) Sort: soonest upcoming first, then recent past
+    // 4) Sort: upcoming asc, past desc
     const now = Date.now();
     const toTs = (s?: string | null) =>
       s ? new Date(s).getTime() : Number.POSITIVE_INFINITY;
@@ -139,7 +148,7 @@ export default function EventInboxList({
     eventIdsRef.current = sorted.map((e) => e.id);
     onLoaded?.(sorted.length);
 
-    // 5) Batch pull last messages for those events
+    // 5) Latest message per event
     if (sorted.length) {
       const ids = sorted.map((e) => e.id);
       const { data: msgs, error: mErr } = await sb
@@ -150,18 +159,15 @@ export default function EventInboxList({
         .limit(1000);
       if (!mErr) {
         const map: Record<string, LastMsg> = {};
-        for (const m of msgs ?? []) {
+        for (const m of msgs ?? [])
           if (!map[m.event_id]) map[m.event_id] = m as LastMsg;
-        }
         setLastMsgs(map);
-      } else {
-        setLastMsgs({});
-      }
+      } else setLastMsgs({});
     } else {
       setLastMsgs({});
     }
 
-    // 6) Sign private band avatar URLs (use sorted)
+    // 6) Sign private band avatar URLs
     const uniqueBandPairs = Array.from(
       new Map(
         sorted
@@ -169,7 +175,6 @@ export default function EventInboxList({
           .map((e) => [e.bands!.id, e.bands!.avatar_url as string])
       ).entries()
     );
-
     const nextAvatarMap: Record<string, string> = {};
     for (const [bandId, path] of uniqueBandPairs) {
       const { data, error } = await sb.storage
@@ -178,7 +183,6 @@ export default function EventInboxList({
       if (!error && data?.signedUrl) nextAvatarMap[bandId] = data.signedUrl;
     }
     setAvatarMap(nextAvatarMap);
-
     setLoading(false);
   }, [sb, onLoaded]);
 
@@ -186,6 +190,7 @@ export default function EventInboxList({
     load();
   }, [load]);
 
+  // Realtime: last message updates
   useEffect(() => {
     const ch = sb
       .channel('dashboard:event-inbox')
@@ -208,7 +213,6 @@ export default function EventInboxList({
         }
       )
       .subscribe();
-
     return () => {
       sb.removeChannel(ch);
     };
@@ -236,8 +240,6 @@ export default function EventInboxList({
         <List disablePadding>
           {rows.map((e, idx) => {
             const band = e.bands;
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            const who = e.bands?.name;
             const when = e.starts_at
               ? new Date(e.starts_at).toLocaleDateString(undefined, {
                   month: 'short',
@@ -250,33 +252,63 @@ export default function EventInboxList({
             const preview =
               lm?.body ??
               (e.location ? `Location: ${e.location}` : `${e.type} scheduled`);
-
             const avatarSrc = (band?.id && avatarMap[band.id]) || undefined;
+
+            // Tri-state for the right bar comes directly from SQL
+            const eventStatus: 'pending' | 'confirmed' | 'cancelled' =
+              e.my_event_status;
 
             return (
               <Box key={e.id}>
                 <ListItemButton
                   onClick={() => onOpen(e.band_id, e.id)}
-                  sx={(t) => ({
-                    py: 1,
-                    px: 1,
-                    borderRadius: 2,
-                    '&:hover': {
-                      backgroundColor: alpha(t.palette.primary.main, 0.06),
-                    },
-                  })}
+                  sx={(t) => {
+                    const barColor =
+                      eventStatus === 'cancelled'
+                        ? t.palette.error.main
+                        : eventStatus === 'confirmed'
+                        ? t.palette.success.main
+                        : t.palette.warning.main;
+
+                    return {
+                      position: 'relative',
+                      py: 1.5,
+                      px: 1.25,
+                      pr: 2.75,
+                      borderRadius: 2,
+                      alignItems: 'flex-start',
+                      '&:hover': {
+                        backgroundColor: alpha(t.palette.primary.main, 0.06),
+                      },
+                      // Right status bar — flat, shorter, no highlight
+                      '&::after': {
+                        content: '""',
+                        position: 'absolute',
+                        right: 6,
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        width: 4,
+                        height: 32,
+                        borderRadius: 999,
+                        backgroundColor: barColor,
+                        boxShadow: 'none',
+                        backgroundImage: 'none',
+                      },
+                    };
+                  }}
                 >
                   {/* Avatar */}
                   <Avatar
                     src={avatarSrc}
                     alt={band?.name || 'Band'}
                     sx={{
-                      width: 44,
-                      height: 44,
-                      mr: 1.25,
+                      width: 48,
+                      height: 48,
+                      mr: 1.5,
                       fontWeight: 800,
                       bgcolor: alpha('#FFF', 0.06),
                       color: 'white',
+                      flexShrink: 0,
                     }}
                   >
                     {(band?.name || '?')
@@ -286,17 +318,18 @@ export default function EventInboxList({
                       .join('')}
                   </Avatar>
 
-                  {/* Title + Preview */}
                   <ListItemText
                     primary={
                       <Stack direction="row" alignItems="baseline" spacing={1}>
                         <Typography
                           sx={{
-                            fontWeight: 800,
-                            lineHeight: 1.25,
+                            fontWeight: 900,
+                            lineHeight: 1.2,
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
                             whiteSpace: 'nowrap',
+                            fontSize: 16,
+                            letterSpacing: 0.2,
                           }}
                         >
                           {e?.title || 'Event'}
@@ -313,28 +346,36 @@ export default function EventInboxList({
                     }
                     secondary={
                       <Typography
-                        variant="body2"
                         sx={{
-                          opacity: 0.8,
+                          opacity: 0.85,
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
                           whiteSpace: 'nowrap',
+                          fontSize: 13.5,
                         }}
                         title={preview}
                       >
-                        {/* Band: {who}
-                        {''} */}
                         {preview}
                       </Typography>
                     }
                     primaryTypographyProps={{ component: 'div' }}
                     secondaryTypographyProps={{ component: 'div' }}
-                    sx={{ mr: 1 }}
+                    sx={{ mr: 1.5, minWidth: 0 }}
+                  />
+
+                  {/* (Optional) actions go here */}
+                  <Stack
+                    direction="row"
+                    alignItems="center"
+                    spacing={0.75}
+                    onClick={(ev) => ev.stopPropagation()}
+                    onMouseDown={(ev) => ev.stopPropagation()}
+                    sx={{ pt: 0.25 }}
                   />
                 </ListItemButton>
 
                 {idx < rows.length - 1 && (
-                  <Divider sx={{ ml: 7, opacity: 0.08 }} />
+                  <Divider sx={{ ml: 8, opacity: 0.08 }} />
                 )}
               </Box>
             );
