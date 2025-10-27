@@ -1,6 +1,5 @@
 'use client';
 
-import AttendanceBar from '@/components/Events/AttendanceBar';
 import ArrowBackIosIcon from '@mui/icons-material/ArrowBackIos';
 import {
   Box,
@@ -22,7 +21,7 @@ type EventLite = {
   is_booked?: boolean | null;
 };
 
-type TabKey = 'chat' | 'setlist' | 'notes' | 'files';
+type TabKey = 'chat' | 'roster' | 'setlist' | 'notes' | 'files';
 
 export default function EventSheetHeader({
   backHref = '/dashboard',
@@ -58,7 +57,6 @@ export default function EventSheetHeader({
         ...sx,
       }}
     >
-      {/* Top row */}
       <Box sx={{ minWidth: 0, mb: 1.5 }}>
         <Stack
           direction="row"
@@ -126,7 +124,7 @@ export default function EventSheetHeader({
             {event.location ? ` · ${event.location}` : ''}
           </Typography>
         </Stack>
-        <Stack>{attendanceBar ?? <AttendanceBar eventId={eventId} />}</Stack>
+        {/* <Stack>{attendanceBar ?? <AttendanceBar eventId={eventId} />}</Stack> */}
       </Box>
 
       <Tabs
@@ -137,6 +135,7 @@ export default function EventSheetHeader({
         sx={{ mt: 1, mb: 0, borderBottom: '1px solid rgba(255,255,255,0.08)' }}
       >
         <Tab label="Chat" value="chat" />
+        <Tab label="Roster" value="roster" />
         <Tab label="Setlist" value="setlist" />
         <Tab label="Notes" value="notes" />
         <Tab label="Files" value="files" />

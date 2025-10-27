@@ -8,7 +8,6 @@ import SendIcon from '@mui/icons-material/Send';
 
 import {
   Box,
-  Button,
   Chip,
   CircularProgress,
   IconButton,
@@ -18,7 +17,6 @@ import {
   ListItemText,
   Paper,
   Stack,
-  SwipeableDrawer,
   TextField,
   Tooltip,
   Typography,
@@ -47,149 +45,6 @@ type EventRow = {
   cnt_accepted?: number;
 };
 
-function RosterPanel({ bandId, eventId }: { bandId: string; eventId: string }) {
-  const sb = useMemo(() => supabaseBrowser(), []);
-  const [rows, setRows] = useState<
-    {
-      user_id: string;
-      name: string;
-      status: 'accepted' | 'declined' | 'tentative' | 'pending';
-    }[]
-  >([]);
-
-  const load = useCallback(async () => {
-    // 1) Band members → user_id list
-    const { data: members, error: mErr } = await sb
-      .from('band_members')
-      .select('user_id')
-      .eq('band_id', bandId);
-
-    if (mErr) return;
-
-    const ids = (members ?? []).map((m: any) => m.user_id);
-    if (ids.length === 0) {
-      setRows([]);
-      return;
-    }
-
-    const { data: profiles, error: pErr } = await sb
-      .from('profiles')
-      .select('id, display_name, first_name')
-      .in('id', ids);
-
-    if (pErr) return;
-
-    // 3) Attendance for this event
-    const { data: att, error: aErr } = await sb
-      .from('event_attendance')
-      .select('user_id, status')
-      .eq('event_id', eventId);
-
-    if (aErr) return;
-
-    const statusByUser = new Map<
-      string,
-      'accepted' | 'declined' | 'tentative' | 'pending'
-    >((att ?? []).map((a: any) => [a.user_id, a.status]));
-
-    // 4) Merge
-    const merged =
-      (profiles ?? []).map((p: any) => ({
-        user_id: p.id,
-        name: p.display_name ?? p.first_name ?? 'Member',
-        status: statusByUser.get(p.id) ?? 'pending',
-      })) ?? [];
-
-    const orderIndex = new Map(ids.map((id, i) => [id, i]));
-    merged.sort(
-      (a, b) => orderIndex.get(a.user_id)! - orderIndex.get(b.user_id)!
-    );
-
-    setRows(merged);
-  }, [sb, bandId, eventId]);
-
-  useEffect(() => {
-    load();
-
-    const ch = sb
-      .channel(`event:${eventId}:attendance-roster`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'event_attendance',
-          filter: `event_id=eq.${eventId}`,
-        },
-        () => load()
-      )
-      .subscribe();
-    return () => {
-      sb.removeChannel(ch);
-    };
-  }, [sb, eventId, load]);
-
-  const chipColor = (s: string) =>
-    s === 'accepted'
-      ? 'success'
-      : s === 'declined'
-      ? 'error'
-      : s === 'tentative'
-      ? 'warning'
-      : 'default';
-
-  return (
-    <Paper
-      sx={(t) => ({
-        p: 1,
-        borderRadius: 2,
-        borderColor: alpha(t.palette.primary.main, 0.14),
-        background:
-          'linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02))',
-      })}
-    >
-      <Typography
-        variant="subtitle2"
-        sx={{ px: 1, pt: 1, pb: 0.5, opacity: 0.9 }}
-      >
-        Roster
-      </Typography>
-      <List dense disablePadding>
-        {rows.map((r) => (
-          <ListItem key={r.user_id} sx={{ px: 1 }}>
-            <ListItemAvatar></ListItemAvatar>
-            <ListItemText
-              primary={
-                <Typography noWrap sx={{ fontWeight: 600 }}>
-                  {r.name}
-                </Typography>
-              }
-              secondary={
-                <Tooltip
-                  title={r.status === 'pending' ? 'No response yet' : r.status}
-                  arrow
-                >
-                  <Chip
-                    size="small"
-                    label={r.status}
-                    color={chipColor(r.status)}
-                  />
-                </Tooltip>
-              }
-              secondaryTypographyProps={{ component: 'span' }}
-            />
-          </ListItem>
-        ))}
-        {rows.length === 0 && (
-          <Typography variant="body2" sx={{ opacity: 0.7, px: 1.5, py: 1 }}>
-            No members found.
-          </Typography>
-        )}
-      </List>
-    </Paper>
-  );
-}
-
 export default function EventSheet({
   eventId,
   bandId,
@@ -209,9 +64,10 @@ export default function EventSheet({
   const [mounted, setMounted] = useState(false);
   const showDesktop = mounted && mdUp;
 
-  const [tab, setTab] = useState<'chat' | 'setlist' | 'notes' | 'files'>(
-    'chat'
-  );
+  const [tab, setTab] = useState<
+    'chat' | 'roster' | 'setlist' | 'notes' | 'files'
+  >('chat');
+
   const startsAtLabel = useMemo(() => {
     try {
       const d = new Date(initialEvent.starts_at);
@@ -320,9 +176,7 @@ export default function EventSheet({
                       position: { md: 'sticky' as const },
                       top: { md: 88 },
                     }}
-                  >
-                    <RosterPanel bandId={bandId} eventId={eventId} />
-                  </Stack>
+                  ></Stack>
                 </Grid>
               </Grid>
             ) : (
@@ -360,52 +214,16 @@ export default function EventSheet({
                     },
                   })}
                 />
-
-                <SwipeableDrawer
-                  anchor="right"
-                  open={rosterOpen}
-                  onOpen={() => setRosterOpen(true)}
-                  onClose={() => setRosterOpen(false)}
-                  disableSwipeToOpen={false}
-                  swipeAreaWidth={16}
-                  PaperProps={{
-                    sx: {
-                      width: '90vw',
-                      maxWidth: 420,
-                      p: 1.5,
-                      right: 0,
-                      margin: 0,
-                      borderLeft: '1px solid',
-                      borderColor: 'divider',
-                      position: 'fixed',
-                      '&::before': {
-                        content: '""',
-                        position: 'absolute',
-                        left: 0,
-                        top: '50%',
-                        transform: 'translateY(-50%)',
-                        width: 3,
-                        height: 40,
-                        borderRadius: 2,
-                        bgcolor: 'rgba(255,255,255,0.45)',
-                      },
-                    },
-                  }}
-                >
-                  <Stack
-                    direction="row"
-                    alignItems="center"
-                    justifyContent="space-between"
-                    sx={{ mb: 1 }}
-                  >
-                    <Typography variant="subtitle1" fontWeight={700}>
-                      Roster
-                    </Typography>
-                    <Button onClick={() => setRosterOpen(false)}>Close</Button>
-                  </Stack>
-                  <RosterPanel bandId={bandId} eventId={eventId} />
-                </SwipeableDrawer>
               </>
+            ))}{' '}
+          {tab === 'roster' &&
+            (showDesktop ? (
+              <Grid>
+                {' '}
+                <RosterPanel bandId={bandId} eventId={eventId} />
+              </Grid>
+            ) : (
+              <RosterPanel bandId={bandId} eventId={eventId} />
             ))}
         </Box>
       </Box>
@@ -451,14 +269,13 @@ function ChatTab({ eventId }: { eventId: string }) {
     };
   }, []);
 
-  // handles initial load
   useEffect(() => {
     let alive = true;
     (async () => {
       setLoading(true);
       const { data } = await sb
-        .from('event_messages')
-        .select('id,event_id,user_id,body,created_at')
+        .from('event_messages_enriched')
+        .select('id,event_id,user_id,body,created_at, first_name')
         .eq('event_id', eventId)
         .order('created_at', { ascending: true })
         .limit(500);
@@ -474,7 +291,6 @@ function ChatTab({ eventId }: { eventId: string }) {
     };
   }, [sb, eventId]);
 
-  // handles realtime inserts
   useEffect(() => {
     const ch = sb
       .channel(`event:${eventId}`)
@@ -568,7 +384,7 @@ function ChatTab({ eventId }: { eventId: string }) {
                     flex: '0 0 auto',
                   }}
                 >
-                  {String(m.user_id).slice(0, 2).toUpperCase()}
+                  {String(m.first_name).slice(0, 1).toUpperCase()}
                 </Box>
                 <Stack sx={{ minWidth: 0 }}>
                   <Typography
@@ -617,7 +433,7 @@ function ChatTab({ eventId }: { eventId: string }) {
             <Box sx={{ display: 'flex', gap: 1 }}>
               <TextField
                 fullWidth
-                size="small"
+                size="medium"
                 placeholder="Message the band…"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
@@ -637,6 +453,140 @@ function ChatTab({ eventId }: { eventId: string }) {
         </Box>
       </Box>
     </Box>
+  );
+}
+
+function RosterPanel({ bandId, eventId }: { bandId: string; eventId: string }) {
+  const sb = useMemo(() => supabaseBrowser(), []);
+  const [rows, setRows] = useState<
+    {
+      user_id: string;
+      name: string;
+      status: 'accepted' | 'declined' | 'tentative' | 'pending';
+    }[]
+  >([]);
+
+  const load = useCallback(async () => {
+    const { data: members, error: mErr } = await sb
+      .from('band_members')
+      .select('user_id')
+      .eq('band_id', bandId);
+
+    if (mErr) return;
+
+    const ids = (members ?? []).map((m: any) => m.user_id);
+    if (ids.length === 0) {
+      setRows([]);
+      return;
+    }
+
+    const { data: profiles, error: pErr } = await sb
+      .from('profiles')
+      .select('id, display_name, first_name')
+      .in('id', ids);
+
+    if (pErr) return;
+
+    const { data: att, error: aErr } = await sb
+      .from('event_attendance')
+      .select('user_id, status')
+      .eq('event_id', eventId);
+
+    if (aErr) return;
+
+    const statusByUser = new Map<
+      string,
+      'accepted' | 'declined' | 'tentative' | 'pending'
+    >((att ?? []).map((a: any) => [a.user_id, a.status]));
+
+    const merged =
+      (profiles ?? []).map((p: any) => ({
+        user_id: p.id,
+        name: p.display_name ?? p.first_name ?? 'Member',
+        status: statusByUser.get(p.id) ?? 'pending',
+      })) ?? [];
+
+    const orderIndex = new Map(ids.map((id, i) => [id, i]));
+    merged.sort(
+      (a, b) => orderIndex.get(a.user_id)! - orderIndex.get(b.user_id)!
+    );
+
+    setRows(merged);
+  }, [sb, bandId, eventId]);
+
+  useEffect(() => {
+    load();
+
+    const ch = sb
+      .channel(`event:${eventId}:attendance-roster`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'event_attendance',
+          filter: `event_id=eq.${eventId}`,
+        },
+        () => load()
+      )
+      .subscribe();
+    return () => {
+      sb.removeChannel(ch);
+    };
+  }, [sb, eventId, load]);
+
+  const chipColor = (s: string) =>
+    s === 'accepted'
+      ? 'success'
+      : s === 'declined'
+      ? 'error'
+      : s === 'tentative'
+      ? 'warning'
+      : 'default';
+
+  return (
+    <Paper
+      sx={(t) => ({
+        p: 1,
+        borderRadius: 2,
+        borderColor: alpha(t.palette.primary.main, 0.14),
+        background:
+          'linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02))',
+      })}
+    >
+      <List dense disablePadding>
+        {rows.map((r) => (
+          <ListItem key={r.user_id} sx={{ px: 1 }}>
+            <ListItemAvatar></ListItemAvatar>
+            <ListItemText
+              primary={
+                <Typography noWrap sx={{ fontWeight: 600 }}>
+                  {r.name}
+                </Typography>
+              }
+              secondary={
+                <Tooltip
+                  title={r.status === 'pending' ? 'No response yet' : r.status}
+                  arrow
+                >
+                  <Chip
+                    size="small"
+                    label={r.status}
+                    color={chipColor(r.status)}
+                  />
+                </Tooltip>
+              }
+              secondaryTypographyProps={{ component: 'span' }}
+            />
+          </ListItem>
+        ))}
+        {rows.length === 0 && (
+          <Typography variant="body2" sx={{ opacity: 0.7, px: 1.5, py: 1 }}>
+            No members found.
+          </Typography>
+        )}
+      </List>
+    </Paper>
   );
 }
 

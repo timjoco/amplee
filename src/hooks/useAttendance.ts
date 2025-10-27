@@ -3,10 +3,7 @@
 import { supabaseBrowser } from '@/lib/supabaseClient';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-// Raw DB enum we actually persist
 export type RawAtt = 'accepted' | 'pending';
-
-// (Optional) if other UI bits still call with legacy values, we accept them and normalize
 export type AttStatus = RawAtt | 'declined' | 'tentative';
 
 export function useAttendance(eventId: string) {
@@ -49,7 +46,6 @@ export function useAttendance(eventId: string) {
     if (!meErr) setMine(normalize(me?.status as AttStatus));
     else setError(meErr.message);
 
-    // counts for this event (simple: how many rows, how many accepted)
     const { data: all, error: cErr } = await sb
       .from('event_attendance')
       .select('status')
@@ -69,7 +65,6 @@ export function useAttendance(eventId: string) {
   useEffect(() => {
     load();
 
-    // realtime updates for this event's attendance
     const ch = sb
       .channel(`event:${eventId}:attendance`)
       .on(
@@ -91,7 +86,6 @@ export function useAttendance(eventId: string) {
 
   const update = useCallback(
     async (nextInput: AttStatus) => {
-      // normalize any legacy value to DB-safe
       const next: RawAtt = normalize(nextInput);
       if (next === mine) return;
 
@@ -110,7 +104,6 @@ export function useAttendance(eventId: string) {
       setCounts({ accepted: newAccepted, total: counts.total });
 
       try {
-        // use RPC (clamps to allowed enum and sets responded_at)
         const { error: rpcErr } = await sb.rpc('upsert_my_event_attendance', {
           p_event_id: eventId,
           p_status: next,
@@ -118,7 +111,6 @@ export function useAttendance(eventId: string) {
         if (rpcErr) throw rpcErr;
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch (e: any) {
-        // rollback
         setMine(prevMine);
         setCounts(prevCounts);
 

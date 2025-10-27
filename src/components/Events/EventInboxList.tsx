@@ -28,8 +28,8 @@ type EventRow = {
   location: string | null;
   notes: string | null;
   is_cancelled: boolean;
-  is_booked: boolean; // derived in the view
-  my_event_status: 'pending' | 'confirmed' | 'cancelled'; // <-- the only status the UI sees
+  is_booked: boolean;
+  my_event_status: 'pending' | 'confirmed' | 'cancelled';
   bands: { id: string; name: string; avatar_url: string | null } | null;
 };
 

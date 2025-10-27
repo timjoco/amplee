@@ -8,7 +8,6 @@ import { Box, Stack, Typography } from '@mui/material';
 
 export default function AttendanceBar({ eventId }: { eventId: string }) {
   const { mine, counts, saving, error, update } = useAttendance(eventId);
-  // NOTE: `mine` should be the raw DB enum: 'accepted' | 'pending' | null
 
   return (
     <Stack
@@ -28,7 +27,6 @@ export default function AttendanceBar({ eventId }: { eventId: string }) {
       </Typography>
 
       <Stack direction="row" alignItems="center" spacing={1} sx={{ ml: 1 }}>
-        {/* CONFIRM -> writes 'accepted' */}
         <NeonIconButton
           title="Confirm"
           colorKey="success"
@@ -39,7 +37,6 @@ export default function AttendanceBar({ eventId }: { eventId: string }) {
           <CheckIcon />
         </NeonIconButton>
 
-        {/* SET PENDING (replaces old 'decline') -> writes 'pending' */}
         <NeonIconButton
           title="Set Pending"
           colorKey="error"

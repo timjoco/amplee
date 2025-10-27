@@ -4,11 +4,12 @@ import EventSheet from './EventSheet';
 
 type Params = { id: string; eventId: string };
 
-export default async function EventPage(
-  { params }: { params: Promise<Params> } // 👈 note Promise<...>
-) {
-  const { id: bandId, eventId } = await params; // 👈 await before use
-
+export default async function EventPage({
+  params,
+}: {
+  params: Promise<Params>;
+}) {
+  const { id: bandId, eventId } = await params;
   const supabase = createClient();
 
   const {
