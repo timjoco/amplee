@@ -13,6 +13,7 @@ import {
   type Theme,
 } from '@mui/material';
 import NextLink from 'next/link';
+import AttendanceBar from './AttendanceBar';
 
 type EventLite = {
   title: string;
@@ -124,7 +125,7 @@ export default function EventSheetHeader({
             {event.location ? ` · ${event.location}` : ''}
           </Typography>
         </Stack>
-        {/* <Stack>{attendanceBar ?? <AttendanceBar eventId={eventId} />}</Stack> */}
+        <Stack>{attendanceBar ?? <AttendanceBar eventId={eventId} />}</Stack>
       </Box>
 
       <Tabs

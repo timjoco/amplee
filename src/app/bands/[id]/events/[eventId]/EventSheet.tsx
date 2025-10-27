@@ -59,7 +59,7 @@ export default function EventSheet({
   const [, setBandName] = useState<string>('Band');
   const [, setError] = useState<string | null>(null);
   const sb = useMemo(() => supabaseBrowser(), []);
-  const [rosterOpen, setRosterOpen] = useState(false);
+
   const mdUp = useMediaQuery(theme.breakpoints.up('md'), { noSsr: true });
   const [mounted, setMounted] = useState(false);
   const showDesktop = mounted && mdUp;
@@ -137,17 +137,7 @@ export default function EventSheet({
         </Box>
       </Box>
 
-      <Box
-        component="main"
-        sx={{
-          flex: 1,
-          minHeight: 0,
-          overflowY: 'auto',
-          WebkitOverflowScrolling: 'touch',
-          py: GUTTER_Y,
-          scrollbarGutter: 'stable both-edges',
-        }}
-      >
+      <Box component="main">
         <Box sx={{ maxWidth: MAX_W, mx: 'auto', px: GUTTER_X, height: '100%' }}>
           {tab === 'chat' &&
             (showDesktop ? (
@@ -183,37 +173,6 @@ export default function EventSheet({
               // MOBILE
               <>
                 <ChatTab eventId={eventId} />
-                <Box
-                  role="button"
-                  aria-label="Open roster"
-                  onClick={() => setRosterOpen(true)}
-                  onTouchStart={() => setRosterOpen(true)}
-                  sx={(t) => ({
-                    position: 'fixed',
-                    top: '50%',
-                    right: 0,
-                    transform: 'translateY(-50%)',
-                    zIndex: t.zIndex.drawer + 1,
-                    width: 16,
-                    height: 72,
-                    borderTopLeftRadius: 10,
-                    borderBottomLeftRadius: 10,
-                    bgcolor: 'rgba(255,255,255,0.12)',
-                    boxShadow: '0 0 0 1px rgba(255,255,255,0.08) inset',
-                    display: { xs: rosterOpen ? 'none' : 'flex', md: 'none' },
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    cursor: 'pointer',
-                    '&::after': {
-                      content: '""',
-                      display: 'block',
-                      width: 3,
-                      height: 34,
-                      borderRadius: 2,
-                      bgcolor: 'rgba(255,255,255,0.55)',
-                    },
-                  })}
-                />
               </>
             ))}{' '}
           {tab === 'roster' &&
