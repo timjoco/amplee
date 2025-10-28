@@ -37,7 +37,6 @@ function getErrorMessage(e: unknown): string {
   }
 }
 
-/** Merge server results into current state without dropping optimistic items. */
 function mergeBands(current: BandWithRole[], incoming: BandWithRole[]) {
   const map = new Map<string, BandWithRole>();
   current.forEach((b) => map.set(b.id, b));
@@ -63,11 +62,10 @@ export default function DashboardClient() {
 
   const pageGutterSx = { mx: { xs: 1.5, sm: 2.5, md: 4 } } as const;
 
-  // Parent callback from GlobalCreate — optimistic prepend (no uploading here).
   const handleBandCreated = (band: {
     id: string;
     name: string;
-    avatar_url?: string | null; // may be provided by GlobalCreate
+    avatar_url?: string | null;
     role?: 'admin' | 'member'; // default admin for creator
   }) => {
     const role = band.role ?? 'admin';
@@ -170,7 +168,6 @@ export default function DashboardClient() {
     };
   }, [router]);
 
-  // Realtime: when a band_member row is inserted for me, fetch the band and prepend if missing.
   useEffect(() => {
     let isMounted = true;
     const sb = supabaseBrowser();
@@ -195,7 +192,6 @@ export default function DashboardClient() {
             const bandId = (payload.new as any)?.band_id;
             if (!bandId) return;
 
-            // ⬇️ get avatar_url for display
             const { data: band } = await sb
               .from('bands')
               .select('id, name, avatar_url')
@@ -235,7 +231,7 @@ export default function DashboardClient() {
         open={createOpen}
         onOpenChange={setCreateOpen}
         trigger="none"
-        onBandCreated={handleBandCreated} // may include avatar_url from dialog
+        onBandCreated={handleBandCreated}
       />
 
       <Stack spacing={1.5} sx={{ mb: 3 }}>
