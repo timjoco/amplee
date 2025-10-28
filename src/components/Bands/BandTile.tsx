@@ -1,10 +1,7 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
-import { supabaseBrowser } from '@/lib/supabaseClient';
 import type { MembershipRole } from '@/types/db';
 import {
-  Avatar,
   Box,
   Card,
   CardActionArea,
@@ -14,7 +11,7 @@ import {
 } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import NextLink from 'next/link';
-import { useEffect, useState } from 'react';
+import AvatarImage from '../ui/AvatarImage';
 
 type Props = {
   id: string;
@@ -27,11 +24,6 @@ type Props = {
   selected?: boolean;
 };
 
-function initials(name: string) {
-  const parts = name.trim().split(/\s+/).slice(0, 2);
-  return parts.map((p) => p[0]?.toUpperCase() ?? '').join('');
-}
-
 export default function BandTile({
   id,
   name,
@@ -39,55 +31,8 @@ export default function BandTile({
   avatarUrl,
   avatar_url,
 }: Props) {
-  const [signedUrl, setSignedUrl] = useState<string | undefined>(undefined);
-  const [signErr, setSignErr] = useState<string | undefined>(undefined);
-
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const neon = (t: any) => t.palette?.secondary?.main ?? '#8B5CF6';
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setSignErr(undefined);
-      if (!avatarPath) {
-        setSignedUrl(undefined);
-        return;
-      }
-
-      const looksLikeUrl = /^https?:\/\//i.test(avatarPath);
-      if (looksLikeUrl) {
-        console.warn(
-          '[BandTile] avatarPath looks like a URL; expected a storage path',
-          { avatarPath }
-        );
-      }
-
-      try {
-        const sb = supabaseBrowser();
-        const { data, error } = await sb.storage
-          .from('band-avatars')
-          .createSignedUrl(avatarPath, 60 * 60); // 1 hour
-
-        if (cancelled) return;
-        if (error) {
-          setSignErr(error.message || 'Failed to sign URL');
-          setSignedUrl(undefined);
-        } else {
-          setSignedUrl(data?.signedUrl);
-        }
-      } catch (e: any) {
-        if (cancelled) return;
-        setSignErr(e?.message ?? 'Failed to sign URL');
-        setSignedUrl(undefined);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [avatarPath]);
-
-  const src: string | undefined =
-    avatarUrl ?? avatar_url ?? signedUrl ?? undefined;
 
   return (
     <Card
@@ -137,16 +82,13 @@ export default function BandTile({
         >
           {/* Top: logo/initials */}
           <Box sx={{ flex: 1, display: 'grid', placeItems: 'center' }}>
-            <Avatar
-              src={src}
-              alt={name}
-              onError={(e) => {
-                (e.currentTarget as HTMLImageElement & { src?: string }).src =
-                  '';
-              }}
+            <AvatarImage
+              name={name}
+              bucket="band-avatars"
+              avatarPath={avatarPath}
+              srcGuess={avatarUrl ?? avatar_url}
+              size={{ xs: 82, sm: 98, md: 100 }}
               sx={{
-                width: { xs: 82, sm: 98, md: 100 },
-                height: { xs: 82, sm: 98, md: 100 },
                 fontWeight: 800,
                 letterSpacing: 0.5,
                 bgcolor: (theme) => alpha(theme.palette.common.white, 0.06),
@@ -158,10 +100,7 @@ export default function BandTile({
                     0.16
                   )} 0%, transparent 55%)`,
               }}
-              title={signErr ? `Avatar error: ${signErr}` : undefined}
-            >
-              {initials(name)}
-            </Avatar>
+            />
           </Box>
 
           {/* Bottom: name */}

@@ -1,6 +1,5 @@
-// components/AccountMenu.tsx
 'use client';
-import AccountAvatar from '@/components/Profile/AccountAvatar';
+
 import { supabaseBrowser } from '@/lib/supabaseClient';
 import LogoutIcon from '@mui/icons-material/Logout';
 import SettingsIcon from '@mui/icons-material/Settings';
@@ -17,84 +16,60 @@ import {
 import { alpha } from '@mui/material/styles';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
+import AvatarImage from './ui/AvatarImage';
+
+type ProfileLite = {
+  first_name?: string | null;
+  last_name?: string | null;
+  email?: string | null;
+  avatar_url?: string | null;
+  avatar_path?: string | null;
+  display_name?: string;
+};
 
 type Props = {
-  size?: number;
+  size?: number; // avatar size in px for the trigger
   onSignedOut?: () => void;
   hideDashboardItem?: boolean;
+
+  // controlled menu props (optional)
   anchorEl?: HTMLElement | null;
   open?: boolean;
   onClose?: () => void;
+
+  // profile data provided by parent (SideNav)
+  profile?: ProfileLite;
 };
 
-function initialsFrom(
-  first?: string | null,
-  last?: string | null,
-  email?: string | null
-) {
-  const f = (first || '').trim();
-  const l = (last || '').trim();
-  if (f || l) return ((f[0] || '') + (l[0] || '')).toUpperCase();
-  const e = (email || '').trim();
-  return e ? e[0]?.toUpperCase() : '?';
-}
-
 export default function AccountMenu({
-  size = 40,
+  size = 28,
   onSignedOut,
   hideDashboardItem,
   anchorEl: controlledAnchorEl,
   open: controlledOpen,
   onClose: controlledOnClose,
+  profile,
 }: Props) {
   const router = useRouter();
   const sb = useMemo(() => supabaseBrowser(), []);
 
-  // profile state
-  const [first, setFirst] = useState<string | null>(null);
-  const [last, setLast] = useState<string | null>(null);
-  const [email, setEmail] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  // uncontrolled trigger state (desktop/header usage)
+  // uncontrolled trigger state
   const [internalAnchor, setInternalAnchor] = useState<HTMLElement | null>(
     null
   );
 
-  // decide which anchor/open/close we’re using
+  // choose controlled vs uncontrolled
+  const isControlled = controlledAnchorEl !== undefined;
   const menuAnchorEl = controlledAnchorEl ?? internalAnchor;
   const menuOpen = controlledOpen ?? Boolean(internalAnchor);
   const closeMenu = controlledOnClose ?? (() => setInternalAnchor(null));
 
-  useEffect(() => {
-    let alive = true;
-    (async () => {
-      try {
-        const {
-          data: { user },
-        } = await sb.auth.getUser();
-        if (!alive || !user) return;
-
-        setEmail(user.email ?? null);
-
-        const { data: profile } = await sb
-          .from('profiles')
-          .select('first_name, last_name')
-          .eq('id', user.id)
-          .maybeSingle();
-
-        if (!alive) return;
-        setFirst(profile?.first_name ?? null);
-        setLast(profile?.last_name ?? null);
-      } finally {
-        if (alive) setLoading(false);
-      }
-    })();
-    return () => {
-      alive = false;
-    };
-  }, [sb]);
+  const displayName =
+    profile?.display_name ||
+    [profile?.first_name, profile?.last_name].filter(Boolean).join(' ') ||
+    profile?.email ||
+    'Account';
 
   const handleSignOut = async () => {
     await sb.auth.signOut();
@@ -102,16 +77,11 @@ export default function AccountMenu({
     onSignedOut ? onSignedOut() : router.replace('/');
   };
 
-  const initials = initialsFrom(first, last, email);
-
-  const isControlled = controlledAnchorEl !== undefined;
-
   return (
     <>
+      {/* Uncontrolled trigger button (common case in SideNav/Header) */}
       {!isControlled && (
-        <Tooltip
-          title={loading ? 'Loading…' : first || last || email || 'Account'}
-        >
+        <Tooltip title={displayName}>
           <Box>
             <IconButton
               onClick={(e) => setInternalAnchor(e.currentTarget)}
@@ -126,7 +96,14 @@ export default function AccountMenu({
                 p: 0.5,
               }}
             >
-              <AccountAvatar size={size}>{initials}</AccountAvatar>
+              <AvatarImage
+                name={displayName}
+                // if you add private storage later, keep this; otherwise omit bucket/avatarPath
+                bucket="profile-avatars"
+                avatarPath={profile?.avatar_path ?? undefined}
+                srcGuess={profile?.avatar_url ?? undefined}
+                size={size}
+              />
             </IconButton>
           </Box>
         </Tooltip>
@@ -158,6 +135,7 @@ export default function AccountMenu({
             <ListItemText primary="Dashboard" />
           </MenuItem>
         )}
+
         <MenuItem
           component={Link}
           href="/profiles/settings"
@@ -168,6 +146,7 @@ export default function AccountMenu({
           </ListItemIcon>
           <ListItemText primary="Settings" />
         </MenuItem>
+
         <MenuItem
           onClick={async () => {
             closeMenu();

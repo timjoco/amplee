@@ -12,68 +12,110 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
 const NAV_WIDTH = 240;
-
 const primaryItems = [{ href: '/dashboard', label: 'Home', Icon: HomeIcon }];
+
+type ProfileLite = {
+  first_name?: string | null;
+  last_name?: string | null;
+  email?: string | null;
+  avatar_url?: string | null;
+  avatar_path?: string | null; // add when you introduce private storage
+  display_name?: string;
+};
 
 export default function SideNav() {
   const pathname = usePathname();
-
   const [authed, setAuthed] = useState<boolean | null>(null);
-  const [, setInitials] = useState('U');
+  const [profile, setProfile] = useState<ProfileLite | null>(null);
 
-  // Auth state
   useEffect(() => {
-    const supabase = supabaseBrowser();
+    let alive = true;
 
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      setAuthed(!!user);
-    });
+    const sb = supabaseBrowser();
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
-      setAuthed(!!s?.user);
-    });
-
-    return () => sub?.subscription?.unsubscribe?.();
-  }, []);
-
-  // Derive initials for avatar (after authed)
-  useEffect(() => {
-    if (authed !== true) return;
-
-    (async () => {
-      const sb = supabaseBrowser();
-      const {
-        data: { user },
-      } = await sb.auth.getUser();
-      if (!user) return;
-
-      const { data: profile } = await sb
-        .from('profiles')
-        .select('first_name, last_name')
-        .eq('id', user.id)
-        .maybeSingle();
-
-      const name =
-        [profile?.first_name, profile?.last_name]
-          .filter(Boolean)
-          .join(' ')
-          .trim() ||
-        (user.user_metadata?.name as string | undefined) ||
-        user.email ||
+    // helper to derive display name
+    const buildDisplayName = (
+      row: { first_name?: string | null; last_name?: string | null } | null,
+      user: {
+        email?: string | null;
+        user_metadata?: Record<string, unknown>;
+      } | null
+    ) => {
+      const full =
+        [row?.first_name, row?.last_name].filter(Boolean).join(' ').trim() ||
+        ((user?.user_metadata?.name as string | undefined) ?? '') ||
+        (user?.email ?? '') ||
         '';
+      return full || 'Account';
+    };
 
-      const derived =
-        name
-          .split(/\s+/)
-          .map((p) => p[0])
-          .filter(Boolean)
-          .slice(0, 2)
-          .join('')
-          .toUpperCase() || 'U';
+    // initial auth + profile load
+    sb.auth.getSession().then(async ({ data }) => {
+      if (!alive) return;
+      const session = data.session;
+      setAuthed(Boolean(session));
+      const userId = session?.user?.id;
+      if (!userId) {
+        setProfile(null);
+        return;
+      }
 
-      setInitials(derived);
-    })();
-  }, [authed]);
+      const [{ data: row }, { data: u }] = await Promise.all([
+        sb
+          .from('profiles')
+          .select('first_name, last_name, avatar_url')
+          .eq('id', userId)
+          .maybeSingle(),
+        sb.auth.getUser(),
+      ]);
+
+      if (!alive) return;
+      const email = u.user?.email ?? null;
+      setProfile({
+        first_name: row?.first_name ?? null,
+        last_name: row?.last_name ?? null,
+        email,
+        avatar_url: row?.avatar_url ?? null,
+        display_name: buildDisplayName(row, u.user ?? null),
+      });
+    });
+
+    const { data: sub } = sb.auth.onAuthStateChange((_event, session) => {
+      setAuthed(Boolean(session));
+      const userId = session?.user?.id;
+
+      if (!userId) {
+        setProfile(null);
+        return;
+      }
+
+      (async () => {
+        const [{ data: row }, { data: u }] = await Promise.all([
+          sb
+            .from('profiles')
+            .select('first_name, last_name, avatar_url')
+            .eq('id', userId)
+            .maybeSingle(),
+          sb.auth.getUser(),
+        ]);
+
+        if (!alive) return;
+        const email = u.user?.email ?? null;
+        setProfile({
+          first_name: row?.first_name ?? null,
+          last_name: row?.last_name ?? null,
+          email,
+          avatar_url: row?.avatar_url ?? null,
+          display_name: buildDisplayName(row, u.user ?? null),
+        });
+      })();
+    });
+
+    return () => {
+      alive = false;
+      sub?.subscription?.unsubscribe?.();
+    };
+  }, []);
 
   if (authed !== true) return null;
 
@@ -169,7 +211,6 @@ export default function SideNav() {
           );
         })}
 
-        {/* CREATE — opens GlobalCreate via global event */}
         <Button
           onClick={() => {
             (document.activeElement as HTMLElement | null)?.blur?.();
@@ -201,11 +242,10 @@ export default function SideNav() {
 
       <Box sx={{ flex: 1 }} />
 
-      {/* Account menu (avatar dropdown) */}
       <Box
         sx={{ display: 'flex', justifyContent: 'flex-start', px: 0.5, pb: 0.5 }}
       >
-        <AccountMenu size={40} />
+        <AccountMenu profile={profile ?? undefined} size={28} />
       </Box>
     </Box>
   );
