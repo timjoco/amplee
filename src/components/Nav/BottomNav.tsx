@@ -21,9 +21,6 @@ export default function BottomNav() {
   const [initials, setInitials] = useState('U');
   const [mounted, setMounted] = useState(false);
 
-  // 🔹 manual selection override (unchanged)
-  const [manualIndex, setManualIndex] = useState<number | null>(null);
-
   const HOME_INDEX = 0;
   const CREATE_INDEX = 1;
   const ACCOUNT_INDEX = 2;
@@ -31,26 +28,19 @@ export default function BottomNav() {
   useEffect(() => setMounted(true), []);
 
   useEffect(() => {
-    const handler = () => setManualIndex(HOME_INDEX);
-    window.addEventListener('amplee:settings-closed', handler);
-    return () => window.removeEventListener('amplee:settings-closed', handler);
-  }, []);
-
-  useEffect(() => {
-    if (!pathname?.startsWith('/profiles/settings')) setManualIndex(null);
-  }, [pathname]);
-
-  useEffect(() => {
+    let alive = true;
     (async () => {
       const {
         data: { user },
       } = await sb.auth.getUser();
-      if (!user) return;
+      if (!alive || !user) return;
+
       const { data: profile } = await sb
         .from('profiles')
         .select('first_name,last_name')
         .eq('id', user.id)
         .maybeSingle();
+
       const name =
         [profile?.first_name, profile?.last_name]
           .filter(Boolean)
@@ -59,6 +49,7 @@ export default function BottomNav() {
         (user.user_metadata?.name as string | undefined) ||
         user.email ||
         '';
+
       const derived =
         name
           .split(/\s+/)
@@ -67,13 +58,19 @@ export default function BottomNav() {
           .slice(0, 2)
           .join('')
           .toUpperCase() || 'U';
+
       setInitials(derived);
     })();
+
+    return () => {
+      alive = false;
+    };
   }, [sb]);
 
   const selectedIndex = mounted
-    ? manualIndex ??
-      (pathname?.startsWith('/profiles/settings') ? ACCOUNT_INDEX : HOME_INDEX)
+    ? pathname?.startsWith('/profiles/settings')
+      ? ACCOUNT_INDEX
+      : HOME_INDEX
     : HOME_INDEX;
 
   if (!mounted) return null;
@@ -95,13 +92,12 @@ export default function BottomNav() {
         onChange={(_e, newValue) => {
           if (newValue === CREATE_INDEX) {
             (document.activeElement as HTMLElement | null)?.blur?.();
-
             window.dispatchEvent(new CustomEvent('global-create:open'));
             return;
           }
           const href =
             newValue === ACCOUNT_INDEX ? '/profiles/settings' : '/dashboard';
-          router.push(href);
+          if (href !== pathname) router.push(href);
         }}
         showLabels
         sx={(t) => ({
@@ -148,9 +144,10 @@ export default function BottomNav() {
           }),
         })}
       >
-        <BottomNavigationAction icon={<HomeFilledIcon />} />
-        <BottomNavigationAction icon={<AddIcon />} />
+        <BottomNavigationAction aria-label="Home" icon={<HomeFilledIcon />} />
+        <BottomNavigationAction aria-label="Create" icon={<AddIcon />} />
         <BottomNavigationAction
+          aria-label="Settings"
           id="nav-account"
           icon={
             <Box
