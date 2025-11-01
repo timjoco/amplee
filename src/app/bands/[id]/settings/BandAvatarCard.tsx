@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// app/bands/[id]/settings/BandAvatarCard.tsx
+
 'use client';
 
 import { supabaseBrowser } from '@/lib/supabaseClient';
@@ -20,7 +20,6 @@ type Props = {
   bandId: string;
   bandName: string;
   initialPath?: string;
-  /** When true, render a smaller, right-rail style card */
   compact?: boolean;
 };
 

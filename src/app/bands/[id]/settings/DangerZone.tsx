@@ -26,9 +26,8 @@ export default function DangerZone({
   canDelete?: boolean;
 }) {
   const router = useRouter();
-  const supabase = supabaseBrowser(); // ✅ reuse your browser client
+  const supabase = supabaseBrowser();
 
-  // Delete band dialog state (admins)
   const [openDelete, setOpenDelete] = useState(false);
   const [confirm, setConfirm] = useState('');
   const [deleting, setDeleting] = useState(false);
@@ -40,7 +39,6 @@ export default function DangerZone({
       setDeleting(true);
       setDeleteErr(null);
 
-      // Get user access token (optional but recommended if your function validates admin via user JWT)
       const {
         data: { session },
       } = await supabase.auth.getSession();
@@ -52,7 +50,6 @@ export default function DangerZone({
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            // IMPORTANT: both headers for the functions gateway
             Authorization: `Bearer ${
               accessToken ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
             }`,
@@ -79,8 +76,7 @@ export default function DangerZone({
   }
 
   // --- Leave band (member only) ---
-
-  const confirmMatches = confirm.trim() === bandName; // or case-insensitive if you prefer
+  const confirmMatches = confirm.trim() === bandName;
 
   return (
     <Card variant="outlined" sx={{ borderColor: 'error.main', mt: 6 }}>
@@ -135,7 +131,7 @@ export default function DangerZone({
               color="error"
               variant="contained"
               disabled={!confirmMatches || deleting}
-              onClick={handleDelete} // ✅ no missing arg
+              onClick={handleDelete}
               sx={{ textTransform: 'none' }}
             >
               {deleting ? 'Deleting…' : 'Delete'}

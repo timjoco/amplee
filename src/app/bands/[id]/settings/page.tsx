@@ -11,13 +11,11 @@ export default async function BandSettingsPage({
   const supabase = createClient();
   const { id } = await params;
 
-  // Auth
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  // Band (exists?)
   const { data: band } = await supabase
     .from('bands')
     .select('id, name, avatar_url')
@@ -25,14 +23,13 @@ export default async function BandSettingsPage({
     .maybeSingle();
   if (!band) notFound();
 
-  // Membership (must be a member to access settings at all)
   const { data: mem } = await supabase
     .from('band_members')
     .select('role')
     .eq('band_id', id)
     .eq('user_id', user.id)
     .maybeSingle();
-  if (!mem) redirect(`/bands/${id}`); // not a member → bounce back
+  if (!mem) redirect(`/bands/${id}`);
 
   const isAdmin = mem.role === 'admin';
 

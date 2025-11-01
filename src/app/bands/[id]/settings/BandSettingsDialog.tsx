@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// app/bands/[id]/settings/SettingsDialog.tsx
+
 'use client';
 
 import CloseIcon from '@mui/icons-material/Close';
@@ -13,10 +13,11 @@ import {
   Slide,
   Stack,
   Typography,
+  useMediaQuery,
 } from '@mui/material';
 import type { TransitionProps } from '@mui/material/transitions';
 import { useRouter } from 'next/navigation';
-import { forwardRef, useEffect, useRef, useState } from 'react';
+import { forwardRef, useEffect, useState } from 'react';
 import BandAvatarCard from './BandAvatarCard';
 import BandBasicsCard from './BandBasicsCard';
 import DangerZone from './DangerZone';
@@ -38,6 +39,8 @@ type Props = {
   isAdmin?: boolean;
 };
 
+type Section = 'profile' | 'danger';
+
 export default function BandSettingsDialog({
   bandId,
   bandName,
@@ -46,9 +49,7 @@ export default function BandSettingsDialog({
 }: Props) {
   const router = useRouter();
   const [open, setOpen] = useState(true);
-
   const handleClose = () => {
-    // ensure no focused descendant remains when dialog starts closing
     blurActive();
     setOpen(false);
   };
@@ -60,7 +61,7 @@ export default function BandSettingsDialog({
     };
   }, []);
 
-  // Discord-like palette + rhythm
+  // tokens
   const BG = '#0B0A10';
   const SURFACE = '#101117';
   const SURFACE_ALT = '#0E0F15';
@@ -70,18 +71,59 @@ export default function BandSettingsDialog({
   const ROW_Y = 2;
   const GAP_Y = 2;
 
-  const sections = [
-    { id: 'profile', label: 'Band Profile' },
-    { id: 'danger', label: 'Danger Zone' },
-  ];
+  // desktop vs mobile
+  const isDesktop = useMediaQuery('(min-width:900px)', { noSsr: true });
 
-  const scrollRef = useRef<HTMLDivElement | null>(null);
-  const onJump = (id: string) => {
-    const el = document.getElementById(id);
-    if (!el || !scrollRef.current) return;
-    const top = el.offsetTop - 12;
-    scrollRef.current.scrollTo({ top, behavior: 'smooth' });
-  };
+  // desktop-only section selection
+  const [selected, setSelected] = useState<Section>('profile');
+
+  // reusable right-pane sections
+  const ProfileSection = (
+    <Box id="profile" sx={{ py: ROW_Y }}>
+      <Typography
+        variant="h6"
+        sx={{ color: TEXT, fontWeight: 800, letterSpacing: 0.2, mb: 0.75 }}
+      >
+        Band Profile
+      </Typography>
+
+      <Typography variant="body2" sx={{ color: TEXT_DIM, mb: 1.5 }}>
+        Update your band’s public info. Changes save instantly.
+      </Typography>
+
+      <Stack spacing={GAP_Y}>
+        <BandBasicsCard bandId={bandId} initialName={bandName} />
+
+        <BandAvatarCard
+          bandId={bandId}
+          bandName={bandName}
+          initialPath={avatarPath}
+          compact
+        />
+      </Stack>
+    </Box>
+  );
+
+  const DangerSection = (
+    <Box id="danger" sx={{ py: ROW_Y }}>
+      <Typography
+        variant="h6"
+        sx={{ color: TEXT, fontWeight: 800, letterSpacing: 0.2, mb: 0.75 }}
+      >
+        Danger Zone
+      </Typography>
+
+      <Typography variant="body2" sx={{ color: TEXT_DIM, mb: 1.5 }}>
+        {isAdmin
+          ? 'Leave or delete the band. Deleting is permanent.'
+          : 'Leave the band.'}
+      </Typography>
+
+      <Stack spacing={GAP_Y}>
+        <DangerZone bandId={bandId} bandName={bandName} canDelete={!!isAdmin} />
+      </Stack>
+    </Box>
+  );
 
   return (
     <Dialog
@@ -89,15 +131,12 @@ export default function BandSettingsDialog({
       onClose={handleClose}
       TransitionComponent={Transition}
       TransitionProps={{
-        onExit: blurActive, // blur again at transition start
+        onExit: blurActive,
         onExited: () => {
-          // navigate only after unmount to avoid aria-hidden focus traps
           router.push(`/bands/${bandId}`);
         },
       }}
       fullScreen
-      // IMPORTANT: unmount when closed to avoid aria-hidden warnings
-      // (was keepMounted)
       disableRestoreFocus
       disableAutoFocus
       disableEnforceFocus
@@ -143,7 +182,7 @@ export default function BandSettingsDialog({
           minHeight: '100%',
         }}
       >
-        {/* Left rail */}
+        {/* Left rail (desktop only) */}
         <Box
           sx={{
             display: { xs: 'none', md: 'block' },
@@ -168,35 +207,39 @@ export default function BandSettingsDialog({
           </Typography>
 
           <Stack spacing={0.5}>
-            {sections.map((s) => (
-              <Button
-                key={s.id}
-                onClick={() => onJump(s.id)}
-                fullWidth
-                sx={{
-                  justifyContent: 'flex-start',
-                  textTransform: 'none',
-                  color: TEXT_DIM,
-                  px: 1.5,
-                  py: 1,
-                  borderRadius: 1.5,
-                  fontWeight: 700,
-                  letterSpacing: 0.2,
-                  '&:hover': {
-                    bgcolor: 'rgba(255,255,255,0.06)',
-                    color: TEXT,
-                  },
-                }}
-              >
-                {s.label}
-              </Button>
-            ))}
+            {(['profile', 'danger'] as Section[]).map((s) => {
+              const active = selected === s;
+              return (
+                <Button
+                  key={s}
+                  onClick={() => setSelected(s)}
+                  fullWidth
+                  aria-current={active ? 'page' : undefined}
+                  sx={{
+                    justifyContent: 'flex-start',
+                    textTransform: 'none',
+                    color: active ? TEXT : TEXT_DIM,
+                    px: 1.5,
+                    py: 1,
+                    borderRadius: 1.5,
+                    fontWeight: 700,
+                    letterSpacing: 0.2,
+                    bgcolor: active ? 'rgba(255,255,255,0.08)' : 'transparent',
+                    '&:hover': {
+                      bgcolor: 'rgba(255,255,255,0.06)',
+                      color: TEXT,
+                    },
+                  }}
+                >
+                  {s === 'profile' ? 'Band Profile' : 'Danger Zone'}
+                </Button>
+              );
+            })}
           </Stack>
         </Box>
 
         {/* Right content pane */}
         <Box
-          ref={scrollRef}
           sx={{
             bgcolor: SURFACE,
             minHeight: '100%',
@@ -210,7 +253,6 @@ export default function BandSettingsDialog({
               border: '2px solid transparent',
               backgroundClip: 'padding-box',
             },
-
             '& .MuiCard-root': {
               background: 'transparent',
               boxShadow: 'none',
@@ -218,15 +260,9 @@ export default function BandSettingsDialog({
             },
             '& .MuiCardHeader-root': { px: 0 },
             '& .MuiCardContent-root': { px: 0 },
-
             '& .MuiFormLabel-root': { color: TEXT_DIM },
-            '& .MuiInputBase-root': {
-              color: TEXT,
-              background: 'transparent',
-            },
-            '& .MuiOutlinedInput-notchedOutline': {
-              borderColor: BORDER,
-            },
+            '& .MuiInputBase-root': { color: TEXT, background: 'transparent' },
+            '& .MuiOutlinedInput-notchedOutline': { borderColor: BORDER },
             '& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline': {
               borderColor: 'rgba(255,255,255,0.18)',
             },
@@ -242,70 +278,21 @@ export default function BandSettingsDialog({
             },
           }}
         >
-          {/* ---------- Section: Band Profile ---------- */}
-          <Box id="profile" sx={{ py: ROW_Y }}>
-            <Typography
-              variant="h6"
-              sx={{
-                color: TEXT,
-                fontWeight: 800,
-                letterSpacing: 0.2,
-                mb: 0.75,
-              }}
-            >
-              Band Profile
-            </Typography>
-
-            <Typography variant="body2" sx={{ color: TEXT_DIM, mb: 1.5 }}>
-              Update your band’s public info. Changes save instantly.
-            </Typography>
-
-            <Stack spacing={GAP_Y}>
-              <BandBasicsCard bandId={bandId} initialName={bandName} />
-
-              {/* Avatar editor */}
-              <BandAvatarCard
-                bandId={bandId}
-                bandName={bandName}
-                initialPath={avatarPath}
-                compact
-              />
-            </Stack>
-          </Box>
-
-          <Divider sx={{ borderColor: BORDER }} />
-
-          {/* ---------- Section: Danger Zone ---------- */}
-          <Box id="danger" sx={{ py: ROW_Y }}>
-            <Typography
-              variant="h6"
-              sx={{
-                color: TEXT,
-                fontWeight: 800,
-                letterSpacing: 0.2,
-                mb: 0.75,
-              }}
-            >
-              Danger Zone
-            </Typography>
-
-            <Typography variant="body2" sx={{ color: TEXT_DIM, mb: 1.5 }}>
-              {isAdmin
-                ? 'Leave or delete the band. Deleting is permanent.'
-                : 'Leave the band.'}
-            </Typography>
-
-            <Stack spacing={GAP_Y}>
-              <DangerZone
-                bandId={bandId}
-                bandName={bandName}
-                canDelete={!!isAdmin}
-              />
-            </Stack>
-          </Box>
-
-          {/* Bottom hairline to finish the rhythm */}
-          <Divider sx={{ borderColor: BORDER }} />
+          {/* Desktop: render only selected section; Mobile: render both stacked */}
+          {isDesktop ? (
+            selected === 'profile' ? (
+              ProfileSection
+            ) : (
+              DangerSection
+            )
+          ) : (
+            <>
+              {ProfileSection}
+              <Divider sx={{ borderColor: BORDER }} />
+              {DangerSection}
+              <Divider sx={{ borderColor: BORDER }} />
+            </>
+          )}
         </Box>
       </DialogContent>
     </Dialog>
