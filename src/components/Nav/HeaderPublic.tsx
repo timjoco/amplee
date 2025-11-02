@@ -8,7 +8,7 @@ import Link from 'next/link';
 export default function HeaderPublic() {
   return (
     <AppBar
-      position="static"
+      position="sticky"
       elevation={0}
       color="default"
       sx={(t) => ({
@@ -56,7 +56,7 @@ export default function HeaderPublic() {
           disableElevation
           sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 600 }}
         >
-          Login
+          Log In
         </Button>
       </Toolbar>
     </AppBar>
