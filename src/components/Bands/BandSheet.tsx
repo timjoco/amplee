@@ -2,6 +2,7 @@
 'use client';
 
 import BandTitleMenu from '@/components/Bands/BandTitleMenu';
+import EventInboxList from '@/components/Events/EventInboxList';
 import RolePill from '@/components/RolePill';
 import { supabaseBrowser } from '@/lib/supabaseClient';
 import GroupAddIcon from '@mui/icons-material/GroupAdd';
@@ -25,7 +26,6 @@ import {
 import { alpha } from '@mui/material/styles';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import BandEventsList from './BandEventsList';
 
 type TabKey = 'overview' | 'events' | 'roster';
 type MembershipRole = 'admin' | 'member';
@@ -368,13 +368,13 @@ export default function BandSheet({ bandId }: Props) {
         direction="row"
         alignItems="center"
         sx={{
-          mb: 2, // a bit tighter
+          mb: 2,
           bgcolor: 'background.paper',
           borderRadius: 2,
           px: 2,
           py: 1.25,
           border: (t) => `1px solid ${alpha(t.palette.primary.main, 0.08)}`,
-          gap: 1.25, // closer to the title
+          gap: 1.25,
         }}
       >
         {/* Title takes the left; allow shrink + ellipsis on mobile */}
@@ -383,7 +383,7 @@ export default function BandSheet({ bandId }: Props) {
             bandId={bandId}
             bandName={bandName}
             onInvite={() => setInviteOpen(true)}
-            isAdmin={myRole === 'admin'} // ← true for admins
+            isAdmin={myRole === 'admin'}
           />
         </Box>
 
@@ -393,7 +393,7 @@ export default function BandSheet({ bandId }: Props) {
             role={isAdmin ? 'admin' : 'member'}
             size="small"
             sx={{
-              mr: { xs: 0.75, sm: 0 }, // tiny edge padding on mobile
+              mr: { xs: 0.75, sm: 0 },
               px: { xs: 1.25, sm: 1 },
               height: 24,
               '& .MuiChip-label': { px: { xs: 0.5, sm: 0.75 } },
@@ -427,7 +427,7 @@ export default function BandSheet({ bandId }: Props) {
         </Typography>
       )}
 
-      {tab === 'events' && <BandEventsList bandId={bandId} />}
+      {tab === 'events' && <EventInboxList bandId={bandId} />}
 
       {tab === 'roster' && (
         <Box sx={{ mt: 2 }}>

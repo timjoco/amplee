@@ -1,4 +1,3 @@
-// app/bands/[id]/settings/page.tsx
 import { createClient } from '@/utils/supabase/server';
 import { notFound, redirect } from 'next/navigation';
 import BandSettingsDialog from './BandSettingsDialog';
