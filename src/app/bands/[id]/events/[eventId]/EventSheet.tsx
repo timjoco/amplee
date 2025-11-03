@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
-import AttendanceBar from '@/components/Events/AttendanceBar';
 import EventSheetHeader from '@/components/Events/EventSheetHeader';
 import { SIDE_NAV_WIDTH } from '@/components/Nav/SideNav';
 import { supabaseBrowser } from '@/lib/supabaseClient';
@@ -138,7 +137,6 @@ export default function EventSheet({
             eventId={eventId}
             tab={tab}
             onTabChange={setTab}
-            attendanceBar={<AttendanceBar eventId={eventId} />}
           />
         </Box>
       </Box>
@@ -200,7 +198,13 @@ export default function EventSheet({
 
 function ChatTab({ eventId }: { eventId: string }) {
   const theme = useTheme();
-  const mdUp = useMediaQuery(theme.breakpoints.up('md'), { noSsr: true });
+
+  const mdUp = useMediaQuery(theme.breakpoints.up('md'), {
+    noSsr: true,
+    defaultMatches: false,
+  });
+  const [hasMounted, setHasMounted] = useState(false);
+  const mdUpSafe = hasMounted ? mdUp : false; // never true on first render
   const sb = useMemo(() => supabaseBrowser(), []);
   const [messages, setMessages] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -208,7 +212,7 @@ function ChatTab({ eventId }: { eventId: string }) {
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const composerRef = useRef<HTMLDivElement | null>(null);
   const [composerH, setComposerH] = useState(72);
-  const BOTTOM_NAV_H = mdUp ? 0 : 56;
+  const BOTTOM_NAV_H = mdUpSafe ? 0 : 56;
 
   const timeFmt = useMemo(
     () =>
@@ -220,6 +224,8 @@ function ChatTab({ eventId }: { eventId: string }) {
       }),
     []
   );
+
+  useEffect(() => setHasMounted(true), []);
 
   useLayoutEffect(() => {
     const measure = () => {

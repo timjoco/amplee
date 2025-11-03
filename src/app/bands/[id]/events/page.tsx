@@ -15,7 +15,6 @@ export default async function BandEventsIndex({
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  // Ensure user has access to this band (RLS will also enforce on list)
   const { data: band } = await supabase
     .from('bands')
     .select('id, name')

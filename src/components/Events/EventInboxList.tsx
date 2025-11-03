@@ -5,11 +5,11 @@ import { supabaseBrowser } from '@/lib/supabaseClient';
 import {
   Avatar,
   Box,
+  Chip,
   CircularProgress,
   Divider,
   List,
   ListItemButton,
-  ListItemText,
   Stack,
   Typography,
 } from '@mui/material';
@@ -41,8 +41,12 @@ type LastMsg = {
 
 export default function EventInboxList({
   onLoaded,
+  bandId, // optional: scope to a single band
+  showAvatars = true, // optional: hide avatars on band page
 }: {
   onLoaded?: (count: number) => void;
+  bandId?: string;
+  showAvatars?: boolean;
 }) {
   const router = useRouter();
   const sb = useMemo(() => supabaseBrowser(), []);
@@ -57,6 +61,21 @@ export default function EventInboxList({
     Record<string, string | undefined>
   >({});
   const eventIdsRef = useRef<string[]>([]);
+
+  const timeFmt = useMemo(
+    () =>
+      new Intl.DateTimeFormat(undefined, {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
+    []
+  );
+
+  const SURFACE_GRAD =
+    'linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02))';
+  const AV_BG = 'rgba(255,255,255,0.06)';
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -74,14 +93,21 @@ export default function EventInboxList({
       return;
     }
 
-    // 2) Which bands do I belong to?
-    const { data: mems, error: memErr } = await sb
-      .from('band_members')
-      .select('band_id')
-      .eq('user_id', userId);
-    if (memErr) throw memErr;
+    // 2) Determine which bandIds to query:
+    //    - If bandId prop provided, scope to that band
+    //    - Otherwise, use the bands the current user belongs to
+    let bandIds: string[] = [];
+    if (bandId) {
+      bandIds = [bandId];
+    } else {
+      const { data: mems, error: memErr } = await sb
+        .from('band_members')
+        .select('band_id')
+        .eq('user_id', userId);
+      if (memErr) throw memErr;
+      bandIds = (mems ?? []).map((m: any) => m.band_id);
+    }
 
-    const bandIds = (mems ?? []).map((m: any) => m.band_id);
     if (bandIds.length === 0) {
       setRows([]);
       setLastMsgs({});
@@ -91,7 +117,7 @@ export default function EventInboxList({
       return;
     }
 
-    // 3) Fetch events WITH my tri-state status from the view
+    // 3) Fetch events (view already includes my tri-state status)
     const { data: events, error: eErr } = await sb
       .from('events_with_my_attendance')
       .select(
@@ -162,29 +188,36 @@ export default function EventInboxList({
         for (const m of msgs ?? [])
           if (!map[m.event_id]) map[m.event_id] = m as LastMsg;
         setLastMsgs(map);
-      } else setLastMsgs({});
+      } else {
+        setLastMsgs({});
+      }
     } else {
       setLastMsgs({});
     }
 
-    // 6) Sign private band avatar URLs
-    const uniqueBandPairs = Array.from(
-      new Map(
-        sorted
-          .filter((e) => e.bands?.id && e.bands?.avatar_url)
-          .map((e) => [e.bands!.id, e.bands!.avatar_url as string])
-      ).entries()
-    );
-    const nextAvatarMap: Record<string, string> = {};
-    for (const [bandId, path] of uniqueBandPairs) {
-      const { data, error } = await sb.storage
-        .from('band-avatars')
-        .createSignedUrl(path, 60 * 60);
-      if (!error && data?.signedUrl) nextAvatarMap[bandId] = data.signedUrl;
+    // 6) Sign private band avatar URLs (skip if we won't render avatars)
+    if (showAvatars) {
+      const uniqueBandPairs = Array.from(
+        new Map(
+          sorted
+            .filter((e) => e.bands?.id && e.bands?.avatar_url)
+            .map((e) => [e.bands!.id, e.bands!.avatar_url as string])
+        ).entries()
+      );
+      const nextAvatarMap: Record<string, string> = {};
+      for (const [bId, path] of uniqueBandPairs) {
+        const { data, error } = await sb.storage
+          .from('band-avatars')
+          .createSignedUrl(path, 60 * 60);
+        if (!error && data?.signedUrl) nextAvatarMap[bId] = data.signedUrl;
+      }
+      setAvatarMap(nextAvatarMap);
+    } else {
+      setAvatarMap({});
     }
-    setAvatarMap(nextAvatarMap);
+
     setLoading(false);
-  }, [sb, onLoaded]);
+  }, [sb, onLoaded, bandId, showAvatars]);
 
   useEffect(() => {
     load();
@@ -218,8 +251,8 @@ export default function EventInboxList({
     };
   }, [sb]);
 
-  const onOpen = (bandId: string, eventId: string) => {
-    router.push(`/bands/${bandId}/events/${eventId}`);
+  const onOpen = (bId: string, eventId: string) => {
+    router.push(`/bands/${bId}/events/${eventId}`);
   };
 
   return (
@@ -237,16 +270,14 @@ export default function EventInboxList({
           center
         />
       ) : (
-        <List disablePadding>
+        <List
+          disablePadding
+          sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}
+        >
           {rows.map((e, idx) => {
             const band = e.bands;
             const when = e.starts_at
-              ? new Date(e.starts_at).toLocaleDateString(undefined, {
-                  month: 'short',
-                  day: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })
+              ? timeFmt.format(new Date(e.starts_at))
               : '';
             const lm = lastMsgs[e.id];
             const preview =
@@ -254,97 +285,119 @@ export default function EventInboxList({
               (e.location ? `Location: ${e.location}` : `${e.type} scheduled`);
             const avatarSrc = (band?.id && avatarMap[band.id]) || undefined;
 
-            // Tri-state for the right bar comes directly from SQL
-            const eventStatus: 'pending' | 'confirmed' | 'cancelled' =
-              e.my_event_status;
+            // status chip (Booked or Pending)
+            const statusChip = e.is_booked ? (
+              <Chip
+                label="Booked"
+                color="success"
+                size="small"
+                sx={{ height: 20, fontSize: 11, borderRadius: 1, ml: 1 }}
+              />
+            ) : (
+              <Chip
+                label="Pending"
+                color="warning"
+                size="small"
+                sx={{ height: 20, fontSize: 11, borderRadius: 1, ml: 1 }}
+              />
+            );
 
             return (
               <Box key={e.id}>
                 <ListItemButton
                   onClick={() => onOpen(e.band_id, e.id)}
-                  sx={(t) => {
-                    const barColor =
-                      eventStatus === 'cancelled'
-                        ? t.palette.error.main
-                        : eventStatus === 'confirmed'
-                        ? t.palette.success.main
-                        : t.palette.warning.main;
-
-                    return {
-                      position: 'relative',
-                      py: 1.5,
-                      px: 1.25,
-                      pr: 2.75,
-                      borderRadius: 2,
-                      alignItems: 'flex-start',
-                      '&:hover': {
-                        backgroundColor: alpha(t.palette.primary.main, 0.06),
-                      },
-                      // Right status bar — flat, shorter, no highlight
-                      '&::after': {
-                        content: '""',
-                        position: 'absolute',
-                        right: 6,
-                        top: '50%',
-                        transform: 'translateY(-50%)',
-                        width: 4,
-                        height: 32,
-                        borderRadius: 999,
-                        backgroundColor: barColor,
-                        boxShadow: 'none',
-                        backgroundImage: 'none',
-                      },
-                    };
-                  }}
+                  sx={(t) => ({
+                    py: 1.25,
+                    px: 1.25,
+                    borderRadius: 2,
+                    alignItems: 'flex-start',
+                    border: `1px solid ${alpha(t.palette.primary.main, 0.08)}`,
+                    background: SURFACE_GRAD,
+                    transition:
+                      'background-color 120ms ease, border-color 120ms ease',
+                    '&:hover': {
+                      backgroundColor: alpha(t.palette.primary.main, 0.06),
+                      borderColor: alpha(t.palette.primary.main, 0.16),
+                    },
+                  })}
                 >
-                  {/* Avatar */}
-                  <Avatar
-                    src={avatarSrc}
-                    alt={band?.name || 'Band'}
-                    sx={{
-                      width: 48,
-                      height: 48,
-                      mr: 1.5,
-                      fontWeight: 800,
-                      bgcolor: alpha('#FFF', 0.06),
-                      color: 'white',
-                      flexShrink: 0,
-                    }}
-                  >
-                    {(band?.name || '?')
-                      .split(/\s+/)
-                      .slice(0, 2)
-                      .map((p) => p[0]?.toUpperCase())
-                      .join('')}
-                  </Avatar>
+                  {/* Avatar (optional) */}
+                  {showAvatars && (
+                    <Avatar
+                      src={avatarSrc}
+                      alt={band?.name || 'Band'}
+                      sx={{
+                        width: 48,
+                        height: 48,
+                        mr: 1.5,
+                        fontWeight: 800,
+                        bgcolor: AV_BG,
+                        color: 'white',
+                        flexShrink: 0,
+                        boxShadow: '0 0 0 2px rgba(255,255,255,0.06) inset',
+                      }}
+                    >
+                      {(band?.name || '?')
+                        .split(/\s+/)
+                        .slice(0, 2)
+                        .map((p) => p[0]?.toUpperCase())
+                        .join('')}
+                    </Avatar>
+                  )}
 
-                  <ListItemText
-                    primary={
-                      <Stack direction="row" alignItems="baseline" spacing={1}>
+                  {/* Content: two-row grid */}
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    {/* Row 1: title (left) — date/time (right) */}
+                    <Box
+                      sx={{
+                        display: 'grid',
+                        gridTemplateColumns: '1fr auto',
+                        alignItems: 'center',
+                        gap: 1,
+                        minWidth: 0,
+                      }}
+                    >
+                      <Typography
+                        sx={{
+                          fontWeight: 900,
+                          lineHeight: 1.2,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                          fontSize: 16,
+                          letterSpacing: 0.2,
+                          minWidth: 0,
+                        }}
+                        title={e?.title || 'Event'}
+                      >
+                        {e?.title || 'Event'}
+                      </Typography>
+
+                      {!!when && (
                         <Typography
+                          variant="caption"
                           sx={{
-                            fontWeight: 900,
-                            lineHeight: 1.2,
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
+                            opacity: 0.7,
                             whiteSpace: 'nowrap',
-                            fontSize: 16,
-                            letterSpacing: 0.2,
+                            ml: 1,
                           }}
                         >
-                          {e?.title || 'Event'}
+                          {when}
                         </Typography>
-                        {when && (
-                          <Typography
-                            variant="caption"
-                            sx={{ opacity: 0.7, whiteSpace: 'nowrap' }}
-                          >
-                            {when}
-                          </Typography>
-                        )}
-                      </Stack>
-                    }
-                    secondary={
+                      )}
+                    </Box>
+
+                    {/* Row 2: location/chat preview (left) — status chip (right) */}
+                    <Box
+                      sx={{
+                        display: 'grid',
+                        gridTemplateColumns: '1fr auto',
+                        alignItems: 'center',
+                        gap: 1,
+                        minWidth: 0,
+                        mt: 0.5,
+                      }}
+                    >
                       <Typography
                         sx={{
                           opacity: 0.85,
@@ -352,30 +405,22 @@ export default function EventInboxList({
                           textOverflow: 'ellipsis',
                           whiteSpace: 'nowrap',
                           fontSize: 13.5,
+                          minWidth: 0,
                         }}
                         title={preview}
                       >
                         {preview}
                       </Typography>
-                    }
-                    primaryTypographyProps={{ component: 'div' }}
-                    secondaryTypographyProps={{ component: 'div' }}
-                    sx={{ mr: 1.5, minWidth: 0 }}
-                  />
 
-                  {/* (Optional) actions go here */}
-                  <Stack
-                    direction="row"
-                    alignItems="center"
-                    spacing={0.75}
-                    onClick={(ev) => ev.stopPropagation()}
-                    onMouseDown={(ev) => ev.stopPropagation()}
-                    sx={{ pt: 0.25 }}
-                  />
+                      <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                        {statusChip}
+                      </Box>
+                    </Box>
+                  </Box>
                 </ListItemButton>
 
                 {idx < rows.length - 1 && (
-                  <Divider sx={{ ml: 8, opacity: 0.08 }} />
+                  <Divider sx={{ ml: showAvatars ? 8 : 0, opacity: 0.08 }} />
                 )}
               </Box>
             );

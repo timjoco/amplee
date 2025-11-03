@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// components/BandEventsList.tsx
+
 'use client';
 
 import { supabaseBrowser } from '@/lib/supabaseClient';
@@ -19,7 +19,7 @@ type EventRow = {
   band_id: string;
   title: string;
   type: 'show' | 'practice';
-  starts_at: string; // ISO
+  starts_at: string;
   ends_at: string | null;
   location: string | null;
 };
@@ -56,7 +56,6 @@ export default function BandEventsList({
     };
   }, [sb, bandId]);
 
-  // realtime (insert/update/delete)
   useEffect(() => {
     const ch = sb
       .channel(`events:${bandId}`)
