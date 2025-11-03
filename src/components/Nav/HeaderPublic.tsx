@@ -56,7 +56,7 @@ export default function HeaderPublic() {
           disableElevation
           sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 600 }}
         >
-          Log In
+          LOG IN
         </Button>
       </Toolbar>
     </AppBar>

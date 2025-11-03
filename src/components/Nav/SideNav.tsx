@@ -1,6 +1,5 @@
 'use client';
 
-import AccountMenu from '@/components/AccountMenu';
 import { supabaseBrowser } from '@/lib/supabaseClient';
 import AddIcon from '@mui/icons-material/Add';
 import HomeIcon from '@mui/icons-material/HomeRounded';
@@ -10,6 +9,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import AccountDock from './AccountDock';
 
 const NAV_WIDTH = 240;
 const primaryItems = [{ href: '/dashboard', label: 'Home', Icon: HomeIcon }];
@@ -242,10 +242,8 @@ export default function SideNav() {
 
       <Box sx={{ flex: 1 }} />
 
-      <Box
-        sx={{ display: 'flex', justifyContent: 'flex-start', px: 0.5, pb: 0.5 }}
-      >
-        <AccountMenu profile={profile ?? undefined} size={28} />
+      <Box sx={{ mt: 1 }}>
+        <AccountDock placement="inline" profile={profile ?? undefined} />
       </Box>
     </Box>
   );
