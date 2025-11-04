@@ -85,6 +85,12 @@ export default function ProfileBasicsCard({
       setInitialName(newName);
       setOk('Profile updated.');
       onSaved?.(newName);
+
+      window.dispatchEvent(
+        new CustomEvent('profiles:display_name_changed', {
+          detail: { display_name: newName },
+        })
+      );
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (e: any) {
       setErr(e?.message || 'Failed to update profile');

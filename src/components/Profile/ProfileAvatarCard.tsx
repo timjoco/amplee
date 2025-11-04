@@ -17,9 +17,14 @@ const BUCKET = 'profile-avatars';
 
 async function resolveAvatarUrl(sb: any, storedPathOrUrl: string | null) {
   if (!storedPathOrUrl) return null;
-  if (/^https?:\/\//i.test(storedPathOrUrl)) return storedPathOrUrl;
-
-  // If your bucket is PRIVATE, swap above line for:
+  // allow http(s), blob:, data: to pass through as-is
+  if (
+    /^https?:\/\//i.test(storedPathOrUrl) ||
+    storedPathOrUrl.startsWith('blob:') ||
+    storedPathOrUrl.startsWith('data:')
+  ) {
+    return storedPathOrUrl;
+  }
   const { data } = await sb.storage
     .from(BUCKET)
     .createSignedUrl(storedPathOrUrl, 60 * 60);
@@ -28,7 +33,7 @@ async function resolveAvatarUrl(sb: any, storedPathOrUrl: string | null) {
 
 type Props = {
   userId?: string;
-  initialUrl?: string | null; // now expected to be a storage path OR https
+  initialUrl?: string | null; // storage path OR https
   onSaved?: (urlOrPath: string) => void;
   compact?: boolean;
 };
@@ -75,6 +80,16 @@ export default function ProfileAvatarCard({
       return;
     }
 
+    // --- NEW: optimistic preview (instant UI) ---------------------
+    const previewUrl = URL.createObjectURL(file);
+    setStored(previewUrl); // triggers resolver -> <Avatar src=preview>
+    window.dispatchEvent(
+      new CustomEvent('profiles:avatar_changed', {
+        detail: { avatar_url: previewUrl, isPreview: true },
+      })
+    );
+    // --------------------------------------------------------------
+
     setLoading(true);
     try {
       const ext = file.name.split('.').pop()?.toLowerCase() || 'png';
@@ -89,20 +104,37 @@ export default function ProfileAvatarCard({
         });
       if (upErr) throw upErr;
 
-      // Save the PATH to profiles (works for public or private buckets)
+      // Save the PATH to profiles (works for public or private)
       const { error: upProfileErr } = await sb
         .from('profiles')
-        .update({ avatar_url: path })
+        .update({
+          avatar_url: path,
+          updated_at: new Date().toISOString(), // good for cache-busting if you use it
+        })
         .eq('id', userId);
       if (upProfileErr) throw upProfileErr;
 
-      setStored(path); // triggers resolveAvatarUrl
+      setStored(path); // triggers signing -> final URL
       onSaved?.(path);
+
+      // --- NEW: broadcast final (authoritative) value --------------
+      window.dispatchEvent(
+        new CustomEvent('profiles:avatar_changed', {
+          detail: { avatar_url: path, isPreview: false },
+        })
+      );
+      // --------------------------------------------------------------
     } catch (e: any) {
       setErr(e?.message || 'Upload failed.');
     } finally {
       setLoading(false);
       if (fileRef.current) fileRef.current.value = '';
+      // optional: free preview blob URL later
+      setTimeout(() => {
+        try {
+          if (previewUrl.startsWith('blob:')) URL.revokeObjectURL(previewUrl);
+        } catch {}
+      }, 5000);
     }
   };
 
@@ -137,9 +169,7 @@ export default function ProfileAvatarCard({
               fontWeight: 800,
             }}
             onError={() =>
-              setErr(
-                'Failed to load image (check bucket public read policy or URL).'
-              )
+              setErr('Failed to load image (check bucket policy or URL).')
             }
           />
           <Stack direction="row" spacing={1} alignItems="center">
