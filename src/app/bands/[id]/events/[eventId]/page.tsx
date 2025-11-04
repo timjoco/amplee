@@ -1,6 +1,6 @@
 import { createClient } from '@/utils/supabase/server';
 import { notFound, redirect } from 'next/navigation';
-import EventSheet from './EventSheet';
+import EventSheet from '../../../../../components/Events/EventSheet';
 
 type Params = { id: string; eventId: string };
 
