@@ -1,4 +1,3 @@
-import FooterGuard from '@/components/Footers/FooterGuard';
 import AppFrame from '@/components/Styling/AppFrame';
 import EmotionRegistry from '@/components/Styling/EmotionRegistry';
 import ThemeClient from '@/components/Styling/ThemeClient';
@@ -25,7 +24,6 @@ export default function RootLayout({
           <ThemeClient>
             <AppFrame>{children}</AppFrame>
             <GlobalCreateHost />
-            <FooterGuard />
           </ThemeClient>
         </EmotionRegistry>
       </body>
