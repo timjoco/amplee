@@ -15,12 +15,14 @@ const isEventSheetPath = (p: string) =>
 
 export default function AppFrameClient({ children, initialAuthed }: Props) {
   const [authed, setAuthed] = useState(initialAuthed);
+  const [mounted, setMounted] = useState(false); // ← add
   const pathname = usePathname();
 
   const mdUp = useMediaQuery('(min-width:900px)');
   const isMobile = !mdUp;
 
   useEffect(() => {
+    setMounted(true); // ← add
     const sb = supabaseBrowser();
     sb.auth.getUser().then(({ data: { user } }) => setAuthed(!!user));
     const { data: sub } = sb.auth.onAuthStateChange((_e, s) =>
@@ -29,11 +31,14 @@ export default function AppFrameClient({ children, initialAuthed }: Props) {
     return () => sub?.subscription?.unsubscribe?.();
   }, []);
 
-  const isWaitlist = pathname?.startsWith('/waitlist');
   const showSideNav = authed;
-  const showPublicHeader = !authed && !isWaitlist;
+
+  // Only compute route-based UI after mount to avoid SSR/client mismatch
+  const isWaitlist = mounted && pathname?.startsWith('/waitlist'); // ← add
+  const showPublicHeader = mounted && !authed && !isWaitlist; // ← change
+
   const hideBottomNav = useMemo(
-    () => isMobile && isEventSheetPath(pathname),
+    () => isMobile && isEventSheetPath(pathname || ''),
     [isMobile, pathname]
   );
 
@@ -52,7 +57,6 @@ export default function AppFrameClient({ children, initialAuthed }: Props) {
           WebkitOverflowScrolling: 'touch',
           overscrollBehaviorY: 'contain',
           px: { xs: 2, md: 3 },
-          // Only reserve space for BottomNav when it's visible
           pb: { xs: showSideNav && !hideBottomNav ? '68px' : 0, md: 0 },
           transition: 'margin-left .15s ease',
         }}
