@@ -60,14 +60,9 @@ export default function EventSheet({
   bandName?: string;
   initialEvent: EventRow;
 }) {
-  const theme = useTheme();
   const [, setBandName] = useState<string>('Band');
   const [, setError] = useState<string | null>(null);
   const sb = useMemo(() => supabaseBrowser(), []);
-
-  const mdUp = useMediaQuery(theme.breakpoints.up('md'), { noSsr: true });
-  const [mounted, setMounted] = useState(false);
-  const showDesktop = mounted && mdUp;
 
   const [tab, setTab] = useState<
     'chat' | 'roster' | 'setlist' | 'notes' | 'files'
@@ -87,11 +82,6 @@ export default function EventSheet({
     }
   }, [initialEvent.starts_at]);
 
-  const GUTTER_X = { xs: 1, sm: 2, md: 3, lg: 5, xl: 7 }; // horizontal padding
-  const GUTTER_Y = { xs: 1.5, sm: 2, md: 2.5, lg: 3, xl: 3 }; // vertical padding
-  const MAX_W = 2000;
-
-  useEffect(() => setMounted(true), []);
   useEffect(() => {
     (async () => {
       const { data: band, error: bandErr } = await sb
