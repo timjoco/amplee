@@ -4,13 +4,22 @@ import BottomNav from '@/components/Nav/BottomNav';
 import HeaderPublic from '@/components/Nav/HeaderPublic';
 import SideNav, { SIDE_NAV_WIDTH } from '@/components/Nav/SideNav';
 import { supabaseBrowser } from '@/lib/supabaseClient';
-import { Box } from '@mui/material';
-import { useEffect, useState } from 'react';
+import { Box, useMediaQuery } from '@mui/material';
+import { usePathname } from 'next/navigation';
+import { useEffect, useMemo, useState } from 'react';
 
 type Props = { children: React.ReactNode; initialAuthed: boolean };
 
+const isEventSheetPath = (p: string) =>
+  /^\/bands\/[^/]+\/events\/[^/]+(?:[/?].*)?$/.test(p);
+
 export default function AppFrameClient({ children, initialAuthed }: Props) {
   const [authed, setAuthed] = useState(initialAuthed);
+  const pathname = usePathname();
+
+  // Treat >=md as desktop (MUI default md = 900px)
+  const mdUp = useMediaQuery('(min-width:900px)');
+  const isMobile = !mdUp;
 
   useEffect(() => {
     const sb = supabaseBrowser();
@@ -23,6 +32,11 @@ export default function AppFrameClient({ children, initialAuthed }: Props) {
 
   const showSideNav = authed;
   const showPublicHeader = !authed;
+
+  const hideBottomNav = useMemo(
+    () => isMobile && isEventSheetPath(pathname),
+    [isMobile, pathname]
+  );
 
   return (
     <Box sx={{ minHeight: '100dvh', display: 'flex', bgcolor: 'transparent' }}>
@@ -39,7 +53,8 @@ export default function AppFrameClient({ children, initialAuthed }: Props) {
           WebkitOverflowScrolling: 'touch',
           overscrollBehaviorY: 'contain',
           px: { xs: 2, md: 3 },
-          pb: { xs: showSideNav ? '68px' : 0, md: 0 },
+          // Only reserve space for BottomNav when it's visible
+          pb: { xs: showSideNav && !hideBottomNav ? '68px' : 0, md: 0 },
           transition: 'margin-left .15s ease',
         }}
       >
@@ -56,10 +71,10 @@ export default function AppFrameClient({ children, initialAuthed }: Props) {
             zIndex: (t) => t.zIndex.appBar + 2,
             pointerEvents: 'none',
           }}
-        ></Box>
+        />
       )}
 
-      {showSideNav && <BottomNav />}
+      {showSideNav && !hideBottomNav && <BottomNav />}
     </Box>
   );
 }
