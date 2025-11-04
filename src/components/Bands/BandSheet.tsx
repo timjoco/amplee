@@ -3,7 +3,7 @@
 
 import BandTitleMenu from '@/components/Bands/BandTitleMenu';
 import EventInboxList from '@/components/Events/EventInboxList';
-import RolePill from '@/components/RolePill';
+import RolePill from '@/components/ui/RolePill';
 import { supabaseBrowser } from '@/lib/supabaseClient';
 import GroupAddIcon from '@mui/icons-material/GroupAdd';
 import {
@@ -98,7 +98,6 @@ export default function BandSheet({ bandId }: Props) {
         }
       }
 
-      // Fallback: memberships + profiles
       if (!roster) {
         const { data: memberships, error: mErr } = await sb
           .from('band_members')
@@ -143,7 +142,6 @@ export default function BandSheet({ bandId }: Props) {
       }));
       setMembers(normalized);
 
-      // Pending invitations
       const { data: invs } = await sb
         .from('band_invitations')
         .select('id, email, role, created_at, status')
@@ -157,7 +155,6 @@ export default function BandSheet({ bandId }: Props) {
     }
   }, [sb, bandId]);
 
-  /* Initial load: auth + role + band + roster + invites */
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -205,7 +202,6 @@ export default function BandSheet({ bandId }: Props) {
         }
         setBandName(band.name);
 
-        // Load roster + invites
         await fetchRoster();
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
@@ -306,7 +302,6 @@ export default function BandSheet({ bandId }: Props) {
         throw new Error(msg);
       }
 
-      // Close + toast
       setInviteOpen(false);
       setInviteEmail('');
       setSnack({
@@ -315,7 +310,6 @@ export default function BandSheet({ bandId }: Props) {
         severity: 'success',
       });
 
-      // Optimistic add
       setInvites((prev) => [
         {
           id: crypto.randomUUID?.() ?? `${Date.now()}`,
@@ -327,7 +321,6 @@ export default function BandSheet({ bandId }: Props) {
         ...prev,
       ]);
 
-      // Sync with DB (in case backend enriched/normalized anything)
       fetchRoster();
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Invite failed';
@@ -377,7 +370,6 @@ export default function BandSheet({ bandId }: Props) {
           gap: 1.25,
         }}
       >
-        {/* Title takes the left; allow shrink + ellipsis on mobile */}
         <Box sx={{ flex: '1 1 auto', minWidth: 0 }}>
           <BandTitleMenu
             bandId={bandId}
@@ -459,7 +451,6 @@ export default function BandSheet({ bandId }: Props) {
             </Stack>
           ))}
 
-          {/* Pending invitations */}
           {invites.length > 0 && (
             <>
               <Typography sx={{ mt: 3, mb: 1.5 }} color="text.secondary">
@@ -488,7 +479,6 @@ export default function BandSheet({ bandId }: Props) {
         </Box>
       )}
 
-      {/* Invite dialog */}
       <Dialog
         open={inviteOpen}
         onClose={() => setInviteOpen(false)}
