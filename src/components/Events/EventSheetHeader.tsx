@@ -1,6 +1,7 @@
 'use client';
 
 import { useAttendance } from '@/hooks/useAttendance';
+import { supabaseBrowser } from '@/lib/supabaseClient';
 import ArrowBackIosIcon from '@mui/icons-material/ArrowBackIos';
 import CheckIcon from '@mui/icons-material/Check';
 import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
@@ -8,6 +9,10 @@ import {
   Box,
   Button,
   Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   IconButton,
   Stack,
   Tab,
@@ -43,7 +48,6 @@ export default function EventSheetHeader({
   onTabChange: (next: TabKey) => void;
   rightActions?: React.ReactNode;
 }) {
-  // unified sub-text styling shared by details + RSVP
   const SUB_TEXT_SX = React.useMemo(
     () => ({
       fontSize: 14,
@@ -182,16 +186,55 @@ export default function EventSheetHeader({
   );
 }
 
-/* ---------------------- Inline RSVP: Yes / Pending ---------------------- */
+/* ---------------------- Inline RSVP: Yes / Pending (with confirm) ---------------------- */
 function InlineRSVPTwoState({
   eventId,
   textSx,
 }: {
   eventId: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  textSx?: any; // unified sub-text style from parent
+  textSx?: any;
 }) {
   const { mine, counts, saving, error, update } = useAttendance(eventId);
+
+  const [confirm, setConfirm] = React.useState<{
+    open: boolean;
+    next: 'accepted' | 'pending';
+  }>({ open: false, next: 'accepted' });
+
+  const openConfirm = (next: 'accepted' | 'pending') => {
+    if (mine === next) return; // no-op if already selected
+    setConfirm({ open: true, next });
+  };
+
+  const handleClose = () => setConfirm((c) => ({ ...c, open: false }));
+
+  const sb = React.useMemo(() => supabaseBrowser(), []);
+
+  const handleConfirm = async () => {
+    await update(confirm.next);
+
+    // get current user id for roster sync
+    const {
+      data: { user },
+    } = await sb.auth.getUser();
+    const userId = user?.id;
+
+    // broadcast to any listeners (RosterPanel)
+    if (userId) {
+      window.dispatchEvent(
+        new CustomEvent('amplee:rsvp-change', {
+          detail: {
+            eventId, // current event
+            userId, // who changed
+            next: confirm.next, // 'accepted' | 'pending'
+          },
+        })
+      );
+    }
+
+    setConfirm((c) => ({ ...c, open: false }));
+  };
 
   const Pill = ({
     onClick,
@@ -235,53 +278,92 @@ function InlineRSVPTwoState({
   );
 
   return (
-    <Stack
-      direction="row"
-      alignItems="center"
-      spacing={1}
-      sx={{ px: 0, py: 0 }}
-    >
-      <Typography
-        variant="body2"
-        sx={{ ...textSx, mr: 0.5, whiteSpace: 'nowrap' }}
+    <>
+      <Stack
+        direction="row"
+        alignItems="center"
+        spacing={1}
+        sx={{ px: 0, py: 0 }}
       >
-        {saving ? (
-          'Saving…'
-        ) : (
-          <>
-            Accepted: {counts.accepted}/{counts.total}
-          </>
-        )}
-      </Typography>
-
-      <Stack direction="row" spacing={0.75} alignItems="center">
-        <Pill
-          onClick={() => update('accepted')}
-          selected={mine === 'accepted'}
-          icon={<CheckIcon fontSize="small" />}
-          label="Yes"
-          color="success"
-          aria="RSVP Yes"
-        />
-        <Pill
-          onClick={() => update('pending')}
-          selected={mine === 'pending' || mine == null}
-          icon={<HourglassEmptyIcon fontSize="small" />}
-          label="Pending"
-          color="warning"
-          aria="Set Pending"
-        />
-      </Stack>
-
-      {error && (
         <Typography
           variant="body2"
-          color="warning.main"
-          sx={{ ...textSx, ml: 0.5 }}
+          sx={{ ...textSx, mr: 0.5, whiteSpace: 'nowrap' }}
         >
-          {error}
+          {saving ? (
+            'Saving…'
+          ) : (
+            <>
+              Accepted: {counts.accepted}/{counts.total}
+            </>
+          )}
         </Typography>
-      )}
-    </Stack>
+
+        <Stack direction="row" spacing={0.75} alignItems="center">
+          <Pill
+            onClick={() => openConfirm('accepted')}
+            selected={mine === 'accepted'}
+            icon={<CheckIcon fontSize="small" />}
+            label="Yes"
+            color="success"
+            aria="RSVP Yes"
+          />
+          <Pill
+            onClick={() => openConfirm('pending')}
+            selected={mine === 'pending' || mine == null}
+            icon={<HourglassEmptyIcon fontSize="small" />}
+            label="Pending"
+            color="warning"
+            aria="Set Pending"
+          />
+        </Stack>
+
+        {error && (
+          <Typography
+            variant="body2"
+            color="warning.main"
+            sx={{ ...textSx, ml: 0.5 }}
+          >
+            {error}
+          </Typography>
+        )}
+      </Stack>
+
+      {/* Confirmation dialog */}
+      <Dialog
+        open={confirm.open}
+        onClose={saving ? undefined : handleClose}
+        aria-labelledby="rsvp-confirm-title"
+        fullWidth
+        maxWidth="xs"
+      >
+        <DialogTitle id="rsvp-confirm-title" sx={{ fontWeight: 800 }}>
+          {confirm.next === 'accepted' ? 'Confirm RSVP' : 'Set as Pending?'}
+        </DialogTitle>
+        <DialogContent dividers>
+          <Typography variant="body2" sx={{ opacity: 0.9 }}>
+            {confirm.next === 'accepted'
+              ? 'You’re about to confirm “Yes” for this gig. Notify your band and lock it in?'
+              : 'You’re about to set your status to “Pending.” We’ll let the band know you’re unsure.'}
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleClose} disabled={saving} variant="text">
+            Cancel
+          </Button>
+          <Button
+            onClick={handleConfirm}
+            disabled={saving}
+            variant="contained"
+            color={confirm.next === 'accepted' ? 'success' : 'warning'}
+          >
+            {saving
+              ? 'Saving…'
+              : confirm.next === 'accepted'
+              ? 'Confirm Yes'
+              : 'Set Pending'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </>
   );
 }

@@ -285,7 +285,6 @@ export default function EventInboxList({
               (e.location ? `Location: ${e.location}` : `${e.type} scheduled`);
             const avatarSrc = (band?.id && avatarMap[band.id]) || undefined;
 
-            // status chip (Booked or Pending)
             const statusChip = e.is_booked ? (
               <Chip
                 label="Booked"
