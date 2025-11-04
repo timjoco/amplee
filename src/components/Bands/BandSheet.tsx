@@ -3,7 +3,6 @@
 
 import BandTitleMenu from '@/components/Bands/BandTitleMenu';
 import EventInboxList from '@/components/Events/EventInboxList';
-import RolePill from '@/components/ui/RolePill';
 import { supabaseBrowser } from '@/lib/supabaseClient';
 import GroupAddIcon from '@mui/icons-material/GroupAdd';
 import {
@@ -26,6 +25,9 @@ import {
 import { alpha } from '@mui/material/styles';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import AvatarImage from '../ui/AvatarImage';
+import BandOverviewTab from './BandTabs/BandOverviewTab';
+import BandRosterTab from './BandTabs/BandRosterTab';
 
 type TabKey = 'overview' | 'events' | 'roster';
 type MembershipRole = 'admin' | 'member';
@@ -34,6 +36,7 @@ type ProfileLite = {
   first_name: string | null;
   last_name: string | null;
   email: string | null;
+  avatar_url?: string | null;
 };
 
 type MemberRow = {
@@ -66,14 +69,15 @@ export default function BandSheet({ bandId }: Props) {
 
   const [myRole, setMyRole] = useState<MembershipRole>('member');
   const [bandName, setBandName] = useState<string>('Band');
-  const [tab, setTab] = useState<TabKey>('overview');
+  const [tab, setTab] = useState<'overview' | 'events' | 'roster'>('overview');
   const [invites, setInvites] = useState<InvitationRow[]>([]);
 
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
+  const [bandAvatarUrl, setBandAvatarUrl] = useState<string | null>(null);
 
-  const [members, setMembers] = useState<MemberRow[]>([]);
+  const [, setMembers] = useState<MemberRow[]>([]);
   const [sending, setSending] = useState(false);
   const [snack, setSnack] = useState<{
     open: boolean;
@@ -91,7 +95,7 @@ export default function BandSheet({ bandId }: Props) {
       {
         const { data, error } = await sb
           .from('band_member_profiles')
-          .select('user_id, role, email, first_name, last_name')
+          .select('user_id, role, email, first_name, last_name, avatar_url')
           .eq('band_id', bandId);
         if (!error) {
           roster = data ?? [];
@@ -118,6 +122,7 @@ export default function BandSheet({ bandId }: Props) {
               first_name: p.first_name ?? null,
               last_name: p.last_name ?? null,
               email: p.email ?? null,
+              avatar_url: p.avatar_url ?? null,
             })
           );
         }
@@ -192,7 +197,7 @@ export default function BandSheet({ bandId }: Props) {
         step = 'bands:fetch';
         const { data: band, error: bandErr } = await sb
           .from('bands')
-          .select('id,name')
+          .select('id,name, avatar_url')
           .eq('id', bandId)
           .maybeSingle();
         if (bandErr) throw bandErr;
@@ -201,6 +206,7 @@ export default function BandSheet({ bandId }: Props) {
           return;
         }
         setBandName(band.name);
+        setBandAvatarUrl(band.avatar_url ?? null);
 
         await fetchRoster();
       } catch (e) {
@@ -262,7 +268,15 @@ export default function BandSheet({ bandId }: Props) {
     };
   }, [sb, bandId, fetchRoster]);
 
-  const isAdmin = (myRole ?? 'member') === 'admin';
+  useEffect(() => {
+    const onTab = (e: Event) => {
+      const ce = e as CustomEvent<{ tab: 'overview' | 'events' | 'roster' }>;
+      if (ce.detail?.tab) setTab(ce.detail.tab);
+    };
+    window.addEventListener('amplee:band-tab', onTab as EventListener);
+    return () =>
+      window.removeEventListener('amplee:band-tab', onTab as EventListener);
+  }, []);
 
   const sendInvite = useCallback(async () => {
     try {
@@ -371,16 +385,34 @@ export default function BandSheet({ bandId }: Props) {
         }}
       >
         <Box sx={{ flex: '1 1 auto', minWidth: 0 }}>
-          <BandTitleMenu
-            bandId={bandId}
-            bandName={bandName}
-            onInvite={() => setInviteOpen(true)}
-            isAdmin={myRole === 'admin'}
-          />
+          <Stack
+            direction="row"
+            alignItems="center"
+            spacing={1.75}
+            flexWrap="wrap"
+          >
+            <Box sx={{ flex: '0 0 auto' }}>
+              <AvatarImage
+                name={bandName}
+                bucket="band-avatars"
+                srcGuess={bandAvatarUrl || undefined}
+                size={72}
+              />
+            </Box>
+
+            <Box sx={{ minWidth: 0, flex: 1 }}>
+              <BandTitleMenu
+                bandId={bandId}
+                bandName={bandName}
+                onInvite={() => setInviteOpen(true)}
+                isAdmin={myRole === 'admin'}
+              />
+            </Box>
+          </Stack>
         </Box>
 
         {/* Pill on the far right */}
-        <Box sx={{ flex: '0 0 auto', ml: 'auto' }}>
+        {/* <Box sx={{ flex: '0 0 auto', ml: 'auto' }}>
           <RolePill
             role={isAdmin ? 'admin' : 'member'}
             size="small"
@@ -391,7 +423,7 @@ export default function BandSheet({ bandId }: Props) {
               '& .MuiChip-label': { px: { xs: 0.5, sm: 0.75 } },
             }}
           />
-        </Box>
+        </Box> */}
       </Stack>
 
       {/* Tabs */}
@@ -413,71 +445,11 @@ export default function BandSheet({ bandId }: Props) {
       </Tabs>
 
       {/* Panels */}
-      {tab === 'overview' && (
-        <Typography color="text.secondary" sx={{ mt: 2 }}>
-          Quick stats, next event, recent activity…
-        </Typography>
-      )}
+      {tab === 'overview' && <BandOverviewTab bandId={bandId} />}
 
       {tab === 'events' && <EventInboxList bandId={bandId} />}
 
-      {tab === 'roster' && (
-        <Box sx={{ mt: 2 }}>
-          <Typography sx={{ mb: 1.5 }} color="text.secondary">
-            Members
-          </Typography>
-
-          {members.map((m) => (
-            <Stack
-              key={m.user_id}
-              direction="row"
-              spacing={1.5}
-              alignItems="center"
-              sx={{
-                py: 1,
-                borderBottom: (t) =>
-                  `1px solid ${alpha(t.palette.primary.main, 0.12)}`,
-              }}
-            >
-              <Typography sx={{ fontWeight: 700 }}>
-                {(m.profile?.first_name || '') +
-                  ' ' +
-                  (m.profile?.last_name || '')}
-              </Typography>
-              <Typography color="text.secondary">
-                {m.profile?.email ?? ''}
-              </Typography>
-              <Box sx={{ flex: 1 }} />
-            </Stack>
-          ))}
-
-          {invites.length > 0 && (
-            <>
-              <Typography sx={{ mt: 3, mb: 1.5 }} color="text.secondary">
-                Pending invitations
-              </Typography>
-              {invites.map((inv) => (
-                <Stack
-                  key={inv.id}
-                  direction="row"
-                  spacing={1.5}
-                  alignItems="center"
-                  sx={{
-                    py: 1,
-                    borderBottom: (t) =>
-                      `1px solid ${alpha(t.palette.primary.main, 0.12)}`,
-                  }}
-                >
-                  <Typography sx={{ fontWeight: 700 }}>(Invited)</Typography>
-                  <Typography color="text.secondary">{inv.email}</Typography>
-                  <Box sx={{ flex: 1 }} />
-                  <RolePill role={inv.role} size="small" />
-                </Stack>
-              ))}
-            </>
-          )}
-        </Box>
-      )}
+      {tab === 'roster' && <BandRosterTab bandId={bandId} invites={invites} />}
 
       <Dialog
         open={inviteOpen}
