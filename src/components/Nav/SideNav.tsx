@@ -9,7 +9,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import AccountDock from './AccountDock';
+import AccountDock from '../Profile/AccountDock';
 
 const NAV_WIDTH = 240;
 const primaryItems = [{ href: '/dashboard', label: 'Home', Icon: HomeIcon }];

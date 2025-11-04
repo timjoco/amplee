@@ -44,23 +44,12 @@ export default function ProfileSettingsDialog() {
   const router = useRouter();
   const sb = useMemo(() => supabaseBrowser(), []);
   const theme = useTheme();
-
-  // SSR-safe media query to avoid hydration warnings
   const rawIsMobile = useMediaQuery(theme.breakpoints.down('md'), {
     noSsr: true,
   });
   const [isMobile, setIsMobile] = useState(false);
-  useEffect(() => setIsMobile(rawIsMobile), [rawIsMobile]);
-
-  // Main settings dialog state
   const [settingsOpen, setSettingsOpen] = useState(true);
-
-  // Logout confirmation dialog
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const openConfirm = () => setConfirmOpen(true);
-  const closeConfirm = () => setConfirmOpen(false);
-
-  // Current user + initial profile fields
   const [userId, setUserId] = useState<string | null>(null);
   const [initialDisplayName, setInitialDisplayName] = useState<string | null>(
     null
@@ -69,9 +58,8 @@ export default function ProfileSettingsDialog() {
   const [initialLast, setInitialLast] = useState<string | null>(null);
   const [initialAvatarUrl, setInitialAvatarUrl] = useState<string | null>(null);
 
-  // Selection and mobile “list/detail” toggle
   const [selected, setSelected] = useState<Section>('profile');
-  const [mobileView, setMobileView] = useState<'list' | 'detail'>('detail'); // start in detail to match your previous behavior
+  const [mobileView, setMobileView] = useState<'list' | 'detail'>('detail');
 
   // Tokens
   const BG = '#0B0A10';
@@ -93,6 +81,11 @@ export default function ProfileSettingsDialog() {
     setSettingsOpen(false);
   };
 
+  const openConfirm = () => setConfirmOpen(true);
+  const closeConfirm = () => setConfirmOpen(false);
+
+  useEffect(() => setIsMobile(rawIsMobile), [rawIsMobile]);
+
   useEffect(() => {
     document.body.style.overflow = 'hidden';
     return () => {
@@ -100,7 +93,6 @@ export default function ProfileSettingsDialog() {
     };
   }, []);
 
-  // Load session + profile fields (adds display_name)
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -123,9 +115,7 @@ export default function ProfileSettingsDialog() {
         setInitialFirst(row?.first_name ?? null);
         setInitialLast(row?.last_name ?? null);
         setInitialAvatarUrl(row?.avatar_url ?? null);
-      } catch {
-        // non-fatal
-      }
+      } catch {}
     })();
     return () => {
       alive = false;
@@ -156,7 +146,6 @@ export default function ProfileSettingsDialog() {
     }
   };
 
-  // ---------- Right-pane content ----------
   const ProfilePane = (
     <Box id="section-profile" sx={{ py: ROW_Y }}>
       <Typography
@@ -187,7 +176,6 @@ export default function ProfileSettingsDialog() {
           compact
         />
 
-        {/* FYI: You still have first/last loaded if you want to show them somewhere */}
         <Box
           sx={{
             p: 2,
@@ -219,7 +207,6 @@ export default function ProfileSettingsDialog() {
         Manage your account session.
       </Typography>
 
-      {/* Mobile: show Logout here with confirm */}
       {isMobile && (
         <Stack spacing={GAP_Y}>
           <Button
@@ -289,7 +276,6 @@ export default function ProfileSettingsDialog() {
     </Box>
   );
 
-  // ---------- Left rail (desktop) / list (mobile) ----------
   const LeftRail = (
     <Box
       sx={{
@@ -322,7 +308,6 @@ export default function ProfileSettingsDialog() {
         </Box>
       )}
 
-      {/* Desktop title */}
       {!isMobile && (
         <Typography
           variant="overline"
@@ -368,7 +353,6 @@ export default function ProfileSettingsDialog() {
           );
         })}
 
-        {/* Desktop: Logout under sections with confirm */}
         {!isMobile && (
           <Button
             onClick={openConfirm}
@@ -473,15 +457,12 @@ export default function ProfileSettingsDialog() {
             minHeight: '100%',
           }}
         >
-          {/* Left rail always rendered */}
           {LeftRail}
 
-          {/* Right pane: desktop always shows; mobile shows only in 'detail' */}
           {isMobile ? (mobileView === 'detail' ? RightPane : null) : RightPane}
         </DialogContent>
       </Dialog>
 
-      {/* Logout confirmation dialog */}
       <Dialog
         open={confirmOpen}
         onClose={closeConfirm}
