@@ -58,14 +58,9 @@ function Hero() {
       <Blob color="#FF7AE6" size={180} x={160} y={440} />
 
       <Container maxWidth="lg">
-        <Grid
-          container
-          spacing={6}
-          justifyContent="center" // horizontal center
-          alignItems="center"
-        >
+        <Grid container spacing={6} justifyContent="center" alignItems="center">
           <Grid
-            size={{ xs: 12, md: 10, lg: 8 }} // narrower column, centered
+            size={{ xs: 12, md: 10, lg: 8 }}
             sx={{
               mx: 'auto',
               textAlign: 'center', // center on desktop too
@@ -120,7 +115,7 @@ function Hero() {
                 </Button>
 
                 <Button
-                  href="/how-it-works"
+                  href="/waitlist"
                   variant="contained"
                   size="large"
                   sx={{
@@ -133,7 +128,7 @@ function Hero() {
                     '&:hover': { bgcolor: '#eae8ff' },
                   }}
                 >
-                  How It Works
+                  Join the Beta
                 </Button>
               </Stack>
             </Stack>
