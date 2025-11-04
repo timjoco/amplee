@@ -15,6 +15,7 @@ import {
   Typography,
 } from '@mui/material';
 import NextLink from 'next/link';
+import * as React from 'react';
 
 type EventLite = {
   title: string;
@@ -42,30 +43,32 @@ export default function EventSheetHeader({
   onTabChange: (next: TabKey) => void;
   rightActions?: React.ReactNode;
 }) {
-  // unified sub-item text style for details + RSVP text
-  const subTextSx = {
-    fontSize: 14,
-    lineHeight: 1.4,
-    opacity: 0.85,
-  } as const;
+  // unified sub-text styling shared by details + RSVP
+  const SUB_TEXT_SX = React.useMemo(
+    () => ({
+      fontSize: 14,
+      lineHeight: 1.4,
+      opacity: 0.85,
+    }),
+    []
+  );
 
   return (
     <Box
       sx={{
         position: 'sticky',
         top: 'env(safe-area-inset-top, 0px)',
-        zIndex: (t) => t.zIndex.appBar + 1,
+        zIndex: (t) => t.zIndex.appBar + 2,
         px: { xs: 2, md: 3 },
         py: { xs: 1.25, md: 1.75 },
         background:
-          'linear-gradient(180deg, rgba(11,10,16,0.98), rgba(11,10,16,0.94))',
+          'linear-gradient(180deg, rgba(11,10,16,0.72), rgba(11,10,16,0.60))',
         borderBottom: '1px solid rgba(155,135,245,0.22)',
-        backdropFilter: 'saturate(120%) blur(6px)',
+        backdropFilter: 'saturate(120%) blur(10px)',
       }}
     >
-      {/* Always left-aligned, stacked rows */}
-      <Stack spacing={1.0}>
-        {/* Row 1: Back + Title + Booked/Unconfirmed */}
+      {/* Title row */}
+      <Stack spacing={1.25}>
         <Stack
           direction="row"
           alignItems="center"
@@ -103,29 +106,52 @@ export default function EventSheetHeader({
             {event?.title || 'Event'}
           </Typography>
 
-          {typeof event?.is_booked === 'boolean' && (
-            <Chip
-              size="small"
-              label={event.is_booked ? 'Booked' : 'Unconfirmed'}
-              color={event.is_booked ? 'success' : 'warning'}
-              sx={{ height: 20, fontSize: 11, borderRadius: 1 }}
-            />
-          )}
+          {/* Booked/Pending with your colors */}
+          {typeof event?.is_booked === 'boolean' &&
+            (event.is_booked ? (
+              <Chip
+                label="Booked"
+                sx={{
+                  bgcolor: '#B6FF68',
+                  color: '#193A0A',
+                  border: '1px solid #CEFF9E',
+                  height: 20,
+                  fontSize: 11,
+                  borderRadius: 8,
+                  '& .MuiChip-label': { px: 1 },
+                }}
+                size="small"
+              />
+            ) : (
+              <Chip
+                label="Pending"
+                sx={{
+                  bgcolor: '#E879F9',
+                  color: '#33043C',
+                  border: '1px solid #F0ABFC',
+                  height: 20,
+                  fontSize: 11,
+                  borderRadius: 8,
+                  '& .MuiChip-label': { px: 1 },
+                }}
+                size="small"
+              />
+            ))}
         </Stack>
 
-        {/* Row 2: Details (same style as RSVP text) */}
-        <Typography variant="body2" sx={subTextSx} suppressHydrationWarning>
-          {event?.type} · {startsAtLabel}
-          {event?.location ? ` · ${event.location}` : ''}
-        </Typography>
+        <Stack spacing={0.75}>
+          {/* Details row */}
+          <Typography variant="body2" sx={SUB_TEXT_SX} suppressHydrationWarning>
+            {event?.type} · {startsAtLabel}
+            {event?.location ? ` · ${event.location}` : ''}
+          </Typography>
 
-        {/* Row 3: RSVP (same font sizing; own row on desktop & mobile) */}
-        <Box>
-          <InlineRSVPTwoState eventId={eventId} textSx={subTextSx} />
-        </Box>
+          {/* RSVP row (shares SUB_TEXT_SX) */}
+          <InlineRSVPTwoState eventId={eventId} textSx={SUB_TEXT_SX} />
 
-        {/* Row 4 (optional): rightActions — still left-aligned on its own row */}
-        {rightActions && <Box>{rightActions}</Box>}
+          {/* Optional extra actions — stays left aligned with same rhythm */}
+          {rightActions && <Box sx={{ pt: 0.25 }}>{rightActions}</Box>}
+        </Stack>
       </Stack>
 
       {/* Tabs */}
@@ -163,7 +189,7 @@ function InlineRSVPTwoState({
 }: {
   eventId: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  textSx?: any; // inherits unified sub text style from parent
+  textSx?: any; // unified sub-text style from parent
 }) {
   const { mine, counts, saving, error, update } = useAttendance(eventId);
 
@@ -179,7 +205,7 @@ function InlineRSVPTwoState({
     selected: boolean;
     icon: React.ReactNode;
     label: string;
-    color: 'success' | 'info';
+    color: 'success' | 'warning';
     aria: string;
   }) => (
     <Button
@@ -242,7 +268,7 @@ function InlineRSVPTwoState({
           selected={mine === 'pending' || mine == null}
           icon={<HourglassEmptyIcon fontSize="small" />}
           label="Pending"
-          color="info"
+          color="warning"
           aria="Set Pending"
         />
       </Stack>

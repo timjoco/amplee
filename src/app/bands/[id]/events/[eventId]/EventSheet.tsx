@@ -115,16 +115,28 @@ export default function EventSheet({
   return (
     <Box
       sx={{
-        minHeight: '100dvh',
+        position: 'fixed',
+        top: 0,
+        right: 0,
+        bottom: 0,
+        left: { xs: 0, md: SIDE_NAV_WIDTH }, // ← respect the SideNav on desktop
         bgcolor: '#0B0A10',
         color: 'white',
         display: 'flex',
         flexDirection: 'column',
-        overflow: 'hidden',
+        overflow: 'hidden', // kill page scroll; only inner content scrolls
+        zIndex: (t) => t.zIndex.appBar - 1, // generally below a fixed AppBar/SideNav
       }}
     >
-      <Box component="header" sx={{ py: GUTTER_Y }}>
-        <Box sx={{ maxWidth: MAX_W, mx: 'auto', px: GUTTER_X }}>
+      {/* Header wrapper (not a scroll host) */}
+      <Box component="header" sx={{ py: { xs: 1.5, sm: 2 }, flexShrink: 0 }}>
+        <Box
+          sx={{
+            maxWidth: 2000,
+            mx: 'auto',
+            px: { xs: 1, sm: 2, md: 3, lg: 5, xl: 7 },
+          }}
+        >
           <EventSheetHeader
             backHref="/dashboard"
             event={{
@@ -141,55 +153,37 @@ export default function EventSheet({
         </Box>
       </Box>
 
-      <Box component="main">
-        <Box sx={{ maxWidth: MAX_W, mx: 'auto', px: GUTTER_X, height: '100%' }}>
-          {tab === 'chat' &&
-            (showDesktop ? (
-              // DESKTOP
-
-              <ChatTab eventId={eventId} />
-            ) : (
-              // MOBILE
-              <>
-                <ChatTab eventId={eventId} />
-              </>
-            ))}{' '}
-          {tab === 'roster' &&
-            (showDesktop ? (
-              <Grid>
-                {' '}
-                <RosterPanel bandId={bandId} eventId={eventId} />
-              </Grid>
-            ) : (
+      {/* Main is the ONLY scroll container */}
+      <Box component="main" sx={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+        <Box
+          sx={{
+            maxWidth: 2000,
+            mx: 'auto',
+            px: { xs: 1, sm: 2, md: 3, lg: 5, xl: 7 },
+            height: '100%',
+          }}
+        >
+          {tab === 'chat' && <ChatTab eventId={eventId} />}
+          {tab === 'roster' && (
+            <Grid>
               <RosterPanel bandId={bandId} eventId={eventId} />
-            ))}
-          {tab === 'setlist' &&
-            (showDesktop ? (
-              <Grid>
-                {' '}
-                <SetlistTab eventId={eventId} />
-              </Grid>
-            ) : (
+            </Grid>
+          )}
+          {tab === 'setlist' && (
+            <Grid>
               <SetlistTab eventId={eventId} />
-            ))}
-          {tab === 'notes' &&
-            (showDesktop ? (
-              <Grid>
-                {' '}
-                <NotesTab eventId={eventId} />
-              </Grid>
-            ) : (
+            </Grid>
+          )}
+          {tab === 'notes' && (
+            <Grid>
               <NotesTab eventId={eventId} />
-            ))}
-          {tab === 'files' &&
-            (showDesktop ? (
-              <Grid>
-                {' '}
-                <FilesTab eventId={eventId} />
-              </Grid>
-            ) : (
+            </Grid>
+          )}
+          {tab === 'files' && (
+            <Grid>
               <FilesTab eventId={eventId} />
-            ))}
+            </Grid>
+          )}
         </Box>
       </Box>
     </Box>
@@ -389,38 +383,70 @@ function ChatTab({ eventId }: { eventId: string }) {
         }}
       >
         <Box
+          ref={composerRef}
           sx={{
-            maxWidth: 1600,
-            mx: 'auto',
-            px: { xs: 2, sm: 3, md: 4, lg: 6, xl: 8 },
-            py: 1,
+            position: 'fixed',
+            left: { xs: 0, md: SIDE_NAV_WIDTH },
+            right: 0,
+            bottom: 0,
+            zIndex: (t) => t.zIndex.appBar + 1,
           }}
         >
           <Box
             sx={{
-              bgcolor: 'rgba(11,10,16,0.98)',
-              borderTop: '1px solid rgba(255,255,255,0.08)',
-              backdropFilter: 'saturate(120%) blur(6px)',
+              maxWidth: 1600,
+              mx: 'auto',
+              px: { xs: 2, sm: 3, md: 4, lg: 6, xl: 8 },
+              // no vertical padding here—keep it on the surface below
             }}
           >
-            <Box sx={{ display: 'flex', gap: 1 }}>
-              <TextField
-                fullWidth
-                size="medium"
-                placeholder="Message the band…"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    send();
-                  }
+            <Box
+              sx={{
+                bgcolor: '#0B0A10', // solid, matches app background
+                borderTop: '1px solid rgba(255,255,255,0.08)',
+                boxShadow: '0 -8px 24px rgba(0,0,0,0.35)', // subtle lift; optional
+                p: 1, // 8px all around
+                pb: 'calc(8px + env(safe-area-inset-bottom, 0px))', // add safe area only to bottom
+                backdropFilter: 'none', // ensure no blur
+              }}
+            >
+              <Box
+                sx={{
+                  display: 'flex',
+                  gap: 1,
+                  alignItems: 'center',
                 }}
-                InputProps={{ sx: { bgcolor: '#11131a', color: 'white' } }}
-              />
-              <IconButton color="primary" onClick={send} aria-label="Send">
-                <SendIcon />
-              </IconButton>
+              >
+                <TextField
+                  fullWidth
+                  size="medium"
+                  placeholder="Message the band…"
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      send();
+                    }
+                  }}
+                  InputProps={{
+                    sx: {
+                      bgcolor: '#11131a',
+                      color: 'white',
+                      // force visually-even internal padding so top/bottom look identical
+                      '& .MuiInputBase-input': { py: 1.25 }, // ~10px top/bottom
+                    },
+                  }}
+                />
+                <IconButton
+                  color="primary"
+                  onClick={send}
+                  aria-label="Send"
+                  sx={{ width: 40, height: 40, flex: '0 0 auto' }}
+                >
+                  <SendIcon />
+                </IconButton>
+              </Box>
             </Box>
           </Box>
         </Box>
@@ -515,7 +541,7 @@ function RosterPanel({ bandId, eventId }: { bandId: string; eventId: string }) {
       ? 'error'
       : s === 'tentative'
       ? 'warning'
-      : 'default';
+      : 'warning';
 
   return (
     <Paper
