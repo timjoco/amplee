@@ -8,7 +8,7 @@ import { alpha } from '@mui/material/styles';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import AccountDock from '../Profile/AccountDock';
 
 const NAV_WIDTH = 240;
@@ -19,101 +19,154 @@ type ProfileLite = {
   last_name?: string | null;
   email?: string | null;
   avatar_url?: string | null;
-  avatar_path?: string | null; // add when you introduce private storage
-  display_name?: string;
+  display_name?: string | null;
 };
 
 export default function SideNav() {
   const pathname = usePathname();
+
   const [authed, setAuthed] = useState<boolean | null>(null);
   const [profile, setProfile] = useState<ProfileLite | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
 
-  useEffect(() => {
-    let alive = true;
+  // one stable client so listeners aren't recreated
+  const sb = useMemo(() => supabaseBrowser(), []);
 
-    const sb = supabaseBrowser();
+  const loadProfile = useCallback(
+    async (uid: string) => {
+      try {
+        const [{ data: row, error: pErr }, { data: u, error: uErr }] =
+          await Promise.all([
+            sb
+              .from('profiles')
+              .select('display_name, first_name, last_name, avatar_url')
+              .eq('id', uid)
+              .maybeSingle(),
+            sb.auth.getUser(),
+          ]);
+        if (pErr) throw pErr;
+        if (uErr) throw uErr;
 
-    // helper to derive display name
-    const buildDisplayName = (
-      row: { first_name?: string | null; last_name?: string | null } | null,
-      user: {
-        email?: string | null;
-        user_metadata?: Record<string, unknown>;
-      } | null
-    ) => {
-      const full =
-        [row?.first_name, row?.last_name].filter(Boolean).join(' ').trim() ||
-        ((user?.user_metadata?.name as string | undefined) ?? '') ||
-        (user?.email ?? '') ||
-        '';
-      return full || 'Account';
-    };
-
-    // initial auth + profile load
-    sb.auth.getSession().then(async ({ data }) => {
-      if (!alive) return;
-      const session = data.session;
-      setAuthed(Boolean(session));
-      const userId = session?.user?.id;
-      if (!userId) {
-        setProfile(null);
-        return;
-      }
-
-      const [{ data: row }, { data: u }] = await Promise.all([
-        sb
-          .from('profiles')
-          .select('first_name, last_name, avatar_url')
-          .eq('id', userId)
-          .maybeSingle(),
-        sb.auth.getUser(),
-      ]);
-
-      if (!alive) return;
-      const email = u.user?.email ?? null;
-      setProfile({
-        first_name: row?.first_name ?? null,
-        last_name: row?.last_name ?? null,
-        email,
-        avatar_url: row?.avatar_url ?? null,
-        display_name: buildDisplayName(row, u.user ?? null),
-      });
-    });
-
-    const { data: sub } = sb.auth.onAuthStateChange((_event, session) => {
-      setAuthed(Boolean(session));
-      const userId = session?.user?.id;
-
-      if (!userId) {
-        setProfile(null);
-        return;
-      }
-
-      (async () => {
-        const [{ data: row }, { data: u }] = await Promise.all([
-          sb
-            .from('profiles')
-            .select('first_name, last_name, avatar_url')
-            .eq('id', userId)
-            .maybeSingle(),
-          sb.auth.getUser(),
-        ]);
-
-        if (!alive) return;
         const email = u.user?.email ?? null;
         setProfile({
           first_name: row?.first_name ?? null,
           last_name: row?.last_name ?? null,
           email,
           avatar_url: row?.avatar_url ?? null,
-          display_name: buildDisplayName(row, u.user ?? null),
+          display_name: row?.display_name ?? null,
         });
-      })();
+      } catch (e) {
+        console.error('[SideNav] loadProfile error:', e);
+        // don't leave stale profile on errors
+        setProfile((p) => p ?? null);
+      }
+    },
+    [sb]
+  );
+
+  // 1) Session + auth listener
+  useEffect(() => {
+    let alive = true;
+
+    (async () => {
+      try {
+        const {
+          data: { session },
+        } = await sb.auth.getSession();
+        if (!alive) return;
+        setAuthed(!!session);
+        const uid = session?.user?.id ?? null;
+        setUserId(uid);
+        // fire-and-forget so UI never blocks
+        if (uid) loadProfile(uid);
+        else setProfile(null);
+      } catch (e) {
+        console.error('[SideNav] getSession error:', e);
+        if (!alive) return;
+        setAuthed(false);
+        setUserId(null);
+        setProfile(null);
+      }
+    })();
+
+    const { data: sub } = sb.auth.onAuthStateChange((_event, session) => {
+      if (!alive) return;
+      setAuthed(!!session);
+      const uid = session?.user?.id ?? null;
+      setUserId(uid);
+      if (uid) loadProfile(uid); // fire-and-forget
+      else setProfile(null);
     });
 
     return () => {
       alive = false;
       sub?.subscription?.unsubscribe?.();
+    };
+  }, [sb, loadProfile]);
+
+  // 2) Realtime: subscribe when we know the userId
+  useEffect(() => {
+    if (!userId) return;
+
+    const ch = sb
+      .channel(`self:profile:${userId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'profiles',
+          filter: `id=eq.${userId}`,
+        },
+        (payload) => {
+          const next = payload.new as {
+            display_name?: string | null;
+            first_name?: string | null;
+            last_name?: string | null;
+            avatar_url?: string | null;
+          };
+          setProfile((p) =>
+            p
+              ? {
+                  ...p,
+                  display_name: next.display_name ?? p.display_name ?? null,
+                  first_name: next.first_name ?? p.first_name ?? null,
+                  last_name: next.last_name ?? p.last_name ?? null,
+                  avatar_url: next.avatar_url ?? p.avatar_url ?? null,
+                }
+              : p
+          );
+        }
+      )
+      .subscribe();
+
+    return () => {
+      sb.removeChannel(ch);
+    };
+  }, [sb, userId]);
+
+  useEffect(() => {
+    const onName = (e: Event) => {
+      const ce = e as CustomEvent<{ display_name: string }>;
+      setProfile((p) =>
+        p ? { ...p, display_name: ce.detail.display_name } : p
+      );
+    };
+
+    const onAvatar = (e: Event) => {
+      const ce = e as CustomEvent<{
+        avatar_url: string;
+        updated_at?: string;
+        isPreview?: boolean;
+      }>;
+      setProfile((p) => (p ? { ...p, avatar_url: ce.detail.avatar_url } : p));
+    };
+
+    window.addEventListener('profiles:display_name_changed', onName);
+    window.addEventListener('profiles:avatar_changed', onAvatar);
+    return () => {
+      window.removeEventListener('profiles:display_name_changed', onName);
+      window.removeEventListener('profiles:avatar_changed', onAvatar);
     };
   }, []);
 
@@ -172,7 +225,7 @@ export default function SideNav() {
         sx={(t) => ({ borderColor: alpha(t.palette.primary.main, 0.18) })}
       />
 
-      {/* Primary nav (Home) */}
+      {/* Primary nav */}
       <Stack spacing={0.75} sx={{ mt: 1 }}>
         {primaryItems.map(({ href, label, Icon }) => {
           const active = pathname?.startsWith(href);

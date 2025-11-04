@@ -4,6 +4,7 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import { Box, IconButton, Stack, Tooltip, Typography } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import Link from 'next/link';
+import { useMemo } from 'react';
 import AvatarImage from '../ui/AvatarImage';
 
 type ProfileLite = {
@@ -11,8 +12,7 @@ type ProfileLite = {
   last_name?: string | null;
   email?: string | null;
   avatar_url?: string | null;
-  avatar_path?: string | null;
-  display_name?: string;
+  display_name?: string | null;
 };
 
 export default function AccountDock({
@@ -24,11 +24,20 @@ export default function AccountDock({
   placement?: 'fixed' | 'inline';
   offsetLeft?: number;
 }) {
-  const displayName =
-    profile?.display_name ||
-    [profile?.first_name, profile?.last_name].filter(Boolean).join(' ') ||
-    profile?.email ||
-    'Account';
+  const displayName = useMemo(() => {
+    const dnRaw = profile?.display_name ?? undefined;
+    const dn = typeof dnRaw === 'string' ? dnRaw.trim() : '';
+
+    if (dn) return dn;
+
+    const full = [profile?.first_name, profile?.last_name]
+      .filter(Boolean)
+      .join(' ')
+      .trim();
+    if (full) return full;
+
+    return profile?.email || 'Account';
+  }, [profile]);
 
   return (
     <Box
@@ -58,10 +67,10 @@ export default function AccountDock({
           <AvatarImage
             name={displayName}
             bucket="profile-avatars"
-            avatarPath={profile?.avatar_path ?? undefined}
             srcGuess={profile?.avatar_url ?? undefined}
             size={36}
           />
+
           <Typography
             variant="subtitle2"
             sx={{
@@ -77,7 +86,6 @@ export default function AccountDock({
             {displayName}
           </Typography>
 
-          {/* Settings gear inline */}
           <Tooltip title="Settings">
             <IconButton
               component={Link}
