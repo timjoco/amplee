@@ -1,6 +1,6 @@
 'use client';
 
-import GlobalCreate from '@/components/GlobalCreate';
+import GlobalCreate from '@/components/Nav/GlobalCreate';
 
 export default function GlobalCreateHost() {
   return <GlobalCreate />;
