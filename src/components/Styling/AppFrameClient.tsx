@@ -17,7 +17,6 @@ export default function AppFrameClient({ children, initialAuthed }: Props) {
   const [authed, setAuthed] = useState(initialAuthed);
   const pathname = usePathname();
 
-  // Treat >=md as desktop (MUI default md = 900px)
   const mdUp = useMediaQuery('(min-width:900px)');
   const isMobile = !mdUp;
 
@@ -30,9 +29,9 @@ export default function AppFrameClient({ children, initialAuthed }: Props) {
     return () => sub?.subscription?.unsubscribe?.();
   }, []);
 
+  const isWaitlist = pathname?.startsWith('/waitlist');
   const showSideNav = authed;
-  const showPublicHeader = !authed;
-
+  const showPublicHeader = !authed && !isWaitlist;
   const hideBottomNav = useMemo(
     () => isMobile && isEventSheetPath(pathname),
     [isMobile, pathname]

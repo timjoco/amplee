@@ -53,11 +53,9 @@ export default function RolePill({ role, size = 'small', sx, ...rest }: Props) {
           alignSelf: 'flex-start',
           display: 'inline-flex',
           width: 'auto',
-          maxWidth: { xs: 120, sm: 'max-content' }, // <-- cap width on very small screens
+          maxWidth: { xs: 120, sm: 'max-content' },
           flexShrink: 0,
-
           borderRadius: 999,
-          // responsive root padding & height
           px: { xs: 0.75, sm: 1.25 }, // <-- tighter on xs
           height: { xs: 22, sm: 28 }, // <-- shorter on xs
           fontWeight: 800,
