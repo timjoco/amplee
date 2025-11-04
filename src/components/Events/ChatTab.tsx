@@ -315,6 +315,7 @@ export default function ChatTab({ eventId }: { eventId: string }) {
           >
             {messages.map((m) => (
               <Stack key={m.id} direction="row" gap={1.25}>
+                <Typography>{m.profiles?.display_name}</Typography>
                 <AvatarImage
                   name={m.profiles?.display_name || 'Member'}
                   bucket="profile-avatars"
