@@ -225,7 +225,7 @@ export default function WaitlistPage() {
             <FeatureCard
               icon={<GroupsIcon />}
               title="Your band's line up, locked in"
-              caption="Assign roles that hit the right note — Admin, Member, or Guest Star. Everyone knows their part."
+              caption="Assign roles that hit the right note — singer, drummer, or featured artist. Everyone knows their part."
               sx={{ height: CARD_H }}
             >
               <PreviewRoster />
@@ -236,7 +236,7 @@ export default function WaitlistPage() {
             <FeatureCard
               icon={<DescriptionIcon />}
               title="Setlists you actually want to open."
-              caption="Tap a song, get the chords, nail the solp. No PDFs, no panic. Just music that moves."
+              caption="Tap a song, get the chords, nail the solo. No PDFs, no panic. Just music that moves."
               sx={{ height: CARD_H }}
             >
               <SetlistPreview />
