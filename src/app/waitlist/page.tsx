@@ -2,27 +2,40 @@
 'use client';
 
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
+import CloseIcon from '@mui/icons-material/Close';
 import ForumIcon from '@mui/icons-material/Forum';
 import GroupsIcon from '@mui/icons-material/Groups';
-import LibraryMusicIcon from '@mui/icons-material/LibraryMusic';
 import MailOutlineIcon from '@mui/icons-material/MailOutline';
 import SendIcon from '@mui/icons-material/Send';
 
+import MusicNoteIcon from '@mui/icons-material/MusicNote';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
+
+import DescriptionIcon from '@mui/icons-material/Description';
 import {
   Box,
   Button,
+  Chip,
   CircularProgress,
   Container,
+  Dialog,
+  DialogContent,
+  DialogTitle,
   Grid,
+  IconButton,
   InputAdornment,
   Paper,
   Snackbar,
   Stack,
+  Tab,
+  Tabs,
   TextField,
   Typography,
 } from '@mui/material';
-import { alpha } from '@mui/material/styles';
+import { alpha, SxProps, Theme } from '@mui/material/styles';
 import { useState } from 'react';
+
+import React from 'react';
 
 const BLURPLE = '#5865F2';
 const BLURPLE_HOVER = '#4752C4';
@@ -65,6 +78,8 @@ export default function WaitlistPage() {
     }
   }
 
+  const CARD_H = { xs: 'auto', md: 380 }; // pick your height
+
   return (
     <Box
       sx={{
@@ -100,7 +115,7 @@ export default function WaitlistPage() {
                 border: `1px solid ${alpha(BLURPLE, 0.35)}`,
               })}
             >
-              BETA ACCESS
+              AMPLEE - BETA ACCESS
             </Typography>
 
             <Typography
@@ -115,7 +130,7 @@ export default function WaitlistPage() {
                 textFillColor: 'transparent',
               }}
             >
-              Simplify the chaos. Amplify the music.
+              Simplify the chaos - Amplify the music
             </Typography>
 
             <Typography variant="h6" sx={{ opacity: 0.9, maxWidth: 780 }}>
@@ -194,32 +209,37 @@ export default function WaitlistPage() {
           </Stack>
         </Paper>
 
-        <Grid container spacing={2.5}>
-          <Grid size={{ xs: 12, md: 4 }}>
+        <Grid container spacing={2.5} alignItems="stretch">
+          <Grid size={{ xs: 12, md: 4 }} sx={{ display: 'flex' }}>
             <FeatureCard
               icon={<ForumIcon />}
-              title="Your bands virtual green room to help stay on top of your communication"
-              caption="Message per-event so details never get lost. Pinned notes keep the plan clear."
+              title="Your band’s digital green room."
+              caption=" Every gig gets its own chat — no more lost texts, no more chaos."
+              sx={{ height: CARD_H }}
             >
               <PreviewChat />
             </FeatureCard>
           </Grid>
-          <Grid size={{ xs: 12, md: 4 }}>
+
+          <Grid size={{ xs: 12, md: 4 }} sx={{ display: 'flex' }}>
             <FeatureCard
               icon={<GroupsIcon />}
-              title="Roster roles that match real bands"
-              caption="Mark Admin/Member and add loose roles like guitar, singer, or photographer."
+              title="Your band's line up, locked in"
+              caption="Assign roles that hit the right note — Admin, Member, or Guest Star. Everyone knows their part."
+              sx={{ height: CARD_H }}
             >
               <PreviewRoster />
             </FeatureCard>
           </Grid>
-          <Grid size={{ xs: 12, md: 4 }}>
+
+          <Grid size={{ xs: 12, md: 4 }} sx={{ display: 'flex' }}>
             <FeatureCard
-              icon={<LibraryMusicIcon />}
-              title="Setlists you can actually use"
-              caption="Fast reordering and a clean stage-ready view."
+              icon={<DescriptionIcon />}
+              title="Setlists you actually want to open."
+              caption="Tap a song, get the chords, nail the solp. No PDFs, no panic. Just music that moves."
+              sx={{ height: CARD_H }}
             >
-              <PreviewSetlist />
+              <SetlistPreview />
             </FeatureCard>
           </Grid>
         </Grid>
@@ -257,31 +277,39 @@ function FeatureCard({
   title,
   caption,
   children,
+  sx,
 }: {
   icon: React.ReactNode;
   title: string;
   caption: string;
   children: React.ReactNode;
+  sx?: SxProps<Theme>;
 }) {
+  const base = (t: Theme) => ({
+    borderRadius: 2,
+    p: 2,
+    border: `1px solid ${alpha(t.palette.primary.main, 0.18)}`,
+    background:
+      'linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02))',
+    display: 'flex',
+    flexDirection: 'column',
+    height: '100%',
+    width: '100%', // ✅ add this
+    minHeight: 0,
+  });
+
+  const mergedSx: SxProps<Theme> = Array.isArray(sx)
+    ? [base, ...sx]
+    : sx
+    ? [base, sx]
+    : [base];
+
   return (
-    <Paper
-      elevation={0}
-      sx={(t) => ({
-        borderRadius: 2,
-        p: 2,
-        border: `1px solid ${alpha(t.palette.primary.main, 0.18)}`,
-        background:
-          'linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02))',
-        height: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 10,
-      })}
-    >
-      <Stack spacing={1}>
+    <Paper elevation={0} sx={mergedSx}>
+      <Stack spacing={1} sx={{ flexShrink: 0 }}>
         <Stack direction="row" spacing={1} alignItems="center">
           <Box
-            sx={() => ({
+            sx={{
               width: 28,
               height: 28,
               borderRadius: 1,
@@ -290,24 +318,302 @@ function FeatureCard({
               border: `1px solid ${alpha('#FFFFFF', 0.14)}`,
               bgcolor: alpha('#FFFFFF', 0.04),
               flexShrink: 0,
-            })}
+            }}
           >
             {icon}
           </Box>
           <Typography fontWeight={900}>{title}</Typography>
         </Stack>
-        <Typography variant="body2" sx={{ color: SUBTEXT }}>
+        <Typography variant="body2" sx={{ color: 'rgba(237,235,255,0.75)' }}>
           {caption}
         </Typography>
       </Stack>
-      <Box sx={{ mt: 0.5 }}>{children}</Box>
+
+      {/* Preview area takes the rest */}
+      <Box
+        sx={{
+          mt: 1,
+          flex: 1,
+          minHeight: 0,
+          display: 'flex',
+          overflow: 'hidden',
+          '& > *': {
+            flex: 1,
+            minWidth: 0,
+            minHeight: 0,
+            width: '100%',
+            height: '100%',
+          },
+        }}
+      >
+        {children}
+      </Box>
     </Paper>
   );
 }
 
-/* ------------------------------ Mini Previews ------------------------------ */
+function SetlistPreview() {
+  const SONGS = [
+    {
+      id: '1',
+      title: 'Blackbird and the Bluejay',
+      key: 'G',
+      bpm: 92,
+      notes:
+        'Starts with light drums. Everyone in on first chorus. End on big G with a held crash.',
+      chordSheet: `Intro: | G  D/F# | Em  C | (x2)
+
+Verse 1:
+G D/F# Em C x2
+
+Pre Chorus
+Am C D x1
+
+Chorus:
+G D/F# Em C`,
+    },
+    {
+      id: '2',
+      title: 'Hot Water',
+      key: 'D',
+      bpm: 112,
+      notes:
+        'Guitars palm-mute on verses. Half-time drums in the bridge. Vocal cutoff on last beat.',
+      chordSheet: `Intro: | D  A/C# | Bm  G | (x2)
+
+Verse: D  A/C#  Bm  G
+Pre:   Em  G  A
+Chorus: D  A  Bm  G
+
+Bridge:
+Bm G
+D A`,
+    },
+    {
+      id: '3',
+      title: 'Drop that Weight',
+      key: 'A',
+      bpm: 98,
+      notes:
+        'Bass enters on bar 3. Harmonies only on V2 and V3. Tag last chorus.',
+      chordSheet: `Intro: | A  E/G# | F#m  D |
+
+Verse: A  E/G#  F#m  D
+Pre:   Bm  D  E
+Chorus: A  E  F#m  D
+
+Tag: A (hold)`,
+    },
+  ] as const;
+
+  const [open, setOpen] = React.useState(false);
+  const [active, setActive] = React.useState<(typeof SONGS)[number] | null>(
+    null
+  );
+  const [tab, setTab] = React.useState(0);
+
+  const openSong = (s: (typeof SONGS)[number]) => {
+    setActive(s);
+    setOpen(true);
+  };
+  const close = () => setOpen(false);
+
+  return (
+    <Box
+      sx={{
+        borderRadius: 1.5,
+        bgcolor: '#11131A',
+        border: '1px solid rgba(255,255,255,0.10)',
+        height: { xs: 240, md: '100%' },
+        width: '100%', // ✅ add
+        display: 'flex',
+        flexDirection: 'column',
+        minHeight: 0,
+        overflow: 'hidden',
+      }}
+    >
+      {/* Header row */}
+      <Stack
+        direction="row"
+        alignItems="center"
+        justifyContent="space-between"
+        sx={{ p: 1, pb: 0.75, flexShrink: 0 }}
+      >
+        <Stack direction="row" spacing={1} alignItems="center">
+          <MusicNoteIcon sx={{ opacity: 0.9 }} fontSize="small" />
+          <Typography variant="subtitle2" fontWeight={900} letterSpacing={0.4}>
+            Setlist (Demo)
+          </Typography>
+        </Stack>
+        <Chip
+          size="small"
+          label={`${SONGS.length} songs`}
+          sx={{ height: 20, fontWeight: 800 }}
+        />
+      </Stack>
+
+      {/* Scrollable song list */}
+      <Box sx={{ px: 1, pb: 1, flex: 1, minHeight: 0, overflowY: 'auto' }}>
+        <Stack spacing={0.75}>
+          {SONGS.map((s, idx) => (
+            <Stack
+              key={s.id}
+              direction="row"
+              alignItems="center"
+              spacing={0.5}
+              onClick={() => openSong(s)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => e.key === 'Enter' && openSong(s)}
+              sx={(t) => ({
+                p: 0.75,
+                borderRadius: 1.25,
+                border: `1px solid ${alpha(t.palette.primary.main, 0.18)}`,
+                bgcolor: alpha('#FFFFFF', 0.03),
+                cursor: 'pointer',
+                userSelect: 'none',
+                '&:hover': { bgcolor: alpha('#FFFFFF', 0.06) },
+              })}
+            >
+              <Box
+                sx={(t) => ({
+                  width: 24,
+                  height: 24,
+                  borderRadius: 0.75,
+                  fontSize: 12,
+                  fontWeight: 900,
+                  display: 'grid',
+                  placeItems: 'center',
+                  background:
+                    'linear-gradient(135deg, rgba(124,58,237,.35), rgba(168,85,247,.25))',
+                  border: `1px solid ${alpha(t.palette.primary.main, 0.35)}`,
+                })}
+              >
+                {idx + 1}
+              </Box>
+
+              <Box sx={{ minWidth: 0, flex: 1 }}>
+                <Typography
+                  noWrap
+                  sx={{
+                    fontWeight: 800,
+                    letterSpacing: 0.2,
+                    fontSize: { xs: 13, md: 13 },
+                  }}
+                >
+                  {s.title}
+                </Typography>
+                <Typography
+                  variant="caption"
+                  sx={{ opacity: 0.75, display: 'block', lineHeight: 1.2 }}
+                >
+                  Key {s.key} · {s.bpm} BPM
+                </Typography>
+              </Box>
+
+              <IconButton size="small">
+                <OpenInNewIcon fontSize="inherit" />
+              </IconButton>
+            </Stack>
+          ))}
+        </Stack>
+      </Box>
+
+      {/* Details dialog (same a11y fix: no <h6> inside <h2>) */}
+      <Dialog
+        open={open}
+        onClose={close}
+        fullWidth
+        maxWidth="sm"
+        PaperProps={{
+          sx: (t) => ({
+            borderRadius: 2,
+            border: `1px solid ${alpha(t.palette.primary.main, 0.28)}`,
+            background:
+              'linear-gradient(180deg, rgba(14,14,20,0.95), rgba(14,14,20,0.88))',
+          }),
+        }}
+      >
+        <DialogTitle component="div" sx={{ pr: 6 }}>
+          <Typography variant="h6" component="h2" fontWeight={900} noWrap>
+            {active?.title}
+          </Typography>
+          {active && (
+            <Typography variant="caption" component="p" sx={{ opacity: 0.8 }}>
+              Key: {active.key} · {active.bpm} BPM
+            </Typography>
+          )}
+          <IconButton
+            onClick={close}
+            size="small"
+            aria-label="Close"
+            sx={{ position: 'absolute', top: 8, right: 8 }}
+          >
+            <CloseIcon fontSize="small" />
+          </IconButton>
+        </DialogTitle>
+
+        <Tabs
+          value={tab}
+          onChange={(_e, v) => setTab(v)}
+          variant="fullWidth"
+          sx={{ px: 2, borderBottom: () => `1px solid ${alpha('#fff', 0.08)}` }}
+        >
+          <Tab
+            icon={<DescriptionIcon fontSize="small" />}
+            iconPosition="start"
+            label="Chord Sheet"
+          />
+          <Tab
+            icon={<OpenInNewIcon fontSize="small" />}
+            iconPosition="start"
+            label="Notes"
+          />
+        </Tabs>
+
+        {/* NEW: tab panels */}
+        <DialogContent dividers sx={{ p: 0 }}>
+          {tab === 0 && active && (
+            <Box
+              sx={{
+                p: 2,
+                fontFamily:
+                  'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+                fontSize: 12.5,
+                lineHeight: 1.5,
+                whiteSpace: 'pre-wrap',
+                overflowX: 'auto',
+                bgcolor: 'rgba(0,0,0,0.25)',
+                borderTop: '1px solid rgba(255,255,255,0.06)',
+              }}
+            >
+              {active.chordSheet}
+            </Box>
+          )}
+
+          {tab === 1 && active && (
+            <Box sx={{ p: 2 }}>
+              <Typography
+                variant="body2"
+                sx={{ opacity: 0.9, whiteSpace: 'pre-wrap' }}
+              >
+                {active.notes}
+              </Typography>
+            </Box>
+          )}
+        </DialogContent>
+      </Dialog>
+    </Box>
+  );
+}
 
 function PreviewChat() {
+  const event = {
+    title: 'First Fridays @ Northside Social',
+    location: 'North Kansas City, MO',
+    when: 'Fri • Nov 8 • 7:00–10:00 PM',
+  };
+
   const people = [
     { id: 'alex', name: 'Alex Rivera' },
     { id: 'maya', name: 'Maya Chen' },
@@ -355,6 +661,7 @@ function PreviewChat() {
     },
   ];
 
+  const HEADER_H = 52; // <- tweak to taste
   const COMPOSER_H = 44;
 
   return (
@@ -364,16 +671,60 @@ function PreviewChat() {
         borderRadius: 1.5,
         bgcolor: '#11131A',
         border: '1px solid rgba(255,255,255,0.10)',
-        height: 260,
+        height: { xs: 240, md: '100%' },
+        width: '100%', // ✅ add
         overflow: 'hidden',
       }}
     >
+      {/* ----- Event Header (sticky inside preview) ----- */}
+      <Box
+        sx={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          height: HEADER_H,
+          zIndex: 2,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1,
+          px: 1.25,
+          borderBottom: '1px solid rgba(255,255,255,0.08)',
+          backgroundColor: '#0F1118',
+          boxShadow: '0 1px 0 rgba(255,255,255,0.06)',
+        }}
+      >
+        <Stack sx={{ minWidth: 0, flex: 1 }} spacing={0.25}>
+          <Typography
+            variant="subtitle1"
+            component="h3"
+            noWrap
+            sx={{ fontWeight: 900, letterSpacing: 0.2, lineHeight: 1.1 }}
+            title={event.title}
+          >
+            {event.title}
+          </Typography>
+
+          <Typography
+            variant="caption"
+            component="p"
+            noWrap
+            sx={{ opacity: 0.8, lineHeight: 1.2 }}
+            title={`${event.location} · ${event.when}`}
+          >
+            {event.location} · {event.when}
+          </Typography>
+        </Stack>
+      </Box>
+
+      {/* ----- Scroll Area (chat messages) ----- */}
       <Box
         sx={{
           position: 'absolute',
           inset: 0,
           overflowY: 'auto',
           p: 1.25,
+          pt: `calc(${HEADER_H}px + 8px)`,
           pb: `calc(${COMPOSER_H}px + 12px)`,
           WebkitOverflowScrolling: 'touch',
           scrollbarGutter: 'stable',
@@ -418,6 +769,7 @@ function PreviewChat() {
         </Stack>
       </Box>
 
+      {/* ----- Composer (bottom) ----- */}
       <Box
         sx={{
           position: 'absolute',
@@ -483,7 +835,12 @@ function PreviewRoster() {
         borderRadius: 1.5,
         p: 1,
         bgcolor: '#11131A',
-        border: `1px solid rgba(255,255,255,0.10)`,
+        border: '1px solid rgba(255,255,255,0.10)',
+        height: { xs: 240, md: '100%' },
+        width: '100%', // ✅ add
+        display: 'flex',
+        flexDirection: 'column',
+        minHeight: 0,
       }}
     >
       <Stack spacing={0.75}>
@@ -546,62 +903,6 @@ function FakeAvatar({ name, seed = 0 }: { name: string; seed?: number }) {
       title={name}
     >
       <span style={{ transform: 'translateY(1px)' }}>{emoji}</span>
-    </Box>
-  );
-}
-
-function PreviewSetlist() {
-  return (
-    <Box
-      sx={{
-        borderRadius: 1.5,
-        p: 1,
-        bgcolor: '#11131A',
-        border: `1px solid ${BORDER}`,
-      }}
-    >
-      <Stack spacing={0.5}>
-        {[
-          'Hot Open Water',
-          'Meadowlark and the Blackbird',
-          'Drop That Weight',
-          'One Key',
-          'Head In On My Own',
-          'Sweet Times',
-        ].map((song, i) => (
-          <Stack
-            key={song}
-            direction="row"
-            spacing={1}
-            alignItems="center"
-            sx={{
-              py: 0.5,
-              borderBottom: `1px solid ${alpha('#fff', 0.06)}`,
-              '&:last-of-type': { borderBottom: 'none' },
-            }}
-          >
-            <Box
-              sx={{
-                width: 22,
-                height: 22,
-                borderRadius: 0.75,
-                bgcolor: alpha(BLURPLE, 0.22),
-                border: `1px solid ${alpha(BLURPLE, 0.45)}`,
-                display: 'grid',
-                placeItems: 'center',
-                fontSize: 12,
-                fontWeight: 800,
-              }}
-            >
-              {i + 1}
-            </Box>
-            <Typography noWrap fontWeight={700} fontSize={13}>
-              {song}
-            </Typography>
-            <Box sx={{ ml: 'auto', opacity: 0.7, fontSize: 12 }}>3:24</Box>
-          </Stack>
-        ))}
-      </Stack>
     </Box>
   );
 }

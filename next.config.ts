@@ -10,7 +10,7 @@ const nextConfig: NextConfig = {
         source:
           '/((?!waitlist|_next|api|static|images|assets|favicon\\.ico|robots\\.txt|sitemap\\.xml).*)',
         destination: '/waitlist',
-        permanent: true, // set to true (308) when ready
+        permanent: true,
       },
     ];
   },

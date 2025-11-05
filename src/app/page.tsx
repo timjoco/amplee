@@ -101,7 +101,7 @@ function Hero() {
                 sx={{
                   pt: 3,
                   width: '100%',
-                  justifyContent: 'center', // center buttons
+                  justifyContent: 'center',
                 }}
               >
                 <Button
