@@ -17,7 +17,6 @@ function fmtErr(e: unknown): string {
   if (typeof e === 'object') {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const anyE = e as any;
-    // Supabase errors often have these:
     return (
       anyE.message ||
       anyE.error_description ||
@@ -42,7 +41,6 @@ export async function createBand(
   const user = auth?.user;
   if (!user) throw new Error('You must be signed in.');
 
-  // 1) Call RPC that inserts into bands (your DB trigger adds the creator as admin)
   const { data: rpcData, error: rpcErr } = await sb.rpc('create_band', {
     p_name: trimmed,
   });
@@ -58,20 +56,17 @@ export async function createBand(
     const ext = avatarFile.name.split('.').pop()?.toLowerCase() || 'jpg';
     const path = `${row.id}/${crypto.randomUUID()}.${ext}`;
 
-    // ⬇️ upload to private bucket
     const { error: upErr } = await sb.storage
       .from('band-avatars')
       .upload(path, avatarFile, { upsert: true, cacheControl: '3600' });
     if (upErr) throw new Error(upErr.message);
 
-    // ⬇️ store the *path* (not a public URL)
     const { error: updErr } = await sb
       .from('bands')
       .update({ avatar_url: path })
       .eq('id', row.id);
     if (updErr) throw new Error(updErr.message);
 
-    // return the path to the UI; BandTile will sign it
     avatar_url = path;
   }
   const created: CreatedBand = {

@@ -277,7 +277,6 @@ export default function GlobalCreate({
     };
   }, [open, router, setOpen, fetchBands]);
 
-  // Create band (hook)
   const onSubmitCreate = useCallback(async () => {
     const name = bandName.trim();
     if (!name) return;
@@ -317,7 +316,6 @@ export default function GlobalCreate({
     router,
   ]);
 
-  // Global open/close events (SideNav/BottomNav triggers)
   useEffect(() => {
     const openHandler = () => setOpen(true);
     const closeHandler = () => setOpen(false);

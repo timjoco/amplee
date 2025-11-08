@@ -2,7 +2,7 @@
 'use client';
 
 import BandGrid from '@/components/Bands/BandGrid';
-import NoBandsNoEventsPaper from '@/components/Bands/NoBandNoEventsPaper';
+import NoBandsNoEventsPaper from '@/components/Bands/NoBandsNoEventsPaper';
 import EventInboxList from '@/components/Events/EventInboxList';
 import GlobalCreate from '@/components/Nav/GlobalCreate';
 import { supabaseBrowser } from '@/lib/supabaseClient';

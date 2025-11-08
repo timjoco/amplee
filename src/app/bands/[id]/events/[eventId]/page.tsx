@@ -1,15 +1,12 @@
+// app/bands/[id]/events/[eventId]/page.tsx
 import { createClient } from '@/utils/supabase/server';
 import { notFound, redirect } from 'next/navigation';
 import EventSheet from '../../../../../components/Events/EventSheet';
 
 type Params = { id: string; eventId: string };
 
-export default async function EventPage({
-  params,
-}: {
-  params: Promise<Params>;
-}) {
-  const { id: bandId, eventId } = await params;
+export default async function EventPage({ params }: { params: Params }) {
+  const { id: bandId, eventId } = params; // <-- no await
   const supabase = createClient();
 
   const {

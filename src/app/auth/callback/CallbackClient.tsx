@@ -120,7 +120,6 @@ export default function CallbackClient() {
                   `${acceptRes.status} ${acceptRes.statusText}`;
             throw new Error(msg);
           }
-          // success, continue
         } catch (e: any) {
           if (mounted) setError(e?.message ?? 'Invite acceptance failed');
           return;
@@ -140,7 +139,6 @@ export default function CallbackClient() {
         .maybeSingle();
 
       if (profErr) {
-        // If profile read fails, default to dashboard (or show a gentle error)
         router.replace('/dashboard');
         return;
       }
