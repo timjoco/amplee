@@ -110,7 +110,6 @@ export default function EventSheetHeader({
             {event?.title || 'Event'}
           </Typography>
 
-          {/* Booked/Pending with your colors */}
           {typeof event?.is_booked === 'boolean' &&
             (event.is_booked ? (
               <Chip
@@ -144,16 +143,13 @@ export default function EventSheetHeader({
         </Stack>
 
         <Stack spacing={0.75}>
-          {/* Details row */}
           <Typography variant="body2" sx={SUB_TEXT_SX} suppressHydrationWarning>
             {event?.type} · {startsAtLabel}
             {event?.location ? ` · ${event.location}` : ''}
           </Typography>
 
-          {/* RSVP row (shares SUB_TEXT_SX) */}
           <InlineRSVPTwoState eventId={eventId} textSx={SUB_TEXT_SX} />
 
-          {/* Optional extra actions — stays left aligned with same rhythm */}
           {rightActions && <Box sx={{ pt: 0.25 }}>{rightActions}</Box>}
         </Stack>
       </Stack>
@@ -203,7 +199,7 @@ function InlineRSVPTwoState({
   }>({ open: false, next: 'accepted' });
 
   const openConfirm = (next: 'accepted' | 'pending') => {
-    if (mine === next) return; // no-op if already selected
+    if (mine === next) return;
     setConfirm({ open: true, next });
   };
 
@@ -214,20 +210,18 @@ function InlineRSVPTwoState({
   const handleConfirm = async () => {
     await update(confirm.next);
 
-    // get current user id for roster sync
     const {
       data: { user },
     } = await sb.auth.getUser();
     const userId = user?.id;
 
-    // broadcast to any listeners (RosterPanel)
     if (userId) {
       window.dispatchEvent(
         new CustomEvent('amplee:rsvp-change', {
           detail: {
-            eventId, // current event
-            userId, // who changed
-            next: confirm.next, // 'accepted' | 'pending'
+            eventId,
+            userId,
+            next: confirm.next,
           },
         })
       );

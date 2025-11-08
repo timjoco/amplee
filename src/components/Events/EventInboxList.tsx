@@ -2,6 +2,8 @@
 'use client';
 
 import { supabaseBrowser } from '@/lib/supabaseClient';
+import CheckIcon from '@mui/icons-material/Check';
+import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
 import {
   Avatar,
   Box,
@@ -41,8 +43,8 @@ type LastMsg = {
 
 export default function EventInboxList({
   onLoaded,
-  bandId, // optional: scope to a single band
-  showAvatars = true, // optional: hide avatars on band page
+  bandId,
+  showAvatars = true,
 }: {
   onLoaded?: (count: number) => void;
   bandId?: string;
@@ -80,7 +82,6 @@ export default function EventInboxList({
   const load = useCallback(async () => {
     setLoading(true);
 
-    // 1) Who am I?
     const { data: auth } = await sb.auth.getUser();
     const userId = auth?.user?.id ?? null;
 
@@ -93,9 +94,6 @@ export default function EventInboxList({
       return;
     }
 
-    // 2) Determine which bandIds to query:
-    //    - If bandId prop provided, scope to that band
-    //    - Otherwise, use the bands the current user belongs to
     let bandIds: string[] = [];
     if (bandId) {
       bandIds = [bandId];
@@ -117,7 +115,6 @@ export default function EventInboxList({
       return;
     }
 
-    // 3) Fetch events (view already includes my tri-state status)
     const { data: events, error: eErr } = await sb
       .from('events_with_my_attendance')
       .select(
@@ -158,7 +155,6 @@ export default function EventInboxList({
         : null,
     }));
 
-    // 4) Sort: upcoming asc, past desc
     const now = Date.now();
     const toTs = (s?: string | null) =>
       s ? new Date(s).getTime() : Number.POSITIVE_INFINITY;
@@ -174,7 +170,6 @@ export default function EventInboxList({
     eventIdsRef.current = sorted.map((e) => e.id);
     onLoaded?.(sorted.length);
 
-    // 5) Latest message per event
     if (sorted.length) {
       const ids = sorted.map((e) => e.id);
       const { data: msgs, error: mErr } = await sb
@@ -195,7 +190,6 @@ export default function EventInboxList({
       setLastMsgs({});
     }
 
-    // 6) Sign private band avatar URLs (skip if we won't render avatars)
     if (showAvatars) {
       const uniqueBandPairs = Array.from(
         new Map(
@@ -223,7 +217,6 @@ export default function EventInboxList({
     load();
   }, [load]);
 
-  // Realtime: last message updates
   useEffect(() => {
     const ch = sb
       .channel('dashboard:event-inbox')
@@ -286,19 +279,13 @@ export default function EventInboxList({
             const avatarSrc = (band?.id && avatarMap[band.id]) || undefined;
 
             const statusChip = e.is_booked ? (
-              <Chip
-                label="Booked"
-                color="success"
-                size="small"
-                sx={{ height: 20, fontSize: 11, borderRadius: 1, ml: 1 }}
-              />
+              <MiniIconChip color="success">
+                <CheckIcon fontSize="small" />
+              </MiniIconChip>
             ) : (
-              <Chip
-                label="Pending"
-                color="warning"
-                size="small"
-                sx={{ height: 20, fontSize: 11, borderRadius: 1, ml: 1 }}
-              />
+              <MiniIconChip color="warning">
+                <HourglassEmptyIcon fontSize="small" />
+              </MiniIconChip>
             );
 
             return (
@@ -346,7 +333,6 @@ export default function EventInboxList({
 
                   {/* Content: two-row grid */}
                   <Box sx={{ flex: 1, minWidth: 0 }}>
-                    {/* Row 1: title (left) — date/time (right) */}
                     <Box
                       sx={{
                         display: 'grid',
@@ -427,5 +413,33 @@ export default function EventInboxList({
         </List>
       )}
     </Box>
+  );
+}
+
+function MiniIconChip({
+  color,
+  children,
+}: {
+  color: 'success' | 'warning';
+  children: React.ReactNode;
+}) {
+  return (
+    <Chip
+      size="small"
+      color={color}
+      label={children}
+      sx={{
+        height: 22,
+        minWidth: 28,
+        px: 0.5,
+        '& .MuiChip-label': {
+          p: 0,
+          lineHeight: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+      }}
+    />
   );
 }

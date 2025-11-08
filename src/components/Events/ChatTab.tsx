@@ -272,7 +272,7 @@ export default function ChatTab({ eventId }: { eventId: string }) {
             <CircularProgress size={22} />
           </Stack>
         ) : isEmpty ? (
-          // --- Welcome empty state ---
+          // --- Welcome empty state
           <Stack
             alignItems="center"
             justifyContent="center"
@@ -304,9 +304,9 @@ export default function ChatTab({ eventId }: { eventId: string }) {
             <div ref={bottomRef} />
           </Stack>
         ) : (
-          // --- Normal message list ---
+          // --- Normal message list
           <Stack
-            spacing={1.25}
+            spacing={2}
             sx={{
               px: { xs: 2, sm: 3, md: 4, lg: 6, xl: 8 },
               maxWidth: 1600,
@@ -314,29 +314,58 @@ export default function ChatTab({ eventId }: { eventId: string }) {
             }}
           >
             {messages.map((m) => (
-              <Stack key={m.id} direction="row" gap={1.25}>
-                <Typography>{m.profiles?.display_name}</Typography>
+              <Stack
+                key={m.id}
+                direction="row"
+                gap={1.25}
+                alignItems="flex-start"
+              >
                 <AvatarImage
                   name={m.profiles?.display_name || 'Member'}
                   bucket="profile-avatars"
                   srcGuess={m.profiles?.avatar_url ?? undefined}
                   size={32}
                 />
-                <Stack sx={{ minWidth: 0 }}>
-                  <Typography
-                    variant="caption"
-                    sx={{ opacity: 0.7 }}
-                    suppressHydrationWarning
+
+                <Stack sx={{ minWidth: 0, flex: 1 }}>
+                  <Stack
+                    direction="row"
+                    spacing={0.75}
+                    alignItems="baseline"
+                    sx={{ minWidth: 0 }}
                   >
-                    {timeFmt.format(new Date(m.created_at))}
-                  </Typography>
-                  <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>
+                    <Typography
+                      variant="subtitle2"
+                      noWrap
+                      sx={{ fontWeight: 800, letterSpacing: 0.2, minWidth: 0 }}
+                      title={m.profiles?.display_name || 'Member'}
+                    >
+                      {m.profiles?.display_name || 'Member'}
+                    </Typography>
+
+                    <Typography
+                      variant="caption"
+                      sx={{ opacity: 0.7, whiteSpace: 'nowrap', flexShrink: 0 }}
+                      suppressHydrationWarning
+                    >
+                      {timeFmt.format(new Date(m.created_at))}
+                    </Typography>
+                  </Stack>
+
+                  <Typography
+                    variant="body1"
+                    sx={{
+                      mt: 0.25,
+                      whiteSpace: 'pre-wrap',
+                      wordBreak: 'break-word',
+                      color: 'rgba(237,235,255,0.92)',
+                    }}
+                  >
                     {m.body}
                   </Typography>
                 </Stack>
               </Stack>
             ))}
-            <div ref={bottomRef} />
           </Stack>
         )}
       </Box>
