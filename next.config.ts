@@ -1,25 +1,7 @@
 // next.config.ts
-import type { NextConfig } from 'next';
-
-const isProd =
-  process.env.VERCEL_ENV === 'production' ||
-  process.env.NODE_ENV === 'production';
-
-const nextConfig: NextConfig = {
-  reactStrictMode: false,
-  images: { domains: ['images.unsplash.com'] },
-
+const nextConfig = {
   async redirects() {
-    if (!isProd) return [];
-    return [
-      {
-        source:
-          '/((?!waitlist|_next|api|static|images|assets|favicon\\.ico|robots\\.txt|sitemap\\.xml).*)',
-        destination: '/waitlist',
-        permanent: false,
-      },
-    ];
+    return []; // no redirects anywhere
   },
 };
-
 export default nextConfig;
