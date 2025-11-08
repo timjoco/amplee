@@ -44,7 +44,6 @@ export default function BandRosterTab({
     setLoading(true);
     setErr(null);
     try {
-      // 1) ordered members
       const { data: members, error: mErr } = await sb
         .from('band_members')
         .select('user_id, role, title, created_at')
@@ -58,7 +57,6 @@ export default function BandRosterTab({
         return;
       }
 
-      // 2) profiles with avatar_url (same fields you use on Overview)
       const { data: profiles, error: pErr } = await sb
         .from('profiles')
         .select(
@@ -68,7 +66,6 @@ export default function BandRosterTab({
 
       if (pErr) throw pErr;
 
-      // 3) merge + preserve order
       const roleByUser = new Map<string, MembershipRole>(
         (members ?? []).map((m: any) => [
           m.user_id,
@@ -108,7 +105,6 @@ export default function BandRosterTab({
     void load();
   }, [load]);
 
-  // live updates for roster changes
   useEffect(() => {
     const ch = sb
       .channel(`band:${bandId}:roster`)
@@ -168,7 +164,7 @@ export default function BandRosterTab({
             <AvatarImage
               name={m.name}
               bucket="profile-avatars"
-              srcGuess={m.avatar_url || undefined} // same as Overview
+              srcGuess={m.avatar_url || undefined}
               size={40}
             />
 

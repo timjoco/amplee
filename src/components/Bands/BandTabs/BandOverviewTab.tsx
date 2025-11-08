@@ -13,15 +13,17 @@ import {
   Chip,
   CircularProgress,
   Divider,
+  ListItemButton,
   Paper,
   Stack,
   Typography,
 } from '@mui/material';
-// IMPORTANT: use Grid v2 to support `size={{ xs: 12, md: 6 }}`
 import Grid from '@mui/material/Grid';
 import { alpha } from '@mui/material/styles';
 import NextLink from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+
+import { ProposedGigsOverviewSeciton } from './ProposedGigsOverviewSection';
 
 type EventRow = {
   is_cancelled: any;
@@ -39,7 +41,7 @@ type RosterRow = {
   avatar_url?: string | null;
   updated_at?: string | null;
   role: 'admin' | 'member';
-  title?: string | null; // loose role like "guitar" / "singer"
+  title?: string | null;
 };
 
 export default function BandOverviewTab({ bandId }: { bandId: string }) {
@@ -59,8 +61,14 @@ export default function BandOverviewTab({ bandId }: { bandId: string }) {
       }),
     []
   );
+  const sectionTitleSx = {
+    mt: 1,
+    mb: 1,
+    letterSpacing: 0.3,
+    fontWeight: 700,
+  } as const;
 
-  const gotoTab = (tab: 'overview' | 'events' | 'roster') =>
+  const gotoTab = (tab: 'overview' | 'events' | 'proposals' | 'roster') =>
     window.dispatchEvent(
       new CustomEvent('amplee:band-tab', { detail: { tab } })
     );
@@ -129,9 +137,12 @@ export default function BandOverviewTab({ bandId }: { bandId: string }) {
 
   return (
     <Box sx={{ px: { xs: 2, md: 3 }, py: { xs: 2, md: 3 } }}>
-      <Grid container spacing={2.5}>
-        <Grid size={{ xs: 12, md: 6 }}>
-          <CardLike title="Next upcoming event" loading={loading} err={err}>
+      <Grid container spacing={1} sx={{ pb: 1 }}>
+        <Grid size={{ xs: 12, md: 8 }}>
+          <Typography variant="subtitle1" sx={sectionTitleSx}>
+            Next Upcoming Event{' '}
+          </Typography>
+          <CardLike loading={loading} err={err}>
             {!nextEvent ? (
               <EmptyHint
                 text="No upcoming events scheduled."
@@ -139,83 +150,123 @@ export default function BandOverviewTab({ bandId }: { bandId: string }) {
                 href={`/bands/${bandId}/events/new`}
               />
             ) : (
-              <Stack spacing={1.25}>
-                <Typography
-                  variant="h6"
-                  fontWeight={900}
-                  letterSpacing={0.2}
-                  noWrap
-                  title={nextEvent.title}
-                >
-                  {nextEvent.title}
-                </Typography>
+              <>
+                <ListItemButton
+                  component={NextLink}
+                  href={`/bands/${bandId}/events/${nextEvent.id}`}
+                  sx={(t) => ({
+                    px: 1.25,
+                    py: 1.25,
+                    alignItems: 'flex-start',
 
-                <Stack
-                  direction="row"
-                  spacing={1.5}
-                  alignItems="center"
-                  sx={{ flexWrap: 'wrap' }}
+                    '&:hover': {
+                      backgroundColor: alpha(t.palette.primary.main, 0.06),
+                      borderColor: alpha(t.palette.primary.main, 0.16),
+                      borderRadius: 2,
+                    },
+                  })}
                 >
-                  {nextEvent.starts_at && (
-                    <RowIconText
-                      icon={<CalendarMonthIcon fontSize="small" />}
-                      text={timeFmt.format(new Date(nextEvent.starts_at))}
-                    />
-                  )}
-                  {nextEvent.location && (
-                    <RowIconText
-                      icon={<PlaceIcon fontSize="small" />}
-                      text={nextEvent.location}
-                    />
-                  )}
-                  {typeof nextEvent.is_cancelled === 'boolean' && (
-                    <Chip
-                      label={nextEvent.is_cancelled ? 'Cancelled' : 'Scheduled'}
-                      size="small"
-                      sx={{
-                        height: 22,
-                        fontWeight: 800,
-                        bgcolor: nextEvent.is_cancelled
-                          ? 'error.main'
-                          : '#B6FF68',
-                        color: nextEvent.is_cancelled ? 'white' : '#193A0A',
-                        border: `1px solid ${
-                          nextEvent.is_cancelled
-                            ? 'rgba(255,255,255,0.28)'
-                            : '#CEFF9E'
-                        }`,
-                        '& .MuiChip-label': { px: 1.25 },
-                      }}
-                    />
-                  )}
-                </Stack>
-
-                <Stack direction="row" spacing={1} sx={{ pt: 0.5 }}>
-                  <Button
-                    component={NextLink}
-                    href={`/bands/${bandId}/events/${nextEvent.id}`}
-                    variant="contained"
-                    endIcon={<ArrowForwardIcon />}
-                    sx={{ fontWeight: 900, borderRadius: 2 }}
+                  <Box
+                    sx={{
+                      display: 'grid',
+                      gridTemplateColumns: '1fr auto',
+                      columnGap: 1,
+                      width: '100%',
+                      minWidth: 0,
+                    }}
                   >
-                    Open event
-                  </Button>
+                    {/* Content */}
+                    <Stack spacing={1.25} sx={{ minWidth: 0 }}>
+                      <Typography
+                        variant="h6"
+                        fontWeight={900}
+                        letterSpacing={0.2}
+                        noWrap
+                        title={nextEvent.title}
+                      >
+                        {nextEvent.title}
+                      </Typography>
+
+                      <Stack
+                        direction="row"
+                        spacing={1.5}
+                        alignItems="center"
+                        sx={{ flexWrap: 'wrap' }}
+                      >
+                        {nextEvent.starts_at && (
+                          <RowIconText
+                            icon={<CalendarMonthIcon fontSize="small" />}
+                            text={timeFmt.format(new Date(nextEvent.starts_at))}
+                          />
+                        )}
+                        {nextEvent.location && (
+                          <RowIconText
+                            icon={<PlaceIcon fontSize="small" />}
+                            text={nextEvent.location}
+                          />
+                        )}
+                        {typeof nextEvent.is_cancelled === 'boolean' && (
+                          <Chip
+                            label={
+                              nextEvent.is_cancelled ? 'Cancelled' : 'Scheduled'
+                            }
+                            size="small"
+                            sx={{
+                              height: 22,
+                              fontWeight: 800,
+                              bgcolor: nextEvent.is_cancelled
+                                ? 'error.main'
+                                : '#B6FF68',
+                              color: nextEvent.is_cancelled
+                                ? 'white'
+                                : '#193A0A',
+                              border: `1px solid ${
+                                nextEvent.is_cancelled
+                                  ? 'rgba(255,255,255,0.28)'
+                                  : '#CEFF9E'
+                              }`,
+                              '& .MuiChip-label': { px: 1.25 },
+                            }}
+                          />
+                        )}
+                      </Stack>
+                    </Stack>
+                  </Box>
+                </ListItemButton>
+                <Divider />
+                <Stack direction="row" spacing={1} sx={{ pt: 1 }}>
                   <Button
                     onClick={() => gotoTab('events')}
                     variant="outlined"
                     sx={{ fontWeight: 900, borderRadius: 2 }}
                   >
-                    All events
+                    View all events
                   </Button>
                 </Stack>
-              </Stack>
+              </>
             )}
           </CardLike>
         </Grid>
 
         {/* Roster preview (RolePill + optional title chip) */}
-        <Grid size={{ xs: 12, md: 6 }}>
-          <CardLike title="Band Members" loading={loading} err={err}>
+      </Grid>
+      <Grid container spacing={2.5}>
+        {/* second row on overview*/}
+        <Grid size={{ xs: 12, md: 8 }}>
+          <ProposedGigsOverviewSeciton
+            bandId={bandId}
+            maxItems={3}
+            sectionTitleSx={sectionTitleSx}
+            CardLike={CardLike}
+            EmptyHint={EmptyHint}
+            gotoTab={gotoTab}
+          />
+        </Grid>
+        <Grid size={{ xs: 12, md: 4 }}>
+          <Typography variant="subtitle1" sx={sectionTitleSx}>
+            Band Members{' '}
+          </Typography>
+          <CardLike loading={loading} err={err}>
             {roster.length === 0 ? (
               <EmptyHint
                 text="No members yet."
@@ -273,6 +324,7 @@ export default function BandOverviewTab({ bandId }: { bandId: string }) {
                     +{roster.length - 8} more
                   </Typography>
                 )}
+                <Divider />
 
                 <Stack direction="row" spacing={1} sx={{ pt: 1 }}>
                   <Button
@@ -298,14 +350,13 @@ export default function BandOverviewTab({ bandId }: { bandId: string }) {
 }
 
 /* ----------------------------- Helpers ----------------------------- */
-
 function CardLike({
   title,
   children,
   loading,
   err,
 }: {
-  title: string;
+  title?: string;
   children: React.ReactNode;
   loading?: boolean;
   err?: string | null;

@@ -27,9 +27,10 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import AvatarImage from '../ui/AvatarImage';
 import BandOverviewTab from './BandTabs/BandOverviewTab';
+import BandProposalsTab from './BandTabs/BandProposalsTab';
 import BandRosterTab from './BandTabs/BandRosterTab';
 
-type TabKey = 'overview' | 'events' | 'roster';
+type TabKey = 'overview' | 'events' | 'roster' | 'proposals';
 type MembershipRole = 'admin' | 'member';
 
 type ProfileLite = {
@@ -69,7 +70,9 @@ export default function BandSheet({ bandId }: Props) {
 
   const [myRole, setMyRole] = useState<MembershipRole>('member');
   const [bandName, setBandName] = useState<string>('Band');
-  const [tab, setTab] = useState<'overview' | 'events' | 'roster'>('overview');
+  const [tab, setTab] = useState<
+    'overview' | 'proposals' | 'events' | 'roster'
+  >('overview');
   const [invites, setInvites] = useState<InvitationRow[]>([]);
 
   const searchParams = useSearchParams();
@@ -270,7 +273,9 @@ export default function BandSheet({ bandId }: Props) {
 
   useEffect(() => {
     const onTab = (e: Event) => {
-      const ce = e as CustomEvent<{ tab: 'overview' | 'events' | 'roster' }>;
+      const ce = e as CustomEvent<{
+        tab: 'overview' | 'proposals' | 'events' | 'roster';
+      }>;
       if (ce.detail?.tab) setTab(ce.detail.tab);
     };
     window.addEventListener('amplee:band-tab', onTab as EventListener);
@@ -410,20 +415,6 @@ export default function BandSheet({ bandId }: Props) {
             </Box>
           </Stack>
         </Box>
-
-        {/* Pill on the far right */}
-        {/* <Box sx={{ flex: '0 0 auto', ml: 'auto' }}>
-          <RolePill
-            role={isAdmin ? 'admin' : 'member'}
-            size="small"
-            sx={{
-              mr: { xs: 0.75, sm: 0 },
-              px: { xs: 1.25, sm: 1 },
-              height: 24,
-              '& .MuiChip-label': { px: { xs: 0.5, sm: 0.75 } },
-            }}
-          />
-        </Box> */}
       </Stack>
 
       {/* Tabs */}
@@ -441,6 +432,7 @@ export default function BandSheet({ bandId }: Props) {
       >
         <Tab label="Overview" value="overview" />
         <Tab label="Events" value="events" />
+        <Tab label="Proposals" value="proposals" />
         <Tab label="Roster" value="roster" />
       </Tabs>
 
@@ -448,6 +440,9 @@ export default function BandSheet({ bandId }: Props) {
       {tab === 'overview' && <BandOverviewTab bandId={bandId} />}
 
       {tab === 'events' && <EventInboxList bandId={bandId} />}
+      {tab === 'proposals' && (
+        <BandProposalsTab bandId={bandId} isAdmin={myRole === 'admin'} />
+      )}
 
       {tab === 'roster' && <BandRosterTab bandId={bandId} invites={invites} />}
 
