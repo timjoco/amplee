@@ -16,7 +16,7 @@ const nextConfig: NextConfig = {
         source:
           '/((?!waitlist|_next|api|static|images|assets|favicon\\.ico|robots\\.txt|sitemap\\.xml).*)',
         destination: '/waitlist',
-        permanent: true,
+        permanent: false,
       },
     ];
   },
