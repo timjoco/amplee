@@ -176,7 +176,7 @@ export default function BandProposalsTab({ bandId, isAdmin }: Props) {
           sx={{ alignSelf: 'center', mb: 1 }}
           onClick={() => setOpenNew(true)}
         >
-          Propose new gig
+          Add Gig Proposal
         </Button>
       )}
 

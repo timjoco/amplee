@@ -23,7 +23,8 @@ import { alpha } from '@mui/material/styles';
 import NextLink from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { ProposedGigsOverviewSeciton } from './ProposedGigsOverviewSection';
+import { ProposedGigsOverviewSeciton } from '../../Events/Proposals/ProposedGigsOverviewSection';
+import { BandSummaryOverviewSection } from './BandSummaryOverviewSection';
 
 type EventRow = {
   is_cancelled: any;
@@ -50,6 +51,7 @@ export default function BandOverviewTab({ bandId }: { bandId: string }) {
   const [nextEvent, setNextEvent] = useState<EventRow | null>(null);
   const [roster, setRoster] = useState<RosterRow[]>([]);
   const [err, setErr] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   const timeFmt = useMemo(
     () =>
@@ -92,9 +94,26 @@ export default function BandOverviewTab({ bandId }: { bandId: string }) {
       const { data: members, error: mErr } = await sb
         .from('band_members')
         .select('user_id, role, title')
-        .eq('band_id', bandId)
-        .order('created_at', { ascending: true });
+        .eq('band_id', bandId);
       if (mErr) throw mErr;
+
+      const {
+        data: { user },
+      } = await sb.auth.getUser();
+
+      let admin = false;
+      if (user) {
+        const { data: bm, error: bmErr } = await sb
+          .from('band_members')
+          .select('role')
+          .eq('band_id', bandId)
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        if (bmErr) throw bmErr;
+        admin = bm?.role === 'admin';
+      }
+      setIsAdmin(admin);
 
       const ids = (members ?? []).map((m: any) => m.user_id);
       if (ids.length === 0) {
@@ -137,8 +156,8 @@ export default function BandOverviewTab({ bandId }: { bandId: string }) {
 
   return (
     <Box sx={{ px: { xs: 2, md: 3 }, py: { xs: 2, md: 3 } }}>
-      <Grid container spacing={1} sx={{ pb: 1 }}>
-        <Grid size={{ xs: 12, md: 8 }}>
+      <Grid container spacing={2.5} sx={{ pb: 1, alignItems: 'stretch' }}>
+        <Grid size={{ xs: 12, md: 8 }} sx={{ height: '100%' }}>
           <Typography variant="subtitle1" sx={sectionTitleSx}>
             Next Upcoming Event{' '}
           </Typography>
@@ -247,101 +266,93 @@ export default function BandOverviewTab({ bandId }: { bandId: string }) {
             )}
           </CardLike>
         </Grid>
-
-        {/* Roster preview (RolePill + optional title chip) */}
+        <Grid size={{ xs: 12, md: 4 }} sx={{ height: '100%' }}>
+          <Typography variant="subtitle1" sx={sectionTitleSx}>
+            Band Summary
+          </Typography>
+          <BandSummaryOverviewSection bandId={bandId} CardLike={CardLike} />
+        </Grid>
       </Grid>
-      <Grid container spacing={2.5}>
+      <Grid container spacing={2.5} sx={{ pb: 1, alignItems: 'stretch' }}>
         {/* second row on overview*/}
-        <Grid size={{ xs: 12, md: 8 }}>
+        <Grid size={{ xs: 12, md: 8 }} sx={{ height: '100%' }}>
           <ProposedGigsOverviewSeciton
             bandId={bandId}
             maxItems={3}
             sectionTitleSx={sectionTitleSx}
             CardLike={CardLike}
             EmptyHint={EmptyHint}
+            isAdmin={isAdmin}
             gotoTab={gotoTab}
           />
         </Grid>
-        <Grid size={{ xs: 12, md: 4 }}>
+        <Grid size={{ xs: 12, md: 4 }} sx={{ height: '100%' }}>
           <Typography variant="subtitle1" sx={sectionTitleSx}>
             Band Members{' '}
           </Typography>
           <CardLike loading={loading} err={err}>
-            {roster.length === 0 ? (
-              <EmptyHint
-                text="No members yet."
-                actionLabel="Manage roster"
-                href={`/bands/${bandId}/settings#roster`}
-              />
-            ) : (
-              <Stack
-                divider={<Divider sx={{ opacity: 0.12 }} />}
-                spacing={0.75}
-              >
-                {roster.slice(0, 8).map((r) => (
-                  <Stack
-                    key={r.user_id}
-                    direction="row"
-                    alignItems="center"
-                    spacing={1}
-                    sx={{ py: 0.5 }}
-                  >
-                    <AvatarImage
-                      name={r.name}
-                      bucket="profile-avatars"
-                      srcGuess={r.avatar_url || undefined}
-                      size={32}
+            <Stack divider={<Divider sx={{ opacity: 0.12 }} />} spacing={0.75}>
+              {roster.slice(0, 8).map((r) => (
+                <Stack
+                  key={r.user_id}
+                  direction="row"
+                  alignItems="center"
+                  spacing={1}
+                  sx={{ py: 0.5 }}
+                >
+                  <AvatarImage
+                    name={r.name}
+                    bucket="profile-avatars"
+                    srcGuess={r.avatar_url || undefined}
+                    size={32}
+                  />
+                  <Box sx={{ minWidth: 0, flex: 1 }}>
+                    <Typography noWrap fontWeight={700}>
+                      {r.name}
+                    </Typography>
+                  </Box>
+
+                  {/* Optional loose title chip */}
+                  {r.title && (
+                    <Chip
+                      size="small"
+                      label={r.title}
+                      sx={{
+                        mr: 1,
+                        textTransform: 'capitalize',
+                        height: 24,
+                        borderRadius: 12,
+                        border: (t) =>
+                          `1px solid ${alpha(t.palette.primary.main, 0.24)}`,
+                      }}
                     />
-                    <Box sx={{ minWidth: 0, flex: 1 }}>
-                      <Typography noWrap fontWeight={700}>
-                        {r.name}
-                      </Typography>
-                    </Box>
-
-                    {/* Optional loose title chip */}
-                    {r.title && (
-                      <Chip
-                        size="small"
-                        label={r.title}
-                        sx={{
-                          mr: 1,
-                          textTransform: 'capitalize',
-                          height: 24,
-                          borderRadius: 12,
-                          border: (t) =>
-                            `1px solid ${alpha(t.palette.primary.main, 0.24)}`,
-                        }}
-                      />
-                    )}
-
-                    {/* Admin/Member pill */}
-                    <RolePill role={r.role} size="small" />
-                  </Stack>
-                ))}
-
-                {roster.length > 8 && (
-                  <Typography variant="caption" sx={{ opacity: 0.7, pt: 0.5 }}>
-                    +{roster.length - 8} more
-                  </Typography>
-                )}
-                <Divider />
-
-                <Stack direction="row" spacing={1} sx={{ pt: 1 }}>
-                  <Button
-                    component={NextLink}
-                    href={`/bands/${bandId}?tab=roster`}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      gotoTab('roster');
-                    }}
-                    variant="outlined"
-                    sx={{ fontWeight: 900, borderRadius: 2 }}
-                  >
-                    View full roster
-                  </Button>
+                  )}
+                  <RolePill role={r.role} size="small" />
                 </Stack>
+              ))}
+
+              {roster.length > 8 && (
+                <Typography variant="caption" sx={{ opacity: 0.7, pt: 0.5 }}>
+                  +{roster.length - 8} more
+                </Typography>
+              )}
+              <Divider />
+
+              <Stack direction="row" spacing={1} sx={{ pt: 1 }}>
+                <Button
+                  component={NextLink}
+                  href={`/bands/${bandId}?tab=roster`}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    gotoTab('roster');
+                  }}
+                  variant="outlined"
+                  sx={{ fontWeight: 900, borderRadius: 2 }}
+                >
+                  View full roster
+                </Button>
               </Stack>
-            )}
+            </Stack>
           </CardLike>
         </Grid>
       </Grid>
@@ -349,7 +360,6 @@ export default function BandOverviewTab({ bandId }: { bandId: string }) {
   );
 }
 
-/* ----------------------------- Helpers ----------------------------- */
 function CardLike({
   title,
   children,
@@ -364,6 +374,10 @@ function CardLike({
   return (
     <Paper
       sx={(t) => ({
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        flexGrow: 1,
         p: { xs: 2, md: 2.5 },
         borderRadius: 2,
         border: `1px solid ${alpha(t.palette.primary.main, 0.18)}`,

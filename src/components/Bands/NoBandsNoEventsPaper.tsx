@@ -26,6 +26,7 @@ type Props = {
   contentMaxWidth?: ResponsiveStyleValue<number | string>;
   showLogo?: boolean;
   center?: boolean;
+  globalCreateFallbackStep?: 'band' | 'event';
 };
 
 const defaultsByKind: Record<
@@ -55,6 +56,7 @@ export default function NoBandsNoEventsPaper({
   center = true,
   maxWidth = '100%',
   contentMaxWidth = '100%',
+  globalCreateFallbackStep,
 }: Props) {
   const defs = defaultsByKind[kind];
   const _title = title ?? defs.title;
@@ -62,13 +64,29 @@ export default function NoBandsNoEventsPaper({
   const _primaryLabel = primaryLabel ?? defs.primaryLabel;
   const _showLogo = showLogo ?? true;
 
+  /**
+   * Button behavior priority:
+   * 1) If onPrimary is provided -> call it (lets the page control <GlobalCreate open={...} />)
+   * 2) Else if primaryHref is provided -> navigate
+   * 3) Else -> dispatch window event to open GlobalCreate (nice fallback)
+   */
   const ButtonProps = onPrimary
-    ? { onClick: onPrimary }
-    : {
+    ? {
+        onClick: onPrimary,
+      }
+    : primaryHref
+    ? ({
         component: Link as any,
-        href:
-          primaryHref ??
-          (kind === 'bands' ? '/onboarding?step=band' : '/events/new'),
+        href: primaryHref,
+      } as const)
+    : {
+        onClick: () => {
+          const detail =
+            globalCreateFallbackStep ?? (kind === 'bands' ? 'band' : 'event');
+          window.dispatchEvent(
+            new CustomEvent('global-create:open', { detail })
+          );
+        },
       };
 
   return (
@@ -93,7 +111,6 @@ export default function NoBandsNoEventsPaper({
             pb: { xs: 1.25, sm: 1.5, md: 1.75 },
           }}
         >
-          {/* Text column */}
           <Stack
             spacing={1.25}
             alignItems={{
@@ -140,7 +157,6 @@ export default function NoBandsNoEventsPaper({
             )}
           </Stack>
 
-          {/* CTA column */}
           <Stack
             direction="row"
             justifyContent={{
