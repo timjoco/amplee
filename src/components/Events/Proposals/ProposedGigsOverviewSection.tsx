@@ -5,7 +5,19 @@
 import { supabaseBrowser } from '@/lib/supabaseClient';
 import AddIcon from '@mui/icons-material/Add';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
-import { Button, Stack, Typography } from '@mui/material';
+import EventIcon from '@mui/icons-material/Event';
+import HowToVoteIcon from '@mui/icons-material/HowToVote';
+import PlaceIcon from '@mui/icons-material/Place';
+import WhatshotIcon from '@mui/icons-material/Whatshot';
+import {
+  Button,
+  Chip,
+  List,
+  ListItemButton,
+  ListItemText,
+  Stack,
+  Typography,
+} from '@mui/material';
 import NextLink from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
@@ -31,7 +43,7 @@ type Ranked = {
   tag: 'needs-votes' | 'trending' | 'all-yes' | null;
 };
 
-export function ProposedGigsOverviewSeciton({
+export function ProposedGigsOverviewSection({
   bandId,
   isAdmin,
   maxItems = 3,
@@ -73,20 +85,22 @@ export function ProposedGigsOverviewSeciton({
         .eq('band_id', bandId);
       if (memErr) throw memErr;
 
+      // Simpler relation path (don’t depend on FK name)
       const { data: proposals, error: pErr } = await sb
         .from('gig_proposals')
         .select(
           `
-          id, title, venue, created_at,
-          gig_proposal_options!gig_proposal_options_proposal_id_fkey(
-            id, starts_at,
-            gig_proposal_votes!gig_proposal_votes_option_id_fkey(user_id, vote)
-          )
-        `
+    id, title, venue, created_at,
+    options:gig_proposal_options!gig_proposal_options_proposal_id_fkey (
+      id, starts_at,
+      votes:gig_proposal_votes!gig_proposal_votes_option_id_fkey ( user_id, vote )
+    )
+  `
         )
         .eq('band_id', bandId)
         .order('created_at', { ascending: false })
         .limit(50);
+
       if (pErr) throw pErr;
 
       const rows: ProposalRow[] = (proposals ?? []).map((p: any) => ({
@@ -94,13 +108,10 @@ export function ProposedGigsOverviewSeciton({
         title: p.title,
         venue: p.venue,
         created_at: p.created_at,
-        options: (p.gig_proposal_options ?? []).map((o: any) => ({
+        options: (p.options ?? []).map((o: any) => ({
           id: o.id,
           starts_at: o.starts_at ?? null,
-          votes: (o.gig_proposal_votes ?? []) as {
-            user_id: string;
-            vote: 'yes' | 'no';
-          }[],
+          votes: (o.votes ?? []) as { user_id: string; vote: 'yes' | 'no' }[],
         })),
       }));
 
@@ -199,11 +210,128 @@ export function ProposedGigsOverviewSeciton({
             </Stack>
           </Stack>
         ) : (
-          /* your existing list + footer actions block unchanged */
           <Stack spacing={1}>
-            {/* ... existing <List> of items ... */}
+            {/* ---- List of ranked proposals ---- */}
+            <List disablePadding>
+              {items.map((it) => {
+                const p = it.base;
+                const soonestTs = minStartsAt(p);
+                const dateLabel =
+                  soonestTs != null
+                    ? new Intl.DateTimeFormat('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        hour: 'numeric',
+                        minute: '2-digit',
+                      }).format(soonestTs)
+                    : 'TBD';
 
-            {/* footer actions */}
+                const tagChip =
+                  it.tag === 'all-yes' ? (
+                    <Chip size="small" color="success" label="All yes" />
+                  ) : it.tag === 'trending' ? (
+                    <Chip
+                      size="small"
+                      color="warning"
+                      icon={<WhatshotIcon sx={{ fontSize: 16 }} />}
+                      label="Trending"
+                    />
+                  ) : (
+                    <Chip
+                      size="small"
+                      variant="outlined"
+                      icon={<HowToVoteIcon sx={{ fontSize: 16 }} />}
+                      label="Needs votes"
+                    />
+                  );
+
+                const yesPct =
+                  it.totalMembers > 0
+                    ? Math.round((it.bestYesCount / it.totalMembers) * 100)
+                    : 0;
+
+                return (
+                  <ListItemButton
+                    key={p.id}
+                    dense
+                    component={NextLink}
+                    href={`/bands/${bandId}/proposals/${p.id}`}
+                    prefetch={false}
+                    sx={{
+                      px: 1,
+                      py: 1,
+                      borderRadius: 1.25,
+                      '&:not(:last-of-type)': { mb: 0.5 },
+                    }}
+                  >
+                    <ListItemText
+                      primary={
+                        <Stack
+                          direction="row"
+                          alignItems="center"
+                          justifyContent="space-between"
+                          spacing={1}
+                        >
+                          <Typography fontWeight={700} noWrap>
+                            {p.title || 'Proposed gig'}
+                          </Typography>
+                          <Stack
+                            direction="row"
+                            spacing={1}
+                            alignItems="center"
+                          >
+                            {tagChip}
+                            <Chip
+                              size="small"
+                              variant="outlined"
+                              label={`${yesPct}% yes`}
+                            />
+                          </Stack>
+                        </Stack>
+                      }
+                      secondary={
+                        <Stack
+                          direction="row"
+                          spacing={2}
+                          sx={{ mt: 0.5 }}
+                          alignItems="center"
+                        >
+                          <Stack
+                            direction="row"
+                            spacing={0.5}
+                            alignItems="center"
+                          >
+                            <PlaceIcon sx={{ fontSize: 16, opacity: 0.75 }} />
+                            <Typography
+                              variant="caption"
+                              sx={{ opacity: 0.8 }}
+                              noWrap
+                            >
+                              {p.venue || 'Venue TBD'}
+                            </Typography>
+                          </Stack>
+                          <Stack
+                            direction="row"
+                            spacing={0.5}
+                            alignItems="center"
+                          >
+                            <EventIcon sx={{ fontSize: 16, opacity: 0.75 }} />
+                            <Typography variant="caption" sx={{ opacity: 0.8 }}>
+                              {dateLabel}
+                            </Typography>
+                          </Stack>
+                          <Typography variant="caption" sx={{ opacity: 0.8 }}>
+                            {it.votedCount}/{it.totalMembers} voted
+                          </Typography>
+                        </Stack>
+                      }
+                    />
+                  </ListItemButton>
+                );
+              })}
+            </List>
+
+            {/* ---- Footer actions ---- */}
             <Stack direction="row" spacing={1} sx={{ pt: 1 }}>
               <Button
                 component={NextLink}

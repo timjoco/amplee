@@ -23,7 +23,7 @@ import { alpha } from '@mui/material/styles';
 import NextLink from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { ProposedGigsOverviewSeciton } from '../../Events/Proposals/ProposedGigsOverviewSection';
+import { ProposedGigsOverviewSection } from '../../Events/Proposals/ProposedGigsOverviewSection';
 import { BandSummaryOverviewSection } from './BandSummaryOverviewSection';
 
 type EventRow = {
@@ -177,7 +177,6 @@ export default function BandOverviewTab({ bandId }: { bandId: string }) {
                     px: 1.25,
                     py: 1.25,
                     alignItems: 'flex-start',
-
                     '&:hover': {
                       backgroundColor: alpha(t.palette.primary.main, 0.06),
                       borderColor: alpha(t.palette.primary.main, 0.16),
@@ -276,7 +275,7 @@ export default function BandOverviewTab({ bandId }: { bandId: string }) {
       <Grid container spacing={2.5} sx={{ pb: 1, alignItems: 'stretch' }}>
         {/* second row on overview*/}
         <Grid size={{ xs: 12, md: 8 }} sx={{ height: '100%' }}>
-          <ProposedGigsOverviewSeciton
+          <ProposedGigsOverviewSection
             bandId={bandId}
             maxItems={3}
             sectionTitleSx={sectionTitleSx}
