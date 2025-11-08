@@ -3,10 +3,6 @@
 import EventSheetHeader from '@/components/Events/EventSheetHeader';
 import { SIDE_NAV_WIDTH } from '@/components/Nav/SideNav';
 import { supabaseBrowser } from '@/lib/supabaseClient';
-import AddIcon from '@mui/icons-material/Add';
-import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
-import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { CircularProgress, Stack } from '@mui/material';
 
 import {
@@ -14,7 +10,6 @@ import {
   Button,
   Chip,
   Divider,
-  IconButton,
   List,
   ListItem,
   Paper,
@@ -34,6 +29,7 @@ import {
 } from 'react';
 import AvatarImage from '../ui/AvatarImage';
 import ChatTab from './ChatTab';
+import SetlistTab from './SetlistTab';
 
 type EventRow = {
   id: string;
@@ -60,7 +56,7 @@ export default function EventSheet({
   const [, setBandName] = useState<string>('Band');
   const [, setError] = useState<string | null>(null);
   const sb = useMemo(() => supabaseBrowser(), []);
-
+  const [isAdmin, setIsAdmin] = useState(false);
   const [tab, setTab] = useState<
     'chat' | 'roster' | 'setlist' | 'notes' | 'files'
   >('chat');
@@ -99,6 +95,19 @@ export default function EventSheet({
     })();
   }, [bandId, sb]);
 
+  useEffect(() => {
+    (async () => {
+      const { data, error } = await sb
+        .from('band_members')
+        .select('role')
+        .eq('band_id', bandId)
+        .eq('user_id', (await sb.auth.getUser()).data.user?.id)
+        .maybeSingle();
+
+      if (!error && data) setIsAdmin(data.role === 'admin'); // adjust if you have multiple admin-like roles
+    })();
+  }, [sb, bandId]);
+
   return (
     <Box
       sx={{
@@ -106,13 +115,13 @@ export default function EventSheet({
         top: 0,
         right: 0,
         bottom: 0,
-        left: { xs: 0, md: SIDE_NAV_WIDTH }, // ← respect the SideNav on desktop
+        left: { xs: 0, md: SIDE_NAV_WIDTH },
         bgcolor: '#0B0A10',
         color: 'white',
         display: 'flex',
         flexDirection: 'column',
-        overflow: 'hidden', // kill page scroll; only inner content scrolls
-        zIndex: (t) => t.zIndex.appBar - 1, // generally below a fixed AppBar/SideNav
+        overflow: 'hidden',
+        zIndex: (t) => t.zIndex.appBar - 1,
       }}
     >
       {/* Header wrapper (not a scroll host) */}
@@ -156,9 +165,7 @@ export default function EventSheet({
             </Grid>
           )}
           {tab === 'setlist' && (
-            <Grid>
-              <SetlistTab eventId={eventId} />
-            </Grid>
+            <SetlistTab eventId={eventId} bandId={bandId} isAdmin={isAdmin} />
           )}
           {tab === 'notes' && (
             <Grid>
@@ -382,173 +389,6 @@ function RosterPanel({ bandId, eventId }: { bandId: string; eventId: string }) {
         </List>
       )}
     </Paper>
-  );
-}
-
-function SetlistTab({ eventId }: { eventId: string }) {
-  const sb = useMemo(() => supabaseBrowser(), []);
-  const [items, setItems] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [title, setTitle] = useState('');
-
-  useEffect(() => {
-    let alive = true;
-    (async () => {
-      setLoading(true);
-      const { data } = await sb
-        .from('event_setlist_items')
-        .select('id, title, position, notes, created_at')
-        .eq('event_id', eventId)
-        .order('position', { ascending: true });
-      if (!alive) return;
-      setItems(data ?? []);
-      setLoading(false);
-    })();
-    return () => {
-      alive = false;
-    };
-  }, [sb, eventId]);
-
-  useEffect(() => {
-    const ch = sb
-      .channel(`setlist:${eventId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'event_setlist_items',
-          filter: `event_id=eq.${eventId}`,
-        },
-        () => {
-          sb.from('event_setlist_items')
-            .select('id, title, position, notes, created_at')
-            .eq('event_id', eventId)
-            .order('position', { ascending: true })
-            .then(({ data }) => setItems(data ?? []));
-        }
-      )
-      .subscribe();
-    return () => {
-      sb.removeChannel(ch);
-    };
-  }, [sb, eventId]);
-
-  const addItem = useCallback(async () => {
-    const t = title.trim();
-    if (!t) return;
-    setTitle('');
-    await sb.from('event_setlist_items').insert({
-      event_id: eventId,
-      title: t,
-      position: (items.at(-1)?.position ?? 0) + 10,
-    });
-  }, [sb, eventId, title, items]);
-
-  const move = useCallback(
-    async (id: string, dir: -1 | 1) => {
-      const idx = items.findIndex((i) => i.id === id);
-      const swapIdx = idx + dir;
-      if (idx < 0 || swapIdx < 0 || swapIdx >= items.length) return;
-      const a = items[idx],
-        b = items[swapIdx];
-      await sb
-        .from('event_setlist_items')
-        .update({ position: b.position })
-        .eq('id', a.id);
-      await sb
-        .from('event_setlist_items')
-        .update({ position: a.position })
-        .eq('id', b.id);
-    },
-    [items, sb]
-  );
-
-  const remove = useCallback(
-    async (id: string) => {
-      await sb.from('event_setlist_items').delete().eq('id', id);
-    },
-    [sb]
-  );
-
-  return (
-    <Stack gap={1.25} sx={{ mt: 1 }}>
-      <Stack direction="row" gap={1}>
-        <TextField
-          fullWidth
-          size="small"
-          label="Add song"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') addItem();
-          }}
-          InputLabelProps={{ shrink: true }}
-          InputProps={{ sx: { bgcolor: '#11131a', color: 'white' } }}
-        />
-        <Button variant="contained" onClick={addItem} startIcon={<AddIcon />}>
-          Add
-        </Button>
-      </Stack>
-
-      {loading ? (
-        <Typography color="text.secondary">Loading setlist…</Typography>
-      ) : items.length === 0 ? (
-        <Typography color="text.secondary">
-          No setlist yet. Add your first song.
-        </Typography>
-      ) : (
-        <Stack gap={1.25}>
-          {items.map((it, i) => (
-            <Paper
-              key={it.id}
-              variant="outlined"
-              sx={(t) => ({
-                p: 1,
-                borderRadius: 2,
-                borderColor: alpha(t.palette.primary.main, 0.14),
-                background:
-                  'linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02))',
-              })}
-            >
-              <Stack direction="row" alignItems="center" gap={1}>
-                <Typography
-                  sx={{ fontWeight: 800, flex: 1, minWidth: 0 }}
-                  noWrap
-                >
-                  {i + 1}. {it.title}
-                </Typography>
-                <IconButton
-                  size="small"
-                  onClick={() => move(it.id, -1)}
-                  disabled={i === 0}
-                >
-                  <ArrowUpwardIcon fontSize="small" />
-                </IconButton>
-                <IconButton
-                  size="small"
-                  onClick={() => move(it.id, +1)}
-                  disabled={i === items.length - 1}
-                >
-                  <ArrowDownwardIcon fontSize="small" />
-                </IconButton>
-                <IconButton size="small" onClick={() => remove(it.id)}>
-                  <DeleteOutlineIcon fontSize="small" />
-                </IconButton>
-              </Stack>
-              {it.notes && (
-                <>
-                  <Divider sx={{ my: 0.75, opacity: 0.08 }} />
-                  <Typography variant="body2" sx={{ opacity: 0.9 }}>
-                    {it.notes}
-                  </Typography>
-                </>
-              )}
-            </Paper>
-          ))}
-        </Stack>
-      )}
-    </Stack>
   );
 }
 

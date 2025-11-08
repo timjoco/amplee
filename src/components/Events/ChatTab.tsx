@@ -1,9 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
-import AvatarImage from '@/components/ui/AvatarImage';
 import { supabaseBrowser } from '@/lib/supabaseClient';
 import {
+  Dispatch,
+  SetStateAction,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -12,17 +13,21 @@ import {
   useState,
 } from 'react';
 
+import AddReactionIcon from '@mui/icons-material/AddReaction';
 import SendIcon from '@mui/icons-material/Send';
 import {
   Box,
   CircularProgress,
   IconButton,
+  Paper,
+  Popper,
   Stack,
   TextField,
   Typography,
   useMediaQuery,
 } from '@mui/material';
-import { useTheme } from '@mui/material/styles';
+import { alpha, useTheme } from '@mui/material/styles';
+import AvatarImage from '../ui/AvatarImage';
 
 const SIDE_NAV_WIDTH = 288;
 
@@ -34,12 +39,18 @@ type ProfileLite = {
 };
 
 type ChatMsg = {
-  id: string | number;
+  id: string;
   event_id: string;
   user_id: string;
   body: string;
   created_at: string;
   profiles?: ProfileLite;
+};
+
+type ReactionRow = {
+  message_id: number;
+  user_id: string;
+  emoji: string;
 };
 
 export default function ChatTab({ eventId }: { eventId: string }) {
@@ -58,9 +69,27 @@ export default function ChatTab({ eventId }: { eventId: string }) {
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const composerRef = useRef<HTMLDivElement | null>(null);
   const [composerH, setComposerH] = useState(72);
-  const BOTTOM_NAV_H = mdUpSafe ? 0 : 56;
+  const BOTTOM_NAV_H = mdUpSafe ? 0 : 100;
   const isEmpty = !loading && messages.length === 0;
   const profilesById = useRef<Map<string, ProfileLite>>(new Map());
+
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const closeReactions = useCallback(() => setSelectedId(null), []);
+
+  // messageId -> { "👍": 2, "🔥": 1 }
+  const [reactions, setReactions] = useState<
+    Record<string, Record<string, number>>
+  >({});
+
+  // messageId -> { "👍": true, "🔥": true }  (which emojis *I* have on this message)
+  const [myReactions, setMyReactions] = useState<
+    Record<string, Record<string, true>>
+  >({});
+
+  useEffect(() => {
+    closeReactions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mdUpSafe]);
 
   const timeFmt = useMemo(
     () =>
@@ -90,7 +119,6 @@ export default function ChatTab({ eventId }: { eventId: string }) {
     };
   }, []);
 
-  // Initial load: messages with embedded profiles (no view needed)
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -117,8 +145,15 @@ export default function ChatTab({ eventId }: { eventId: string }) {
         if (m.profiles?.id) profilesById.current.set(m.profiles.id, m.profiles);
       });
 
-      setMessages((data as unknown as ChatMsg[]) ?? []);
+      setMessages(
+        ((data as any[]) ?? []).map((m) => ({ ...m, id: String(m.id) }))
+      );
       setLoading(false);
+
+      // NEW: load reactions for these messages
+      const ids = ((data as any[]) ?? []).map((m) => String(m.id));
+      loadReactionsFor(ids);
+
       queueMicrotask(() =>
         bottomRef.current?.scrollIntoView({ behavior: 'auto' })
       );
@@ -126,59 +161,9 @@ export default function ChatTab({ eventId }: { eventId: string }) {
     return () => {
       alive = false;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sb, eventId]);
 
-  const send = useCallback(async () => {
-    const body = input.trim();
-    if (!body) return;
-    setInput('');
-
-    const {
-      data: { user },
-    } = await sb.auth.getUser();
-    if (!user) return;
-
-    let me = profilesById.current.get(user.id);
-    if (!me) {
-      const { data } = await sb
-        .from('profiles')
-        .select('id, display_name,  avatar_url, updated_at')
-        .eq('id', user.id)
-        .single();
-      if (data) {
-        me = data as ProfileLite;
-        profilesById.current.set(user.id, me);
-      } else {
-        me = { id: user.id };
-      }
-    }
-
-    // optimistic message
-    const optimisticId = `optimistic-${Date.now()}`;
-    const optimisticMsg: ChatMsg = {
-      id: optimisticId,
-      event_id: eventId,
-      user_id: user.id,
-      body,
-      created_at: new Date().toISOString(),
-      profiles: me,
-    };
-
-    setMessages((prev) => [...prev, optimisticMsg]);
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-
-    // real insert
-    const { error } = await sb
-      .from('event_messages')
-      .insert({ event_id: eventId, user_id: user.id, body });
-    if (error) {
-      // roll back optimistic on failure
-      setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
-      setInput(body);
-    }
-  }, [input, eventId, sb]);
-
-  // Realtime: enrich inserts (and dedupe optimistic)
   useEffect(() => {
     const ch = sb
       .channel(`event:${eventId}`)
@@ -193,7 +178,6 @@ export default function ChatTab({ eventId }: { eventId: string }) {
         async (payload) => {
           const row = payload.new as ChatMsg;
 
-          // ensure we have the author's profile for instant avatar
           let prof = profilesById.current.get(row.user_id);
           if (!prof) {
             const { data } = await sb
@@ -207,7 +191,11 @@ export default function ChatTab({ eventId }: { eventId: string }) {
             }
           }
 
-          const enriched: ChatMsg = { ...row, profiles: prof };
+          const enriched: ChatMsg = {
+            ...row,
+            id: String(row.id),
+            profiles: prof,
+          };
 
           setMessages((prev) => {
             const idx = prev.findIndex(
@@ -241,6 +229,255 @@ export default function ChatTab({ eventId }: { eventId: string }) {
     };
   }, [sb, eventId]);
 
+  useEffect(() => {
+    const onDocClick = (e: MouseEvent) => {
+      const t = e.target as HTMLElement;
+      if (t.closest('[data-reactions-popper="true"]')) return;
+      if (t.closest('[data-message-container="true"]')) return;
+      if (selectedId) closeReactions();
+    };
+    document.addEventListener('click', onDocClick);
+    return () => document.removeEventListener('click', onDocClick);
+  }, [selectedId, closeReactions]);
+
+  useEffect(() => {
+    const idSet = new Set(messages.map((m) => m.id));
+
+    const ch = sb
+      .channel(`event:${eventId}:reactions`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'event_message_reactions' },
+        async (payload) => {
+          const row = (payload.new ??
+            payload.old) as Partial<ReactionRow> | null;
+          if (!row || typeof row.message_id !== 'number') return;
+
+          const mid = String(row.message_id);
+          if (!idSet.has(mid)) return;
+
+          if (payload.eventType === 'INSERT') {
+            const emoji = (payload.new as ReactionRow).emoji;
+            setReactions((prev) => {
+              const curr = { ...(prev[mid] || {}) };
+              curr[emoji] = (curr[emoji] || 0) + 1;
+              return { ...prev, [mid]: curr };
+            });
+
+            const {
+              data: { user },
+            } = await sb.auth.getUser();
+            if (user && (payload.new as ReactionRow).user_id === user.id) {
+              setMyReactions((prev) => ({
+                ...prev,
+                [mid]: { ...(prev[mid] || {}), [emoji]: true as const },
+              }));
+            }
+          }
+
+          if (payload.eventType === 'DELETE') {
+            const emoji = (payload.old as ReactionRow).emoji;
+            setReactions((prev) => {
+              const curr = { ...(prev[mid] || {}) };
+              const next = Math.max(0, (curr[emoji] || 1) - 1);
+              if (next <= 0) delete curr[emoji];
+              else curr[emoji] = next;
+              return { ...prev, [mid]: curr };
+            });
+
+            const {
+              data: { user },
+            } = await sb.auth.getUser();
+            if (user && (payload.old as ReactionRow).user_id === user.id) {
+              setMyReactions((prev) => {
+                const mine = { ...(prev[mid] || {}) };
+                delete mine[emoji];
+                return { ...prev, [mid]: mine };
+              });
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      sb.removeChannel(ch);
+    };
+  }, [sb, eventId, messages]);
+
+  const toggleReaction = useCallback(
+    async (messageId: string, emoji: string) => {
+      const numericId = Number(messageId);
+      if (!Number.isFinite(numericId)) {
+        return;
+      }
+
+      setReactions((prev) => {
+        const curr = { ...(prev[messageId] || {}) };
+        const mine = myReactions[messageId] || {};
+        const iHadIt = !!mine[emoji];
+
+        const next = (curr[emoji] || 0) + (iHadIt ? -1 : 1);
+        if (next <= 0) delete curr[emoji];
+        else curr[emoji] = next;
+
+        setMyReactions((mr) => {
+          const nextMine = { ...(mr[messageId] || {}) };
+          if (iHadIt) delete nextMine[emoji];
+          else nextMine[emoji] = true as const;
+          return { ...mr, [messageId]: nextMine };
+        });
+
+        return { ...prev, [messageId]: curr };
+      });
+
+      const {
+        data: { user },
+      } = await sb.auth.getUser();
+      if (!user) return;
+
+      const iHadItBefore = !!(
+        myReactions[messageId] && myReactions[messageId][emoji]
+      );
+
+      if (iHadItBefore) {
+        const { error } = await sb
+          .from('event_message_reactions')
+          .delete()
+          .match({ message_id: numericId, user_id: user.id, emoji });
+
+        if (error) {
+          console.error('[reaction delete error]', error);
+          setReactions((prev) => {
+            const curr = { ...(prev[messageId] || {}) };
+            curr[emoji] = (curr[emoji] || 0) + 1;
+            return { ...prev, [messageId]: curr };
+          });
+          setMyReactions((mr) => {
+            const next = { ...(mr[messageId] || {}) };
+            next[emoji] = true as const;
+            return { ...mr, [messageId]: next };
+          });
+        }
+      } else {
+        const { error } = await sb
+          .from('event_message_reactions')
+          .upsert(
+            { message_id: numericId, user_id: user.id, emoji },
+            { onConflict: 'message_id,user_id,emoji' }
+          );
+
+        if (error) {
+          console.error('[reaction upsert error]', error);
+          setReactions((prev) => {
+            const curr = { ...(prev[messageId] || {}) };
+            const next = Math.max(0, (curr[emoji] || 1) - 1);
+            if (next <= 0) delete curr[emoji];
+            else curr[emoji] = next;
+            return { ...prev, [messageId]: curr };
+          });
+          setMyReactions((mr) => {
+            const next = { ...(mr[messageId] || {}) };
+            delete next[emoji];
+            return { ...mr, [messageId]: next };
+          });
+        }
+      }
+    },
+    [sb, myReactions]
+  );
+
+  const send = useCallback(async () => {
+    const body = input.trim();
+    if (!body) return;
+    setInput('');
+
+    const {
+      data: { user },
+    } = await sb.auth.getUser();
+    if (!user) return;
+
+    let me = profilesById.current.get(user.id);
+    if (!me) {
+      const { data } = await sb
+        .from('profiles')
+        .select('id, display_name,  avatar_url, updated_at')
+        .eq('id', user.id)
+        .single();
+      if (data) {
+        me = data as ProfileLite;
+        profilesById.current.set(user.id, me);
+      } else {
+        me = { id: user.id };
+      }
+    }
+
+    const optimisticId = `optimistic-${Date.now()}`;
+    const optimisticMsg: ChatMsg = {
+      id: optimisticId,
+      event_id: eventId,
+      user_id: user.id,
+      body,
+      created_at: new Date().toISOString(),
+      profiles: me,
+    };
+
+    setMessages((prev) => [...prev, optimisticMsg]);
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+
+    const { error } = await sb
+      .from('event_messages')
+      .insert({ event_id: eventId, user_id: user.id, body });
+    if (error) {
+      setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
+      setInput(body);
+    }
+  }, [input, eventId, sb]);
+
+  const loadReactionsFor = useCallback(
+    async (messageIds: string[]) => {
+      const numericIds = messageIds.map(Number).filter(Number.isFinite);
+      if (numericIds.length === 0) return;
+
+      const { data, error } = await sb
+        .from('event_message_reactions')
+        .select('message_id, emoji, user_id')
+        .in('message_id', numericIds);
+
+      if (error) {
+        console.error('[reactions load error]', error);
+        return;
+      }
+
+      const rows = (data ?? []) as unknown as ReactionRow[];
+
+      const byMsg: Record<string, Record<string, number>> = {};
+      const mine: Record<string, Record<string, true>> = {};
+
+      const {
+        data: { user },
+      } = await sb.auth.getUser();
+      const me = user?.id;
+
+      for (const row of rows) {
+        const mid = String(row.message_id);
+        const emoji = row.emoji;
+
+        byMsg[mid] ||= {};
+        byMsg[mid][emoji] = (byMsg[mid][emoji] || 0) + 1;
+
+        if (me && row.user_id === me) {
+          mine[mid] ||= {};
+          mine[mid][emoji] = true as const;
+        }
+      }
+
+      setReactions((prev) => ({ ...prev, ...byMsg }));
+      setMyReactions((prev) => ({ ...prev, ...mine }));
+    },
+    [sb]
+  );
+
   return (
     <Box
       sx={{
@@ -252,6 +489,7 @@ export default function ChatTab({ eventId }: { eventId: string }) {
       }}
     >
       <Box
+        data-chat-scroll-area
         sx={{
           flex: 1,
           minHeight: 0,
@@ -272,7 +510,6 @@ export default function ChatTab({ eventId }: { eventId: string }) {
             <CircularProgress size={22} />
           </Stack>
         ) : isEmpty ? (
-          // --- Welcome empty state
           <Stack
             alignItems="center"
             justifyContent="center"
@@ -297,14 +534,13 @@ export default function ChatTab({ eventId }: { eventId: string }) {
               Welcome to the Green Room
             </Typography>
             <Typography variant="body1" sx={{ opacity: 0.8 }}>
-              This if your bands hub for messaging about this event. Say hello
+              This is your band’s hub for messaging about this event. Say hello
               to get started.
             </Typography>
 
             <div ref={bottomRef} />
           </Stack>
         ) : (
-          // --- Normal message list
           <Stack
             spacing={2}
             sx={{
@@ -314,58 +550,19 @@ export default function ChatTab({ eventId }: { eventId: string }) {
             }}
           >
             {messages.map((m) => (
-              <Stack
+              <MessageRow
                 key={m.id}
-                direction="row"
-                gap={1.25}
-                alignItems="flex-start"
-              >
-                <AvatarImage
-                  name={m.profiles?.display_name || 'Member'}
-                  bucket="profile-avatars"
-                  srcGuess={m.profiles?.avatar_url ?? undefined}
-                  size={32}
-                />
-
-                <Stack sx={{ minWidth: 0, flex: 1 }}>
-                  <Stack
-                    direction="row"
-                    spacing={0.75}
-                    alignItems="baseline"
-                    sx={{ minWidth: 0 }}
-                  >
-                    <Typography
-                      variant="subtitle2"
-                      noWrap
-                      sx={{ fontWeight: 800, letterSpacing: 0.2, minWidth: 0 }}
-                      title={m.profiles?.display_name || 'Member'}
-                    >
-                      {m.profiles?.display_name || 'Member'}
-                    </Typography>
-
-                    <Typography
-                      variant="caption"
-                      sx={{ opacity: 0.7, whiteSpace: 'nowrap', flexShrink: 0 }}
-                      suppressHydrationWarning
-                    >
-                      {timeFmt.format(new Date(m.created_at))}
-                    </Typography>
-                  </Stack>
-
-                  <Typography
-                    variant="body1"
-                    sx={{
-                      mt: 0.25,
-                      whiteSpace: 'pre-wrap',
-                      wordBreak: 'break-word',
-                      color: 'rgba(237,235,255,0.92)',
-                    }}
-                  >
-                    {m.body}
-                  </Typography>
-                </Stack>
-              </Stack>
+                message={m}
+                mdUpSafe={mdUpSafe}
+                timeFmt={timeFmt}
+                selectedId={selectedId}
+                setSelectedId={setSelectedId}
+                messageReactions={reactions[m.id] || {}}
+                myReactions={myReactions[m.id] || {}}
+                onToggleEmoji={(emoji) => toggleReaction(m.id, emoji)}
+              />
             ))}
+            <div ref={bottomRef} />
           </Stack>
         )}
       </Box>
@@ -381,7 +578,6 @@ export default function ChatTab({ eventId }: { eventId: string }) {
         }}
       >
         <Box
-          ref={composerRef}
           sx={{
             position: 'fixed',
             left: { xs: 0, md: SIDE_NAV_WIDTH },
@@ -452,6 +648,347 @@ export default function ChatTab({ eventId }: { eventId: string }) {
           </Box>
         </Box>
       </Box>
+    </Box>
+  );
+}
+
+function useLongPress(
+  onLongPress: () => void,
+  { delay = 450 }: { delay?: number } = {}
+) {
+  const timer = useRef<number | null>(null);
+
+  const clear = () => {
+    if (timer.current) {
+      window.clearTimeout(timer.current);
+      timer.current = null;
+    }
+  };
+
+  const start = () => {
+    clear();
+    timer.current = window.setTimeout(onLongPress, delay);
+  };
+
+  return {
+    onPointerDown: start,
+    onTouchStart: start,
+    onPointerUp: clear,
+    onPointerCancel: clear,
+    onPointerLeave: clear,
+    onTouchEnd: clear,
+    onTouchCancel: clear,
+  };
+}
+
+function MessageRow({
+  message: m,
+  mdUpSafe,
+  timeFmt,
+  selectedId,
+  setSelectedId,
+  messageReactions,
+  myReactions,
+  onToggleEmoji,
+}: {
+  message: ChatMsg;
+  mdUpSafe: boolean;
+  timeFmt: Intl.DateTimeFormat;
+  selectedId: string | null;
+  setSelectedId: Dispatch<SetStateAction<string | null>>;
+  messageReactions: Record<string, number>;
+  myReactions: Record<string, true>;
+  onToggleEmoji: (emoji: string) => void;
+}) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const isSelected = selectedId === m.id;
+  const open = () => setSelectedId(m.id);
+  const toggleSelect = () => setSelectedId(isSelected ? null : m.id);
+  const lp = useLongPress(() => open(), { delay: 450 });
+
+  return (
+    <Box
+      ref={containerRef}
+      data-message-container="true"
+      role="button"
+      tabIndex={0}
+      onClick={() => mdUpSafe && toggleSelect()}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          toggleSelect();
+        }
+      }}
+      {...(!mdUpSafe ? lp : {})}
+      sx={(t) => ({
+        display: 'grid',
+        gridTemplateColumns: 'auto 1fr',
+        columnGap: 1.25,
+        alignItems: 'flex-start',
+        px: 1.25,
+        py: 1,
+        borderRadius: 2,
+
+        transition:
+          'border-color 120ms, background-color 120ms, box-shadow 120ms',
+        boxShadow: isSelected
+          ? '0 0 0 2px rgba(182,255,104,0.18) inset'
+          : 'none',
+        cursor: 'pointer',
+        outline: 'none',
+        '&:hover': mdUpSafe
+          ? {
+              backgroundColor: alpha(t.palette.primary.main, 0.06),
+              borderColor: alpha(t.palette.primary.main, 0.16),
+            }
+          : undefined,
+        '&:focus-visible': {
+          boxShadow:
+            '0 0 0 2px rgba(182,255,104,0.28) inset, 0 0 0 3px rgba(182,255,104,0.18)',
+          borderColor: '#CEFF9E',
+        },
+      })}
+    >
+      <AvatarImage
+        name={m.profiles?.display_name || 'Member'}
+        bucket="profile-avatars"
+        srcGuess={m.profiles?.avatar_url ?? undefined}
+        size={32}
+      />
+
+      <Stack sx={{ minWidth: 0 }}>
+        <Stack
+          direction="row"
+          spacing={0.75}
+          alignItems="baseline"
+          sx={{ minWidth: 0 }}
+        >
+          <Typography
+            variant="subtitle2"
+            noWrap
+            sx={{ fontWeight: 800, letterSpacing: 0.2, minWidth: 0 }}
+            title={m.profiles?.display_name || 'Member'}
+          >
+            {m.profiles?.display_name || 'Member'}
+          </Typography>
+          <Typography
+            variant="caption"
+            sx={{ opacity: 0.7, whiteSpace: 'nowrap', flexShrink: 0 }}
+            suppressHydrationWarning
+          >
+            {timeFmt.format(new Date(m.created_at))}
+          </Typography>
+        </Stack>
+
+        <Typography
+          variant="body1"
+          sx={{
+            mt: 0.5,
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-word',
+            color: 'rgba(237,235,255,0.92)',
+          }}
+        >
+          {m.body}
+        </Typography>
+
+        <ReactionBar
+          reactions={messageReactions}
+          myReactions={myReactions}
+          onToggle={onToggleEmoji}
+        />
+      </Stack>
+    </Box>
+  );
+}
+
+function ReactionBar({
+  reactions,
+  myReactions,
+  onToggle,
+}: {
+  reactions: Record<string, number>;
+  myReactions: Record<string, true>;
+  onToggle: (emoji: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const addBtnRef = useRef<HTMLButtonElement | null>(null);
+
+  const entries = Object.entries(reactions).sort((a, b) => b[1] - a[1]);
+  const hasReactions = entries.length > 0;
+
+  return (
+    <Box
+      sx={{
+        mt: 0.5,
+        display: 'flex',
+        gap: 0.5,
+        alignItems: 'center',
+        flexWrap: 'wrap',
+      }}
+    >
+      {hasReactions &&
+        entries.map(([emoji, count]) => {
+          const mine = !!myReactions[emoji];
+          return (
+            <Box
+              key={emoji}
+              role="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggle(emoji);
+              }}
+              sx={(t) => ({
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 0.5,
+                px: 0.75,
+                py: 0.25,
+                borderRadius: 999,
+                fontSize: '0.85rem',
+                border: `1px solid ${
+                  mine ? t.palette.primary.main : 'rgba(255,255,255,0.18)'
+                }`,
+                backgroundColor: mine
+                  ? alpha(t.palette.primary.main, 0.16)
+                  : 'rgba(255,255,255,0.06)',
+                boxShadow: mine
+                  ? `0 0 0 2px ${alpha(t.palette.primary.main, 0.18)} inset`
+                  : 'none',
+                color: 'inherit',
+                cursor: 'pointer',
+                userSelect: 'none',
+                transition:
+                  'background-color 120ms, border-color 120ms, box-shadow 120ms',
+                '&:hover': {
+                  backgroundColor: mine
+                    ? alpha(t.palette.primary.main, 0.22)
+                    : 'rgba(255,255,255,0.10)',
+                },
+              })}
+            >
+              <span aria-hidden>{emoji}</span>
+              <Typography variant="caption" sx={{ lineHeight: 1 }}>
+                {count}
+              </Typography>
+            </Box>
+          );
+        })}
+
+      <IconButton
+        ref={addBtnRef}
+        size="small"
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen((v) => !v);
+        }}
+        aria-label="Add reaction"
+        sx={{
+          width: 28,
+          height: 28,
+          border: '1px solid rgba(255,255,255,0.18)',
+          borderRadius: 2,
+          '&:hover': { backgroundColor: 'rgba(255,255,255,0.08)' },
+        }}
+      >
+        <AddReactionIcon fontSize="small" />
+      </IconButton>
+
+      <Popper
+        open={open}
+        anchorEl={addBtnRef.current}
+        placement="top-start"
+        disablePortal
+        modifiers={[
+          { name: 'offset', options: { offset: [0, 8] } },
+          {
+            name: 'preventOverflow',
+            options: { padding: 8, altBoundary: true },
+          },
+        ]}
+        sx={{ zIndex: (t) => t.zIndex.modal + 1 }}
+      >
+        <Paper
+          data-reactions-popper="true"
+          sx={{
+            bgcolor: 'rgba(17,19,26,0.95)',
+            border: '1px solid rgba(255,255,255,0.08)',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.45)',
+            p: 0.75,
+            borderRadius: 2,
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <EmojiGrid
+            emojis={[
+              '👍',
+              '❤️',
+              '😂',
+              '👀',
+              '🔥',
+              '🎉',
+              '🙏',
+              '👏',
+              '😮',
+              '😢',
+              '😡',
+              '💯',
+              '🤘',
+              '🎶',
+              '⭐️',
+            ]}
+            onPick={(emoji) => {
+              onToggle(emoji);
+              setOpen(false);
+            }}
+          />
+        </Paper>
+      </Popper>
+    </Box>
+  );
+}
+
+function EmojiGrid({
+  emojis,
+  onPick,
+}: {
+  emojis: string[];
+  onPick: (emoji: string) => void;
+}) {
+  return (
+    <Box
+      sx={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(8, 1.75rem)',
+        gap: 0.25,
+        maxWidth: '16rem',
+      }}
+    >
+      {emojis.map((e) => (
+        <Box
+          key={e}
+          role="button"
+          aria-label={`React with ${e}`}
+          onClick={() => onPick(e)}
+          sx={(t) => ({
+            fontSize: 20,
+            lineHeight: 1,
+            textAlign: 'center',
+            px: 0.25,
+            py: 0.25,
+            borderRadius: 1,
+            cursor: 'pointer',
+            userSelect: 'none',
+            transition: 'background-color 120ms',
+            '&:hover': { backgroundColor: alpha(t.palette.primary.main, 0.16) },
+            '&:active': {
+              backgroundColor: alpha(t.palette.primary.main, 0.24),
+            },
+          })}
+        >
+          {e}
+        </Box>
+      ))}
     </Box>
   );
 }

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
 import { useAttendance } from '@/hooks/useAttendance';
@@ -19,6 +20,7 @@ import {
   Tabs,
   Typography,
 } from '@mui/material';
+import { alpha } from '@mui/material/styles';
 import NextLink from 'next/link';
 import * as React from 'react';
 
@@ -30,6 +32,21 @@ type EventLite = {
 };
 
 type TabKey = 'chat' | 'roster' | 'setlist' | 'notes' | 'files';
+
+const HEADER_SHELL_SX = (t: any) => ({
+  mb: 2,
+  bgcolor: 'background.paper',
+  borderRadius: 2,
+  px: 2,
+  py: 1.25,
+  border: `1px solid ${alpha(t.palette.primary.main, 0.08)}`,
+});
+
+const SUB_TEXT_SX = {
+  fontSize: 14,
+  lineHeight: 1.4,
+  opacity: 0.85,
+} as const;
 
 export default function EventSheetHeader({
   backHref = '/dashboard',
@@ -48,14 +65,21 @@ export default function EventSheetHeader({
   onTabChange: (next: TabKey) => void;
   rightActions?: React.ReactNode;
 }) {
-  const SUB_TEXT_SX = React.useMemo(
-    () => ({
-      fontSize: 14,
-      lineHeight: 1.4,
-      opacity: 0.85,
-    }),
-    []
-  );
+  function goBackOr(fallback: string) {
+    if (typeof window === 'undefined') return;
+    if (
+      document.referrer &&
+      new URL(document.referrer).origin === window.location.origin
+    ) {
+      window.history.back();
+      return;
+    }
+    if (window.history.length > 1) {
+      window.history.back();
+      return;
+    }
+    window.location.assign(fallback);
+  }
 
   return (
     <Box
@@ -63,114 +87,127 @@ export default function EventSheetHeader({
         position: 'sticky',
         top: 'env(safe-area-inset-top, 0px)',
         zIndex: (t) => t.zIndex.appBar + 2,
-        px: { xs: 2, md: 3 },
-        py: { xs: 1.25, md: 1.75 },
-        background:
-          'linear-gradient(180deg, rgba(11,10,16,0.72), rgba(11,10,16,0.60))',
-        borderBottom: '1px solid rgba(155,135,245,0.22)',
-        backdropFilter: 'saturate(120%) blur(10px)',
       }}
     >
-      {/* Title row */}
-      <Stack spacing={1.25}>
-        <Stack
-          direction="row"
-          alignItems="center"
-          spacing={1}
-          sx={{ flexWrap: 'wrap' }}
-        >
-          <IconButton
-            component={NextLink}
-            href={backHref}
-            size="small"
-            edge="start"
-            aria-label="Back"
-            centerRipple
-            sx={{
-              color: 'white',
-              p: 0.5,
-              '&:focus-visible': {
-                outline: '2px solid',
-                outlineColor: 'primary.main',
-                outlineOffset: 2,
-                borderRadius: '9999px',
-              },
-            }}
+      <Box sx={HEADER_SHELL_SX}>
+        <Stack spacing={1}>
+          {/* Title row */}
+          <Stack
+            direction="row"
+            alignItems="center"
+            spacing={1.25}
+            flexWrap="wrap"
           >
-            <ArrowBackIosIcon fontSize="small" />
-          </IconButton>
+            <IconButton
+              component={NextLink}
+              href={backHref}
+              onClick={(e) => {
+                e.preventDefault();
+                goBackOr(backHref);
+              }}
+              size="small"
+              edge="start"
+              aria-label="Back"
+              centerRipple
+              sx={{
+                color: 'text.primary',
+                p: 0.5,
+                mr: 0.25,
+                '&:focus-visible': {
+                  outline: '2px solid',
+                  outlineColor: 'primary.main',
+                  outlineOffset: 2,
+                  borderRadius: '9999px',
+                },
+              }}
+            >
+              <ArrowBackIosIcon fontSize="small" />
+            </IconButton>
 
-          <Typography
-            variant="h5"
-            fontWeight={900}
-            noWrap
-            title={event?.title}
-            sx={{ letterSpacing: 0.2, mr: 0.5 }}
-          >
-            {event?.title || 'Event'}
-          </Typography>
+            <Typography
+              component="h1"
+              noWrap
+              title={event?.title}
+              sx={{
+                fontWeight: 900,
+                lineHeight: 1.05,
+                fontSize: 'clamp(19px, 4vw, 35px)', // matches BandTitleMenu scale
+                letterSpacing: 0.2,
+                mr: 0.5,
+                maxWidth: 'min(80vw, 100%)',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              {event?.title || 'Event'}
+            </Typography>
 
-          {typeof event?.is_booked === 'boolean' &&
-            (event.is_booked ? (
-              <Chip
-                label="Booked"
-                sx={{
-                  bgcolor: '#B6FF68',
-                  color: '#193A0A',
-                  border: '1px solid #CEFF9E',
-                  height: 20,
-                  fontSize: 11,
-                  borderRadius: 8,
-                  '& .MuiChip-label': { px: 1 },
-                }}
-                size="small"
-              />
-            ) : (
-              <Chip
-                label="Pending"
-                sx={{
-                  bgcolor: '#E879F9',
-                  color: '#33043C',
-                  border: '1px solid #F0ABFC',
-                  height: 20,
-                  fontSize: 11,
-                  borderRadius: 8,
-                  '& .MuiChip-label': { px: 1 },
-                }}
-                size="small"
-              />
-            ))}
+            {typeof event?.is_booked === 'boolean' &&
+              (event.is_booked ? (
+                <Chip
+                  label="Booked"
+                  sx={{
+                    bgcolor: '#B6FF68',
+                    color: '#193A0A',
+                    border: '1px solid #CEFF9E',
+                    height: 20,
+                    fontSize: 11,
+                    borderRadius: 8,
+                    '& .MuiChip-label': { px: 1 },
+                  }}
+                  size="small"
+                />
+              ) : (
+                <Chip
+                  label="Pending"
+                  sx={{
+                    bgcolor: '#E879F9',
+                    color: '#33043C',
+                    border: '1px solid #F0ABFC',
+                    height: 20,
+                    fontSize: 11,
+                    borderRadius: 8,
+                    '& .MuiChip-label': { px: 1 },
+                  }}
+                  size="small"
+                />
+              ))}
+          </Stack>
+
+          {/* Subline + RSVP + right actions */}
+          <Stack spacing={0.75}>
+            <Typography
+              variant="body2"
+              sx={SUB_TEXT_SX}
+              suppressHydrationWarning
+            >
+              {event?.type} · {startsAtLabel}
+              {event?.location ? ` · ${event.location}` : ''}
+            </Typography>
+
+            <InlineRSVPTwoState eventId={eventId} textSx={SUB_TEXT_SX} />
+
+            {rightActions && <Box sx={{ pt: 0.25 }}>{rightActions}</Box>}
+          </Stack>
         </Stack>
+      </Box>
 
-        <Stack spacing={0.75}>
-          <Typography variant="body2" sx={SUB_TEXT_SX} suppressHydrationWarning>
-            {event?.type} · {startsAtLabel}
-            {event?.location ? ` · ${event.location}` : ''}
-          </Typography>
-
-          <InlineRSVPTwoState eventId={eventId} textSx={SUB_TEXT_SX} />
-
-          {rightActions && <Box sx={{ pt: 0.25 }}>{rightActions}</Box>}
-        </Stack>
-      </Stack>
-
-      {/* Tabs */}
       <Tabs
         value={tab}
         onChange={(_e, v) => onTabChange(v)}
         textColor="inherit"
         indicatorColor="primary"
-        sx={{
-          mt: 1,
-          mb: 0,
-          borderTop: '1px solid rgba(155,135,245,0.22)',
+        sx={(t) => ({
+          mb: 2,
+          borderBottom: '1px solid',
+          borderColor: alpha(t.palette.primary.main, 0.18),
           '& .MuiTab-root': {
             textTransform: 'none',
-            fontWeight: 700,
+            fontWeight: 600,
             letterSpacing: 0.2,
             minHeight: 40,
           },
-        }}
+        })}
       >
         <Tab label="Chat" value="chat" />
         <Tab label="Roster" value="roster" />
@@ -188,7 +225,7 @@ function InlineRSVPTwoState({
   textSx,
 }: {
   eventId: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   textSx?: any;
 }) {
   const { mine, counts, saving, error, update } = useAttendance(eventId);
@@ -206,7 +243,6 @@ function InlineRSVPTwoState({
   const handleClose = () => setConfirm((c) => ({ ...c, open: false }));
 
   const sb = React.useMemo(() => supabaseBrowser(), []);
-
   const handleConfirm = async () => {
     await update(confirm.next);
 
@@ -218,11 +254,7 @@ function InlineRSVPTwoState({
     if (userId) {
       window.dispatchEvent(
         new CustomEvent('amplee:rsvp-change', {
-          detail: {
-            eventId,
-            userId,
-            next: confirm.next,
-          },
+          detail: { eventId, userId, next: confirm.next },
         })
       );
     }
@@ -273,12 +305,7 @@ function InlineRSVPTwoState({
 
   return (
     <>
-      <Stack
-        direction="row"
-        alignItems="center"
-        spacing={1}
-        sx={{ px: 0, py: 0 }}
-      >
+      <Stack direction="row" alignItems="center" spacing={1}>
         <Typography
           variant="body2"
           sx={{ ...textSx, mr: 0.5, whiteSpace: 'nowrap' }}
@@ -322,7 +349,7 @@ function InlineRSVPTwoState({
         )}
       </Stack>
 
-      {/* Confirmation dialog */}
+      {/* Confirm dialog */}
       <Dialog
         open={confirm.open}
         onClose={saving ? undefined : handleClose}

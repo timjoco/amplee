@@ -18,7 +18,7 @@ import {
 import { alpha } from '@mui/material/styles';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import NoBandNoEventsPaper from '../Bands/NoBandNoEventsPaper';
+import NoBandNoEventsPaper from '../Bands/NoBandsNoEventsPaper';
 
 type EventRow = {
   id: string;
