@@ -71,13 +71,9 @@ export default function BandSettingsDialog({
   const ROW_Y = 2;
   const GAP_Y = 2;
 
-  // desktop vs mobile
   const isDesktop = useMediaQuery('(min-width:900px)', { noSsr: true });
-
-  // desktop-only section selection
   const [selected, setSelected] = useState<Section>('profile');
 
-  // reusable right-pane sections
   const ProfileSection = (
     <Box id="profile" sx={{ py: ROW_Y }}>
       <Typography
@@ -147,7 +143,6 @@ export default function BandSettingsDialog({
         sx: { bgcolor: BG, color: 'common.white' },
       }}
     >
-      {/* Floating close (X) */}
       <Box
         sx={{
           position: 'fixed',
@@ -238,7 +233,6 @@ export default function BandSettingsDialog({
           </Stack>
         </Box>
 
-        {/* Right content pane */}
         <Box
           sx={{
             bgcolor: SURFACE,
@@ -278,7 +272,6 @@ export default function BandSettingsDialog({
             },
           }}
         >
-          {/* Desktop: render only selected section; Mobile: render both stacked */}
           {isDesktop ? (
             selected === 'profile' ? (
               ProfileSection
