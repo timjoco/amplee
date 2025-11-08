@@ -8,7 +8,7 @@ import { supabaseBrowser } from '@/lib/supabaseClient';
 import AddIcon from '@mui/icons-material/Add';
 import CloseIcon from '@mui/icons-material/Close';
 import MusicNoteIcon from '@mui/icons-material/MusicNote';
-import ScheduleIcon from '@mui/icons-material/Schedule';
+import PendingActionsIcon from '@mui/icons-material/PendingActions';
 
 import {
   Alert,
@@ -46,7 +46,6 @@ export type GlobalCreateProps = {
 
 const CONTENT_PX = 3;
 
-// ---------- Helpers ----------
 const blurActive = () =>
   (document.activeElement as HTMLElement | null)?.blur?.();
 
@@ -69,7 +68,6 @@ function normalizeCreateEventError(e: any): string {
   return 'Could not create the event. Please try again.';
 }
 
-/** Merge server results into current list (stable by id, sorted by name). */
 function mergeLocalBands(
   current: BandLite[],
   incoming: BandLite[]
@@ -83,7 +81,6 @@ function mergeLocalBands(
   return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
 }
 
-/** Map PostgREST rows → BandLite (tolerant to missing nested bands). */
 function mapBands(rows: any[] | null | undefined): BandLite[] {
   return (rows ?? [])
     .map((r: any) => r?.bands)
@@ -106,7 +103,6 @@ export default function GlobalCreate({
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const pathname = usePathname();
 
-  // controlled/uncontrolled
   const isControlled = typeof openProp === 'boolean';
   const [openUncontrolled, setOpenUncontrolled] = useState(false);
   const open = isControlled ? (openProp as boolean) : openUncontrolled;
@@ -118,25 +114,19 @@ export default function GlobalCreate({
     [isControlled, onOpenChange]
   );
 
-  // errors
   const [error, setError] = useState<string | null>(null);
 
-  // bands for “New Event”
   const [bands, setBands] = useState<BandLite[]>([]);
   const [loadingBands, setLoadingBands] = useState(false);
 
-  // event band selection dropdown
   const [eventBand, setEventBand] = useState<BandLite | null>(null);
 
-  // new band form
   const [bandName, setBandName] = useState('');
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
 
-  // wizard step
   const [step, setStep] = useState<'menu' | 'newBand' | 'newEvent'>('menu');
 
-  // new event fields
   const [eventTitle, setEventTitle] = useState('');
   const [eventType, setEventType] = useState<EventType>('show');
   const [eventStarts, setEventStarts] = useState<string>('');
@@ -151,19 +141,15 @@ export default function GlobalCreate({
     resetError: resetCreateBandError,
   } = useCreateBand();
 
-  // --- SSR-safe mobile check ---
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
-  // --- Auth state (default to logged OUT to avoid flashing UI) ---
   const [authed, setAuthed] = useState(false);
   useEffect(() => {
     const sb = supabaseBrowser();
 
-    // Prime from current session
     sb.auth.getSession().then(({ data }) => setAuthed(!!data.session));
 
-    // Keep in sync
     const {
       data: { subscription },
     } = sb.auth.onAuthStateChange((_e, session) => setAuthed(!!session));
@@ -201,7 +187,6 @@ export default function GlobalCreate({
     setEventLocation('');
   }, [avatarPreview, resetCreateBandError]);
 
-  // re-init on route change (don’t force-close)
   const prevPathRef = useRef(pathname);
   useEffect(() => {
     if (pathname !== prevPathRef.current) {
@@ -210,7 +195,6 @@ export default function GlobalCreate({
     }
   }, [pathname, resetAll]);
 
-  // pick avatar
   const onPickAvatar = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0] ?? null;
     if (!f) return;
@@ -223,11 +207,9 @@ export default function GlobalCreate({
     });
     setAvatarFile(f);
     setAvatarPreview(URL.createObjectURL(f));
-    // allow picking same file twice
     e.currentTarget.value = '';
   };
 
-  // fetch bands (reused)
   const fetchBands = useCallback(async () => {
     const sb = supabaseBrowser();
     const {
@@ -236,7 +218,6 @@ export default function GlobalCreate({
     if (!user) return { rows: [], merged: [] as BandLite[] };
 
     const { data: rows, error } = await sb
-      // NOTE: keep this table name consistent with your schema.
       .from('band_members')
       .select('role, bands(id, name, avatar_url)')
       .eq('user_id', user.id);
@@ -248,7 +229,6 @@ export default function GlobalCreate({
     return { rows, merged };
   }, []);
 
-  // Load bands when dialog opens
   useEffect(() => {
     if (!open) return;
     let mounted = true;
@@ -309,7 +289,6 @@ export default function GlobalCreate({
       const created = await createBandWithHook({ name, avatarFile });
       if (!created?.id) throw new Error('Could not create band');
 
-      // update local list quickly
       setBands((prev) =>
         mergeLocalBands(prev, [
           {
@@ -449,7 +428,7 @@ export default function GlobalCreate({
                   disabled={!bands.length}
                 >
                   <ListItemIcon sx={{ minWidth: 36 }}>
-                    <ScheduleIcon sx={{ opacity: 0.9 }} />
+                    <PendingActionsIcon sx={{ opacity: 0.9 }} />
                   </ListItemIcon>
                   <ListItemText
                     primary="New Event"
@@ -546,7 +525,7 @@ export default function GlobalCreate({
                 fullWidth
                 value={eventTitle}
                 onChange={(e) => setEventTitle(e.target.value)}
-                placeholder="e.g., Warehouse Show"
+                placeholder="e.g., Show @ The Rino"
               />
 
               <TextField
