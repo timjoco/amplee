@@ -97,7 +97,6 @@ export function BandSummaryOverviewSection({
         );
       }
 
-      // Years Active
       if (bandRow?.created_at) {
         const created = new Date(bandRow.created_at);
         const now = new Date();
@@ -152,7 +151,7 @@ export function BandSummaryOverviewSection({
               direction="row"
               justifyContent="space-around"
               alignItems="center"
-              sx={{ pt: 0, pb: 0 }} // <-- was py: 1; removed to pull closer
+              sx={{ pt: 0, pb: 0 }}
             >
               <StatBlock emoji="👥" value={memberCount} label="Members" />
               <VerticalDivider />
@@ -162,7 +161,7 @@ export function BandSummaryOverviewSection({
             </Stack>
           </Stack>
 
-          <Divider sx={{ opacity: 0.12 }} />
+          <Divider />
 
           {/* BOTTOM – Genres */}
           <Stack spacing={1}>

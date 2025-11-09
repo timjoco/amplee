@@ -439,7 +439,9 @@ export default function BandSheet({ bandId }: Props) {
       {/* Panels */}
       {tab === 'overview' && <BandOverviewTab bandId={bandId} />}
 
-      {tab === 'events' && <EventInboxList bandId={bandId} />}
+      {tab === 'events' && (
+        <EventInboxList bandId={bandId} isAdmin={myRole === 'admin'} />
+      )}
       {tab === 'proposals' && (
         <BandProposalsTab bandId={bandId} isAdmin={myRole === 'admin'} />
       )}

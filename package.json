@@ -6,5 +6,11 @@
     "dev:web": "pnpm --filter @amplee/web dev",
     "build:web": "pnpm --filter @amplee/web build",
     "start:web": "pnpm --filter @amplee/web start"
+  },
+  "volta": {
+    "node": "20.19.5"
+  },
+  "dependencies": {
+    "babel-plugin-module-resolver": "^5.0.2"
   }
 }

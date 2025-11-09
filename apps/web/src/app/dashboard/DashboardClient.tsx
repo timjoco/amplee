@@ -262,7 +262,7 @@ export default function DashboardClient() {
                   <Skeleton variant="text" width="60%" height={30} />
                   <Skeleton variant="text" width="40%" />
                   <Skeleton
-                    variant="rectangular"
+                    variant="circular"
                     height={100}
                     sx={{ mt: 2, borderRadius: 2 }}
                   />
@@ -274,13 +274,13 @@ export default function DashboardClient() {
                   })}
                 >
                   <Skeleton
-                    variant="rectangular"
+                    variant="circular"
                     width={100}
                     height={36}
                     sx={{ borderRadius: 999 }}
                   />
                   <Skeleton
-                    variant="rectangular"
+                    variant="circular"
                     width={120}
                     height={36}
                     sx={{ borderRadius: 999 }}

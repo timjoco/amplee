@@ -19,8 +19,7 @@ import {
 } from '@mui/material';
 import Grid from '@mui/material/Grid';
 import { alpha } from '@mui/material/styles';
-import {
-  Fragment,
+import React, {
   useCallback,
   useEffect,
   useMemo,
@@ -104,7 +103,7 @@ export default function EventSheet({
         .eq('user_id', (await sb.auth.getUser()).data.user?.id)
         .maybeSingle();
 
-      if (!error && data) setIsAdmin(data.role === 'admin'); // adjust if you have multiple admin-like roles
+      if (!error && data) setIsAdmin(data.role === 'admin');
     })();
   }, [sb, bandId]);
 
@@ -121,11 +120,24 @@ export default function EventSheet({
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
+        overflowX: 'clip',
         zIndex: (t) => t.zIndex.appBar - 1,
       }}
     >
-      {/* Header wrapper (not a scroll host) */}
-      <Box component="header" sx={{ py: { xs: 1.5, sm: 2 }, flexShrink: 0 }}>
+      {/* Sticky header (not a scroll host) */}
+      <Box
+        component="header"
+        sx={{
+          position: 'sticky',
+          top: 0,
+          zIndex: (t) => t.zIndex.appBar ?? 1100,
+          py: { xs: 1.5, sm: 2 },
+          flexShrink: 0,
+          background:
+            'linear-gradient(180deg, rgba(11,10,16,0.92), rgba(11,10,16,0.86) 60%, rgba(11,10,16,0))',
+          backdropFilter: 'saturate(140%) blur(6px)',
+        }}
+      >
         <Box
           sx={{
             maxWidth: 2000,
@@ -149,13 +161,23 @@ export default function EventSheet({
         </Box>
       </Box>
 
-      <Box component="main" sx={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+      {/* Scroll host */}
+      <Box
+        component="main"
+        data-nextjs-scroll-focus-boundary
+        sx={{
+          flex: 1,
+          minHeight: 0,
+          overflowY: 'auto',
+          WebkitOverflowScrolling: 'touch',
+        }}
+      >
         <Box
           sx={{
             maxWidth: 2000,
             mx: 'auto',
             px: { xs: 1, sm: 2, md: 3, lg: 5, xl: 7 },
-            height: '100%',
+            py: { xs: 1, sm: 1.5 }, // breathing room below the sticky header
           }}
         >
           {tab === 'chat' && <ChatTab eventId={eventId} />}
@@ -341,7 +363,7 @@ function RosterPanel({ bandId, eventId }: { bandId: string; eventId: string }) {
       ) : (
         <List disablePadding>
           {rows.map((r, i) => (
-            <Fragment key={r.user_id}>
+            <React.Fragment key={r.user_id}>
               <ListItem disableGutters sx={{ px: 1, py: 1 }}>
                 {/* avatar + name (left), status pill (right) */}
                 <Stack
@@ -384,7 +406,7 @@ function RosterPanel({ bandId, eventId }: { bandId: string; eventId: string }) {
                   sx={{ mx: 1, opacity: 0.14, borderColor: 'divider' }}
                 />
               )}
-            </Fragment>
+            </React.Fragment>
           ))}
         </List>
       )}

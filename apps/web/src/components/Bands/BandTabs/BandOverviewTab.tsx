@@ -159,15 +159,24 @@ export default function BandOverviewTab({ bandId }: { bandId: string }) {
       <Grid container spacing={2.5} sx={{ pb: 1, alignItems: 'stretch' }}>
         <Grid size={{ xs: 12, md: 8 }} sx={{ height: '100%' }}>
           <Typography variant="subtitle1" sx={sectionTitleSx}>
-            Next Upcoming Event{' '}
+            Next Upcoming Event
           </Typography>
+
           <CardLike loading={loading} err={err}>
             {!nextEvent ? (
-              <EmptyHint
-                text="No upcoming events scheduled."
-                actionLabel="Create event"
-                href={`/bands/${bandId}/events/new`}
-              />
+              isAdmin ? (
+                <EmptyHint
+                  text="No upcoming events scheduled."
+                  actionLabel="Create event"
+                  href={`/bands/${bandId}/events/new`}
+                />
+              ) : (
+                <Stack spacing={2}>
+                  <Typography sx={{ opacity: 0.7 }}>
+                    No Upcoming Events Scheduled.
+                  </Typography>
+                </Stack>
+              )
             ) : (
               <>
                 <ListItemButton
@@ -227,7 +236,9 @@ export default function BandOverviewTab({ bandId }: { bandId: string }) {
                     </Stack>
                   </Box>
                 </ListItemButton>
+
                 <Divider />
+
                 <Stack direction="row" spacing={1} sx={{ pt: 1 }}>
                   <Button
                     onClick={() => gotoTab('events')}

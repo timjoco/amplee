@@ -5,7 +5,7 @@
 import HowToVoteIcon from '@mui/icons-material/HowToVote';
 import PlaceIcon from '@mui/icons-material/Place';
 import WhatshotIcon from '@mui/icons-material/Whatshot';
-import { LinearProgress } from '@mui/material';
+import { Divider, LinearProgress } from '@mui/material';
 import { supabaseBrowser } from '../../../lib/supabaseClient';
 
 import {
@@ -192,27 +192,9 @@ export function ProposedGigsOverviewSection({
       <CardLike loading={loading} err={err}>
         {!items.length ? (
           <Stack spacing={1.25} sx={{ pt: 0.5 }}>
-            <Typography sx={{ opacity: 0.8 }}>No proposals yet.</Typography>
-
-            <Stack direction="row" spacing={1}>
-              <Button
-                component={NextLink}
-                href={`/bands/${bandId}?tab=proposals`}
-                onClick={(e) => {
-                  e.preventDefault();
-                  gotoTab('proposals');
-                }}
-                variant="outlined"
-                sx={{
-                  fontWeight: 900,
-                  borderRadius: 2,
-                  whiteSpace: 'nowrap',
-                  textTransform: 'none',
-                }}
-              >
-                {isMobile ? 'View all' : 'View all proposals'}
-              </Button>
-            </Stack>
+            <Typography sx={{ opacity: 0.85 }}>
+              No proposed gigs yet.
+            </Typography>
           </Stack>
         ) : (
           <Stack spacing={1}>
@@ -372,6 +354,7 @@ export function ProposedGigsOverviewSection({
                 );
               })}
             </List>
+            <Divider />
 
             {/* ---- Footer actions ---- */}
             <Stack

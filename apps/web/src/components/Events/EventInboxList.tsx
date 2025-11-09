@@ -45,10 +45,12 @@ export default function EventInboxList({
   onLoaded,
   bandId,
   showAvatars = true,
+  isAdmin,
 }: {
   onLoaded?: (count: number) => void;
   bandId?: string;
   showAvatars?: boolean;
+  isAdmin?: boolean;
 }) {
   const router = useRouter();
   const sb = useMemo(() => supabaseBrowser(), []);
@@ -248,6 +250,14 @@ export default function EventInboxList({
     router.push(`/bands/${bId}/events/${eventId}`);
   };
 
+  function EmptyListMessage({ children }: { children: React.ReactNode }) {
+    return (
+      <Stack spacing={2}>
+        <Typography sx={{ opacity: 0.7 }}>{children}</Typography>
+      </Stack>
+    );
+  }
+
   return (
     <Box sx={{ px: { xs: 2, md: 3 }, py: 2 }}>
       {loading ? (
@@ -255,13 +265,17 @@ export default function EventInboxList({
           <CircularProgress size={20} />
         </Stack>
       ) : rows.length === 0 ? (
-        <NoBandNoEventsPaper
-          kind="events"
-          onPrimary={() => setCreateOpen(true)}
-          maxWidth="100%"
-          contentMaxWidth="100%"
-          center
-        />
+        isAdmin ? (
+          <NoBandNoEventsPaper
+            kind="events"
+            onPrimary={() => setCreateOpen(true)}
+            maxWidth="100%"
+            contentMaxWidth="100%"
+            center
+          />
+        ) : (
+          <EmptyListMessage>No events scheduled yet.</EmptyListMessage>
+        )
       ) : (
         <List
           disablePadding
