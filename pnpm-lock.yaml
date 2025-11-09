@@ -44,6 +44,9 @@ importers:
       '@mui/material-nextjs':
         specifier: ^7.3.2
         version: 7.3.5(@emotion/cache@11.14.0)(@emotion/react@11.14.0)(@types/react@19.2.2)(next@15.5.3)(react@19.1.0)
+      '@mui/system':
+        specifier: 7.3.5
+        version: 7.3.5(@emotion/react@11.14.0)(@emotion/styled@11.14.1)(@types/react@19.2.2)(react@19.1.0)
       '@mui/x-data-grid':
         specifier: ^8.17.0
         version: 8.17.0(@emotion/react@11.14.0)(@emotion/styled@11.14.1)(@mui/material@7.3.5)(@mui/system@7.3.5)(@types/react@19.2.2)(react-dom@19.1.0)(react@19.1.0)
