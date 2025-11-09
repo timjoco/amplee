@@ -1,5 +1,12 @@
 import InviteClient from './InviteClient';
 
-export default function InvitePage({ params }: { params: { token: string } }) {
-  return <InviteClient token={params.token} />;
+type RouteParams = { token: string };
+
+export default async function InvitePage({
+  params,
+}: {
+  params: Promise<RouteParams>;
+}) {
+  const { token } = await params;
+  return <InviteClient token={token} />;
 }

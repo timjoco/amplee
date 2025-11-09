@@ -1,6 +1,5 @@
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
-import InstagramIcon from '@mui/icons-material/Instagram';
 import {
   Box,
   Button,
@@ -8,12 +7,9 @@ import {
   CardContent,
   Container,
   Grid,
-  IconButton,
   Stack,
   Typography,
 } from '@mui/material';
-import Image from 'next/image';
-import Link from 'next/link';
 import { supabaseServer } from '../lib/supabaseServer';
 
 import { redirect } from 'next/navigation';
@@ -30,7 +26,6 @@ export default async function HomePage() {
     <Box sx={{ bgcolor: '#0f0e16', color: '#EDEBFF' }}>
       <Hero />
       <BigFeaturesSection />
-      <Footer />
     </Box>
   );
 }
@@ -276,172 +271,6 @@ function FeatureRow({
   );
 }
 
-/* ----------------------------- FOOTER ----------------------------- */
-function FooterLink({
-  href,
-  children,
-}: {
-  href: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <Typography
-      component="a"
-      href={href}
-      sx={{
-        display: 'inline-block',
-        color: 'rgba(255,255,255,0.92)',
-        textDecoration: 'none',
-        fontSize: { xs: 14, md: 15 },
-        py: 0.5,
-        '&:hover': { textDecoration: 'underline' },
-      }}
-    >
-      {children}
-    </Typography>
-  );
-}
-
-function FooterColumn({
-  title,
-  items,
-}: {
-  title: string;
-  items: { label: string; href: string }[];
-}) {
-  return (
-    <Stack spacing={1}>
-      <Typography
-        sx={{
-          color: 'rgba(255,255,255,0.7)',
-          fontWeight: 700,
-          letterSpacing: 0.3,
-          mb: 0.75,
-        }}
-      >
-        {title}
-      </Typography>
-      <Stack spacing={0.5}>
-        {items.map((it) => (
-          <FooterLink key={it.label} href={it.href}>
-            {it.label}
-          </FooterLink>
-        ))}
-      </Stack>
-    </Stack>
-  );
-}
-
-export function Footer() {
-  const year = new Date().getFullYear();
-
-  const product = [
-    { label: 'Download', href: '/download' },
-    { label: 'Pricing', href: '/pricing' },
-    { label: 'Status', href: '/status' },
-  ];
-  const company = [
-    { label: 'About', href: '/about' },
-    { label: 'Brand', href: '/brand' },
-  ];
-  const resources = [
-    { label: 'Support', href: '/support' },
-    { label: 'Blog', href: '/blog' },
-  ];
-  const policies = [
-    { label: 'Terms', href: '/terms' },
-
-    { label: 'Company Information', href: '/company' },
-  ];
-
-  return (
-    <Box
-      component="footer"
-      sx={{
-        width: '100%',
-        color: '#EDEBFF',
-        // Amplee gradient: subtle purple glows + deep purple→black sweep
-        background: `
-      radial-gradient(1000px 420px at -10% -20%, rgba(155,135,245,0.18), rgba(155,135,245,0) 60%),
-      radial-gradient(800px 360px at 110% 10%, rgba(255,122,230,0.12), rgba(255,122,230,0) 60%),
-      linear-gradient(180deg, #151224 0%, #0f0e16 42%, #0B0A10 100%)
-    `,
-        pt: { xs: 6, md: 8 },
-        pb: { xs: 6, md: 8 },
-      }}
-    >
-      <Container maxWidth="lg" sx={{ px: { xs: 2, sm: 3, md: 4 } }}>
-        <Grid container spacing={{ xs: 4, md: 6 }}>
-          <Grid size={{ xs: 12, md: 4 }}>
-            <Stack spacing={3}>
-              <Stack direction="row" alignItems="center" spacing={1.5}>
-                <Link
-                  href="/"
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 12,
-                  }}
-                >
-                  <Image
-                    src="/logo.png"
-                    alt="Amplee logo"
-                    width={36}
-                    height={36}
-                    priority
-                    style={{ borderRadius: 8 }}
-                  />
-                </Link>
-              </Stack>
-
-              <Stack spacing={1}>
-                <Typography sx={{ color: 'rgba(255,255,255,0.7)' }}>
-                  Socials
-                </Typography>
-                <Stack direction="row" spacing={1.5}>
-                  <IconButton
-                    component="a"
-                    href="https://instagram.com/amplee.app"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    sx={{ color: 'white', '&:hover': { color: '#E0E0FF' } }}
-                    aria-label="Instagram"
-                  >
-                    <InstagramIcon />
-                  </IconButton>
-                </Stack>
-              </Stack>
-
-              <Typography sx={{ color: 'rgba(255,255,255,0.7)' }}>
-                © {year} Amplee
-              </Typography>
-            </Stack>
-          </Grid>
-
-          {/* LINK COLUMNS */}
-          <Grid size={{ xs: 12, md: 8 }}>
-            <Grid container spacing={{ xs: 4, md: 6 }}>
-              <Grid size={{ xs: 6, sm: 3 }}>
-                <FooterColumn title="Product" items={product} />
-              </Grid>
-              <Grid size={{ xs: 6, sm: 3 }}>
-                <FooterColumn title="Company" items={company} />
-              </Grid>
-              <Grid size={{ xs: 6, sm: 3 }}>
-                <FooterColumn title="Resources" items={resources} />
-              </Grid>
-              <Grid size={{ xs: 6, sm: 3 }}>
-                <FooterColumn title="Policies" items={policies} />
-              </Grid>
-            </Grid>
-          </Grid>
-        </Grid>
-      </Container>
-    </Box>
-  );
-}
-
-/* ------------------------------ UTIL ------------------------------ */
 function Blob({
   color,
   size,
@@ -470,5 +299,3 @@ function Blob({
     />
   );
 }
-
-/* ---------------------------- UPGRADE YOUR GEAR TO GO HERE---------------------------- */

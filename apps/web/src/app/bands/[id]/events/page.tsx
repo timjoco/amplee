@@ -1,13 +1,16 @@
+// apps/web/src/app/bands/[id]/events/page.tsx (or your path)
 import { notFound, redirect } from 'next/navigation';
 import BandEventsList from '../../../../components/Bands/BandEventsList';
 import { createClient } from '../../../../utils/supabase/server';
 
+type RouteParams = { id: string };
+
 export default async function BandEventsIndex({
   params,
 }: {
-  params: { id: string };
+  params: Promise<RouteParams>;
 }) {
-  const { id: bandId } = params;
+  const { id: bandId } = await params;
   const supabase = createClient();
 
   const {
