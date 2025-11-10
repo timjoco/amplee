@@ -1,43 +1,40 @@
-import React from 'react';
-import { Redirect, Route } from 'react-router-dom';
-import { IonApp, IonRouterOutlet, setupIonicReact } from '@ionic/react';
-import { IonReactRouter } from '@ionic/react-router';
+// src/App.tsx (RRv6, no IonApp here)
+import { Navigate, Route, Routes } from 'react-router-dom';
+import { useSession } from './lib/useSession';
+import AuthCallback from './pages/AuthCallback';
+import Event from './pages/Event';
+import GreenRoom from './pages/GreenRoom';
 import Home from './pages/Home';
+import Invite from './pages/Invite';
+import Login from './pages/Login';
+import VerifyEmail from './pages/VerifyEmail';
 
-/* Core CSS required for Ionic components to work properly */
-import '@ionic/react/css/core.css';
+export default function App() {
+  const { loading, session } = useSession();
+  if (loading) return null;
 
-/* Basic CSS for apps built with Ionic */
-import '@ionic/react/css/normalize.css';
-import '@ionic/react/css/structure.css';
-import '@ionic/react/css/typography.css';
+  return (
+    <Routes>
+      {/* public */}
+      <Route path="/auth/callback" element={<AuthCallback />} />
+      <Route path="/verify-email" element={<VerifyEmail />} />
+      <Route path="/invite/:token" element={<Invite />} />
 
-/* Optional CSS utils that can be commented out */
-import '@ionic/react/css/padding.css';
-import '@ionic/react/css/float-elements.css';
-import '@ionic/react/css/text-alignment.css';
-import '@ionic/react/css/text-transformation.css';
-import '@ionic/react/css/flex-utils.css';
-import '@ionic/react/css/display.css';
-
-/* Theme variables */
-import './theme/variables.css';
-
-setupIonicReact();
-
-const App: React.FC = () => (
-  <IonApp>
-    <IonReactRouter>
-      <IonRouterOutlet>
-        <Route exact path="/home">
-          <Home />
-        </Route>
-        <Route exact path="/">
-          <Redirect to="/home" />
-        </Route>
-      </IonRouterOutlet>
-    </IonReactRouter>
-  </IonApp>
-);
-
-export default App;
+      {!session ? (
+        <>
+          <Route path="/login" element={<Login />} />
+          <Route path="/" element={<Navigate to="/login" replace />} />
+          <Route path="*" element={<Navigate to="/login" replace />} />
+        </>
+      ) : (
+        <>
+          <Route path="/home" element={<Home />} />
+          <Route path="/event/:id" element={<Event />} />
+          <Route path="/greenroom/:eventId" element={<GreenRoom />} />
+          <Route path="/" element={<Navigate to="/home" replace />} />
+          <Route path="*" element={<Navigate to="/home" replace />} />
+        </>
+      )}
+    </Routes>
+  );
+}
