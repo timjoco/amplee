@@ -1,0 +1,30 @@
+require_relative '../../../../node_modules/.pnpm/@capacitor+ios@7.4.4_@capacitor+core@7.4.4/node_modules/@capacitor/ios/scripts/pods_helpers'
+
+platform :ios, '14.0'
+use_frameworks!
+
+# workaround to avoid Xcode caching of Pods that requires
+# Product -> Clean Build Folder after new Cordova plugins installed
+# Requires CocoaPods 1.6 or newer
+install! 'cocoapods', :disable_input_output_paths => true
+
+def capacitor_pods
+  pod 'Capacitor', :path => '../../../../node_modules/.pnpm/@capacitor+ios@7.4.4_@capacitor+core@7.4.4/node_modules/@capacitor/ios'
+  pod 'CapacitorCordova', :path => '../../../../node_modules/.pnpm/@capacitor+ios@7.4.4_@capacitor+core@7.4.4/node_modules/@capacitor/ios'
+  pod 'CapacitorApp', :path => '../../../../node_modules/.pnpm/@capacitor+app@6.0.2_@capacitor+core@7.4.4/node_modules/@capacitor/app'
+  pod 'CapacitorBrowser', :path => '../../../../node_modules/.pnpm/@capacitor+browser@6.0.5_@capacitor+core@7.4.4/node_modules/@capacitor/browser'
+end
+
+target 'App' do
+  capacitor_pods
+end
+
+post_install do |installer|
+  assertDeploymentTarget(installer)
+    installer.pods_project.targets.each do |target|
+    target.build_configurations.each do |config|
+      config.build_settings['ENABLE_USER_SCRIPT_SANDBOXING'] = 'NO'
+    end
+  end
+end
+
