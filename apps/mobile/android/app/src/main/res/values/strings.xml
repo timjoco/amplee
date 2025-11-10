@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Amplee</string>
+    <string name="title_activity_main">Amplee</string>
+    <string name="package_name">app.amplee</string>
+    <string name="custom_url_scheme">app.amplee</string>
+</resources>
