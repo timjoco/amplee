@@ -1,36 +1,50 @@
-import { IonCol, IonGrid, IonRow } from '@ionic/react';
+// apps/mobile/src/components/Bands/BandGridMobile.tsx
+import type { BandWithRole } from '../../types/bands';
 import BandTileMobile from './BandTileMobile';
-
-export type BandWithRole = {
-  id: string;
-  name: string;
-  role: 'admin' | 'member';
-  avatar_url?: string | null;
-};
 
 type Props = {
   bands: BandWithRole[];
   selectedId?: string;
   onSelect: (band: BandWithRole) => void;
+  /** spacing between tiles (px) */
+  gapPx?: number;
+  /** avatar size inside each tile (px) */
+  avatarSize?: number;
 };
 
-export default function BandGridMobile({ bands, selectedId, onSelect }: Props) {
+export default function BandGridMobile({
+  bands,
+  selectedId,
+  onSelect,
+  gapPx = 8, // tighter than before
+  avatarSize = 92, // slightly smaller avatar for a tighter feel
+}: Props) {
   return (
-    <IonGrid style={{ padding: 0 }}>
-      <IonRow className="ion-justify-content-start ion-align-items-stretch">
+    <div style={{ paddingInline: 0 }}>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', // exactly 2 cols
+          gap: gapPx, // tighter gap
+          alignItems: 'start',
+        }}
+      >
         {bands.map((b) => (
-          <IonCol key={b.id} size="6" sizeSm="4" sizeMd="3">
+          <div key={b.id} style={{ width: '100%', aspectRatio: '1 / 1' }}>
             <BandTileMobile
               id={b.id}
               name={b.name}
-              avatar_url={b.avatar_url ?? undefined}
-              role={b.role}
+              bandRole={b.role}
+              avatar_url={b.avatar_url ?? null}
               selected={selectedId === b.id}
+              size={avatarSize} // smaller avatar renders “closer” tiles
               onClick={() => onSelect(b)}
             />
-          </IonCol>
+          </div>
         ))}
-      </IonRow>
-    </IonGrid>
+      </div>
+    </div>
   );
 }
+
+export type { BandWithRole };

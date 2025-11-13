@@ -83,7 +83,6 @@ export default function Invite() {
       return;
     }
     const { bandId } = await resp.json();
-    // Optional: call profiles to check onboarding like web, then:
     navigate(`/bands/${bandId}`, { replace: true });
   };
 
