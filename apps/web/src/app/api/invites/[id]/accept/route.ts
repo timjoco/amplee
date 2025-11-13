@@ -1,22 +1,26 @@
 import { supabaseServer } from '@/lib/supabaseServer';
 import { NextRequest, NextResponse } from 'next/server';
 
-export async function POST(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function POST(req: NextRequest, context: any) {
+  const { id } = context.params as { id: string };
+
   const supabase = await supabaseServer();
 
+  // 1) Ensure we have a logged in user
   const {
     data: { user },
     error: uErr,
   } = await supabase.auth.getUser();
+
   if (uErr || !user) {
     return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
   }
 
+  // 2) Ensure profile exists
   await supabase.rpc('ensure_profile');
 
+  // 3) Check if user has completed onboarding
   const { data: profile, error: pErr } = await supabase
     .from('profiles')
     .select('onboarded')
@@ -28,15 +32,15 @@ export async function POST(
   }
 
   if (!profile?.onboarded) {
-    const next = `/invites/${params.id}/accept`;
+    // redirect to onboarding, and come back here after
+    const next = `/invites/${id}/accept`;
     const search = new URLSearchParams({ next }).toString();
     return NextResponse.redirect(new URL(`/login?${search}`, req.url));
   }
 
-  const inviteId = params.id;
-
+  // 4) Now it's safe to accept the invite and upsert membership
   const { error: rpcErr } = await supabase.rpc('accept_band_invite', {
-    invite_token: inviteId,
+    invite_token: id,
   });
 
   if (rpcErr) {
