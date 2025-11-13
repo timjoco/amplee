@@ -90,3 +90,44 @@ ion-content {
   opacity: 0.85;
   text-decoration: underline;
 }
+
+/* Make the card's native button fill and center content, and paint the gradient */
+ion-card.amp-bandtile::part(native) {
+  display: flex; /* center via flex */
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: stretch;
+  height: 100%;
+  padding: 0; /* remove default padding */
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.04),
+    rgba(255, 255, 255, 0.02)
+  ) !important;
+  border-radius: 12px; /* match outer radius */
+  overflow: hidden; /* clip any inner slivers */
+}
+
+/* Ensure the content actually fills the card and inherits the background */
+ion-card.amp-bandtile::part(content),
+ion-card .amp-bandtile__content {
+  background: inherit !important; /* same gradient as native */
+  flex: 1 1 auto; /* fill height */
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between; /* your existing layout */
+  gap: 8px;
+  padding: 12px; /* your desired padding */
+}
+
+/* Optional: keep Ionic color vars from overriding your gradient */
+ion-card.amp-bandtile {
+  --background: transparent;
+  --background-hover: transparent;
+  --background-focused: transparent;
+  --background-activated: transparent;
+  --color: #fff;
+}
+
+/* If you notice a ripple tint, you can reduce it (optional) */
+/* ion-card.amp-bandtile ion-ripple-effect { opacity: .12; } */

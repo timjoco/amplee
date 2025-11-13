@@ -1,6 +1,5 @@
 // Works for web (vite dev) and native (Capacitor)
 export function getAppOrigin(): string {
-  // Prefer explicit app URL if you set it (same as web NEXT_PUBLIC_APP_URL)
   const fromEnv =
     import.meta.env.VITE_APP_URL || import.meta.env.NEXT_PUBLIC_APP_URL || '';
   if (fromEnv) {
@@ -12,9 +11,7 @@ export function getAppOrigin(): string {
   return 'http://localhost:5173';
 }
 
-// If you host Next API routes on your web app, mobile can hit them via this base:
 export function getApiBase(): string {
-  // allows pointing to production API (e.g., https://amplee.app)
   return (import.meta.env.VITE_API_BASE || getAppOrigin()).replace(/\/+$/, '');
 }
 
