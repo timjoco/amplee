@@ -23,7 +23,6 @@ export async function POST(req: NextRequest, ctx: { params: any }) {
   try {
     const bandId = await getBandId(ctx);
 
-    // Parse & normalize body
     const raw = (await req.json()) as BodyIn;
     const email = raw.email?.trim().toLowerCase();
     const role = raw.role?.toLowerCase() as 'member' | 'admin' | undefined;
@@ -36,7 +35,6 @@ export async function POST(req: NextRequest, ctx: { params: any }) {
       );
     }
 
-    // Caller JWT so RLS enforces is_band_admin etc.
     const authHeader =
       req.headers.get('authorization') ?? req.headers.get('Authorization');
     if (!authHeader) {
@@ -52,7 +50,6 @@ export async function POST(req: NextRequest, ctx: { params: any }) {
       { global: { headers: { Authorization: authHeader } } }
     );
 
-    // Insert or update pending invite; column is `role`
     let token: string | null = null;
 
     const insertRes = await supabaseRls
@@ -100,17 +97,26 @@ export async function POST(req: NextRequest, ctx: { params: any }) {
       );
     }
 
-    // Accept URL shown in email
-    const baseUrl =
-      process.env.NEXT_PUBLIC_SITE_URL ??
-      process.env.VERCEL_URL ??
-      'http://localhost:3000';
+    // const baseUrl =
+    //   process.env.NEXT_PUBLIC_SITE_URL ??
+    //   process.env.VERCEL_URL ??
+    //   'http://localhost:3000';
+    // const site = baseUrl.startsWith('http') ? baseUrl : `https://${baseUrl}`;
+    // const acceptUrl = `${site}/auth/callback?invite=${encodeURIComponent(
+    //   token
+    // )}`;
+
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL;
+
+    if (!baseUrl) {
+      throw new Error('Missing NEXT_PUBLIC_APP_URL');
+    }
+
     const site = baseUrl.startsWith('http') ? baseUrl : `https://${baseUrl}`;
     const acceptUrl = `${site}/auth/callback?invite=${encodeURIComponent(
       token
     )}`;
 
-    // Send email via Edge Function (service role)
     const supabaseAdmin = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!

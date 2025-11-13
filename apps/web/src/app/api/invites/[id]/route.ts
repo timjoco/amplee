@@ -15,7 +15,7 @@ async function getParamId(ctx: { params: any }) {
 
 export async function GET(_req: NextRequest, ctx: { params: any }) {
   try {
-    const token = await getParamId(ctx); // invite token
+    const token = await getParamId(ctx);
     if (!token) {
       return NextResponse.json({ error: 'Missing invite id' }, { status: 400 });
     }
@@ -25,7 +25,6 @@ export async function GET(_req: NextRequest, ctx: { params: any }) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
 
-    // Band invitations now store role in `role`
     const { data: invite, error } = await supabaseAdmin
       .from('band_invitations')
       .select('token, status, role, band_id, created_at, email')
@@ -47,7 +46,7 @@ export async function GET(_req: NextRequest, ctx: { params: any }) {
       invite: {
         token: invite.token,
         status: invite.status,
-        role: invite.role, // <- unified key
+        role: invite.role,
         band_id: invite.band_id,
         email: invite.email,
         created_at: invite.created_at,

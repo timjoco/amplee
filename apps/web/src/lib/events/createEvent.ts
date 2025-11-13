@@ -1,4 +1,3 @@
-// lib/createEvent.ts
 'use client';
 import { supabaseBrowser } from '../supabaseClient';
 

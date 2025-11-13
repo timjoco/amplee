@@ -5,7 +5,6 @@ import { NextRequest, NextResponse } from 'next/server';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-// tiny helper that works with Next's promise/obj params
 async function getParamId(ctx: { params: any }) {
   const p = ctx?.params;
   if (!p) throw new Error('Missing params');
@@ -14,7 +13,6 @@ async function getParamId(ctx: { params: any }) {
 }
 
 function isUuidLike(s: string) {
-  // allow plain UUID; if your tokens are not UUIDs, relax this check
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
     s
   );
@@ -22,7 +20,6 @@ function isUuidLike(s: string) {
 
 export async function POST(req: NextRequest, ctx: { params: any }) {
   try {
-    // 0) token from route param
     const token = await getParamId(ctx);
     if (!token) {
       return NextResponse.json({ error: 'Missing invite id' }, { status: 400 });
@@ -34,7 +31,6 @@ export async function POST(req: NextRequest, ctx: { params: any }) {
       );
     }
 
-    // 1) require caller auth (we’ll read user id/email from their JWT)
     const authHeader =
       req.headers.get('authorization') ?? req.headers.get('Authorization');
     if (!authHeader) {
@@ -44,7 +40,6 @@ export async function POST(req: NextRequest, ctx: { params: any }) {
       );
     }
 
-    // client bound to caller (RLS-aware) — used to read user info
     const supabaseUser = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -62,13 +57,11 @@ export async function POST(req: NextRequest, ctx: { params: any }) {
     const authedUserId = userInfo.user.id;
     const authedEmail = userInfo.user.email?.toLowerCase() || null;
 
-    // 2) admin client (service role) — used to read invite + write membership atomically
     const supabaseAdmin = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
 
-    // 2a) fetch invite (must be pending)
     const { data: invite, error: inviteErr } = await supabaseAdmin
       .from('band_invitations')
       .select('token, status, band_id, role, email')
@@ -97,7 +90,6 @@ export async function POST(req: NextRequest, ctx: { params: any }) {
       );
     }
 
-    // 2b) optional safety: the logged-in user must match the invite email (if present)
     if (
       invite.email &&
       authedEmail &&
@@ -111,8 +103,7 @@ export async function POST(req: NextRequest, ctx: { params: any }) {
       );
     }
 
-    // 3) upsert membership for this user + band
-    // use service role but explicit user_id from the JWT to avoid RLS complexity
+    // upsert membership for this user + band
     const { error: upsertErr } = await supabaseAdmin
       .from('band_members')
       .upsert(
