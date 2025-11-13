@@ -97,15 +97,6 @@ export async function POST(req: NextRequest, ctx: { params: any }) {
       );
     }
 
-    // const baseUrl =
-    //   process.env.NEXT_PUBLIC_SITE_URL ??
-    //   process.env.VERCEL_URL ??
-    //   'http://localhost:3000';
-    // const site = baseUrl.startsWith('http') ? baseUrl : `https://${baseUrl}`;
-    // const acceptUrl = `${site}/auth/callback?invite=${encodeURIComponent(
-    //   token
-    // )}`;
-
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL;
 
     if (!baseUrl) {
