@@ -1,7 +1,3 @@
-// supabase/functions/send-invite/index.ts
-
-// No imports needed. Runs on Deno (Supabase Edge Functions).
-
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
 const FROM = Deno.env.get('MAIL_FROM') ?? 'Amplee <noreply@amplee.app>';
 

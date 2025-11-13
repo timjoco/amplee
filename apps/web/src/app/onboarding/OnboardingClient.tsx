@@ -29,7 +29,6 @@ export default function OnboardingClient({ next = '/dashboard' }: Props) {
   const [email, setEmail] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
 
-  // Load user + existing profile
   useEffect(() => {
     let active = true;
 
@@ -44,7 +43,6 @@ export default function OnboardingClient({ next = '/dashboard' }: Props) {
         } = await sb.auth.getUser();
         if (uErr) throw uErr;
         if (!user) {
-          // not logged in — let the server page handle redirect on reload
           setError('Not authenticated. Please log in again.');
           return;
         }
@@ -69,9 +67,8 @@ export default function OnboardingClient({ next = '/dashboard' }: Props) {
 
         if (pErr) throw pErr;
 
-        // Prefill
         if (profile?.first_name) setFirstName(profile.first_name);
-        else if (user.email) setFirstName(user.email.split('@')[0]); // decent default
+        else if (user.email) setFirstName(user.email.split('@')[0]);
 
         if (profile?.location) setLocation(profile.location);
       } catch (e: unknown) {
@@ -97,7 +94,6 @@ export default function OnboardingClient({ next = '/dashboard' }: Props) {
       setSaving(true);
       setError(null);
 
-      // Upsert profile and mark onboarded
       const { error: upErr } = await sb.from('profiles').upsert(
         {
           id: userId,
