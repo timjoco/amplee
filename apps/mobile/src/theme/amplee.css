@@ -129,5 +129,45 @@ ion-card.amp-bandtile {
   --color: #fff;
 }
 
-/* If you notice a ripple tint, you can reduce it (optional) */
-/* ion-card.amp-bandtile ion-ripple-effect { opacity: .12; } */
+/* Overall app background + typography */
+.amplee-shell {
+  --ion-background-color: #050509;
+  --ion-text-color: #f9f5ff;
+  background: #050509;
+  color: #f9f5ff;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'SF Pro Text',
+    'Inter', sans-serif;
+}
+
+/* Centered content column like web */
+.amplee-dashboard-shell {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 16px 18px 24px;
+}
+
+/* Section headings (“Your Dashboard”, “Bands”, “Events”) */
+.amplee-section-title {
+  font-weight: 800;
+  font-size: 22px;
+  letter-spacing: 0.3px;
+  margin: 4px 0 14px;
+}
+
+.amplee-section-subtitle {
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: 0.3px;
+  margin: 22px 0 10px;
+}
+
+/* Little divider so Events doesn’t feel glued to Bands */
+.amplee-section-divider {
+  height: 1px;
+  margin: 16px 0 10px;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.06),
+    rgba(255, 255, 255, 0)
+  );
+}
