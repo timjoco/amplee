@@ -3,8 +3,6 @@ import {
   IonAvatar,
   IonButton,
   IonContent,
-  IonFab,
-  IonFabButton,
   IonFooter,
   IonHeader,
   IonIcon,
@@ -21,7 +19,7 @@ import {
   IonToast,
   IonToolbar,
 } from '@ionic/react';
-import { add as addIcon, close as closeIcon } from 'ionicons/icons';
+import { close as closeIcon } from 'ionicons/icons';
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCreateBand } from '../../src/hooks/useCreateBand';
@@ -32,7 +30,6 @@ import { supabase } from '../lib/supabase';
 type BandLite = { id: string; name: string; avatar_url?: string | null };
 
 export type GlobalCreateMobileProps = {
-  showFab?: boolean;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   onBandCreated?: (band: BandLite) => void;
@@ -71,7 +68,6 @@ const mapBands = (rows: any[] | null | undefined): BandLite[] =>
     }));
 
 export default function GlobalCreateMobile({
-  showFab = true,
   open: openProp,
   onOpenChange,
   onBandCreated,
@@ -284,21 +280,6 @@ export default function GlobalCreateMobile({
 
   return (
     <>
-      {showFab && (
-        <IonFab vertical="bottom" horizontal="end" slot="fixed">
-          <IonFabButton
-            color="success"
-            onClick={() => {
-              setStep('menu');
-              setOpen(true);
-            }}
-            aria-label="Create"
-          >
-            <IonIcon icon={addIcon} />
-          </IonFabButton>
-        </IonFab>
-      )}
-
       {/* Modal */}
       <IonModal
         isOpen={open}

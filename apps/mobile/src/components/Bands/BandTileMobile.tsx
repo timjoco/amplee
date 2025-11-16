@@ -1,126 +1,118 @@
 // apps/mobile/src/components/Bands/BandTileMobile.tsx
-import { IonCard, IonCardContent } from '@ionic/react';
-import { Link } from 'react-router-dom';
+
+import type { BandWithRole } from '../../types/bands';
 import AvatarImageMobile from '../ui/AvatarImageMobile';
 
-export type BandTileProps = {
+type Props = {
   id: string;
   name: string;
-  bandRole?: 'admin' | 'member';
-  role?: 'admin' | 'member'; // alias
-  avatarUrl?: string | null; // https url
-  avatar_url?: string | null; // db column
-  avatarPath?: string | null; // storage path
+  bandRole?: BandWithRole['role'];
+  avatarPath?: string | null;
+  avatarUrl?: string | null;
+  avatar_url?: string | null;
+  size?: number;
   selected?: boolean;
-  size?: number; // avatar diameter
-  onClick?: () => void; // optional, fired in addition to navigation
+  onClick?: () => void;
 };
 
 export default function BandTileMobile({
-  id,
   name,
+  avatarPath,
   avatarUrl,
   avatar_url,
-  avatarPath,
+  size = 110,
   selected = false,
-  size = 100,
   onClick,
-}: BandTileProps) {
-  const href = `/bands/${id}`;
-
-  // web-like shadows/ring
-  const focusRing =
-    '0 0 0 2px rgba(255,255,255,0.18), 0 0 0 10px rgba(139,92,246,0.35)';
-  const baseShadow = '0 10px 24px rgba(0,0,0,.28)';
+}: Props) {
+  const srcGuess = avatarUrl ?? avatar_url ?? undefined;
+  const effectivePath = avatarPath ?? avatar_url ?? undefined;
 
   return (
-    <Link
-      to={href}
+    <button
+      type="button"
       onClick={onClick}
       aria-label={`Open ${name}`}
       style={{
-        display: 'block',
-        color: 'inherit',
-        textDecoration: 'none',
-        width: '100%',
-        minWidth: 0,
+        appearance: 'none',
+        border: 'none',
+        background: 'transparent',
+        padding: 0,
+        margin: 8,
+        width: 'calc(100% - 16px)',
+        height: 'calc(100% - 16px)',
+        cursor: 'pointer',
       }}
     >
-      <IonCard
-        // IMPORTANT: don't use `button` prop when wrapping with <Link>
+      <div
         style={{
-          // make the whole card match the gradient (no bottom strip)
-          '--background':
-            'linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02))',
-          // fallback for non-var paths (ensures fill)
+          width: '100%',
+          height: '100%',
+          borderRadius: 20,
+          border: selected
+            ? '1px solid rgba(255,255,255,0.18)'
+            : '1px solid rgba(255,255,255,0.10)',
           background:
-            'linear-gradient(rgba(255,255,255,0.04), rgba(255,255,255,0.02)) padding-box',
-          '--color': '#ffffff',
+            'linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02))',
+          boxShadow: selected
+            ? '0 0 0 2px rgba(255,255,255,0.22), 0 10px 30px rgba(0,0,0,.45)'
+            : '0 10px 24px rgba(0,0,0,.32)',
           display: 'flex',
           flexDirection: 'column',
-          height: '100%',
-          aspectRatio: '1 / 1',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: 14,
+          gap: 8,
           overflow: 'hidden',
-          borderRadius: 12,
-          border: '1px solid rgba(255,255,255,0.08)',
-          boxShadow: selected ? focusRing : baseShadow,
-          transform: 'translateY(0)',
           transition:
-            'transform .16s ease, box-shadow .16s ease, border-color .16s ease',
+            'transform 150ms ease, box-shadow 150ms ease, border-color 150ms ease',
         }}
       >
-        <IonCardContent
+        {/* Avatar */}
+        <div
           style={{
-            background: 'inherit', // inherit to avoid any mismatched strip
-            flex: 1, // fill the card
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'space-between',
-            gap: 8,
-            padding: 12,
-            '--inner-padding': '12px',
+            display: 'grid',
+            placeItems: 'center',
+            width: '100%',
           }}
         >
-          {/* Avatar */}
-          <div style={{ flex: 1, display: 'grid', placeItems: 'center' }}>
-            <AvatarImageMobile
-              name={name}
-              bucket="band-avatars"
-              avatarPath={avatarPath ?? undefined}
-              srcGuess={avatarUrl ?? avatar_url ?? undefined}
-              size={size}
-              style={{
-                fontWeight: 800,
-                letterSpacing: 0.5,
-                color: '#fff',
-                border: '2px solid rgba(255,255,255,0.06)',
-                backgroundColor: 'rgba(255,255,255,0.06)',
-                backgroundImage:
-                  'radial-gradient(120% 120% at 20% 15%, rgba(139,92,246,0.16) 0%, transparent 55%)',
-              }}
-            />
-          </div>
-
-          {/* Name */}
-          <h6
-            aria-label={name}
-            title={name}
+          <AvatarImageMobile
+            name={name}
+            bucket="band-avatars"
+            avatarPath={effectivePath}
+            srcGuess={srcGuess}
+            size={size ?? 88}
             style={{
-              margin: 0,
-              textAlign: 'center',
+              boxShadow:
+                'inset 0 0 0 2px rgba(255,255,255,0.06), 0 10px 24px rgba(0,0,0,.35)',
+            }}
+          />
+        </div>
+
+        {/* Name */}
+        <div
+          style={{
+            width: '100%',
+            textAlign: 'center',
+          }}
+        >
+          <span
+            style={{
+              display: 'inline-block',
+              maxWidth: '100%',
               fontWeight: 800,
-              letterSpacing: 0.2,
+              fontSize: 14,
+              letterSpacing: 0.3,
               color: 'rgba(255,255,255,0.95)',
               whiteSpace: 'nowrap',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
-              lineHeight: 1.2,
             }}
+            title={name}
           >
             {name}
-          </h6>
-        </IonCardContent>
-      </IonCard>
-    </Link>
+          </span>
+        </div>
+      </div>
+    </button>
   );
 }

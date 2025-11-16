@@ -2,12 +2,14 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import {
   IonAvatar,
+  IonIcon,
   IonItem,
-  IonLabel,
   IonList,
   IonSpinner,
   IonText,
 } from '@ionic/react';
+import { chevronForwardOutline } from 'ionicons/icons';
+
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -36,14 +38,27 @@ export default function EventInboxListMobile({
 }) {
   const nav = useNavigate();
 
-  // hydrate from cache immediately
-  const initial = getCache();
+  const initial = bandId
+    ? {
+        events: [] as EventRow[],
+        lastMsgs: {} as Record<string, LastMsg | undefined>,
+      }
+    : getCache();
+
   const [rows, setRows] = useState<EventRow[]>(initial.events);
   const [lastMsgs, setLastMsgs] = useState<Record<string, LastMsg | undefined>>(
     initial.lastMsgs
   );
-  const [loading, setLoading] = useState(needsEventRefresh());
+  const [loading, setLoading] = useState(bandId ? true : needsEventRefresh());
+
   const eventIdsRef = useRef<string[]>(initial.events.map((e) => e.id));
+  const lastMsgsRef = useRef<Record<string, LastMsg | undefined>>(
+    initial.lastMsgs
+  );
+
+  useEffect(() => {
+    lastMsgsRef.current = lastMsgs;
+  }, [lastMsgs]);
 
   const timeFmt = useMemo(
     () =>
@@ -56,7 +71,6 @@ export default function EventInboxListMobile({
     []
   );
 
-  // Fetch events only if cache is stale or we’re filtering by bandId (filtering needs fresh query)
   const refreshEvents = useCallback(async () => {
     const { data: auth } = await supabase.auth.getUser();
     const userId = auth?.user?.id ?? null;
@@ -69,14 +83,17 @@ export default function EventInboxListMobile({
 
     let bandIds: string[] = [];
     if (bandId) {
+      // band-specific view
       bandIds = [bandId];
     } else {
+      // home: all bands
       const { data: mems } = await supabase
         .from('band_members')
         .select('band_id')
         .eq('user_id', userId);
       bandIds = (mems ?? []).map((m: any) => String(m.band_id));
     }
+
     if (bandIds.length === 0) {
       setRows([]);
       setLastMsgs({});
@@ -136,8 +153,11 @@ export default function EventInboxListMobile({
       .sort((a, b) => toTs(b.starts_at) - toTs(a.starts_at));
     const sorted = [...upcoming, ...past];
 
-    // cache events
-    setEvents(sorted);
+    // GLOBAL cache only when we're on HOME (all bands).
+    if (!bandId) {
+      setEvents(sorted);
+    }
+
     setRows(sorted);
     eventIdsRef.current = sorted.map((e) => e.id);
     onLoaded?.(sorted.length);
@@ -154,7 +174,8 @@ export default function EventInboxListMobile({
     // fetch last-messages only for events missing a cached preview
     const missingIds = sorted
       .map((e) => e.id)
-      .filter((id) => !initial.lastMsgs[id]);
+      .filter((id) => !lastMsgsRef.current[id]);
+
     if (missingIds.length) {
       const { data: msgs } = await supabase
         .from('event_messages')
@@ -162,30 +183,23 @@ export default function EventInboxListMobile({
         .in('event_id', missingIds)
         .order('created_at', { ascending: false })
         .limit(1000);
+
       const map: Record<string, LastMsg> = {};
       for (const m of msgs ?? []) {
-        // keep first (newest) per event
         if (!map[m.event_id]) map[m.event_id] = m as LastMsg;
       }
-      // update cache and state
+
       setLastMsgs((prev) => ({ ...prev, ...map }));
       setLastMsgsBulk(map);
     }
-  }, [bandId, onLoaded, showAvatars, initial.lastMsgs]);
+  }, [bandId, onLoaded, showAvatars]);
 
-  // Initial mount: show cache immediately, then (maybe) refresh events if stale/filtered.
   useEffect(() => {
-    if (needsEventRefresh() || bandId) {
-      setLoading(true);
-      void refreshEvents().finally(() => setLoading(false));
-    } else {
-      // up-to-date cache; nothing to do
-      onLoaded?.(rows.length);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bandId]);
+    setLoading(true);
+    void refreshEvents().finally(() => setLoading(false));
+  }, [bandId, refreshEvents]);
 
-  // Realtime: insert messages update just the last message (no refetch)
+  // Realtime last-message updates
   useEffect(() => {
     const ch = supabase
       .channel('dashboard:event-inbox')
@@ -195,7 +209,6 @@ export default function EventInboxListMobile({
         (payload) => {
           const msg = payload.new as LastMsg;
           if (!eventIdsRef.current.includes(msg.event_id)) return;
-          // update cache first, then state
           upsertLastMsg(msg);
           setLastMsgs((prev) => {
             const cur = prev[msg.event_id];
@@ -212,7 +225,6 @@ export default function EventInboxListMobile({
     };
   }, []);
 
-  // Avatar signed URLs: resolve on-demand per row if expired/missing
   const getAvatar = useCallback(
     async (bandId: string, path: string | null | undefined) => {
       if (!showAvatars || !bandId || !path) return undefined;
@@ -235,6 +247,7 @@ export default function EventInboxListMobile({
   };
 
   // ----- Render -----
+  // ----- Render -----
   if (loading && rows.length === 0) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -249,171 +262,221 @@ export default function EventInboxListMobile({
   }
 
   return (
-    <IonList inset>
-      {rows.map((e) => {
-        const when = e.starts_at ? timeFmt.format(new Date(e.starts_at)) : '';
-        const lm = lastMsgs[e.id];
-        const preview =
-          lm?.body ??
-          (e.location ? `Location: ${e.location}` : `${e.type} scheduled`);
-        const band = e.bands;
+    <div
+      style={{
+        paddingTop: 4,
+        paddingBottom: 8,
+        paddingLeft: 0, // ⬅️ no horizontal padding
+        paddingRight: 0,
+      }}
+    >
+      <IonList
+        style={{
+          margin: 0,
+          padding: 0,
+          background: 'transparent',
+          display: 'flex',
+          flexDirection: 'column',
+          rowGap: 4,
+        }}
+      >
+        {rows.map((e) => {
+          const when = e.starts_at ? timeFmt.format(new Date(e.starts_at)) : '';
+          const lm = lastMsgs[e.id];
+          const preview =
+            lm?.body ??
+            (e.location ? `Location: ${e.location}` : `${e.type} scheduled`);
+          const band = e.bands;
 
-        // lazy avatar (signed URL only when needed/expired)
-        const avatarSrc = band?.id ? getAvatarSigned(band.id) : undefined;
-        if (!avatarSrc && band?.id && band.avatar_url) {
-          // fire-and-forget (no reflow): resolve and then trigger a tiny state update
-          void (async () => {
-            const url = await getAvatar(band.id, band.avatar_url!);
-            if (url) {
-              // micro state tick to paint new avatar
-              setRows((r) => [...r]);
-            }
-          })();
-        } else if (avatarSrc === undefined && band?.avatar_url) {
-          // ensure path is in cache for future signing
-          setAvatarPath(band.id, band.avatar_url);
-        }
+          const avatarSrc = band?.id ? getAvatarSigned(band.id) : undefined;
+          if (!avatarSrc && band?.id && band.avatar_url) {
+            void (async () => {
+              const url = await getAvatar(band.id, band.avatar_url!);
+              if (url) setRows((r) => [...r]);
+            })();
+          } else if (avatarSrc === undefined && band?.avatar_url) {
+            setAvatarPath(band.id, band.avatar_url);
+          }
 
-        return (
-          <IonItem
-            key={e.id}
-            button
-            detail={false} // no chevron
-            onClick={() => openEvent(e.band_id, e.id)}
-            style={{
-              borderRadius: 12,
-              marginBlock: 6,
-              alignItems: 'flex-start',
-              background:
-                'linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02))',
-              border: '1px solid rgba(255,255,255,0.08)',
-            }}
-          >
-            {showAvatars && (
-              <div slot="start" style={{ marginRight: 10, marginTop: 8 }}>
-                <IonAvatar
-                  style={{
-                    width: 48,
-                    height: 48,
-                    background: 'rgba(255,255,255,0.06)',
-                    boxShadow: 'inset 0 0 0 2px rgba(255,255,255,0.06)',
-                    fontWeight: 800,
-                    color: '#fff',
-                  }}
-                >
-                  {avatarSrc ? (
-                    <img
-                      src={avatarSrc}
-                      alt={band?.name || 'Band'}
-                      style={{
-                        width: '100%',
-                        height: '100%',
-                        objectFit: 'cover',
-                      }}
-                    />
-                  ) : (
-                    (band?.name || '?')
-                      .split(/\s+/)
-                      .slice(0, 2)
-                      .map((p) => p[0]?.toUpperCase())
-                      .join('')
-                  )}
-                </IonAvatar>
-              </div>
-            )}
-
-            <IonLabel>
-              {/* Row 1: title + when */}
+          return (
+            <IonItem
+              key={e.id}
+              detail={false}
+              onClick={() => openEvent(e.band_id, e.id)}
+              lines="none"
+              style={{
+                ['--background' as any]: 'transparent',
+                ['--background-hover' as any]: 'transparent',
+                marginInline: 0,
+                paddingInline: 0,
+                paddingBlock: 3,
+              }}
+            >
+              {/* Pill that goes basically as wide as possible */}
               <div
                 style={{
+                  borderRadius: 20,
+                  paddingInline: 10,
+                  paddingBlock: 10,
+                  minHeight: 85,
+                  width: '100%',
+                  // 🔥 no marginInline here = longer than band tiles
                   display: 'grid',
-                  gridTemplateColumns: '1fr auto',
-                  gap: 8,
+                  gridTemplateColumns: 'auto 1fr auto auto',
                   alignItems: 'center',
+                  columnGap: 10,
+                  background:
+                    'linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02))',
                 }}
               >
-                <h2
-                  style={{
-                    margin: 0,
-                    fontWeight: 900,
-                    letterSpacing: 0.2,
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    fontSize: 16,
-                  }}
-                  title={e.title || 'Event'}
-                >
-                  {e.title || 'Event'}
-                </h2>
-                {!!when && (
-                  <span
+                {/* Avatar */}
+                {showAvatars && (
+                  <div
                     style={{
-                      opacity: 0.7,
-                      whiteSpace: 'nowrap',
-                      fontSize: 12,
-                      marginLeft: 8,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
                     }}
                   >
-                    {when}
-                  </span>
+                    <IonAvatar
+                      style={{
+                        width: 48,
+                        height: 48,
+                        background: 'rgba(255,255,255,0.06)',
+                        boxShadow: 'inset 0 0 0 2px rgba(255,255,255,0.06)',
+                        fontWeight: 800,
+                        color: '#fff',
+                        flexShrink: 0,
+                      }}
+                    >
+                      {avatarSrc ? (
+                        <img
+                          src={avatarSrc}
+                          alt={band?.name || 'Band'}
+                          style={{
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'cover',
+                          }}
+                        />
+                      ) : (
+                        (band?.name || '?')
+                          .split(/\s+/)
+                          .slice(0, 2)
+                          .map((p) => p[0]?.toUpperCase())
+                          .join('')
+                      )}
+                    </IonAvatar>
+                  </div>
                 )}
-              </div>
 
-              {/* Row 2: preview (left) — tiny status chip (right) */}
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: '1fr auto',
-                  gap: 8,
-                  alignItems: 'center',
-                  marginTop: 4,
-                }}
-              >
-                <p
+                {/* Middle: title + preview */}
+                <div
                   style={{
-                    margin: 0,
-                    opacity: 0.85,
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    fontSize: 13.5,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    minWidth: 0,
                   }}
-                  title={preview}
                 >
-                  {preview}
-                </p>
+                  <span
+                    style={{
+                      fontWeight: 800,
+                      fontSize: 16,
+                      letterSpacing: 0.2,
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                    }}
+                    title={e.title || 'Event'}
+                  >
+                    {e.title || 'Event'}
+                  </span>
 
-                <MiniStatusChip isBooked={e.is_booked} />
+                  {/* extra space between row1 & row2 */}
+                  <span
+                    style={{
+                      marginTop: 6,
+                      fontSize: 13,
+                      opacity: 0.8,
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                    }}
+                    title={preview}
+                  >
+                    {preview}
+                  </span>
+                </div>
+
+                {/* Right: time + Pending/Booked */}
+                <div
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'flex-end',
+                    justifyContent: 'center',
+                    gap: 4,
+                    marginLeft: 6,
+                  }}
+                >
+                  {!!when && (
+                    <span
+                      style={{
+                        fontSize: 11,
+                        opacity: 0.7,
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {when}
+                    </span>
+                  )}
+                  <MiniStatusChip isBooked={e.is_booked} />
+                </div>
+
+                {/* Chevron */}
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'flex-end',
+                    paddingLeft: 4,
+                  }}
+                >
+                  <IonIcon
+                    icon={chevronForwardOutline}
+                    style={{ fontSize: 18, opacity: 0.6 }}
+                  />
+                </div>
               </div>
-            </IonLabel>
-          </IonItem>
-        );
-      })}
-    </IonList>
+            </IonItem>
+          );
+        })}
+      </IonList>
+    </div>
   );
 }
 
 function MiniStatusChip({ isBooked }: { isBooked: boolean }) {
   const label = isBooked ? 'Booked' : 'Pending';
-  const bg = isBooked ? 'rgba(76,175,80,0.18)' : 'rgba(255,193,7,0.18)';
-  const brd = isBooked ? 'rgba(76,175,80,0.35)' : 'rgba(255,193,7,0.35)';
-  const color = isBooked ? '#B7E7BF' : '#FFE19A';
+  const bg = isBooked ? 'rgba(76,175,80,0.16)' : 'rgba(255,193,7,0.2)';
+  const border = isBooked ? 'rgba(76,175,80,0.45)' : 'rgba(255,193,7,0.5)';
+  const color = isBooked ? '#C9F5D0' : '#FFE7AA';
 
   return (
     <span
       style={{
         display: 'inline-flex',
         alignItems: 'center',
-        height: 22,
-        padding: '0 8px',
+        justifyContent: 'center',
+        padding: '2px 8px',
         borderRadius: 999,
-        fontSize: 12,
-        lineHeight: '22px',
+        fontSize: 11,
+        fontWeight: 600,
+        textTransform: 'capitalize',
         background: bg,
         color,
-        border: `1px solid ${brd}`,
-        userSelect: 'none',
+        border: `1px solid ${border}`,
+        whiteSpace: 'nowrap',
       }}
     >
       {label}

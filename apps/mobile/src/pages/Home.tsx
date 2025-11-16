@@ -4,26 +4,20 @@ import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
 import BandGridMobile from '../components/Bands/BandGridMobile';
 import EventInboxListMobile from '../components/Events/EventsInboxListMobile';
-import {
-  getBandsCache,
-  needsBandsRefresh,
-  setBandsCache,
-} from '../lib/bandCache';
+import { getBandsCache, setBandsCache } from '../lib/bandCache';
 import { supabase } from '../lib/supabase';
 import type { BandWithRole } from '../types/bands';
 
 export default function Home() {
   const nav = useNavigate();
 
-  // cache-first
   const initial = getBandsCache();
   const [bands, setBands] = React.useState<BandWithRole[]>(initial.bands);
-  const [refreshing, setRefreshing] = React.useState(needsBandsRefresh());
+  const [refreshing, setRefreshing] = React.useState(false);
 
   React.useEffect(() => {
-    if (!needsBandsRefresh()) return;
-
     let alive = true;
+
     (async () => {
       setRefreshing(true);
 
@@ -63,6 +57,11 @@ export default function Home() {
         })
         .filter(Boolean) as BandWithRole[];
 
+      console.log(
+        '[Home] normalized bands:',
+        normalized.map((b) => ({ id: b.id, name: b.name, role: b.role }))
+      );
+
       setBandsCache(normalized);
       setBands(normalized);
       setRefreshing(false);
@@ -77,58 +76,114 @@ export default function Home() {
     <IonPage>
       <IonContent
         fullscreen
-        className="ion-padding" // ← drop ion-padding
+        scrollY={true}
         style={{
           ['--padding-top' as any]:
             'max(16px, calc(env(safe-area-inset-top) + 16px))',
-          ['--padding-start' as any]: '12px',
-          ['--padding-end' as any]: '12px',
-          ['--padding-bottom' as any]: '16px',
+          ['--padding-start' as any]: '0px',
+          ['--padding-end' as any]: '0px',
+          ['--padding-bottom' as any]:
+            'calc(16px + 56px + env(safe-area-inset-bottom))',
           paddingTop: 'max(16px, calc(env(safe-area-inset-top) + 16px))',
-          paddingInline: '12px',
-          paddingBottom: '16px',
+          paddingInline: 0,
+          paddingBottom: 'calc(16px + 56px + env(safe-area-inset-bottom))',
+          backgroundColor: '#050509',
         }}
       >
-        <IonText color="light">
-          <h4
-            style={{
-              margin: '0 0 10px',
-              fontWeight: 800,
-              letterSpacing: 0.2,
-            }}
-          >
-            Bands
-          </h4>
-        </IonText>
-
-        <BandGridMobile
-          bands={bands}
-          selectedId={undefined}
-          onSelect={(b) => nav(`/bands/${b.id}`)}
-          gapPx={8}
-          avatarSize={80}
-        />
-
-        {/* Events header */}
-        <div style={{ marginTop: 18 }}>
+        {/* Centered column like web dashboard */}
+        <div
+          style={{
+            maxWidth: 960,
+            margin: '0 auto',
+            padding: '16px 16px 24px',
+          }}
+        >
+          {/* Top heading */}
           <IonText color="light">
-            <h4
+            <h1
+              style={{
+                margin: '0 0 18px',
+                fontWeight: 800,
+                fontSize: 26,
+                letterSpacing: 0.3,
+              }}
+            >
+              Your Dashboard
+            </h1>
+          </IonText>
+
+          {/* Bands section */}
+          <IonText color="light">
+            <h2
               style={{
                 margin: '0 0 10px',
-                fontWeight: 800,
+                fontWeight: 700,
+                fontSize: 18,
+                letterSpacing: 0.2,
+              }}
+            >
+              Bands
+            </h2>
+          </IonText>
+
+          {/* 🔹 Inset band tiles slightly so they’re shorter than event threads */}
+          <div
+            style={{
+              paddingInline: 12, // pulls bands in from the edges a bit
+            }}
+          >
+            <BandGridMobile
+              bands={bands}
+              selectedId={undefined}
+              onSelect={(b) => nav(`/bands/${b.id}`)}
+              gapPx={10}
+              avatarSize={88}
+            />
+          </div>
+
+          {/* Divider between bands + events */}
+          <div
+            style={{
+              height: 1,
+              margin: '18px 0 12px',
+              background:
+                'linear-gradient(90deg, rgba(255,255,255,0.06), rgba(255,255,255,0))',
+            }}
+          />
+
+          {/* Events section */}
+          <IonText color="light">
+            <h2
+              style={{
+                margin: '0 0 10px',
+                fontWeight: 700,
+                fontSize: 18,
                 letterSpacing: 0.2,
               }}
             >
               Events
-            </h4>
+            </h2>
           </IonText>
 
-          {/* Unified inbox (cache-first inside component) */}
-          <EventInboxListMobile showAvatars onLoaded={() => {}} />
+          {/* 🔹 Event inbox: stretch closer to the edges than band tiles */}
+          <div
+            style={{
+              marginInline: -4, // make threads visually wider than the band tiles above
+            }}
+          >
+            <EventInboxListMobile showAvatars onLoaded={() => {}} />
+          </div>
 
           {!refreshing && bands.length === 0 && (
             <IonText color="medium">
-              You’re not in any bands yet. Join or create one to see events.
+              <p
+                style={{
+                  marginTop: 12,
+                  fontSize: 14,
+                }}
+              >
+                You’re not in any bands yet. Join or create one to see events.
+              </p>
             </IonText>
           )}
         </div>
