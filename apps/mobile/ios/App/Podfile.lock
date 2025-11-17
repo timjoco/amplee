@@ -8,20 +8,20 @@ PODS:
   - CapacitorCordova (7.4.4)
 
 DEPENDENCIES:
-  - "Capacitor (from `../../../../node_modules/.pnpm/@capacitor+ios@7.4.4_@capacitor+core@7.4.4/node_modules/@capacitor/ios`)"
+  - "Capacitor (from `../../../../node_modules/@capacitor/ios`)"
   - "CapacitorApp (from `../../../../node_modules/.pnpm/@capacitor+app@6.0.2_@capacitor+core@7.4.4/node_modules/@capacitor/app`)"
   - "CapacitorBrowser (from `../../../../node_modules/.pnpm/@capacitor+browser@6.0.5_@capacitor+core@7.4.4/node_modules/@capacitor/browser`)"
-  - "CapacitorCordova (from `../../../../node_modules/.pnpm/@capacitor+ios@7.4.4_@capacitor+core@7.4.4/node_modules/@capacitor/ios`)"
+  - "CapacitorCordova (from `../../../../node_modules/@capacitor/ios`)"
 
 EXTERNAL SOURCES:
   Capacitor:
-    :path: "../../../../node_modules/.pnpm/@capacitor+ios@7.4.4_@capacitor+core@7.4.4/node_modules/@capacitor/ios"
+    :path: "../../../../node_modules/@capacitor/ios"
   CapacitorApp:
     :path: "../../../../node_modules/.pnpm/@capacitor+app@6.0.2_@capacitor+core@7.4.4/node_modules/@capacitor/app"
   CapacitorBrowser:
     :path: "../../../../node_modules/.pnpm/@capacitor+browser@6.0.5_@capacitor+core@7.4.4/node_modules/@capacitor/browser"
   CapacitorCordova:
-    :path: "../../../../node_modules/.pnpm/@capacitor+ios@7.4.4_@capacitor+core@7.4.4/node_modules/@capacitor/ios"
+    :path: "../../../../node_modules/@capacitor/ios"
 
 SPEC CHECKSUMS:
   Capacitor: 358dd1c3fdd71d969547b17e159fd8a7736cb45f
@@ -29,6 +29,6 @@ SPEC CHECKSUMS:
   CapacitorBrowser: b468ac2db928e594b4d319727f3874743f9bcf96
   CapacitorCordova: bf648a636f3c153f652d312ae145fb508b6ffced
 
-PODFILE CHECKSUM: a22db474999e409d3d0b77f7c7c1d756e6cd6640
+PODFILE CHECKSUM: 1af094611ceef534daf47ded5fbddc6b7047e02b
 
 COCOAPODS: 1.16.2
