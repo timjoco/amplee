@@ -1,5 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { IonContent, IonPage, IonText } from '@ionic/react';
+import {
+  IonContent,
+  IonHeader,
+  IonPage,
+  IonText,
+  IonTitle,
+  IonToolbar,
+} from '@ionic/react';
 import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
 import BandGridMobile from '../components/Bands/BandGridMobile';
@@ -74,44 +81,35 @@ export default function Home() {
 
   return (
     <IonPage>
+      {/* Top app header */}
+      <IonHeader>
+        <IonToolbar>
+          <IonTitle>Your dashboard</IonTitle>
+        </IonToolbar>
+      </IonHeader>
+
       <IonContent
         fullscreen
         scrollY={true}
         style={{
-          ['--padding-top' as any]:
-            'max(16px, calc(env(safe-area-inset-top) + 16px))',
+          ['--padding-top' as any]: '0px',
           ['--padding-start' as any]: '0px',
           ['--padding-end' as any]: '0px',
           ['--padding-bottom' as any]:
             'calc(16px + 56px + env(safe-area-inset-bottom))',
-          paddingTop: 'max(16px, calc(env(safe-area-inset-top) + 16px))',
+          paddingTop: '0px',
           paddingInline: 0,
           paddingBottom: 'calc(16px + 56px + env(safe-area-inset-bottom))',
           backgroundColor: '#050509',
         }}
       >
-        {/* Centered column like web dashboard */}
         <div
           style={{
             maxWidth: 960,
             margin: '0 auto',
-            padding: '16px 16px 24px',
+            padding: '8px 16px 24px', // 👈 was 16px top, now 8px
           }}
         >
-          {/* Top heading */}
-          <IonText color="light">
-            <h1
-              style={{
-                margin: '0 0 18px',
-                fontWeight: 800,
-                fontSize: 26,
-                letterSpacing: 0.3,
-              }}
-            >
-              Your Dashboard
-            </h1>
-          </IonText>
-
           {/* Bands section */}
           <IonText color="light">
             <h2
@@ -126,10 +124,9 @@ export default function Home() {
             </h2>
           </IonText>
 
-          {/* 🔹 Inset band tiles slightly so they’re shorter than event threads */}
           <div
             style={{
-              paddingInline: 12, // pulls bands in from the edges a bit
+              paddingInline: 12,
             }}
           >
             <BandGridMobile
@@ -141,13 +138,11 @@ export default function Home() {
             />
           </div>
 
-          {/* Divider between bands + events */}
+          {/* Margin between bands + events */}
           <div
             style={{
               height: 1,
               margin: '18px 0 12px',
-              background:
-                'linear-gradient(90deg, rgba(255,255,255,0.06), rgba(255,255,255,0))',
             }}
           />
 
@@ -164,11 +159,9 @@ export default function Home() {
               Events
             </h2>
           </IonText>
-
-          {/* 🔹 Event inbox: stretch closer to the edges than band tiles */}
           <div
             style={{
-              marginInline: -4, // make threads visually wider than the band tiles above
+              marginInline: -4,
             }}
           >
             <EventInboxListMobile showAvatars onLoaded={() => {}} />
