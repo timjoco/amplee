@@ -9,7 +9,7 @@ import {
   IonToolbar,
 } from '@ionic/react';
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 
 type EventRow = {
@@ -21,7 +21,6 @@ type EventRow = {
 
 export default function Event() {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
   const [event, setEvent] = useState<EventRow | null>(null);
 
   useEffect(() => {
@@ -56,12 +55,7 @@ export default function Event() {
           <>
             <p>{new Date(event.starts_at).toLocaleString()}</p>
             <p>{event.location || 'No location'}</p>
-            <IonButton
-              expand="block"
-              onClick={() => navigate(`/greenroom/${event.id}`)}
-            >
-              Open Green Room
-            </IonButton>
+            <IonButton expand="block">Open Green Room</IonButton>
           </>
         )}
       </IonContent>
