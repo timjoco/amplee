@@ -17,7 +17,6 @@ const BUCKET = 'profile-avatars';
 
 async function resolveAvatarUrl(sb: any, storedPathOrUrl: string | null) {
   if (!storedPathOrUrl) return null;
-  // allow http(s), blob:, data: to pass through as-is
   if (
     /^https?:\/\//i.test(storedPathOrUrl) ||
     storedPathOrUrl.startsWith('blob:') ||
@@ -33,7 +32,7 @@ async function resolveAvatarUrl(sb: any, storedPathOrUrl: string | null) {
 
 type Props = {
   userId?: string;
-  initialUrl?: string | null; // storage path OR https
+  initialUrl?: string | null;
   onSaved?: (urlOrPath: string) => void;
   compact?: boolean;
 };
@@ -47,12 +46,11 @@ export default function ProfileAvatarCard({
   const sb = useMemo(() => supabaseBrowser(), []);
   const fileRef = useRef<HTMLInputElement | null>(null);
 
-  const [stored, setStored] = useState<string | null>(initialUrl ?? null); // path or url
-  const [resolvedUrl, setResolvedUrl] = useState<string | null>(null); // actual <img src>
+  const [stored, setStored] = useState<string | null>(initialUrl ?? null);
+  const [resolvedUrl, setResolvedUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  // Resolve the actual render URL whenever stored value changes
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -64,7 +62,6 @@ export default function ProfileAvatarCard({
     };
   }, [sb, stored]);
 
-  // Keep in sync with prop
   useEffect(() => {
     if (initialUrl !== undefined) setStored(initialUrl ?? null);
   }, [initialUrl]);
@@ -80,15 +77,13 @@ export default function ProfileAvatarCard({
       return;
     }
 
-    // --- NEW: optimistic preview (instant UI) ---------------------
     const previewUrl = URL.createObjectURL(file);
-    setStored(previewUrl); // triggers resolver -> <Avatar src=preview>
+    setStored(previewUrl);
     window.dispatchEvent(
       new CustomEvent('profiles:avatar_changed', {
         detail: { avatar_url: previewUrl, isPreview: true },
       })
     );
-    // --------------------------------------------------------------
 
     setLoading(true);
     try {
@@ -104,32 +99,28 @@ export default function ProfileAvatarCard({
         });
       if (upErr) throw upErr;
 
-      // Save the PATH to profiles (works for public or private)
       const { error: upProfileErr } = await sb
         .from('profiles')
         .update({
           avatar_url: path,
-          updated_at: new Date().toISOString(), // good for cache-busting if you use it
+          updated_at: new Date().toISOString(),
         })
         .eq('id', userId);
       if (upProfileErr) throw upProfileErr;
 
-      setStored(path); // triggers signing -> final URL
+      setStored(path);
       onSaved?.(path);
 
-      // --- NEW: broadcast final (authoritative) value --------------
       window.dispatchEvent(
         new CustomEvent('profiles:avatar_changed', {
           detail: { avatar_url: path, isPreview: false },
         })
       );
-      // --------------------------------------------------------------
     } catch (e: any) {
       setErr(e?.message || 'Upload failed.');
     } finally {
       setLoading(false);
       if (fileRef.current) fileRef.current.value = '';
-      // optional: free preview blob URL later
       setTimeout(() => {
         try {
           if (previewUrl.startsWith('blob:')) URL.revokeObjectURL(previewUrl);
