@@ -10,6 +10,8 @@ import {
 } from '@ionic/react';
 import { chevronForwardOutline } from 'ionicons/icons';
 
+import { Capacitor } from '@capacitor/core';
+import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -26,6 +28,8 @@ import {
 import { supabase } from '../../lib/supabase';
 
 type LastMsg = { event_id: string; body: string; created_at: string };
+
+const MOVE_THRESHOLD_PX = 12;
 
 export default function EventInboxListMobile({
   onLoaded,
@@ -56,6 +60,23 @@ export default function EventInboxListMobile({
     initial.lastMsgs
   );
 
+  // long-press tracking (for haptic + visual puff)
+  const longPressTimeoutRef = useRef<number | null>(null);
+  const pressStartRef = useRef<{ x: number; y: number } | null>(null);
+  const [pressedEventId, setPressedEventId] = useState<string | null>(null);
+
+  const [pressedId, setPressedId] = useState<string | null>(null);
+  const MOVE_THRESHOLD = 12;
+
+  const triggerHaptic = useCallback(async () => {
+    if (Capacitor.getPlatform() === 'web') return;
+    try {
+      await Haptics.impact({ style: ImpactStyle.Medium });
+    } catch (e) {
+      console.warn('[event inbox haptic error]', e);
+    }
+  }, []);
+
   useEffect(() => {
     lastMsgsRef.current = lastMsgs;
   }, [lastMsgs]);
@@ -71,6 +92,11 @@ export default function EventInboxListMobile({
     []
   );
 
+  const triggerLongPressHaptic = useCallback(() => {
+    if (Capacitor.getPlatform() === 'web') return;
+    Haptics.impact({ style: ImpactStyle.Light }).catch(() => {});
+  }, []);
+
   const refreshEvents = useCallback(async () => {
     const { data: auth } = await supabase.auth.getUser();
     const userId = auth?.user?.id ?? null;
@@ -83,10 +109,8 @@ export default function EventInboxListMobile({
 
     let bandIds: string[] = [];
     if (bandId) {
-      // band-specific view
       bandIds = [bandId];
     } else {
-      // home: all bands
       const { data: mems } = await supabase
         .from('band_members')
         .select('band_id')
@@ -110,7 +134,6 @@ export default function EventInboxListMobile({
       .order('starts_at', { ascending: true })
       .limit(200);
 
-    // normalize + sort (upcoming asc, past desc)
     const toTs = (s?: string | null) =>
       s ? new Date(s).getTime() : Number.POSITIVE_INFINITY;
     const now = Date.now();
@@ -153,16 +176,12 @@ export default function EventInboxListMobile({
       .sort((a, b) => toTs(b.starts_at) - toTs(a.starts_at));
     const sorted = [...upcoming, ...past];
 
-    // GLOBAL cache only when we're on HOME (all bands).
-    if (!bandId) {
-      setEvents(sorted);
-    }
+    if (!bandId) setEvents(sorted);
 
     setRows(sorted);
     eventIdsRef.current = sorted.map((e) => e.id);
     onLoaded?.(sorted.length);
 
-    // seed avatar paths into cache
     if (showAvatars) {
       for (const e of sorted) {
         if (e.bands?.id && e.bands.avatar_url) {
@@ -171,7 +190,6 @@ export default function EventInboxListMobile({
       }
     }
 
-    // fetch last-messages only for events missing a cached preview
     const missingIds = sorted
       .map((e) => e.id)
       .filter((id) => !lastMsgsRef.current[id]);
@@ -199,7 +217,6 @@ export default function EventInboxListMobile({
     void refreshEvents().finally(() => setLoading(false));
   }, [bandId, refreshEvents]);
 
-  // Realtime last-message updates
   useEffect(() => {
     const ch = supabase
       .channel('dashboard:event-inbox')
@@ -232,7 +249,7 @@ export default function EventInboxListMobile({
       if (cached) return cached;
       const { data, error } = await supabase.storage
         .from('band-avatars')
-        .createSignedUrl(path, 60 * 60); // 1h
+        .createSignedUrl(path, 60 * 60);
       if (!error && data?.signedUrl) {
         setAvatarSigned(bandId, data.signedUrl, 60 * 60);
         return data.signedUrl;
@@ -246,8 +263,100 @@ export default function EventInboxListMobile({
     nav(`/bands/${bId}/events/${eventId}`);
   };
 
-  // ----- Render -----
-  // ----- Render -----
+  // --- Long-press haptic + visual “puff” --------------------------
+
+  const handlePressStart = useCallback(
+    (
+      id: string,
+      e:
+        | React.TouchEvent<HTMLDivElement>
+        | React.MouseEvent<HTMLDivElement, MouseEvent>
+    ) => {
+      // clear any previous timer
+      if (longPressTimeoutRef.current != null) {
+        window.clearTimeout(longPressTimeoutRef.current);
+      }
+
+      let clientX = 0;
+      let clientY = 0;
+
+      if ('touches' in e && e.touches.length > 0) {
+        clientX = e.touches[0].clientX;
+        clientY = e.touches[0].clientY;
+      } else if ('clientX' in e) {
+        clientX = e.clientX;
+        clientY = e.clientY;
+      }
+
+      pressStartRef.current = { x: clientX, y: clientY };
+
+      // ⏱️ only on long press do we "press" + haptic
+      longPressTimeoutRef.current = window.setTimeout(() => {
+        setPressedId(id);
+        void triggerHaptic();
+      }, 350);
+    },
+    [triggerHaptic]
+  );
+
+  const handlePressMove = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+    if (!pressStartRef.current || longPressTimeoutRef.current == null) return;
+    if (e.touches.length !== 1) return;
+
+    const { x, y } = pressStartRef.current;
+    const t = e.touches[0];
+    const dx = t.clientX - x;
+    const dy = t.clientY - y;
+
+    // if user is scrolling, cancel long press
+    if (Math.abs(dx) > MOVE_THRESHOLD || Math.abs(dy) > MOVE_THRESHOLD) {
+      window.clearTimeout(longPressTimeoutRef.current);
+      longPressTimeoutRef.current = null;
+    }
+  }, []);
+
+  const handlePressEnd = useCallback(() => {
+    if (longPressTimeoutRef.current != null) {
+      window.clearTimeout(longPressTimeoutRef.current);
+      longPressTimeoutRef.current = null;
+    }
+    pressStartRef.current = null;
+
+    // let the scale hang for a beat, then reset
+    if (pressedId != null) {
+      setTimeout(() => setPressedId(null), 130);
+    }
+  }, [pressedId]);
+
+  // --- Avatar initials --------------------------------------------
+
+  const renderAvatarInitials = (name?: string | null) => {
+    const initials =
+      name
+        ?.split(/\s+/)
+        .slice(0, 2)
+        .map((p) => p[0]?.toUpperCase())
+        .join('') || '?';
+
+    return (
+      <div
+        style={{
+          width: '100%',
+          height: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontWeight: 800,
+          fontSize: 16,
+        }}
+      >
+        {initials}
+      </div>
+    );
+  };
+
+  // --- Render guards ----------------------------------------------
+
   if (loading && rows.length === 0) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -261,12 +370,14 @@ export default function EventInboxListMobile({
     return <IonText color="medium">No events yet.</IonText>;
   }
 
+  // --- Render list ------------------------------------------------
+
   return (
     <div
       style={{
         paddingTop: 4,
         paddingBottom: 8,
-        paddingLeft: 0, // ⬅️ no horizontal padding
+        paddingLeft: 0,
         paddingRight: 0,
       }}
     >
@@ -287,6 +398,7 @@ export default function EventInboxListMobile({
             lm?.body ??
             (e.location ? `Location: ${e.location}` : `${e.type} scheduled`);
           const band = e.bands;
+          const isPressed = pressedId === e.id;
 
           const avatarSrc = band?.id ? getAvatarSigned(band.id) : undefined;
           if (!avatarSrc && band?.id && band.avatar_url) {
@@ -302,7 +414,7 @@ export default function EventInboxListMobile({
             <IonItem
               key={e.id}
               detail={false}
-              onClick={() => openEvent(e.band_id, e.id)}
+              onClick={() => openEvent(e.band_id, e.id)} // short tap still opens, no haptic
               lines="none"
               style={{
                 ['--background' as any]: 'transparent',
@@ -312,24 +424,36 @@ export default function EventInboxListMobile({
                 paddingBlock: 3,
               }}
             >
-              {/* Pill that goes basically as wide as possible */}
               <div
+                onTouchStart={(ev) => handlePressStart(e.id, ev)}
+                onTouchMove={handlePressMove}
+                onTouchEnd={handlePressEnd}
+                onTouchCancel={handlePressEnd}
+                onMouseDown={(ev) => handlePressStart(e.id, ev)}
+                onMouseUp={handlePressEnd}
+                onMouseLeave={handlePressEnd}
                 style={{
                   borderRadius: 20,
                   paddingInline: 10,
                   paddingBlock: 10,
                   minHeight: 85,
                   width: '100%',
-                  // 🔥 no marginInline here = longer than band tiles
                   display: 'grid',
-                  gridTemplateColumns: 'auto 1fr auto auto',
+                  gridTemplateColumns: showAvatars
+                    ? 'auto 1fr auto auto'
+                    : '1fr auto auto',
                   alignItems: 'center',
                   columnGap: 10,
                   background:
                     'linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02))',
+                  boxShadow: isPressed
+                    ? '0 18px 40px rgba(0,0,0,0.9)'
+                    : '0 10px 24px rgba(0,0,0,.32)',
+                  transform: isPressed ? 'scale(1.03)' : 'scale(1)',
+                  transition:
+                    'transform 120ms ease-out, box-shadow 120ms ease-out, background 120ms ease-out',
                 }}
               >
-                {/* Avatar */}
                 {showAvatars && (
                   <div
                     style={{
@@ -342,11 +466,10 @@ export default function EventInboxListMobile({
                       style={{
                         width: 48,
                         height: 48,
-                        background: 'rgba(255,255,255,0.06)',
+                        background: 'rgba(15,23,42,0.9)',
                         boxShadow: 'inset 0 0 0 2px rgba(255,255,255,0.06)',
-                        fontWeight: 800,
-                        color: '#fff',
                         flexShrink: 0,
+                        overflow: 'hidden',
                       }}
                     >
                       {avatarSrc ? (
@@ -360,17 +483,12 @@ export default function EventInboxListMobile({
                           }}
                         />
                       ) : (
-                        (band?.name || '?')
-                          .split(/\s+/)
-                          .slice(0, 2)
-                          .map((p) => p[0]?.toUpperCase())
-                          .join('')
+                        renderAvatarInitials(band?.name)
                       )}
                     </IonAvatar>
                   </div>
                 )}
 
-                {/* Middle: title + preview */}
                 <div
                   style={{
                     display: 'flex',
@@ -392,7 +510,6 @@ export default function EventInboxListMobile({
                     {e.title || 'Event'}
                   </span>
 
-                  {/* extra space between row1 & row2 */}
                   <span
                     style={{
                       marginTop: 6,
@@ -408,7 +525,6 @@ export default function EventInboxListMobile({
                   </span>
                 </div>
 
-                {/* Right: time + Pending/Booked */}
                 <div
                   style={{
                     display: 'flex',
@@ -433,7 +549,6 @@ export default function EventInboxListMobile({
                   <MiniStatusChip isBooked={e.is_booked} />
                 </div>
 
-                {/* Chevron */}
                 <div
                   style={{
                     display: 'flex',
