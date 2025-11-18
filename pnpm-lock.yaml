@@ -14,18 +14,36 @@ importers:
       '@capacitor/ios':
         specifier: ^7.4.4
         version: 7.4.4(@capacitor/core@7.4.4)
+      '@capacitor/keyboard':
+        specifier: ^7.0.3
+        version: 7.0.3(@capacitor/core@7.4.4)
 
   apps/mobile:
     dependencies:
       '@capacitor/app':
-        specifier: ^6.0.0
-        version: 6.0.2(@capacitor/core@7.4.4)
+        specifier: ^7.1.0
+        version: 7.1.0(@capacitor/core@7.4.4)
       '@capacitor/browser':
-        specifier: ^6.0.0
-        version: 6.0.5(@capacitor/core@7.4.4)
+        specifier: ^7.0.2
+        version: 7.0.2(@capacitor/core@7.4.4)
       '@capacitor/core':
         specifier: ^7.4.4
         version: 7.4.4
+      '@capacitor/filesystem':
+        specifier: ^7.1.4
+        version: 7.1.4(@capacitor/core@7.4.4)
+      '@capacitor/haptics':
+        specifier: ^7.0.2
+        version: 7.0.2(@capacitor/core@7.4.4)
+      '@capacitor/keyboard':
+        specifier: ^7.0.3
+        version: 7.0.3(@capacitor/core@7.4.4)
+      '@capacitor/share':
+        specifier: ^7.0.2
+        version: 7.0.2(@capacitor/core@7.4.4)
+      '@capacitor/status-bar':
+        specifier: ^7.0.3
+        version: 7.0.3(@capacitor/core@7.4.4)
       '@ionic/react':
         specifier: ^8.7.9
         version: 8.7.9(react-dom@18.3.1)(react@18.3.1)
@@ -339,18 +357,18 @@ packages:
       '@capacitor/core': 7.4.4
     dev: false
 
-  /@capacitor/app@6.0.2(@capacitor/core@7.4.4):
-    resolution: {integrity: sha512-SiGTGgslK4TbWJVImCUL1odul7/YFkVfkYtAYS9AAEzQpxBECBeRnuN3FFBcfZ9eiN1XxFBFchhiwpxtx/c7yQ==}
+  /@capacitor/app@7.1.0(@capacitor/core@7.4.4):
+    resolution: {integrity: sha512-W7m09IWrUjZbo7AKeq+rc/KyucxrJekTBg0l4QCm/yDtCejE3hebxp/W2esU26KKCzMc7H3ClkUw32E9lZkwRA==}
     peerDependencies:
-      '@capacitor/core': ^6.0.0
+      '@capacitor/core': '>=7.0.0'
     dependencies:
       '@capacitor/core': 7.4.4
     dev: false
 
-  /@capacitor/browser@6.0.5(@capacitor/core@7.4.4):
-    resolution: {integrity: sha512-TjA1YCiYT7wb7CLmI6zLLoS09vm7d+h4oAKXAVWDwjOyKdbAPKh75ZtzlN+lum8+sOtO9YJ+1Zdi6rdw6dxYYw==}
+  /@capacitor/browser@7.0.2(@capacitor/core@7.4.4):
+    resolution: {integrity: sha512-5kySTunCtH+2sezmTjgDfwvspW7GW/hslQECZeLIRM2qefnxjGTc3fmCTeILYK5EuvcxMs+8sF5BhmzzKqOzuQ==}
     peerDependencies:
-      '@capacitor/core': ^6.0.0
+      '@capacitor/core': '>=7.0.0'
     dependencies:
       '@capacitor/core': 7.4.4
     dev: false
@@ -387,12 +405,57 @@ packages:
       tslib: 2.8.1
     dev: false
 
+  /@capacitor/filesystem@7.1.4(@capacitor/core@7.4.4):
+    resolution: {integrity: sha512-BdUnOVulHAtruW2GeC9o7e9LO5aFcVYqNn3dLypJSOck/WipUFNfI0QWoUS0FVGeqBbDJgFGi3zjXJx0lzbDkA==}
+    peerDependencies:
+      '@capacitor/core': '>=7.0.0'
+    dependencies:
+      '@capacitor/core': 7.4.4
+      '@capacitor/synapse': 1.0.4
+    dev: false
+
+  /@capacitor/haptics@7.0.2(@capacitor/core@7.4.4):
+    resolution: {integrity: sha512-vqfeEM6s2zMgLjpITCTUIy7P/hadq/Gr5E/RClFgMJPB41Y5FsqOKD+j85/uwh8N2cf/aWaPeXUmjnTzJbEB2g==}
+    peerDependencies:
+      '@capacitor/core': '>=7.0.0'
+    dependencies:
+      '@capacitor/core': 7.4.4
+    dev: false
+
   /@capacitor/ios@7.4.4(@capacitor/core@7.4.4):
     resolution: {integrity: sha512-Xp3bGWlSQAwsZGngRMWTdoD2agdMV12Whnm+/xsYPxfQSj+Tksbr7r/8Mso7VWkpnTKO4iMlx762g3PjW+wi4w==}
     peerDependencies:
       '@capacitor/core': ^7.4.0
     dependencies:
       '@capacitor/core': 7.4.4
+    dev: false
+
+  /@capacitor/keyboard@7.0.3(@capacitor/core@7.4.4):
+    resolution: {integrity: sha512-BIBKjmky5rOYNhvYhNeDi0MMvjwYZ6YF9JoCYcGKvKY+XLJKtezsEL78XfOlgWZBkbfR8uq3tzktY6PqgoYLKA==}
+    peerDependencies:
+      '@capacitor/core': '>=7.0.0'
+    dependencies:
+      '@capacitor/core': 7.4.4
+    dev: false
+
+  /@capacitor/share@7.0.2(@capacitor/core@7.4.4):
+    resolution: {integrity: sha512-VyNPo/9831xnL17IMDeft5yNdBjoKNb451P95sRcr69hulRDqHc+kndqOVaMXnaA6IyBdWnnFv/n1HUf4cXpGw==}
+    peerDependencies:
+      '@capacitor/core': '>=7.0.0'
+    dependencies:
+      '@capacitor/core': 7.4.4
+    dev: false
+
+  /@capacitor/status-bar@7.0.3(@capacitor/core@7.4.4):
+    resolution: {integrity: sha512-JyRpVnKwHij9hgPWolF6PK+HT3e2HSPjN11/h2OmKxq8GAdPGARFLv+97eZl0pvuvm0Kka/LpiLb5whXISBg7Q==}
+    peerDependencies:
+      '@capacitor/core': '>=7.0.0'
+    dependencies:
+      '@capacitor/core': 7.4.4
+    dev: false
+
+  /@capacitor/synapse@1.0.4:
+    resolution: {integrity: sha512-/C1FUo8/OkKuAT4nCIu/34ny9siNHr9qtFezu4kxm6GY1wNFxrCFWjfYx5C1tUhVGz3fxBABegupkpjXvjCHrw==}
     dev: false
 
   /@dnd-kit/accessibility@3.1.1(react@19.1.0):
