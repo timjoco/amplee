@@ -263,7 +263,7 @@ export default function EventSheetMobile() {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                color: '#FFFFFF',
+                color: '#a855f7',
               }}
             >
               <IonIcon icon={chevronBackOutline} style={{ fontSize: 24 }} />
@@ -365,7 +365,7 @@ export default function EventSheetMobile() {
         <IonToolbar
           style={{
             '--background': 'rgba(8,8,12,0.98)',
-            borderBottom: '1px solid rgba(255,255,255,0.06)',
+            borderBottom: '0.5px solid rgba(255,255,255,0.06)',
           }}
         >
           <IonSegment

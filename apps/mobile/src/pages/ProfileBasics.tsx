@@ -414,7 +414,12 @@ export default function ProfileBasics() {
     <IonPage>
       <IonHeader>
         <IonToolbar>
-          <IonButton slot="start" fill="clear" onClick={() => nav(-1)}>
+          <IonButton
+            slot="start"
+            fill="clear"
+            onClick={() => nav(-1)}
+            color="#a855f7"
+          >
             <IonIcon icon={chevronBack} />
           </IonButton>
           <IonTitle>Edit Profile</IonTitle>

@@ -694,7 +694,10 @@ export default function ChatTabMobile({
         background: '#050509',
         transform:
           keyboardOffset > 0
-            ? `translateY(-${Math.min(keyboardOffset, 260)}px)`
+            ? `translateY(-${Math.min(
+                Math.max(keyboardOffset - 20, 0),
+                260
+              )}px)`
             : 'none',
         transition: 'transform 160ms ease-out',
       }}
@@ -989,16 +992,20 @@ export default function ChatTabMobile({
       <div
         style={{
           background: '#050509',
-          borderTop: '1px solid rgba(17,24,39,0.9)',
+          borderTop: '0.5px solid rgba(88,28,135,0.7)',
           paddingBottom: 'env(safe-area-inset-bottom)',
+          width: '100%',
+          marginInline: 0,
         }}
       >
         <div
           style={{
-            padding: '8px 10px',
+            paddingTop: 4,
+            paddingInline: 10,
+            paddingBottom: 4,
             display: 'flex',
-            alignItems: 'center',
-            gap: 8,
+            alignItems: 'flex-end',
+            gap: 6,
           }}
         >
           {/* + STATUS BUTTON (left bubble) */}
@@ -1027,7 +1034,6 @@ export default function ChatTabMobile({
             <IonIcon icon={addOutline} style={{ fontSize: 22 }} />
           </button>
 
-          {/* INPUT PILL — single line, same height as buttons */}
           <div
             style={{
               flex: 1,
