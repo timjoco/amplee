@@ -248,10 +248,14 @@ ion-alert.custom-dark-alert::part(button):hover {
 
 ion-alert.custom-dark-alert::part(button-confirm) {
   color: white;
-  background: #875cff; /* Amplee purple */
+  background: #875cff;
   border-radius: 8px;
 }
 
 ion-alert.custom-dark-alert::part(button-confirm):hover {
   background: #a68aff;
+}
+
+.event-info-sheet::part(handle) {
+  display: none;
 }

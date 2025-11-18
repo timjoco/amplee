@@ -41,10 +41,11 @@ export default function Home() {
 
       const { data, error } = await supabase
         .from('band_members')
-        .select('role, bands(id, name, avatar_url)')
+        .select('role, bands(id, name, avatar_url, updated_at)')
         .eq('user_id', uid);
 
       if (!alive) return;
+
       if (error) {
         console.warn('[Home] band_members error:', error.message);
         setRefreshing(false);
@@ -60,15 +61,12 @@ export default function Home() {
             name: String(b.name ?? ''),
             role: row.role === 'admin' ? 'admin' : 'member',
             avatar_url: b.avatar_url ?? null,
+            updated_at: b.updated_at ?? null,
           } as BandWithRole;
         })
         .filter(Boolean) as BandWithRole[];
 
-      console.log(
-        '[Home] normalized bands:',
-        normalized.map((b) => ({ id: b.id, name: b.name, role: b.role }))
-      );
-
+      // ✅ actually use the normalized bands
       setBandsCache(normalized);
       setBands(normalized);
       setRefreshing(false);
@@ -107,7 +105,7 @@ export default function Home() {
           style={{
             maxWidth: 960,
             margin: '0 auto',
-            padding: '8px 16px 24px', // 👈 was 16px top, now 8px
+            padding: '8px 16px 24px',
           }}
         >
           {/* Bands section */}
