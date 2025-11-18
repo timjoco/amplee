@@ -1,13 +1,12 @@
-// src/pages/EventSheetMobile.tsx
 import {
-  IonAlert,
-  IonBackButton,
   IonButtons,
   IonContent,
   IonHeader,
+  IonIcon,
   IonItem,
   IonLabel,
   IonList,
+  IonModal,
   IonPage,
   IonSegment,
   IonSegmentButton,
@@ -16,13 +15,19 @@ import {
   IonTitle,
   IonToolbar,
 } from '@ionic/react';
+import {
+  chevronBackOutline,
+  chevronForwardOutline,
+  closeOutline,
+} from 'ionicons/icons';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import ChatTabMobile from '../components/Events/ChatTabMobile';
+import RSVPTabMobile from '../components/Events/RSVPTabMobile';
 import SetlistTabMobile from '../components/Events/SetlistTabMobile';
 import AvatarImageMobile from '../components/ui/AvatarImageMobile';
-import { useAttendance } from '../hooks/useAttendance';
 import { supabase } from '../lib/supabase';
+import { exportEventToCalendar } from '../utils/exportEventToCalendar';
 
 type EventRow = {
   id: string;
@@ -35,7 +40,7 @@ type EventRow = {
   is_booked: boolean;
 };
 
-type TabKey = 'details' | 'chat' | 'setlist' | 'notes' | 'files' | 'roster';
+type TabKey = 'Green Room' | 'roll call' | 'setlist';
 
 export default function EventSheetMobile() {
   const { bandId, eventId } = useParams<{
@@ -45,8 +50,23 @@ export default function EventSheetMobile() {
 
   const [event, setEvent] = useState<EventRow | null>(null);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<TabKey>('details');
+  const [tab, setTab] = useState<TabKey>('Green Room');
   const [isAdmin, setIsAdmin] = useState(false);
+
+  const pageRef = useRef<HTMLElement | null>(null);
+  const [showInfoSheet, setShowInfoSheet] = useState(false);
+
+  const [myUserId, setMyUserId] = useState<string | null>(null);
+
+  const nav = useNavigate();
+
+  const handleBack = () => {
+    if (window.history.length > 1) {
+      nav(-1);
+    } else {
+      nav('/home', { replace: true });
+    }
+  };
 
   const startsAtLabel = useMemo(() => {
     if (!event || !event.starts_at) return '';
@@ -63,7 +83,25 @@ export default function EventSheetMobile() {
     }
   }, [event]);
 
-  // Status chip label + colors – mirror inbox Booked/Pending/Cancelled vibe
+  const handleExportGoogle = useCallback(async () => {
+    if (!event || !event.starts_at) return;
+
+    try {
+      await exportEventToCalendar(
+        {
+          title: event.title || 'Event',
+          startsAt: event.starts_at,
+          location: event.location || undefined,
+          notes: undefined,
+          durationMinutes: 120,
+        },
+        'google'
+      );
+    } catch (err) {
+      console.error('Failed to export to Google Calendar', err);
+    }
+  }, [event]);
+
   const status = useMemo(() => {
     if (!event) return null;
     if (event.is_cancelled) {
@@ -90,7 +128,8 @@ export default function EventSheetMobile() {
     };
   }, [event]);
 
-  // Load event from events_with_my_attendance (same view as inbox)
+  const hasStart = !!event?.starts_at;
+
   useEffect(() => {
     let alive = true;
     if (!eventId) return;
@@ -130,15 +169,60 @@ export default function EventSheetMobile() {
     };
   }, [eventId]);
 
-  // Check if current user is band admin (for setlist controls)
+  useEffect(() => {
+    if (!eventId) return;
+
+    const ch = supabase
+      .channel(`event:${eventId}:attendance-header`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'event_attendance',
+          filter: `event_id=eq.${eventId}`,
+        },
+        async () => {
+          const { data } = await supabase
+            .from('events_with_my_attendance')
+            .select(
+              'id, band_id, title, type, starts_at, location, is_booked, is_cancelled'
+            )
+            .eq('id', eventId)
+            .maybeSingle();
+
+          if (data) {
+            setEvent((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    is_booked: Boolean(data.is_booked),
+                    is_cancelled: Boolean(data.is_cancelled),
+                  }
+                : null
+            );
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(ch);
+    };
+  }, [eventId]);
+
   useEffect(() => {
     let alive = true;
+
     (async () => {
-      if (!bandId) return;
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!alive || !user) return;
+
+      setMyUserId(user.id);
+
+      if (!bandId) return;
 
       const { data, error } = await supabase
         .from('band_members')
@@ -148,8 +232,10 @@ export default function EventSheetMobile() {
         .maybeSingle();
 
       if (!alive) return;
-      if (!error && data && data.role === 'admin') {
+      if (!error && data?.role === 'admin') {
         setIsAdmin(true);
+      } else {
+        setIsAdmin(false);
       }
     })();
 
@@ -158,85 +244,128 @@ export default function EventSheetMobile() {
     };
   }, [bandId]);
 
-  const defaultBackHref = bandId ? `/bands/${bandId}` : '/home';
-
   return (
-    <IonPage>
+    <IonPage ref={pageRef as any}>
       <IonHeader translucent>
-        {/* Top toolbar: back + title + status pill ONLY */}
         <IonToolbar
           style={{
             '--background': 'rgba(8,8,12,0.98)',
-            borderBottom: '1px solid rgba(255,255,255,0.06)',
           }}
         >
-          <div
+          <IonButtons slot="start">
+            <button
+              type="button"
+              onClick={handleBack}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                padding: 8,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#FFFFFF',
+              }}
+            >
+              <IonIcon icon={chevronBackOutline} style={{ fontSize: 24 }} />
+            </button>
+          </IonButtons>
+
+          {/* Center, event name */}
+          <IonTitle
             style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 10,
-              paddingInline: 8,
+              paddingInline: 0,
+              paddingBlock: 0,
+              fontWeight: 900,
+              fontSize: 20,
+              letterSpacing: 0.2,
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              textAlign: 'center',
             }}
           >
-            <IonButtons slot="start">
-              <IonBackButton
-                defaultHref={defaultBackHref}
-                text=""
-                style={{ marginRight: 4 }}
-              />
-            </IonButtons>
-
             <div
               style={{
                 display: 'flex',
+                justifyContent: 'center',
                 alignItems: 'center',
-                gap: 8,
-                flex: 1,
-                minWidth: 0,
               }}
             >
-              <IonTitle
+              <button
+                type="button"
+                onClick={() => setShowInfoSheet(true)}
                 style={{
-                  paddingInline: 0,
-                  paddingBlock: 0,
-                  fontWeight: 900,
-                  fontSize: 20,
-                  letterSpacing: 0.2,
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
+                  background: 'transparent',
+                  border: 'none',
+                  padding: 0,
+                  margin: 0,
+                  color: 'inherit',
+                  font: 'inherit',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 4,
+                  cursor: 'pointer',
+                  paddingInline: 4,
+                  paddingBlock: 2,
+                  borderRadius: 999,
+                  maxWidth: '80vw',
                 }}
               >
-                {event?.title ?? (loading ? 'Loading…' : 'Event')}
-              </IonTitle>
-
-              {event && status && (
                 <span
                   style={{
-                    fontSize: 11,
-                    fontWeight: 600,
-                    textTransform: 'capitalize',
-                    paddingInline: 8,
-                    paddingBlock: 3,
-                    borderRadius: 999,
                     whiteSpace: 'nowrap',
-                    background: status.bg,
-                    color: status.color,
-                    border: `1px solid ${status.border}`,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    maxWidth: '70vw',
                   }}
                 >
-                  {status.label}
+                  {event?.title ?? (loading ? 'Loading…' : 'Event')}
                 </span>
-              )}
+
+                <IonIcon
+                  icon={chevronForwardOutline}
+                  style={{
+                    fontSize: 16,
+                    opacity: 0.6,
+                    flexShrink: 0,
+                  }}
+                />
+              </button>
             </div>
-          </div>
+          </IonTitle>
+
+          {/* Right: status pill */}
+          {event && status && (
+            <div
+              slot="end"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 11,
+                fontWeight: 600,
+                textTransform: 'capitalize',
+                paddingInline: 8,
+                paddingBlock: 3,
+                borderRadius: 999,
+                whiteSpace: 'nowrap',
+                background: status.bg,
+                color: status.color,
+                border: `1px solid ${status.border}`,
+                marginRight: 6,
+              }}
+            >
+              {status.label}
+            </div>
+          )}
         </IonToolbar>
 
         {/* Tabs toolbar */}
         <IonToolbar
           style={{
             '--background': 'rgba(8,8,12,0.98)',
-            borderBottom: '1px solid rgba(148,163,184,0.35)',
+            borderBottom: '1px solid rgba(255,255,255,0.06)',
           }}
         >
           <IonSegment
@@ -244,11 +373,11 @@ export default function EventSheetMobile() {
             onIonChange={(e) => setTab(e.detail.value as TabKey)}
             className="event-tabs"
           >
-            <IonSegmentButton value="details">
-              <IonLabel>Details</IonLabel>
+            <IonSegmentButton value="Green Room">
+              <IonLabel>Green Room</IonLabel>
             </IonSegmentButton>
-            <IonSegmentButton value="chat">
-              <IonLabel>Chat</IonLabel>
+            <IonSegmentButton value="roll call">
+              <IonText>Roll Call</IonText>
             </IonSegmentButton>
             <IonSegmentButton value="setlist">
               <IonLabel>Setlist</IonLabel>
@@ -257,7 +386,326 @@ export default function EventSheetMobile() {
         </IonToolbar>
       </IonHeader>
 
-      <IonContent fullscreen scrollY={false} className="ion-padding">
+      {/*EVENT DETAILS POPUP */}
+      <IonModal
+        isOpen={showInfoSheet}
+        onDidDismiss={() => setShowInfoSheet(false)}
+        breakpoints={[0, 0.9]}
+        initialBreakpoint={0.9}
+        handleBehavior="cycle"
+        className="event-info-sheet"
+      >
+        <IonContent>
+          <div
+            style={{
+              position: 'relative',
+              padding: 16,
+              paddingBottom: 24,
+              height: '100%',
+              color: '#E5E7EB',
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => setShowInfoSheet(false)}
+              style={{
+                position: 'absolute',
+                top: 10,
+                right: 12,
+                width: 28,
+                height: 28,
+                borderRadius: 999,
+                border: '1px solid rgba(139,92,246,0.8)',
+                background:
+                  'radial-gradient( rgba(168,85,247,0.25), rgba(15,23,42,0.98))',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0 10px 26px rgba(0,0,0,0.75)',
+                padding: 0,
+                cursor: 'pointer',
+              }}
+            >
+              <IonIcon
+                icon={closeOutline}
+                style={{ fontSize: 16, color: '#F9FAFB' }}
+              />
+            </button>
+
+            <div
+              style={{
+                width: 40,
+                height: 4,
+                borderRadius: 999,
+                margin: '4px auto 12px',
+                background: 'rgba(168,85,247,0.85)',
+              }}
+            />
+
+            {event ? (
+              <>
+                <div
+                  style={{
+                    position: 'relative',
+                    marginBottom: 12,
+                  }}
+                >
+                  <h2
+                    style={{
+                      margin: 0,
+                      fontSize: 20,
+                      fontWeight: 800,
+                      textAlign: 'center',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      paddingInline: 40,
+                      color: '#F5F3FF',
+                    }}
+                  >
+                    {event.title || 'Event'}
+                  </h2>
+                </div>
+
+                <div
+                  style={{
+                    flex: 1,
+                    overflowY: 'auto',
+                    paddingRight: 2,
+                  }}
+                >
+                  <div
+                    style={{
+                      borderRadius: 18,
+                      background:
+                        'linear-gradient(145deg, #08070d, #050509 55%, #0b0614)',
+                      border: '1px solid rgba(88,28,135,0.7)',
+                      padding: 14,
+                      marginBottom: 16,
+                      boxShadow: '0 22px 45px rgba(0,0,0,0.9)',
+                    }}
+                  >
+                    <div style={{ marginBottom: 10 }}>
+                      <p
+                        style={{
+                          margin: 0,
+                          fontSize: 13,
+                          fontWeight: 700,
+                          letterSpacing: 0.04,
+                          textTransform: 'uppercase',
+                          color: 'rgba(237,233,254,0.96)',
+                        }}
+                      >
+                        Event overview
+                      </p>
+                      <p
+                        style={{
+                          margin: '4px 0 0',
+                          fontSize: 13,
+                          color: 'rgba(196,181,253,0.9)',
+                        }}
+                      >
+                        Basic info about this event.
+                      </p>
+                    </div>
+
+                    <div
+                      style={{
+                        marginTop: 4,
+                        paddingLeft: 6,
+                      }}
+                    >
+                      <div style={{ marginBottom: 10 }}>
+                        <p
+                          style={{
+                            margin: 0,
+                            fontSize: 12,
+                            textTransform: 'uppercase',
+                            letterSpacing: 0.08,
+                            color: 'rgba(196,181,253,0.95)',
+                          }}
+                        >
+                          When
+                        </p>
+                        <p
+                          style={{
+                            margin: '4px 0 0',
+                            fontSize: 14,
+                            fontWeight: 500,
+                            color: '#EDE9FE',
+                          }}
+                        >
+                          {startsAtLabel || 'TBD'}
+                        </p>
+                      </div>
+
+                      <div style={{ marginBottom: 10 }}>
+                        <p
+                          style={{
+                            margin: 0,
+                            fontSize: 12,
+                            textTransform: 'uppercase',
+                            letterSpacing: 0.08,
+                            color: 'rgba(196,181,253,0.95)',
+                          }}
+                        >
+                          Where
+                        </p>
+                        <p
+                          style={{
+                            margin: '4px 0 0',
+                            fontSize: 14,
+                            fontWeight: 500,
+                            color: '#EDE9FE',
+                          }}
+                        >
+                          {event.location || 'TBD'}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p
+                          style={{
+                            margin: 0,
+                            fontSize: 12,
+                            textTransform: 'uppercase',
+                            letterSpacing: 0.08,
+                            color: 'rgba(196,181,253,0.95)',
+                          }}
+                        >
+                          Type
+                        </p>
+                        <p
+                          style={{
+                            margin: '4px 0 0',
+                            fontSize: 14,
+                            fontWeight: 500,
+                            color: '#EDE9FE',
+                          }}
+                        >
+                          {event.type === 'practice' ? 'Practice' : 'Show'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div
+                      style={{
+                        marginTop: 14,
+                        marginBottom: 16,
+                        paddingLeft: 6,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 8,
+                      }}
+                    >
+                      <button
+                        type="button"
+                        onClick={handleExportGoogle}
+                        disabled={!hasStart}
+                        style={{
+                          width: '100%',
+                          paddingBlock: 10,
+                          borderRadius: 999,
+                          border: '1px solid rgba(216,180,254,0.9)',
+                          fontSize: 14,
+                          fontWeight: 600,
+                          background: hasStart
+                            ? 'linear-gradient(135deg, rgba(147,51,234,0.96), rgba(107, 58, 157, 0.98))'
+                            : 'rgba(17,24,39,0.9)',
+                          color: hasStart
+                            ? '#F5F3FF'
+                            : 'rgba(196,181,253,0.85)',
+                          opacity: hasStart ? 1 : 0.7,
+                        }}
+                      >
+                        Add to Google Calendar
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* LINEUP CARD */}
+                  <div
+                    style={{
+                      borderRadius: 18,
+                      background:
+                        'linear-gradient(145deg, #08070d, #050509 55%, #0b0614)',
+                      border: '1px solid rgba(88,28,135,0.7)',
+                      padding: 14,
+                      marginBottom: 16,
+                    }}
+                  >
+                    <div style={{ marginBottom: 10 }}>
+                      <p
+                        style={{
+                          margin: 0,
+                          fontSize: 13,
+                          fontWeight: 700,
+                          letterSpacing: 0.04,
+                          textTransform: 'uppercase',
+                          color: 'rgba(237,233,254,0.96)',
+                        }}
+                      >
+                        Lineup
+                      </p>
+                      <p
+                        style={{
+                          margin: '4px 0 0',
+                          fontSize: 13,
+                          color: 'rgba(196,181,253,0.9)',
+                        }}
+                      >
+                        See the lineup for this event and their RSVP.
+                      </p>
+                    </div>
+
+                    <IonList
+                      inset={false}
+                      style={{
+                        margin: 0,
+                        background: 'transparent',
+                      }}
+                    >
+                      <IonItem
+                        lines="none"
+                        style={
+                          {
+                            '--background': 'transparent',
+                            paddingInline: 0,
+                          } as any
+                        }
+                      >
+                        <RosterPanelMobile
+                          bandId={event.band_id}
+                          eventId={event.id}
+                        />
+                      </IonItem>
+                    </IonList>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div
+                style={{
+                  height: '100%',
+                  display: 'grid',
+                  placeItems: 'center',
+                }}
+              >
+                <IonSpinner name="dots" />
+              </div>
+            )}
+          </div>
+        </IonContent>
+      </IonModal>
+
+      {/* MAIN BODY */}
+      <IonContent
+        fullscreen
+        scrollY={tab !== 'Green Room'}
+        className="ion-padding"
+      >
         {loading && (
           <div
             style={{
@@ -288,138 +736,30 @@ export default function EventSheetMobile() {
 
         {!loading && event && (
           <>
-            {/* DETAILS TAB – three sections: Event details, Attendance, Roster */}
-            {tab === 'details' && (
-              <>
-                {/* Event overview header */}
-                <div style={{ marginBottom: 8 }}>
-                  <IonText>
-                    <h2
-                      style={{
-                        margin: 0,
-                        fontSize: 20,
-                        fontWeight: 700,
-                      }}
-                    >
-                      Event overview
-                    </h2>
-                  </IonText>
-                  <IonText color="medium">
-                    <p
-                      style={{
-                        margin: '4px 0 0',
-                        fontSize: 14,
-                      }}
-                    >
-                      Basic info about this event.
-                    </p>
-                  </IonText>
-                </div>
-
-                {/* Event details card */}
-                <IonList inset>
-                  <IonItem lines="full">
-                    <IonLabel>
-                      <h2>When</h2>
-                      <p style={{ marginTop: 4, fontSize: 14 }}>
-                        {startsAtLabel || 'TBD'}
-                      </p>
-                    </IonLabel>
-                  </IonItem>
-
-                  <IonItem lines="full">
-                    <IonLabel>
-                      <h2>Where</h2>
-                      <p style={{ marginTop: 4, fontSize: 14 }}>
-                        {event.location || 'TBD'}
-                      </p>
-                    </IonLabel>
-                  </IonItem>
-
-                  <IonItem lines="none">
-                    <IonLabel>
-                      <h2>Type</h2>
-                      <p style={{ marginTop: 4, fontSize: 14 }}>
-                        {event.type === 'practice' ? 'Practice' : 'Show'}
-                      </p>
-                    </IonLabel>
-                  </IonItem>
-                </IonList>
-                {/* Attendance card */}
-                <div style={{ marginBottom: 8 }}>
-                  <IonText>
-                    <h2
-                      style={{
-                        margin: 0,
-                        fontSize: 20,
-                        fontWeight: 700,
-                      }}
-                    >
-                      Attendance{' '}
-                    </h2>
-                  </IonText>
-                  <IonText color="medium">
-                    <p
-                      style={{
-                        margin: '4px 0 0',
-                        fontSize: 14,
-                      }}
-                    >
-                      Let your band know if you&apos;re in.
-                    </p>
-                  </IonText>
-                </div>
-                <IonList inset>
-                  <IonItem lines="none">
-                    <MobileRSVPStrip eventId={event.id} />
-                  </IonItem>
-                </IonList>
-
-                <div style={{ marginBottom: 8 }}>
-                  <IonText>
-                    <h2
-                      style={{
-                        margin: 0,
-                        fontSize: 20,
-                        fontWeight: 700,
-                      }}
-                    >
-                      Lineup
-                    </h2>
-                  </IonText>
-                  <IonText color="medium">
-                    <p
-                      style={{
-                        margin: '4px 0 0',
-                        fontSize: 14,
-                      }}
-                    >
-                      See who&apos;s in this band and their RSVP.
-                    </p>
-                  </IonText>
-                </div>
-                {/* Roster card – using mobile version of RosterPanel */}
-                <IonList inset>
-                  <IonItem lines="none">
-                    <RosterPanelMobile
-                      bandId={event.band_id}
-                      eventId={event.id}
-                    />
-                  </IonItem>
-                </IonList>
-              </>
+            {tab === 'Green Room' && (
+              <ChatTabMobile eventId={event.id} isAdmin={isAdmin} />
             )}
 
-            {/* Chat tab */}
-            {tab === 'chat' && <ChatTabMobile eventId={event.id} />}
+            {tab !== 'Green Room' && (
+              <div
+                style={{
+                  minHeight: '100%',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  overflowY: 'auto',
+                  WebkitOverflowScrolling: 'touch',
+                }}
+              >
+                {tab === 'setlist' && (
+                  <SetlistTabMobile
+                    eventId={event.id}
+                    bandId={event.band_id}
+                    isAdmin={isAdmin}
+                  />
+                )}
 
-            {/* Setlist tab */}
-            {tab === 'setlist' && (
-              <SetlistTabMobile
-                eventId={event.id}
-                bandId={event.band_id}
-                isAdmin={isAdmin}
-              />
+                {tab === 'roll call' && <RSVPTabMobile eventId={event.id} />}
+              </div>
             )}
           </>
         )}
@@ -428,173 +768,13 @@ export default function EventSheetMobile() {
   );
 }
 
-function MobileRSVPStrip({ eventId }: { eventId: string }) {
-  const { mine, counts, saving, error, update } = useAttendance(eventId);
-
-  const isYes = mine === 'accepted';
-  const isPending = mine === 'pending' || mine == null;
-
-  const [pendingStatus, setPendingStatus] = useState<
-    'accepted' | 'pending' | null
-  >(null);
-
-  const isAlertOpen = pendingStatus !== null;
-  const labelForPending =
-    pendingStatus === 'accepted'
-      ? 'Yes'
-      : pendingStatus === 'pending'
-      ? 'Pending'
-      : '';
-
-  return (
-    <>
-      <div
-        style={{
-          width: '100%',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 12,
-          flexWrap: 'wrap',
-        }}
-      >
-        {/* Left: counts + error */}
-        <div
-          style={{
-            fontSize: 13,
-            color: '#E5E7EB',
-            fontWeight: 600,
-            minWidth: 0,
-            flex: 1,
-          }}
-        >
-          {saving ? 'Saving…' : `Accepted: ${counts.accepted}/${counts.total}`}
-          {error && (
-            <div
-              style={{
-                marginTop: 2,
-                fontSize: 11,
-                color: '#FCA5A5',
-                fontWeight: 500,
-              }}
-            >
-              {error}
-            </div>
-          )}
-        </div>
-
-        {/* Right: buttons */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-          }}
-        >
-          {/* YES pill */}
-          <button
-            type="button"
-            onClick={() => setPendingStatus('accepted')}
-            disabled={saving}
-            style={{
-              flex: 0,
-              paddingInline: 14,
-              paddingBlock: 6,
-              borderRadius: 999,
-              border: 'none',
-              fontSize: 13,
-              fontWeight: 800,
-              textTransform: 'none',
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              background: isYes
-                ? 'linear-gradient(135deg, #B6FF68, #4ADE80)'
-                : 'rgba(34,197,94,0.12)',
-              color: isYes ? '#052E16' : '#BBF7D0',
-              boxShadow: isYes
-                ? '0 0 0 1px rgba(190,242,100,0.9), 0 8px 18px rgba(22,163,74,0.45)'
-                : '0 0 0 1px rgba(34,197,94,0.35)',
-              opacity: saving && !isYes ? 0.7 : 1,
-              whiteSpace: 'nowrap',
-            }}
-          >
-            Yes
-          </button>
-
-          {/* Pending pill */}
-          <button
-            type="button"
-            onClick={() => setPendingStatus('pending')}
-            disabled={saving}
-            style={{
-              flex: 0,
-              paddingInline: 14,
-              paddingBlock: 6,
-              borderRadius: 999,
-              border: 'none',
-              fontSize: 13,
-              fontWeight: 800,
-              textTransform: 'none',
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              background: isPending
-                ? 'linear-gradient(135deg, #FBBF24, #F97316)'
-                : 'rgba(249,115,22,0.12)',
-              color: isPending ? '#451A03' : '#FED7AA',
-              boxShadow: isPending
-                ? '0 0 0 1px rgba(251,191,36,0.9), 0 8px 18px rgba(234,88,12,0.45)'
-                : '0 0 0 1px rgba(249,115,22,0.35)',
-              opacity: saving && !isPending ? 0.7 : 1,
-              whiteSpace: 'nowrap',
-            }}
-          >
-            Pending
-          </button>
-        </div>
-      </div>
-
-      {/* Confirm dialog – uses your dark alert CSS via cssClass */}
-      <IonAlert
-        cssClass="custom-dark-alert"
-        isOpen={isAlertOpen}
-        onDidDismiss={() => setPendingStatus(null)}
-        header="Confirm RSVP"
-        message={
-          labelForPending
-            ? `Change your RSVP to "${labelForPending}"?`
-            : 'Change your RSVP?'
-        }
-        buttons={[
-          {
-            text: 'Cancel',
-            role: 'cancel',
-            handler: () => setPendingStatus(null),
-          },
-          {
-            text: 'Confirm',
-            handler: () => {
-              if (pendingStatus) {
-                update(pendingStatus);
-              }
-              setPendingStatus(null);
-            },
-          },
-        ]}
-      />
-    </>
-  );
-}
-
-/* ----- ROSTER PANEL (MOBILE VERSION OF WEB RosterPanel) ----- */
-
 type RosterStatus = 'accepted' | 'declined' | 'tentative' | 'pending';
 
 type RosterRow = {
   user_id: string;
   name: string;
   status: RosterStatus;
+  needs_sub: boolean;
   avatar_url?: string | null;
   updated_at?: string | null;
 };
@@ -606,79 +786,134 @@ function RosterPanelMobile({
   bandId: string;
   eventId: string;
 }) {
+  type BaseMember = {
+    user_id: string;
+    name: string;
+    avatar_url: string | null;
+    updated_at: string | null;
+  };
+
+  const [baseMembers, setBaseMembers] = useState<BaseMember[] | null>(null);
   const [rows, setRows] = useState<RosterRow[]>([]);
   const [loading, setLoading] = useState(true);
   const initialLoadDone = useRef(false);
 
-  const load = useCallback(async () => {
+  const loadBaseMembers = useCallback(async () => {
     if (!initialLoadDone.current) setLoading(true);
+
     try {
-      // band members
-      const { data: members, error: mErr } = await supabase
+      const { data: members } = await supabase
         .from('band_members')
         .select('user_id')
         .eq('band_id', bandId)
         .order('created_at', { ascending: true });
 
-      if (mErr) return;
-
       const ids = (members ?? []).map((m: any) => m.user_id);
+
       if (ids.length === 0) {
+        setBaseMembers([]);
         setRows([]);
+        initialLoadDone.current = true;
+        setLoading(false);
         return;
       }
 
-      // profiles
-      const { data: profiles, error: pErr } = await supabase
+      const { data: profiles } = await supabase
         .from('profiles')
         .select('id, display_name, first_name, avatar_url, updated_at')
         .in('id', ids);
 
-      if (pErr) return;
-
-      // attendance
-      const { data: att, error: aErr } = await supabase
-        .from('event_attendance')
-        .select('user_id, status')
-        .eq('event_id', eventId);
-
-      if (aErr) return;
-
-      const statusByUser = new Map<string, RosterStatus>(
-        (att ?? []).map((a: any) => [
-          a.user_id,
-          (a.status as RosterStatus) ?? 'pending',
+      const byId = new Map(
+        (profiles ?? []).map((p: any) => [
+          p.id,
+          {
+            user_id: p.id,
+            name: p.display_name ?? p.first_name ?? 'Member',
+            avatar_url: p.avatar_url ?? null,
+            updated_at: p.updated_at ?? null,
+          } as BaseMember,
         ])
       );
 
-      const orderIndex = new Map(ids.map((id, i) => [id, i]));
-      const merged: RosterRow[] = (profiles ?? [])
-        .map((p: any) => ({
-          user_id: p.id as string,
-          name:
-            (p.display_name as string | null) ??
-            (p.first_name as string | null) ??
-            'Member',
-          status: statusByUser.get(p.id) ?? 'pending',
-          avatar_url: p.avatar_url ?? null,
-          updated_at: p.updated_at ?? null,
-        }))
-        .sort(
-          (a, b) =>
-            (orderIndex.get(a.user_id) ?? 0) - (orderIndex.get(b.user_id) ?? 0)
-        );
+      // keep original band member order
+      const ordered: BaseMember[] = ids
+        .map((id) => byId.get(id)!)
+        .filter(Boolean);
+
+      setBaseMembers(ordered);
+    } finally {
+      // don't flip initialLoadDone here; we want attendance too
+    }
+  }, [bandId]);
+
+  const loadAttendance = useCallback(async () => {
+    if (!baseMembers) return;
+
+    if (baseMembers.length === 0) {
+      setRows([]);
+      initialLoadDone.current = true;
+      setLoading(false);
+      return;
+    }
+
+    if (!initialLoadDone.current) setLoading(true);
+
+    try {
+      const { data: att } = await supabase
+        .from('event_attendance')
+        .select('user_id, status, needs_sub')
+        .eq('event_id', eventId);
+
+      const attMap = new Map(
+        (att ?? []).map((a: any) => [
+          a.user_id,
+          {
+            status: (a.status as RosterStatus) ?? 'pending',
+            needs_sub: !!a.needs_sub,
+          },
+        ])
+      );
+
+      const merged: RosterRow[] = baseMembers.map((base) => {
+        const attInfo = attMap.get(base.user_id) ?? {
+          status: 'pending' as RosterStatus,
+          needs_sub: false,
+        };
+
+        return {
+          user_id: base.user_id,
+          name: base.name,
+          status: attInfo.status,
+          needs_sub: attInfo.needs_sub,
+          avatar_url: base.avatar_url,
+          updated_at: base.updated_at,
+        };
+      });
 
       setRows(merged);
     } finally {
       initialLoadDone.current = true;
       setLoading(false);
     }
-  }, [bandId, eventId]);
+  }, [eventId, baseMembers]);
 
-  // initial load + realtime listeners
   useEffect(() => {
-    void load();
+    initialLoadDone.current = false;
+    setRows([]);
+    setBaseMembers(null);
+    setLoading(true);
+    void loadBaseMembers();
+  }, [loadBaseMembers]);
 
+  // Once baseMembers are ready, load attendance once
+  useEffect(() => {
+    if (baseMembers) {
+      void loadAttendance();
+    }
+  }, [baseMembers, loadAttendance]);
+
+  // Realtime subscriptions
+  useEffect(() => {
     const chAtt = supabase
       .channel(`event:${eventId}:attendance-roster`)
       .on(
@@ -689,16 +924,76 @@ function RosterPanelMobile({
           table: 'event_attendance',
           filter: `event_id=eq.${eventId}`,
         },
-        () => void load()
+        (payload: any) => {
+          const row = payload.new ?? payload.old;
+          if (!row) return;
+
+          const userId = row.user_id as string;
+
+          setRows((prev) => {
+            // make sure we have something to update
+            if (!prev || prev.length === 0) return prev;
+
+            if (payload.eventType === 'DELETE') {
+              // fallback to "pending" when attendance row is deleted
+              return prev.map((r) =>
+                r.user_id === userId
+                  ? {
+                      ...r,
+                      status: 'pending' as RosterStatus,
+                      needs_sub: false,
+                    }
+                  : r
+              );
+            }
+
+            const status =
+              (row.status as RosterStatus | undefined) ??
+              ('pending' as RosterStatus);
+            const needs_sub = !!row.needs_sub;
+
+            return prev.map((r) =>
+              r.user_id === userId ? { ...r, status, needs_sub } : r
+            );
+          });
+        }
       )
       .subscribe();
 
+    // Profile realtime: patch baseMembers + rows instead of re-querying
     const chProf = supabase
       .channel(`band:${bandId}:profile-roster`)
       .on(
         'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'profiles' },
-        () => void load()
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'profiles',
+        },
+        (payload: any) => {
+          const p = payload.new;
+          if (!p) return;
+
+          const userId = p.id as string;
+          const name = (p.display_name ?? p.first_name ?? 'Member') as string;
+          const avatar_url = (p.avatar_url ?? null) as string | null;
+          const updated_at = (p.updated_at ?? null) as string | null;
+
+          // update baseMembers
+          setBaseMembers((prev) => {
+            if (!prev) return prev;
+            return prev.map((b) =>
+              b.user_id === userId ? { ...b, name, avatar_url, updated_at } : b
+            );
+          });
+
+          // update visible rows
+          setRows((prev) =>
+            prev.map((r) =>
+              r.user_id === userId ? { ...r, name, avatar_url, updated_at } : r
+            )
+          );
+        }
       )
       .subscribe();
 
@@ -706,34 +1001,7 @@ function RosterPanelMobile({
       supabase.removeChannel(chAtt);
       supabase.removeChannel(chProf);
     };
-  }, [bandId, eventId, load]);
-
-  // listen for global RSVP-change events to optimistically update
-  useEffect(() => {
-    const onRsvp = (e: Event) => {
-      const ce = e as CustomEvent<{
-        eventId: string;
-        userId: string;
-        next: 'accepted' | 'pending';
-      }>;
-      const {
-        eventId: changedEventId,
-        userId,
-        next,
-      } = ce.detail || ({} as any);
-      if (!changedEventId || changedEventId !== eventId || !userId) return;
-
-      setRows((prev) =>
-        prev.map((r) =>
-          r.user_id === userId ? { ...r, status: next as RosterStatus } : r
-        )
-      );
-    };
-
-    window.addEventListener('amplee:rsvp-change', onRsvp as EventListener);
-    return () =>
-      window.removeEventListener('amplee:rsvp-change', onRsvp as EventListener);
-  }, [eventId]);
+  }, [bandId, eventId]);
 
   const statusStyle = (s: RosterStatus) => {
     if (s === 'accepted') {
@@ -750,7 +1018,6 @@ function RosterPanelMobile({
         color: '#FCA5A5',
       };
     }
-    // tentative / pending
     return {
       bg: 'rgba(251,191,36,0.18)',
       border: 'rgba(251,191,36,0.7)',
@@ -790,6 +1057,7 @@ function RosterPanelMobile({
     <div style={{ width: '100%' }}>
       {rows.map((r, i) => {
         const st = statusStyle(r.status);
+
         return (
           <div key={r.user_id}>
             <div
@@ -804,8 +1072,10 @@ function RosterPanelMobile({
                 name={r.name}
                 bucket="profile-avatars"
                 avatarPath={r.avatar_url || undefined}
+                updatedAt={r.updated_at || undefined}
                 size={32}
               />
+
               <div
                 style={{
                   flex: 1,
@@ -826,6 +1096,7 @@ function RosterPanelMobile({
                 </span>
               </div>
 
+              {/* STATUS PILL (Only blue when sub is requested) */}
               <span
                 style={{
                   display: 'inline-flex',
@@ -837,17 +1108,25 @@ function RosterPanelMobile({
                   fontSize: 11,
                   fontWeight: 600,
                   textTransform: 'capitalize',
-                  background: st.bg,
-                  border: `1px solid ${st.border}`,
-                  color: st.color,
                   whiteSpace: 'nowrap',
+                  ...(r.needs_sub
+                    ? {
+                        background: 'rgba(37,99,235,0.18)',
+                        border: '1px solid rgba(59,130,246,0.85)',
+                        color: '#BFDBFE',
+                      }
+                    : {
+                        background: st.bg,
+                        border: `1px solid ${st.border}`,
+                        color: st.color,
+                      }),
                 }}
-                title={r.status === 'pending' ? 'No response yet' : r.status}
               >
-                {r.status}
+                {r.needs_sub ? 'Sub requested' : r.status}
               </span>
             </div>
 
+            {/* divider */}
             {i < rows.length - 1 && (
               <div
                 style={{
