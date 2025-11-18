@@ -1,5 +1,3 @@
-// apps/mobile/src/components/Bands/BandTileMobile.tsx
-
 import type { BandWithRole } from '../../types/bands';
 import AvatarImageMobile from '../ui/AvatarImageMobile';
 
@@ -10,6 +8,7 @@ type Props = {
   avatarPath?: string | null;
   avatarUrl?: string | null;
   avatar_url?: string | null;
+  avatarUpdatedAt?: string | null;
   size?: number;
   selected?: boolean;
   onClick?: () => void;
@@ -20,11 +19,14 @@ export default function BandTileMobile({
   avatarPath,
   avatarUrl,
   avatar_url,
+  avatarUpdatedAt,
   size = 110,
   selected = false,
   onClick,
 }: Props) {
-  const srcGuess = avatarUrl ?? avatar_url ?? undefined;
+  // keep this if you ever use avatarUrl as a *real* URL
+  // const srcGuess = avatarUrl ?? undefined;
+
   const effectivePath = avatarPath ?? avatar_url ?? undefined;
 
   return (
@@ -79,7 +81,8 @@ export default function BandTileMobile({
             name={name}
             bucket="band-avatars"
             avatarPath={effectivePath}
-            srcGuess={srcGuess}
+            // ❌ srcGuess={srcGuess}
+            updatedAt={avatarUpdatedAt ?? undefined}
             size={size ?? 88}
             style={{
               boxShadow:
