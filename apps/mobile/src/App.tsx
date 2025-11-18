@@ -21,8 +21,7 @@ import { Keyboard, KeyboardResize } from '@capacitor/keyboard';
 
 export default function App() {
   const { loading, session } = useSession();
-  const location = useLocation();
-  const pathname = location.pathname;
+  const { pathname } = useLocation();
 
   /* ------------------------------------------------------------
      MOBILE KEYBOARD HANDLING (MUST RUN BEFORE ANY CONDITIONAL RETURNS)
@@ -35,35 +34,36 @@ export default function App() {
 
     const setup = async () => {
       try {
-        // Don't resize the webview; we'll handle layout via CSS
         await Keyboard.setResizeMode({ mode: KeyboardResize.None });
 
-        try {
-          await (Keyboard as any).setAccessoryBarVisible?.({
-            isVisible: true,
-          });
-        } catch (err) {
-          console.warn('[Keyboard accessory bar toggle failed]', err);
-        }
-      } catch (err) {
-        console.warn('[Keyboard setup error]', err);
-      }
+        const kbWithAccessory = Keyboard as unknown as {
+          setAccessoryBarVisible?: (opts: {
+            isVisible: boolean;
+          }) => Promise<void>;
+        };
 
-      try {
-        showSub = await Keyboard.addListener('keyboardWillShow', (info) => {
-          document.body.classList.add('keyboard-open');
-          document.documentElement.style.setProperty(
-            '--keyboard-height',
-            `${info.keyboardHeight}px`
-          );
-        });
+        if (typeof kbWithAccessory.setAccessoryBarVisible === 'function') {
+          await kbWithAccessory.setAccessoryBarVisible({ isVisible: true });
+        }
+
+        // Keyboard listeners
+        showSub = await Keyboard.addListener(
+          'keyboardWillShow',
+          ({ keyboardHeight }) => {
+            document.body.classList.add('keyboard-open');
+            document.documentElement.style.setProperty(
+              '--keyboard-height',
+              `${keyboardHeight}px`
+            );
+          }
+        );
 
         hideSub = await Keyboard.addListener('keyboardWillHide', () => {
           document.body.classList.remove('keyboard-open');
           document.documentElement.style.removeProperty('--keyboard-height');
         });
-      } catch (err) {
-        console.error('[Keyboard listener error]', err);
+      } catch (error) {
+        console.warn('[Keyboard setup error]', error);
       }
     };
 
@@ -75,21 +75,15 @@ export default function App() {
     };
   }, []);
 
-  /* ------------------------------------------------------------
-     NOW SAFE TO DO EARLY RETURNS
-  ------------------------------------------------------------- */
+  /* NOW SAFE TO DO EARLY RETURNS */
   if (loading) return null;
 
-  /* ------------------------------------------------------------
-     HIDE NAV ON EVENT SHEET
-  ------------------------------------------------------------- */
+  /* HIDE NAV ON EVENT SHEET */
   const hideChrome =
     /^\/bands\/[^/]+\/events\/[^/]+\/?$/.test(pathname) ||
     /^\/event\/[^/]+\/?$/.test(pathname);
 
-  /* ------------------------------------------------------------
-     ROUTES
-  ------------------------------------------------------------- */
+  /* ROUTES */
   return (
     <>
       <Routes>
@@ -100,6 +94,7 @@ export default function App() {
 
         {!session ? (
           <>
+            {/* NOT authed: only login flow */}
             <Route path="/login" element={<Login />} />
             <Route path="/" element={<Navigate to="/login" replace />} />
             <Route path="*" element={<Navigate to="/login" replace />} />
@@ -126,7 +121,7 @@ export default function App() {
         )}
       </Routes>
 
-      {/* Global dialog + bottom nav (except on event sheet) */}
+      {/* Global dialog + bottom nav */}
       {session && !hideChrome && (
         <>
           <GlobalCreateHost />
