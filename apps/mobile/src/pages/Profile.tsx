@@ -1,4 +1,3 @@
-// src/pages/Profile.tsx
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import {
   IonAlert,
