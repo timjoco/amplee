@@ -3,7 +3,6 @@ import { Capacitor, PluginListenerHandle } from '@capacitor/core';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { Keyboard } from '@capacitor/keyboard';
 import {
-  IonButton,
   IonIcon,
   IonItem,
   IonList,
@@ -710,7 +709,6 @@ export default function ChatTabMobile({
           }}
         />
       )}
-
       <div
         style={{
           flex: 1,
@@ -935,7 +933,6 @@ export default function ChatTabMobile({
           </IonList>
         )}
       </div>
-
       {sheetMsg && (
         <MessageActionSheet
           open={
@@ -988,25 +985,23 @@ export default function ChatTabMobile({
           }}
         />
       )}
-
       {/* COMPOSER */}
       <div
         style={{
           background: '#050509',
           borderTop: '1px solid rgba(17,24,39,0.9)',
+          paddingBottom: 'env(safe-area-inset-bottom)',
         }}
       >
         <div
           style={{
-            padding: '6px 10px',
-            paddingBottom: 6,
+            padding: '8px 10px',
             display: 'flex',
-            alignItems: 'flex-end',
-            gap: 6,
-            borderTop: '1px solid rgba(31,41,55,0.9)',
+            alignItems: 'center',
+            gap: 8,
           }}
         >
-          {/* + STATUS BUTTON */}
+          {/* + STATUS BUTTON (left bubble) */}
           <button
             type="button"
             onClick={() => {
@@ -1015,69 +1010,79 @@ export default function ChatTabMobile({
             }}
             aria-label="Set status"
             style={{
-              width: 36,
-              height: 36,
+              width: 40,
+              height: 40,
               borderRadius: 999,
-              border: '1px solid rgba(139,92,246,0.9)',
-              background:
-                'radial-gradient(circle at top left, rgba(168,85,247,0.3), rgba(17,24,39,1))',
+              border: 'none',
+              background: '#111118',
               display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
               padding: 0,
-              marginRight: 2,
-              boxShadow: '0 0 0 1px rgba(15,23,42,1)',
               color: '#EDE9FE',
+              boxShadow: '0 4px 14px rgba(0,0,0,0.6)',
               cursor: 'pointer',
             }}
           >
-            <IonIcon icon={addOutline} style={{ fontSize: 20 }} />
+            <IonIcon icon={addOutline} style={{ fontSize: 22 }} />
           </button>
 
-          <IonTextarea
-            value={input}
-            placeholder="Message the band…"
-            autoGrow
-            rows={1}
-            style={
-              {
-                flex: 1,
-                fontSize: 16,
-                '--padding-start': '10px',
-                '--padding-end': '10px',
-                '--padding-top': '8px',
-                '--padding-bottom': '8px',
-                '--background': '#050509',
-                '--color': '#ffffff',
-                borderRadius: '16px',
-              } as any
-            }
-            onIonChange={(e) => setInput(e.detail.value ?? '')}
-            onFocus={() => {
-              setTimeout(
-                () =>
-                  bottomRef.current?.scrollIntoView({
-                    behavior: 'smooth',
-                    block: 'end',
-                  }),
-                120
-              );
+          {/* INPUT PILL — single line, same height as buttons */}
+          <div
+            style={{
+              flex: 1,
+              height: 40,
+              borderRadius: 999,
+              background: '#111118',
+              paddingInline: 14,
+              display: 'flex',
+              alignItems: 'center',
+              boxShadow: '0 4px 18px rgba(0,0,0,0.7)',
             }}
-          />
+          >
+            <IonTextarea
+              value={input}
+              placeholder="Message the band…"
+              autoGrow={false}
+              rows={1}
+              onIonInput={(e) => setInput(e.detail.value ?? '')}
+              onFocus={() => {
+                setTimeout(
+                  () =>
+                    bottomRef.current?.scrollIntoView({
+                      behavior: 'smooth',
+                      block: 'end',
+                    }),
+                  120
+                );
+              }}
+            />
+          </div>
 
+          {/* SEND BUTTON (right bubble) */}
           {hasInput && (
-            <IonButton
+            <button
+              type="button"
               onClick={send}
-              color="primary"
+              aria-label="Send message"
               style={{
-                minWidth: 44,
+                width: 40,
                 height: 40,
-                borderRadius: '999px',
+                borderRadius: 999,
+                border: 'none',
+                background:
+                  'radial-gradient(circle at top left, rgba(168,85,247,0.85), rgba(88,28,135,1))',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
                 padding: 0,
+                boxShadow: '0 4px 16px rgba(0,0,0,0.85)',
+                color: '#F9FAFB',
+                cursor: 'pointer',
               }}
             >
-              <IonIcon icon={sendIcon} />
-            </IonButton>
+              <IonIcon icon={sendIcon} style={{ fontSize: 20 }} />
+            </button>
           )}
         </div>
       </div>
