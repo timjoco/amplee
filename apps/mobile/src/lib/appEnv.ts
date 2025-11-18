@@ -1,4 +1,3 @@
-// Works for web (vite dev) and native (Capacitor)
 export function getAppOrigin(): string {
   const fromEnv =
     import.meta.env.VITE_APP_URL || import.meta.env.NEXT_PUBLIC_APP_URL || '';
