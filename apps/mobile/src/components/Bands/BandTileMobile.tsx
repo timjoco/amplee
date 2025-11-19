@@ -17,7 +17,6 @@ type Props = {
 export default function BandTileMobile({
   name,
   avatarPath,
-  avatarUrl,
   avatar_url,
   avatarUpdatedAt,
   size = 110,

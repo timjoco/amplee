@@ -29,8 +29,6 @@ import { supabase } from '../../lib/supabase';
 
 type LastMsg = { event_id: string; body: string; created_at: string };
 
-const MOVE_THRESHOLD_PX = 12;
-
 export default function EventInboxListMobile({
   onLoaded,
   bandId,
@@ -63,7 +61,6 @@ export default function EventInboxListMobile({
   // long-press tracking (for haptic + visual puff)
   const longPressTimeoutRef = useRef<number | null>(null);
   const pressStartRef = useRef<{ x: number; y: number } | null>(null);
-  const [pressedEventId, setPressedEventId] = useState<string | null>(null);
 
   const [pressedId, setPressedId] = useState<string | null>(null);
   const MOVE_THRESHOLD = 12;
@@ -91,11 +88,6 @@ export default function EventInboxListMobile({
       }),
     []
   );
-
-  const triggerLongPressHaptic = useCallback(() => {
-    if (Capacitor.getPlatform() === 'web') return;
-    Haptics.impact({ style: ImpactStyle.Light }).catch(() => {});
-  }, []);
 
   const refreshEvents = useCallback(async () => {
     const { data: auth } = await supabase.auth.getUser();
@@ -223,7 +215,7 @@ export default function EventInboxListMobile({
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'event_messages' },
-        (payload) => {
+        (payload: { new: LastMsg }) => {
           const msg = payload.new as LastMsg;
           if (!eventIdsRef.current.includes(msg.event_id)) return;
           upsertLastMsg(msg);
