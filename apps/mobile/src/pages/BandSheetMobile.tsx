@@ -1,73 +1,83 @@
-/* eslint-disable react-hooks/rules-of-hooks */
-// apps/mobile/src/components/Bands/BandSheetMobile.tsx
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import {
-  IonButton,
   IonContent,
   IonHeader,
-  IonModal,
+  IonIcon,
+  IonLabel,
   IonPage,
+  IonSegment,
+  IonSegmentButton,
   IonSpinner,
   IonText,
   IonTitle,
   IonToolbar,
 } from '@ionic/react';
+import { chevronForwardOutline } from 'ionicons/icons';
 import * as React from 'react';
-import { useParams } from 'react-router-dom';
-import BandTitleMenuMobile from '../../../mobile/src/components/Bands/BandTitleMenuMobile';
-import EventInboxListMobile from '../../../mobile/src/components/Events/EventsInboxListMobile';
-import AvatarImageMobile from '../../../mobile/src/components/ui/AvatarImageMobile';
-import { supabase } from '../../../mobile/src/lib/supabase';
+import { useNavigate, useParams } from 'react-router-dom';
+import BandOverviewMobile from '../components/Bands/BandOverviewMobile';
+import BandSettingsSheetMobile from '../components/Bands/BandSheetModal';
+import EventInboxListMobile from '../components/Events/EventsInboxListMobile';
+import AvatarImageMobile from '../components/ui/AvatarImageMobile';
+import { supabase } from '../lib/supabase';
 
 type MembershipRole = 'admin' | 'member';
 
-export default function BandSheetMobile() {
-  // ---- Route param ----
-  const { id: maybeId } = useParams<{ id?: string }>();
-  if (!maybeId) return null; // guard until router provides the id
-  const bandId = maybeId as string;
+type TabKey = 'overview' | 'events' | 'proposals' | 'roster';
 
-  // ---- Local state ----
+export default function BandSheetMobile() {
+  const params = useParams<{ bandId?: string; id?: string }>();
+  const navigate = useNavigate();
+
+  const AVATAR_SIZE = 70;
+
+  const bandId = params.bandId ?? params.id ?? null;
+
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
-
   const [bandName, setBandName] = React.useState<string>('Band');
-  const [bandAvatarPath, setBandAvatarPath] = React.useState<string | null>(
-    null
-  );
+  const [bandAvatarUrl, setBandAvatarUrl] = React.useState<string | null>(null);
+  const [bandAvatarUpdatedAt, setBandAvatarUpdatedAt] = React.useState<
+    string | null
+  >(null);
   const [myRole, setMyRole] = React.useState<MembershipRole>('member');
+  const [tab, setTab] = React.useState<TabKey>('overview');
 
-  // Invitation UI (opened from BandTitleMenuMobile → onInvite)
-  const [inviteOpen, setInviteOpen] = React.useState(false);
+  const [showBandSettings, setShowBandSettings] = React.useState(false);
 
-  // ---- Load band + role ----
   React.useEffect(() => {
+    if (!bandId) {
+      navigate('/home', { replace: true });
+    }
+  }, [bandId, navigate]);
+
+  React.useEffect(() => {
+    if (!bandId) return;
+
     let alive = true;
 
     (async () => {
-      try {
-        setLoading(true);
-        setError(null);
+      setLoading(true);
+      setError(null);
 
-        // ensure user
-        const {
-          data: { user },
-          error: userErr,
-        } = await supabase.auth.getUser();
-        if (userErr) throw userErr;
+      try {
+        // auth
+        const { data: auth } = await supabase.auth.getUser();
         if (!alive) return;
+        const user = auth?.user;
         if (!user) {
           setError('You must be signed in to view this band.');
           return;
         }
 
-        // membership role
+        // membership
         const { data: mem, error: memErr } = await supabase
           .from('band_members')
           .select('role')
           .eq('band_id', bandId)
           .eq('user_id', user.id)
           .maybeSingle();
+
         if (memErr) throw memErr;
         if (!mem) {
           setError('You do not have access to this band.');
@@ -75,22 +85,25 @@ export default function BandSheetMobile() {
         }
         setMyRole((mem.role as MembershipRole) ?? 'member');
 
-        // band record
+        // band record (include updated_at for avatar cache-busting)
         const { data: band, error: bandErr } = await supabase
           .from('bands')
-          .select('id, name, avatar_url')
+          .select('id, name, avatar_url, updated_at')
           .eq('id', bandId)
           .maybeSingle();
+
         if (bandErr) throw bandErr;
         if (!band) {
           setError('Band not found.');
           return;
         }
 
-        setBandName(band.name ?? 'Band');
-        setBandAvatarPath(band.avatar_url ?? null);
+        setBandName(band.name);
+        setBandAvatarUrl(band.avatar_url ?? null);
+        setBandAvatarUpdatedAt(band.updated_at ?? null);
       } catch (e: any) {
-        setError(e?.message ?? 'Failed to load band');
+        console.error('BandSheetMobile load error', e);
+        setError(e?.message || 'Failed to load band.');
       } finally {
         if (alive) setLoading(false);
       }
@@ -101,118 +114,233 @@ export default function BandSheetMobile() {
     };
   }, [bandId]);
 
+  React.useEffect(() => {
+    const handler = (e: Event) => {
+      const ce = e as CustomEvent<{ tab?: TabKey }>;
+      if (ce.detail?.tab) {
+        setTab(ce.detail.tab);
+      }
+    };
+
+    window.addEventListener('amplee:band-tab', handler as EventListener);
+    return () => {
+      window.removeEventListener('amplee:band-tab', handler as EventListener);
+    };
+  }, []);
+
+  if (!bandId) {
+    // short-circuit while redirect happens
+    return (
+      <IonPage>
+        <IonHeader>
+          <IonToolbar>
+            <IonTitle>Band</IonTitle>
+          </IonToolbar>
+        </IonHeader>
+        <IonContent className="ion-padding">
+          <IonSpinner />
+        </IonContent>
+      </IonPage>
+    );
+  }
+
   return (
     <IonPage>
-      {/* Header keeps the surface consistent with app; title area left blank (menu handles name) */}
       <IonHeader translucent>
-        <IonToolbar color="dark">
-          <IonTitle />
+        <IonToolbar
+          style={{
+            '--background': 'rgba(8,8,12,0.98)',
+            borderBottom: '0.5px solid rgba(255,255,255,0.06)',
+          }}
+        >
+          <div
+            style={{
+              width: '100%',
+              paddingInline: 21,
+              paddingBlock: 6,
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => {
+                setShowBandSettings(true);
+              }}
+              style={{
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                padding: '10px 14px',
+                borderRadius: 20,
+                background: 'rgba(14, 15, 16, 0.98)',
+                border: '.5px solid #41235eff',
+                boxShadow: '0 16px 40px rgba(0,0,0,0.55)',
+                outline: 'none',
+                cursor: 'pointer',
+              }}
+            >
+              {/* LEFT: avatar */}
+              <div
+                style={{
+                  flex: '0 0 auto',
+                  marginRight: 10,
+                }}
+              >
+                <AvatarImageMobile
+                  name={bandName}
+                  bucket="band-avatars"
+                  avatarPath={bandAvatarUrl || undefined}
+                  updatedAt={bandAvatarUpdatedAt || undefined}
+                  size={AVATAR_SIZE}
+                />
+              </div>
+
+              {/* CENTER: band name + chevron */}
+              <div
+                style={{
+                  flex: '1 1 auto',
+                  display: 'flex',
+                  justifyContent: 'center',
+                  pointerEvents: 'none',
+                }}
+              >
+                <div
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 6,
+                    maxWidth: '100%',
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: 24,
+                      fontWeight: 700,
+                      color: '#F9FAFB',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                      maxWidth: '100%',
+                    }}
+                  >
+                    {bandName}
+                  </span>
+                  <IonIcon
+                    icon={chevronForwardOutline}
+                    style={{ fontSize: 20, color: '#ffffffff', flexShrink: 0 }}
+                  />
+                </div>
+              </div>
+
+              {/* RIGHT: spacer to keep name centered */}
+              <div
+                style={{
+                  flex: '0 0 auto',
+                  width: AVATAR_SIZE,
+                  marginLeft: 10,
+                  visibility: 'hidden',
+                }}
+              />
+            </button>
+
+            {/* Band settings modal */}
+            <BandSettingsSheetMobile
+              isOpen={showBandSettings}
+              onDismiss={() => setShowBandSettings(false)}
+              bandId={bandId as string}
+              bandName={bandName}
+              avatarPath={bandAvatarUrl || undefined}
+              isAdmin={myRole === 'admin'}
+            />
+          </div>
+        </IonToolbar>
+
+        <IonToolbar
+          style={{
+            '--background': 'rgba(8,8,12,0.98)',
+            borderBottom: '0.5px solid rgba(255,255,255,0.06)',
+          }}
+        >
+          <IonSegment
+            value={tab}
+            onIonChange={(e) => setTab(e.detail.value as TabKey)}
+            className="event-tabs"
+          >
+            <IonSegmentButton value="overview">
+              <IonLabel>Overview</IonLabel>
+            </IonSegmentButton>
+            <IonSegmentButton value="events">
+              <IonLabel>Events</IonLabel>
+            </IonSegmentButton>
+            <IonSegmentButton value="proposals">
+              <IonLabel>Proposals</IonLabel>
+            </IonSegmentButton>
+            <IonSegmentButton value="roster">
+              <IonLabel>Roster</IonLabel>
+            </IonSegmentButton>
+          </IonSegment>
         </IonToolbar>
       </IonHeader>
 
-      <IonContent
-        fullscreen
-        className="ion-padding"
-        style={{
-          // give breathing room; aligns with your dashboard spacing
-          ['--padding-top' as any]: 'calc(env(safe-area-inset-top) + 16px)',
-        }}
-      >
-        {/* Status / error */}
+      <IonContent fullscreen>
         {loading ? (
           <div
             style={{
+              padding: 24,
               display: 'flex',
-              alignItems: 'center',
-              gap: 10,
-              marginBottom: 12,
+              justifyContent: 'center',
             }}
           >
-            <IonSpinner name="dots" />
-            <IonText color="medium">Loading band…</IonText>
+            <IonSpinner />
           </div>
         ) : error ? (
-          <div
-            style={{
-              marginBottom: 12,
-              padding: 12,
-              borderRadius: 12,
-              border: '1px solid rgba(255,0,0,0.25)',
-              background: 'rgba(255,0,0,0.06)',
-            }}
-          >
-            <IonText color="danger">{error}</IonText>
-          </div>
-        ) : null}
-
-        {/* Header strip (avatar + title menu trigger) */}
-        {!loading && !error && (
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 12,
-              border: '1px solid rgba(255,255,255,0.08)',
-              background:
-                'linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02))',
-              borderRadius: 12,
-              padding: 12,
-              marginBottom: 16,
-            }}
-          >
-            <AvatarImageMobile
-              name={bandName}
-              bucket="band-avatars"
-              avatarPath={bandAvatarPath ?? undefined}
-              size={56}
-              style={{
-                border: '2px solid rgba(255,255,255,0.06)',
-                backgroundImage:
-                  'radial-gradient(120% 120% at 20% 15%, rgba(139,92,246,0.16) 0%, transparent 55%)',
-                backgroundColor: 'rgba(255,255,255,0.06)',
-              }}
-            />
-
-            <div style={{ minWidth: 0, flex: 1 }}>
-              {/* Band name is clickable → shows the band menu (invite, settings, leave, etc.) */}
-              <BandTitleMenuMobile
-                bandId={bandId}
-                bandName={bandName}
-                isAdmin={myRole === 'admin'}
-                onInvite={() => setInviteOpen(true)}
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Events list (for this band only) */}
-        {!loading && !error && (
-          <>
-            <IonText color="light">
-              <h4 style={{ margin: '0 0 10px', fontWeight: 800 }}>Events</h4>
+          <div style={{ padding: 16 }}>
+            <IonText color="danger">
+              <p>{error}</p>
             </IonText>
-            <EventInboxListMobile bandId={bandId} showAvatars />
+          </div>
+        ) : (
+          <>
+            {tab === 'overview' && <BandOverviewMobile bandId={bandId} />}
+            {tab === 'events' && (
+              <div style={{ padding: '8px 16px 0' }}>
+                <IonText color="light">
+                  <h2
+                    style={{
+                      margin: '0 0 10px',
+                      fontWeight: 700,
+                      fontSize: 16,
+                      letterSpacing: 0.2,
+                    }}
+                  >
+                    {/* All your band’s events */}
+                  </h2>
+                </IonText>
+
+                <EventInboxListMobile
+                  showAvatars
+                  bandId={bandId}
+                  onLoaded={() => {}}
+                />
+              </div>
+            )}
+
+            {tab === 'proposals' && (
+              <div style={{ padding: 16 }}>
+                <IonText color="medium">
+                  <p>Proposed gigs view coming to mobile.</p>
+                </IonText>
+              </div>
+            )}
+            {tab === 'roster' && (
+              <div style={{ padding: 16 }}>
+                <IonText color="medium">
+                  <p>Roster view coming to mobile.</p>
+                </IonText>
+              </div>
+            )}
           </>
         )}
-
-        {/* -------- Invite Modal (placeholder) -------- */}
-        <IonModal isOpen={inviteOpen} onDidDismiss={() => setInviteOpen(false)}>
-          <div
-            style={{
-              padding: 16,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 12,
-            }}
-          >
-            <h2 style={{ margin: 0 }}>Invite member</h2>
-            {/* Replace with your real invite form */}
-            <IonText color="medium">
-              Coming soon — plug in your invite form here.
-            </IonText>
-            <IonButton onClick={() => setInviteOpen(false)}>Close</IonButton>
-          </div>
-        </IonModal>
       </IonContent>
     </IonPage>
   );

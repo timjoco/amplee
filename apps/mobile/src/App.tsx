@@ -13,11 +13,14 @@ import Login from './pages/Login';
 import Profile from './pages/Profile';
 import ProfileBasics from './pages/ProfileBasics';
 import VerifyEmail from './pages/VerifyEmail';
-
 import GlobalCreateHost from './shared/GlobalCreateHost';
+
+// ✅ NEW: import the band settings page
+import BandSettingsMobile from './pages/BandSettingsMobile';
 
 import { Capacitor, type PluginListenerHandle } from '@capacitor/core';
 import { Keyboard, KeyboardResize } from '@capacitor/keyboard';
+import BandLandingPage from './pages/BandLandingPage';
 
 export default function App() {
   const { loading, session } = useSession();
@@ -104,10 +107,26 @@ export default function App() {
             {/* authed */}
             <Route path="/home" element={<Home />} />
 
+            {/* band sheets */}
             <Route path="/bands/:id" element={<BandSheetMobile />} />
+            <Route path="/bands/:bandId" element={<BandSheetMobile />} />
+
+            {/* event sheet */}
             <Route
               path="/bands/:bandId/events/:eventId"
               element={<EventSheetMobile />}
+            />
+
+            {/* ✅ public-facing band landing page */}
+            <Route
+              path="/bands/:bandId/landing"
+              element={<BandLandingPage />}
+            />
+
+            {/* ✅ NEW: band settings page (gear should navigate here) */}
+            <Route
+              path="/bands/:bandId/settings"
+              element={<BandSettingsMobile />}
             />
 
             {/* profile routes */}

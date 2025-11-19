@@ -103,7 +103,8 @@ export default function MobileBottomNav() {
     pathname.startsWith('/invite/') ||
     pathname.startsWith('/profile/basics') ||
     /^\/bands\/[^/]+\/events\/[^/]+\/?$/.test(pathname) ||
-    /^\/event\/[^/]+\/?$/.test(pathname);
+    /^\/event\/[^/]+\/?$/.test(pathname) ||
+    /^\/bands\/[^/]+\/settings\/?$/i.test(pathname);
 
   if (hidden) return null;
 

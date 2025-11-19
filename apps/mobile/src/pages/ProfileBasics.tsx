@@ -35,7 +35,6 @@ type ProfileRow = {
 const AVATAR_BUCKET = 'profile-avatars';
 
 function generateAvatarKey(userId: string, ext: string) {
-  // Prefer built-in randomUUID if available, but fall back for older webviews
   const anyCrypto: any = (globalThis as any).crypto;
   const id =
     anyCrypto?.randomUUID?.() ||
@@ -44,11 +43,6 @@ function generateAvatarKey(userId: string, ext: string) {
   return `avatars/${userId}/${id}.${ext}`;
 }
 
-/**
- * Small helper to call your locations API.
- * Swap `/api/locations` with your real endpoint (Mapbox, Google Places proxy, etc.)
- * Expected shape: { results: { name: string }[] }
- */
 async function fetchLocationsFromApi(query: string): Promise<string[]> {
   const q = query.trim();
   if (!q) return [];
