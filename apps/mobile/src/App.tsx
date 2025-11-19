@@ -20,7 +20,6 @@ import BandSettingsMobile from './pages/BandSettingsMobile';
 
 import { Capacitor, type PluginListenerHandle } from '@capacitor/core';
 import { Keyboard, KeyboardResize } from '@capacitor/keyboard';
-import BandLandingPage from './pages/BandLandingPage';
 
 export default function App() {
   const { loading, session } = useSession();
@@ -117,13 +116,6 @@ export default function App() {
               element={<EventSheetMobile />}
             />
 
-            {/* ✅ public-facing band landing page */}
-            <Route
-              path="/bands/:bandId/landing"
-              element={<BandLandingPage />}
-            />
-
-            {/* ✅ NEW: band settings page (gear should navigate here) */}
             <Route
               path="/bands/:bandId/settings"
               element={<BandSettingsMobile />}
