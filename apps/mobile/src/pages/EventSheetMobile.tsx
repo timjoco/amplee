@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import {
   IonButtons,
   IonContent,
@@ -56,7 +57,7 @@ export default function EventSheetMobile() {
   const pageRef = useRef<HTMLElement | null>(null);
   const [showInfoSheet, setShowInfoSheet] = useState(false);
 
-  const [myUserId, setMyUserId] = useState<string | null>(null);
+  const [, setMyUserId] = useState<string | null>(null);
 
   const nav = useNavigate();
 
