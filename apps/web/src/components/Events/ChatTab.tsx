@@ -20,13 +20,14 @@ import {
   CircularProgress,
   IconButton,
   Paper,
-  Popper,
   Stack,
   TextField,
   Typography,
   useMediaQuery,
 } from '@mui/material';
+import MuiPopper, { PopperProps as MuiPopperProps } from '@mui/material/Popper';
 import { alpha, useTheme } from '@mui/material/styles';
+import * as React from 'react';
 import AvatarImage from '../ui/AvatarImage';
 
 const SIDE_NAV_WIDTH = 288;
@@ -52,6 +53,10 @@ type ReactionRow = {
   user_id: string;
   emoji: string;
 };
+
+type PopperProps = MuiPopperProps;
+
+const Popper: React.FC<PopperProps> = (props) => <MuiPopper {...props} />;
 
 export default function ChatTab({ eventId }: { eventId: string }) {
   const theme = useTheme();
