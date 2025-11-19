@@ -502,7 +502,6 @@ export default function GlobalCreate({
               </Stack>
             </Stack>
           ) : (
-            // step === 'newEvent'
             <Stack gap={1.25}>
               <Autocomplete
                 autoFocus
