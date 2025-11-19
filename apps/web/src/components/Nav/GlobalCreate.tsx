@@ -512,7 +512,7 @@ export default function GlobalCreate({
                 onChange={(_, v) => setEventBand(v)}
                 options={bands}
                 getOptionLabel={(o) => o?.name ?? ''}
-                renderInput={(params) => (
+                renderInput={(params: any) => (
                   <TextField {...params} label="Band" size="small" fullWidth />
                 )}
               />
