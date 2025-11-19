@@ -88,7 +88,6 @@ export default function LoginPage() {
           invite ? `?invite=${encodeURIComponent(invite)}` : ''
         }`;
 
-        // This sends BOTH a magic link and a 6-digit OTP code via email.
         const { error } = await supabase.auth.signInWithOtp({
           email: email.trim(),
           options: { emailRedirectTo: redirectTo },

@@ -103,7 +103,6 @@ export async function POST(req: NextRequest, ctx: { params: any }) {
       );
     }
 
-    // upsert membership for this user + band
     const { error: upsertErr } = await supabaseAdmin
       .from('band_members')
       .upsert(
