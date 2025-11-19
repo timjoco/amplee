@@ -20,13 +20,16 @@ import {
   ListItemText,
   Menu,
   MenuItem,
-  SwipeableDrawer,
   Typography,
 } from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
+import MuiSwipeableDrawer, {
+  SwipeableDrawerProps as MuiSwipeableDrawerProps,
+} from '@mui/material/SwipeableDrawer';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import * as React from 'react';
 import { useState } from 'react';
 import { supabaseBrowser } from '../../lib/supabaseClient';
 
@@ -37,7 +40,13 @@ type Props = {
   isAdmin?: boolean;
 };
 
-// This is the drop down menu when clicking a band name (desktop) or the popup on mobile
+type SwipeableDrawerProps = MuiSwipeableDrawerProps;
+
+const SwipeableDrawer: React.FC<SwipeableDrawerProps> = (props) => (
+  <MuiSwipeableDrawer {...props} />
+);
+
+// This is the drop down menu when clicking a band name (desktop) or the popup on small screen
 export default function BandTitleMenu({
   bandId,
   bandName,
