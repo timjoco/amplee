@@ -859,7 +859,7 @@ export default function ChatTabMobile({
                             name={name}
                             bucket="profile-avatars"
                             avatarPath={m.profiles?.avatar_url ?? undefined}
-                            updatedAt={m.profiles?.updated_at ?? undefined} // 👈 NEW
+                            updatedAt={m.profiles?.updated_at ?? undefined}
                             size={36}
                             style={{ borderWidth: 1 }}
                           />
