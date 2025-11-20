@@ -3,7 +3,6 @@ import {
   IonContent,
   IonHeader,
   IonIcon,
-  IonLabel,
   IonPage,
   IonSegment,
   IonSegmentButton,
@@ -12,13 +11,20 @@ import {
   IonTitle,
   IonToolbar,
 } from '@ionic/react';
-import { chevronForwardOutline } from 'ionicons/icons';
+import {
+  calendarOutline,
+  chevronForwardOutline,
+  clipboardOutline,
+  gridOutline,
+  musicalNotesOutline,
+  peopleOutline,
+} from 'ionicons/icons';
 import * as React from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import BandOverviewMobile from '../components/Bands/BandOverviewMobile';
 import BandProposalsTabMobile from '../components/Bands/BandProposalsTabMobile';
 import BandSettingsSheetMobile from '../components/Bands/BandSheetModal';
-import EventInboxListMobile from '../components/Events/EventsInboxListMobile';
+import EventsInboxListMobile from '../components/Events/EventsInboxListMobile';
 import AvatarImageMobile from '../components/ui/AvatarImageMobile';
 import { supabase } from '../lib/supabase';
 
@@ -47,6 +53,9 @@ export default function BandSheetMobile() {
   const [showBandSettings, setShowBandSettings] = React.useState(false);
 
   const isAdmin = myRole === 'admin';
+
+  const iconColor = (key: TabKey) =>
+    tab === key ? TAB_META[key].accent : 'rgba(148,163,184,0.9)';
 
   React.useEffect(() => {
     if (!bandId) {
@@ -262,27 +271,136 @@ export default function BandSheetMobile() {
             borderBottom: '0.5px solid rgba(255,255,255,0.06)',
           }}
         >
-          <IonSegment
-            value={tab}
-            onIonChange={(e) => setTab(e.detail.value as TabKey)}
-            className="event-tabs"
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(5, 1fr)', // 5 tabs
+              gridAutoRows: 'auto',
+              rowGap: 4,
+              padding: '0 8px',
+              maxWidth: 520,
+              margin: '0 auto',
+            }}
           >
-            <IonSegmentButton value="overview">
-              <IonLabel>Overview</IonLabel>
-            </IonSegmentButton>
-            <IonSegmentButton value="events">
-              <IonLabel>Events</IonLabel>
-            </IonSegmentButton>
-            <IonSegmentButton value="proposals">
-              <IonLabel>Proposals</IonLabel>
-            </IonSegmentButton>
-            <IonSegmentButton value="roster">
-              <IonLabel>Roster</IonLabel>
-            </IonSegmentButton>
-            <IonSegmentButton value="library">
-              <IonLabel>Library</IonLabel>
-            </IonSegmentButton>
-          </IonSegment>
+            {/* Row 1: segment spans all 5 columns */}
+            <div style={{ gridColumn: '1 / -1' }}>
+              <IonSegment
+                value={tab}
+                onIonChange={(e) => setTab(e.detail.value as TabKey)}
+                className="event-tabs"
+              >
+                <IonSegmentButton
+                  value="overview"
+                  style={{
+                    '--padding-start': '0px',
+                    '--padding-end': '0px',
+                  }}
+                >
+                  <IonIcon
+                    icon={gridOutline}
+                    style={{
+                      fontSize: 'clamp(18px, 4vw, 22px)',
+                      color: iconColor('overview'),
+                    }}
+                  />
+                </IonSegmentButton>
+
+                <IonSegmentButton
+                  value="events"
+                  style={{
+                    '--padding-start': '0px',
+                    '--padding-end': '0px',
+                  }}
+                >
+                  <IonIcon
+                    icon={calendarOutline}
+                    style={{
+                      fontSize: 'clamp(18px, 4vw, 22px)',
+                      color: iconColor('events'),
+                    }}
+                  />
+                </IonSegmentButton>
+
+                <IonSegmentButton
+                  value="proposals"
+                  style={{
+                    '--padding-start': '0px',
+                    '--padding-end': '0px',
+                  }}
+                >
+                  <IonIcon
+                    icon={clipboardOutline}
+                    style={{
+                      fontSize: 'clamp(18px, 4vw, 22px)',
+                      color: iconColor('proposals'),
+                    }}
+                  />
+                </IonSegmentButton>
+
+                <IonSegmentButton
+                  value="roster"
+                  style={{
+                    '--padding-start': '0px',
+                    '--padding-end': '0px',
+                  }}
+                >
+                  <IonIcon
+                    icon={peopleOutline}
+                    style={{
+                      fontSize: 'clamp(18px, 4vw, 22px)',
+                      color: iconColor('roster'),
+                    }}
+                  />
+                </IonSegmentButton>
+
+                <IonSegmentButton
+                  value="library"
+                  style={{
+                    '--padding-start': '0px',
+                    '--padding-end': '0px',
+                  }}
+                >
+                  <IonIcon
+                    icon={musicalNotesOutline}
+                    style={{
+                      fontSize: 'clamp(18px, 4vw, 22px)',
+                      color: iconColor('library'),
+                    }}
+                  />
+                </IonSegmentButton>
+              </IonSegment>
+            </div>
+
+            {/* Row 2: header sits in the column for the active tab */}
+            {(() => {
+              const meta = TAB_META[tab] ?? TAB_META.overview;
+              return (
+                <div
+                  style={{
+                    gridColumn: meta.col,
+                    textAlign: 'center',
+                    paddingTop: 8,
+                    paddingBottom: 6,
+                  }}
+                >
+                  <IonText color="light">
+                    <p
+                      style={{
+                        margin: 0,
+                        fontWeight: 700,
+                        fontSize: 'clamp(11px, 3vw, 13px)',
+                        letterSpacing: 0.4,
+                        textTransform: 'uppercase',
+                        color: meta.accent,
+                      }}
+                    >
+                      {meta.label}
+                    </p>
+                  </IonText>
+                </div>
+              );
+            })()}
+          </div>
         </IonToolbar>
       </IonHeader>
 
@@ -309,21 +427,35 @@ export default function BandSheetMobile() {
 
             {tab === 'events' && (
               <div style={{ padding: '8px 16px 0' }}>
-                <EventInboxListMobile
-                  showAvatars
-                  bandId={bandId}
-                  onLoaded={() => {}}
-                />
+                {tab === 'events' && (
+                  <div style={{ padding: '8px 16px 0' }}>
+                    <EventsInboxListMobile
+                      bandId={bandId}
+                      showAvatars
+                      enableCreateForBand
+                      isAdmin={isAdmin}
+                    />
+                  </div>
+                )}
               </div>
             )}
 
             {tab === 'proposals' && (
               <BandProposalsTabMobile bandId={bandId} isAdmin={isAdmin} />
             )}
+
             {tab === 'roster' && (
               <div style={{ padding: 16 }}>
                 <IonText color="medium">
                   <p>Roster view coming to mobile.</p>
+                </IonText>
+              </div>
+            )}
+
+            {tab === 'library' && (
+              <div style={{ padding: 16 }}>
+                <IonText color="medium">
+                  <p>Library coming soon.</p>
                 </IonText>
               </div>
             )}
@@ -333,3 +465,32 @@ export default function BandSheetMobile() {
     </IonPage>
   );
 }
+
+const TAB_META: Record<string, { label: string; accent: string; col: number }> =
+  {
+    overview: {
+      label: 'Overview',
+      accent: 'rgba(139, 92, 246, 0.96)',
+      col: 1,
+    },
+    events: {
+      label: 'Events',
+      accent: 'rgba(52, 211, 153, 0.95)',
+      col: 2,
+    },
+    proposals: {
+      label: 'Proposals',
+      accent: 'rgba(245, 158, 11, 0.95)',
+      col: 3,
+    },
+    roster: {
+      label: 'Roster',
+      accent: 'rgba(56, 189, 248, 0.96)',
+      col: 4,
+    },
+    library: {
+      label: 'Library',
+      accent: 'rgba(244, 114, 182, 0.95)',
+      col: 5,
+    },
+  };

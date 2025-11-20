@@ -14,6 +14,7 @@ import {
 import { calendarOutline, navigateOutline } from 'ionicons/icons';
 import * as React from 'react';
 import { useMemo } from 'react';
+import { useNavigate } from 'react-router';
 import { supabase } from '../../lib/supabase';
 
 type EventRow = {
@@ -39,6 +40,8 @@ type ProposalLite = {
   title: string | null;
   venue: string | null;
   created_at: string;
+  yes_count?: number | null;
+  member_count?: number | null;
 };
 
 type Props = {
@@ -65,6 +68,12 @@ export default function BandOverviewMobile({ bandId }: Props) {
       }),
     []
   );
+
+  const nav = useNavigate();
+
+  const openEvent = (bId: string, eventId: string) => {
+    nav(`/bands/${bId}/events/${eventId}`);
+  };
 
   React.useEffect(() => {
     let alive = true;
@@ -210,7 +219,12 @@ export default function BandOverviewMobile({ bandId }: Props) {
             </IonText>
           ) : (
             <>
-              <IonItem button detail lines="none">
+              <IonItem
+                button
+                detail
+                lines="none"
+                onClick={() => openEvent(nextEvent.band_id, nextEvent.id)}
+              >
                 <IonLabel>
                   <h2
                     style={{
@@ -231,19 +245,37 @@ export default function BandOverviewMobile({ bandId }: Props) {
                     }}
                   >
                     {nextEvent.location && (
-                      <span>
+                      <span
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                        }}
+                      >
                         <IonIcon
                           icon={navigateOutline}
-                          style={{ fontSize: 14, marginRight: 4 }}
+                          style={{
+                            fontSize: 14,
+                            marginRight: 4,
+                            color: 'rgba(139, 92, 246, 0.96)',
+                          }}
                         />
                         {nextEvent.location}
                       </span>
                     )}
                     {nextEvent.starts_at && (
-                      <span>
+                      <span
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                        }}
+                      >
                         <IonIcon
                           icon={calendarOutline}
-                          style={{ fontSize: 14, marginRight: 4 }}
+                          style={{
+                            fontSize: 14,
+                            marginRight: 4,
+                            color: 'rgba(139, 92, 246, 0.96)',
+                          }}
                         />
                         {timeFmt.format(new Date(nextEvent.starts_at))}
                       </span>
@@ -262,6 +294,15 @@ export default function BandOverviewMobile({ bandId }: Props) {
                         detail: { tab: 'events' },
                       })
                     )
+                  }
+                  style={
+                    {
+                      '--color': 'rgba(52, 211, 153, 0.95)',
+                      '--border-color': 'rgba(52, 211, 153, 0.95)',
+                      '--background-activated': 'rgba(52, 211, 153, 0.95)',
+                      '--border-color-activated': 'rgba(52, 211, 153, 0.95)',
+                      '--color-activated': '#000000',
+                    } as React.CSSProperties
                   }
                 >
                   View all events
@@ -291,6 +332,14 @@ export default function BandOverviewMobile({ bandId }: Props) {
                     ? `Venue: ${p.venue}`
                     : 'Tap to add time options';
 
+                  // 👇 summary stats – rename if needed
+                  const yesCount = p.yes_count ?? 0;
+                  const memberCount = p.member_count ?? 0;
+                  const yesPct =
+                    memberCount > 0
+                      ? Math.round((yesCount / memberCount) * 100)
+                      : 0;
+
                   return (
                     <IonItem key={p.id} lines="none">
                       <IonLabel>
@@ -303,7 +352,56 @@ export default function BandOverviewMobile({ bandId }: Props) {
                         >
                           {title}
                         </h3>
-                        <p style={{ fontSize: 12, color: '#9CA3AF' }}>{sub}</p>
+
+                        <p
+                          style={{
+                            fontSize: 12,
+                            color: '#9CA3AF',
+                            marginBottom: 6,
+                          }}
+                        >
+                          {sub}
+                        </p>
+
+                        {/* YES PROGRESS BAR */}
+                        {memberCount > 0 && (
+                          <div style={{ marginTop: 2 }}>
+                            <div
+                              style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                fontSize: 11,
+                                color: '#9CA3AF',
+                                marginBottom: 3,
+                              }}
+                            >
+                              <span>Yes leaning</span>
+                              <span>
+                                {yesPct}% ({yesCount}/{memberCount})
+                              </span>
+                            </div>
+                            <div
+                              style={{
+                                width: '100%',
+                                height: 6,
+                                borderRadius: 999,
+                                background: 'rgba(31,41,55,0.9)',
+                                overflow: 'hidden',
+                              }}
+                            >
+                              <div
+                                style={{
+                                  width: `${yesPct}%`,
+                                  height: '100%',
+                                  borderRadius: 999,
+                                  background:
+                                    'linear-gradient(90deg, rgba(52,211,153,0.95), rgba(16,185,129,0.98))',
+                                  transition: 'width 160ms ease-out',
+                                }}
+                              />
+                            </div>
+                          </div>
+                        )}
                       </IonLabel>
                     </IonItem>
                   );
@@ -320,6 +418,15 @@ export default function BandOverviewMobile({ bandId }: Props) {
                         detail: { tab: 'proposals' },
                       })
                     )
+                  }
+                  style={
+                    {
+                      '--color': 'rgba(245, 158, 11, 0.95)',
+                      '--border-color': 'rgba(245, 158, 11, 0.95)',
+                      '--background-activated': 'rgba(245, 158, 11, 0.95)',
+                      '--border-color-activated': 'rgba(245, 158, 11, 0.95)',
+                      '--color-activated': '#000000', // black on press
+                    } as React.CSSProperties
                   }
                 >
                   View all proposals
