@@ -259,3 +259,5 @@ ion-alert.custom-dark-alert::part(button-confirm):hover {
 .event-info-sheet::part(handle) {
   display: none;
 }
+
+/* theme/amplee.css */
