@@ -1,10 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import {
+  IonButton,
   IonContent,
   IonHeader,
   IonIcon,
   IonItem,
-  IonLabel,
   IonList,
   IonModal,
   IonPage,
@@ -12,14 +12,18 @@ import {
   IonSegmentButton,
   IonSpinner,
   IonText,
+  IonToggle,
   IonToolbar,
 } from '@ionic/react';
 import {
-  checkmarkCircleOutline,
+  chatbubblesOutline,
   chevronBackOutline,
   chevronForwardOutline,
-  closeOutline,
   createOutline,
+  documentTextOutline,
+  folderOpenOutline,
+  musicalNotesOutline,
+  peopleOutline,
 } from 'ionicons/icons';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -36,12 +40,14 @@ type EventRow = {
   title: string;
   type: 'show' | 'practice' | string;
   starts_at: string | null;
+  ends_at: string | null;
   location: string | null;
   is_cancelled: boolean;
   is_booked: boolean;
+  is_public: boolean;
 };
 
-type TabKey = 'Green Room' | 'roll call' | 'setlist';
+type TabKey = 'Green Room' | 'roll call' | 'setlist' | 'notes' | 'files';
 
 export default function EventSheetMobile() {
   const { bandId, eventId } = useParams<{
@@ -64,9 +70,18 @@ export default function EventSheetMobile() {
 
   const [editTitle, setEditTitle] = useState('');
   const [editLocation, setEditLocation] = useState('');
-  const [editType, setEditType] = useState<'show' | 'practice'>('show');
-  const [editStartsAt, setEditStartsAt] = useState('');
-  const [editEndsAt, setEditEndsAt] = useState('');
+
+  const [editStart, setEditStart] = useState('');
+  const [editEnd, setEditEnd] = useState('');
+
+  const [savingPublic, setSavingPublic] = useState(false);
+
+  function fromLocalToIso(val: string | null): string | null {
+    if (!val) return null;
+    const d = new Date(val);
+    if (Number.isNaN(d.getTime())) return null;
+    return d.toISOString();
+  }
 
   const nav = useNavigate();
 
@@ -140,52 +155,47 @@ export default function EventSheetMobile() {
 
   const hasStart = !!event?.starts_at;
 
-  function toLocalInputValue(iso: string): string {
+  const eventIconColor = (key: TabKey) =>
+    tab === key ? EVENT_TAB_META[key].accent : 'rgba(148,163,184,0.9)';
+
+  function toLocalInputValue(iso: string | null | undefined): string {
+    if (!iso) return '';
     const d = new Date(iso);
     if (Number.isNaN(d.getTime())) return '';
-
     const pad = (n: number) => String(n).padStart(2, '0');
     const yyyy = d.getFullYear();
     const mm = pad(d.getMonth() + 1);
     const dd = pad(d.getDate());
     const hh = pad(d.getHours());
     const mi = pad(d.getMinutes());
-
     return `${yyyy}-${mm}-${dd}T${hh}:${mi}`;
   }
 
-  function startEditEventDetails() {
+  const handleStartEditEvent = useCallback(() => {
     if (!event) return;
 
-    setEditTitle(event.title || '');
-    setEditLocation(event.location || '');
-    setEditType(event.type === 'practice' ? 'practice' : 'show');
-    setEditStartsAt(event.starts_at ? toLocalInputValue(event.starts_at) : '');
-    // 👇 NEW: pull existing ends_at if you have it on the row
-    setEditEndsAt(
-      (event as any).ends_at ? toLocalInputValue((event as any).ends_at) : ''
-    );
+    setEditTitle(event.title ?? '');
+    setEditLocation(event.location ?? '');
+    setEditStart(toLocalInputValue(event.starts_at));
+    setEditEnd(toLocalInputValue(event.ends_at ?? null));
     setEditingEvent(true);
-  }
+  }, [event]);
 
   const handleSaveEventDetails = useCallback(async () => {
     if (!event) return;
-
     try {
       setSavingEvent(true);
 
       const updates: {
         title?: string | null;
         location?: string | null;
-        type?: string | null;
         starts_at?: string | null;
         ends_at?: string | null;
       } = {
         title: editTitle.trim() || null,
         location: editLocation.trim() || null,
-        type: editType,
-        starts_at: editStartsAt ? new Date(editStartsAt).toISOString() : null,
-        ends_at: editEndsAt ? new Date(editEndsAt).toISOString() : null,
+        starts_at: fromLocalToIso(editStart),
+        ends_at: fromLocalToIso(editEnd),
       };
 
       const { error } = await supabase
@@ -194,34 +204,53 @@ export default function EventSheetMobile() {
         .eq('id', event.id)
         .eq('band_id', event.band_id);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Failed to update event', error);
+        return;
+      }
 
-      // Optimistic local update
       setEvent((prev) =>
         prev
           ? {
               ...prev,
               title: updates.title ?? prev.title,
               location: updates.location ?? prev.location,
-              type: (updates.type as any) ?? prev.type,
               starts_at: updates.starts_at ?? prev.starts_at,
-              // 👇 keep local ends_at in sync if you have it
-              ...(prev as any),
-              ends_at:
-                updates.ends_at !== undefined
-                  ? updates.ends_at
-                  : (prev as any).ends_at,
+              ends_at: updates.ends_at ?? prev.ends_at,
             }
           : prev
       );
 
       setEditingEvent(false);
-    } catch (err) {
-      console.error('Failed to update event', err);
     } finally {
       setSavingEvent(false);
     }
-  }, [event, editTitle, editLocation, editType, editStartsAt, editEndsAt]);
+  }, [event, editTitle, editLocation, editStart, editEnd, supabase]);
+
+  const handleTogglePublic = async () => {
+    if (!event || !isAdmin || savingPublic) return;
+
+    const next = !event.is_public;
+    setSavingPublic(true);
+
+    try {
+      const { error } = await supabase
+        .from('events')
+        .update({ is_public: next })
+        .eq('id', event.id);
+
+      if (error) {
+        console.error('[event public toggle] error', error.message);
+        // optional: you can surface a toast here if you like
+        return;
+      }
+
+      // Optimistically update local event state so UI reflects the change
+      setEvent((prev) => (prev ? { ...prev, is_public: next } : prev));
+    } finally {
+      setSavingPublic(false);
+    }
+  };
 
   useEffect(() => {
     let alive = true;
@@ -232,7 +261,7 @@ export default function EventSheetMobile() {
       const { data, error } = await supabase
         .from('events_with_my_attendance')
         .select(
-          'id, band_id, title, type, starts_at, location, is_booked, is_cancelled'
+          'id, band_id, title, type, starts_at, ends_at, location, is_booked, is_cancelled'
         )
         .eq('id', eventId)
         .maybeSingle();
@@ -247,9 +276,11 @@ export default function EventSheetMobile() {
           title: String(e.title ?? ''),
           type: e.type === 'practice' ? 'practice' : 'show',
           starts_at: e.starts_at ?? null,
+          ends_at: e.ends_at ?? null,
           location: e.location ?? null,
           is_booked: Boolean(e.is_booked),
           is_cancelled: Boolean(e.is_cancelled),
+          is_public: Boolean(e.is_public),
         });
       } else {
         setEvent(null);
@@ -350,7 +381,7 @@ export default function EventSheetMobile() {
             style={{
               width: '100%',
               paddingInline: 12,
-              paddingBlock: 6, // matches band header wrapper padding
+              paddingBlock: 6,
             }}
           >
             <div
@@ -358,11 +389,11 @@ export default function EventSheetMobile() {
                 width: '100%',
                 display: 'flex',
                 alignItems: 'center',
-                padding: '10px 14px', // 👈 same as band header
-                borderRadius: 20, // 👈 same as band header
-                background: 'rgba(14, 15, 16, 0.98)', // 👈 same as band header
-                border: '.5px solid #41235eff', // 👈 same border
-                boxShadow: '0 16px 40px rgba(0,0,0,0.55)', // 👈 same shadow
+                padding: '10px 14px',
+                borderRadius: 20,
+                background: 'rgba(14, 15, 16, 0.98)',
+                border: '.5px solid rgba(52, 211, 153, 0.35)',
+                boxShadow: '0 16px 40px rgba(0,0,0,0.55)',
                 outline: 'none',
                 gap: 12,
               }}
@@ -517,31 +548,157 @@ export default function EventSheetMobile() {
         </IonToolbar>
 
         {/* TABS BELOW CARD */}
+        {/* TABS BELOW CARD */}
         <IonToolbar
           style={{
             '--background': 'rgba(8,8,12,0.98)',
             borderBottom: '0.5px solid rgba(255,255,255,0.06)',
           }}
         >
-          <IonSegment
-            value={tab}
-            onIonChange={(e) => setTab(e.detail.value as TabKey)}
-            className="event-tabs"
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(5, 1fr)', // 5 tabs now
+              gridAutoRows: 'auto',
+              rowGap: 0,
+              padding: '0 8px',
+              maxWidth: 480,
+              margin: '0 auto',
+            }}
           >
-            <IonSegmentButton value="Green Room">
-              <IonLabel>Green Room</IonLabel>
-            </IonSegmentButton>
-            <IonSegmentButton value="roll call">
-              <IonText>Roll Call</IonText>
-            </IonSegmentButton>
-            <IonSegmentButton value="setlist">
-              <IonLabel>Setlist</IonLabel>
-            </IonSegmentButton>
-          </IonSegment>
+            {/* Row 1: icon row */}
+            <div style={{ gridColumn: '1 / -1' }}>
+              <IonSegment
+                value={tab}
+                onIonChange={(e) => setTab(e.detail.value as TabKey)}
+                className="event-tabs"
+              >
+                <IonSegmentButton
+                  value="Green Room"
+                  style={{
+                    '--padding-start': '0px',
+                    '--padding-end': '0px',
+                  }}
+                >
+                  <IonIcon
+                    icon={chatbubblesOutline}
+                    style={{
+                      fontSize: 'clamp(18px, 4vw, 22px)',
+                      color: eventIconColor('Green Room'),
+                    }}
+                  />
+                </IonSegmentButton>
+
+                <IonSegmentButton
+                  value="roll call"
+                  style={{
+                    '--padding-start': '0px',
+                    '--padding-end': '0px',
+                  }}
+                >
+                  <IonIcon
+                    icon={peopleOutline}
+                    style={{
+                      fontSize: 'clamp(18px, 4vw, 22px)',
+                      color: eventIconColor('roll call'),
+                    }}
+                  />
+                </IonSegmentButton>
+
+                <IonSegmentButton
+                  value="setlist"
+                  style={{
+                    '--padding-start': '0px',
+                    '--padding-end': '0px',
+                  }}
+                >
+                  <IonIcon
+                    icon={musicalNotesOutline}
+                    style={{
+                      fontSize: 'clamp(18px, 4vw, 22px)',
+                      color: eventIconColor('setlist'),
+                    }}
+                  />
+                </IonSegmentButton>
+
+                <IonSegmentButton
+                  value="notes"
+                  style={{
+                    '--padding-start': '0px',
+                    '--padding-end': '0px',
+                  }}
+                >
+                  <IonIcon
+                    icon={documentTextOutline}
+                    style={{
+                      fontSize: 'clamp(18px, 4vw, 22px)',
+                      color: eventIconColor('notes'),
+                    }}
+                  />
+                </IonSegmentButton>
+
+                <IonSegmentButton
+                  value="files"
+                  style={{
+                    '--padding-start': '0px',
+                    '--padding-end': '0px',
+                  }}
+                >
+                  <IonIcon
+                    icon={folderOpenOutline}
+                    style={{
+                      fontSize: 'clamp(18px, 4vw, 22px)',
+                      color: eventIconColor('files'),
+                    }}
+                  />
+                </IonSegmentButton>
+              </IonSegment>
+            </div>
+
+            {/* Row 2: labels centered under each tab */}
+            <div
+              style={{
+                gridColumn: '1 / -1',
+                display: 'grid',
+                gridTemplateColumns: 'repeat(5, 1fr)',
+                paddingTop: 2,
+                paddingBottom: 4,
+              }}
+            >
+              {(
+                [
+                  'Green Room',
+                  'roll call',
+                  'setlist',
+                  'notes',
+                  'files',
+                ] as TabKey[]
+              ).map((key) => (
+                <div key={key} style={{ textAlign: 'center' }}>
+                  <IonText>
+                    <p
+                      style={{
+                        margin: 0,
+                        fontWeight: 700,
+                        fontSize: 'clamp(11px, 3vw, 13px)',
+                        letterSpacing: 0.4,
+                        textTransform: 'uppercase',
+                        color:
+                          tab === key
+                            ? EVENT_TAB_META[key].accent
+                            : 'transparent',
+                      }}
+                    >
+                      {EVENT_TAB_META[key].label}
+                    </p>
+                  </IonText>
+                </div>
+              ))}
+            </div>
+          </div>
         </IonToolbar>
       </IonHeader>
 
-      {/*EVENT DETAILS POPUP */}
       {/*EVENT DETAILS POPUP */}
       <IonModal
         isOpen={showInfoSheet}
@@ -566,43 +723,14 @@ export default function EventSheetMobile() {
               flexDirection: 'column',
             }}
           >
-            <button
-              type="button"
-              onClick={() => {
-                setShowInfoSheet(false);
-                setEditingEvent(false);
-              }}
-              style={{
-                position: 'absolute',
-                top: 10,
-                right: 12,
-                width: 28,
-                height: 28,
-                borderRadius: 999,
-                border: '1px solid rgba(139,92,246,0.8)',
-                background:
-                  'radial-gradient( rgba(168,85,247,0.25), rgba(15,23,42,0.98))',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                boxShadow: '0 10px 26px rgba(0,0,0,0.75)',
-                padding: 0,
-                cursor: 'pointer',
-              }}
-            >
-              <IonIcon
-                icon={closeOutline}
-                style={{ fontSize: 16, color: '#F9FAFB' }}
-              />
-            </button>
-
+            {/* GRABBER */}
             <div
               style={{
                 width: 40,
                 height: 4,
                 borderRadius: 999,
                 margin: '4px auto 12px',
-                background: 'rgba(168,85,247,0.85)',
+                background: 'rgba(52,211,153,0.75)',
               }}
             />
 
@@ -624,7 +752,7 @@ export default function EventSheetMobile() {
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
                       paddingInline: 40,
-                      color: '#F5F3FF',
+                      color: '#F9FAFB',
                     }}
                   >
                     {editingEvent
@@ -641,107 +769,45 @@ export default function EventSheetMobile() {
                   }}
                 >
                   {/* EVENT OVERVIEW CARD */}
-                  {/* EVENT OVERVIEW CARD */}
                   <div
                     style={{
-                      position: 'relative', // 👈 needed for the pinned edit icon
                       borderRadius: 18,
-                      background:
-                        'linear-gradient(145deg, #08070d, #050509 55%, #0b0614)',
-                      border: '1px solid rgba(88,28,135,0.7)',
+
+                      border: '1px solid rgba(52,211,153,0.40)',
                       padding: 14,
                       marginBottom: 16,
                       boxShadow: '0 22px 45px rgba(0,0,0,0.9)',
+                      position: 'relative',
                     }}
                   >
-                    {/* Pinned edit / save controls (admin only) */}
+                    {/* top-right edit icon (admin only) */}
                     {isAdmin && !editingEvent && (
                       <button
                         type="button"
-                        onClick={startEditEventDetails}
+                        onClick={handleStartEditEvent}
                         style={{
                           position: 'absolute',
                           top: 10,
                           right: 10,
-                          width: 28,
-                          height: 28,
                           borderRadius: 999,
-                          border: '1px solid rgba(129,140,248,0.9)',
+                          border: '1px solid rgba(52,211,153,0.65)',
                           background:
-                            'radial-gradient(circle at top, rgba(79,70,229,0.22), rgba(15,23,42,0.98))',
+                            'radial-gradient(circle at top, rgba(52,211,153,0.24), rgba(15,23,42,1))',
+                          padding: 6,
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
                           cursor: 'pointer',
-                          boxShadow: '0 10px 26px rgba(0,0,0,0.75)',
                         }}
                       >
                         <IonIcon
                           icon={createOutline}
-                          style={{ fontSize: 16, color: '#E0E7FF' }}
+                          style={{
+                            fontSize: 16,
+                            color: 'rgba(209,250,229,0.96)',
+                          }}
                         />
                       </button>
-                    )}
-
-                    {isAdmin && editingEvent && (
-                      <div
-                        style={{
-                          position: 'absolute',
-                          top: 10,
-                          right: 10,
-                          display: 'flex',
-                          gap: 6,
-                        }}
-                      >
-                        {/* Save icon */}
-                        <button
-                          type="button"
-                          onClick={handleSaveEventDetails}
-                          disabled={savingEvent}
-                          style={{
-                            width: 26,
-                            height: 26,
-                            borderRadius: 999,
-                            border: '1px solid rgba(34,197,94,0.9)',
-                            background:
-                              'linear-gradient(135deg, rgba(34,197,94,0.98), rgba(5,46,22,0.98))',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            cursor: savingEvent ? 'default' : 'pointer',
-                            opacity: savingEvent ? 0.75 : 1,
-                          }}
-                        >
-                          <IonIcon
-                            icon={checkmarkCircleOutline}
-                            style={{ fontSize: 17, color: '#DCFCE7' }}
-                          />
-                        </button>
-
-                        {/* Cancel icon */}
-                        <button
-                          type="button"
-                          onClick={() => setEditingEvent(false)}
-                          disabled={savingEvent}
-                          style={{
-                            width: 26,
-                            height: 26,
-                            borderRadius: 999,
-                            border: '1px solid rgba(148,163,184,0.7)',
-                            background: 'rgba(15,23,42,0.96)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            cursor: savingEvent ? 'default' : 'pointer',
-                            opacity: savingEvent ? 0.75 : 1,
-                          }}
-                        >
-                          <IonIcon
-                            icon={closeOutline}
-                            style={{ fontSize: 15, color: '#E5E7EB' }}
-                          />
-                        </button>
-                      </div>
                     )}
 
                     <div style={{ marginBottom: 10 }}>
@@ -752,7 +818,7 @@ export default function EventSheetMobile() {
                           fontWeight: 700,
                           letterSpacing: 0.04,
                           textTransform: 'uppercase',
-                          color: 'rgba(237,233,254,0.96)',
+                          color: 'rgba(209,250,229,0.96)', // heading -> soft green
                         }}
                       >
                         Event overview
@@ -761,169 +827,127 @@ export default function EventSheetMobile() {
                         style={{
                           margin: '4px 0 0',
                           fontSize: 13,
-                          color: 'rgba(196,181,253,0.9)',
+                          color: 'rgba(148,163,184,0.9)', // neutral body
                         }}
                       >
-                        Basic info about this event.
+                        {editingEvent
+                          ? 'Edit the core details for this event.'
+                          : 'Basic info about this event.'}
                       </p>
                     </div>
 
-                    <div
-                      style={{
-                        marginTop: 4,
-                        paddingLeft: 6,
-                      }}
-                    >
-                      {/* WHEN — now supports optional end time */}
-                      <div style={{ marginBottom: 10 }}>
-                        <p
-                          style={{
-                            margin: 0,
-                            fontSize: 12,
-                            textTransform: 'uppercase',
-                            letterSpacing: 0.08,
-                            color: 'rgba(196,181,253,0.95)',
-                          }}
-                        >
-                          When
-                        </p>
-
-                        {!editingEvent ? (
+                    {/* READ-ONLY VIEW */}
+                    {!editingEvent && (
+                      <div
+                        style={{
+                          marginTop: 4,
+                          paddingLeft: 6,
+                        }}
+                      >
+                        <div style={{ marginBottom: 10 }}>
                           <p
                             style={{
-                              margin: '4px 0 0',
-                              fontSize: 14,
-                              fontWeight: 500,
-                              color: '#EDE9FE',
+                              margin: 0,
+                              fontSize: 12,
+                              textTransform: 'uppercase',
+                              letterSpacing: 0.08,
+                              color: 'rgba(167,243,208,0.9)', // label green
                             }}
                           >
-                            {(() => {
-                              // we already have startsAtLabel computed outside
-                              const endIso = (event as any).ends_at as
-                                | string
-                                | null
-                                | undefined;
-                              if (endIso) {
-                                const endLabel = new Intl.DateTimeFormat(
-                                  'en-US',
-                                  {
-                                    dateStyle: 'medium',
-                                    timeStyle: 'short',
-                                    timeZone: 'America/Chicago',
-                                  }
-                                ).format(new Date(endIso));
-
-                                return startsAtLabel
-                                  ? `${startsAtLabel} – ${endLabel}`
-                                  : `Start TBD – ${endLabel}`;
-                              }
-
-                              return startsAtLabel || 'TBD';
-                            })()}
+                            When
                           </p>
-                        ) : (
-                          <div
-                            style={{
-                              marginTop: 4,
-                              display: 'flex',
-                              flexDirection: 'column',
-                              gap: 8,
-                            }}
-                          >
-                            {/* Start */}
-                            <div>
-                              <p
-                                style={{
-                                  margin: 0,
-                                  fontSize: 11,
-                                  marginBottom: 4,
-                                  color: 'rgba(209,213,219,0.92)',
-                                }}
-                              >
-                                Start
-                              </p>
-                              <input
-                                type="datetime-local"
-                                value={editStartsAt}
-                                onChange={(e) =>
-                                  setEditStartsAt(e.target.value)
-                                }
-                                style={{
-                                  width: '100%',
-                                  borderRadius: 10,
-                                  border: '1px solid rgba(148,163,184,0.8)',
-                                  padding: 8,
-                                  backgroundColor: '#020617',
-                                  color: '#E5E7EB',
-                                  fontSize: 14,
-                                }}
-                              />
-                            </div>
-
-                            {/* End (optional) */}
-                            <div>
-                              <p
-                                style={{
-                                  margin: 0,
-                                  fontSize: 11,
-                                  marginBottom: 4,
-                                  color: 'rgba(209,213,219,0.92)',
-                                }}
-                              >
-                                End (optional)
-                              </p>
-                              <input
-                                type="datetime-local"
-                                value={editEndsAt}
-                                onChange={(e) => setEditEndsAt(e.target.value)}
-                                style={{
-                                  width: '100%',
-                                  borderRadius: 10,
-                                  border: '1px solid rgba(148,163,184,0.8)',
-                                  padding: 8,
-                                  backgroundColor: '#020617',
-                                  color: '#E5E7EB',
-                                  fontSize: 14,
-                                }}
-                              />
-                            </div>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* WHERE */}
-                      <div style={{ marginBottom: 10 }}>
-                        <p
-                          style={{
-                            margin: 0,
-                            fontSize: 12,
-                            textTransform: 'uppercase',
-                            letterSpacing: 0.08,
-                            color: 'rgba(196,181,253,0.95)',
-                          }}
-                        >
-                          Where
-                        </p>
-
-                        {!editingEvent ? (
                           <p
                             style={{
                               margin: '4px 0 0',
                               fontSize: 14,
                               fontWeight: 500,
-                              color: '#EDE9FE',
+                              color: '#ECFDF5',
+                            }}
+                          >
+                            {startsAtLabel || 'TBD'}
+                          </p>
+                        </div>
+
+                        <div style={{ marginBottom: 10 }}>
+                          <p
+                            style={{
+                              margin: 0,
+                              fontSize: 12,
+                              textTransform: 'uppercase',
+                              letterSpacing: 0.08,
+                              color: 'rgba(167,243,208,0.9)',
+                            }}
+                          >
+                            Where
+                          </p>
+                          <p
+                            style={{
+                              margin: '4px 0 0',
+                              fontSize: 14,
+                              fontWeight: 500,
+                              color: '#ECFDF5',
                             }}
                           >
                             {event.location || 'TBD'}
                           </p>
-                        ) : (
-                          <input
-                            type="text"
-                            value={editLocation}
-                            onChange={(e) => setEditLocation(e.target.value)}
-                            placeholder="Venue / location"
+                        </div>
+
+                        <div>
+                          <p
                             style={{
-                              marginTop: 4,
+                              margin: 0,
+                              fontSize: 12,
+                              textTransform: 'uppercase',
+                              letterSpacing: 0.08,
+                              color: 'rgba(167,243,208,0.9)',
+                            }}
+                          >
+                            Type
+                          </p>
+                          <p
+                            style={{
+                              margin: '4px 0 0',
+                              fontSize: 14,
+                              fontWeight: 500,
+                              color: '#ECFDF5',
+                            }}
+                          >
+                            {event.type === 'practice' ? 'Practice' : 'Show'}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* EDIT MODE */}
+                    {editingEvent && (
+                      <div
+                        style={{
+                          marginTop: 8,
+                          paddingLeft: 4,
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: 10,
+                        }}
+                      >
+                        {/* Title */}
+                        <div>
+                          <p
+                            style={{
+                              margin: 0,
+                              fontSize: 12,
+                              textTransform: 'uppercase',
+                              letterSpacing: 0.08,
+                              color: 'rgba(167,243,208,0.9)',
+                              marginBottom: 4,
+                            }}
+                          >
+                            Title
+                          </p>
+                          <input
+                            value={editTitle}
+                            onChange={(e) => setEditTitle(e.target.value)}
+                            placeholder="Event title"
+                            style={{
                               width: '100%',
                               borderRadius: 10,
                               border: '1px solid rgba(148,163,184,0.8)',
@@ -933,143 +957,243 @@ export default function EventSheetMobile() {
                               fontSize: 14,
                             }}
                           />
-                        )}
-                      </div>
+                        </div>
 
-                      {/* TYPE */}
-                      <div>
-                        <p
-                          style={{
-                            margin: 0,
-                            fontSize: 12,
-                            textTransform: 'uppercase',
-                            letterSpacing: 0.08,
-                            color: 'rgba(196,181,253,0.95)',
-                          }}
-                        >
-                          Type
-                        </p>
-
-                        {!editingEvent ? (
+                        {/* Location */}
+                        <div>
                           <p
                             style={{
-                              margin: '4px 0 0',
+                              margin: 0,
+                              fontSize: 12,
+                              textTransform: 'uppercase',
+                              letterSpacing: 0.08,
+                              color: 'rgba(167,243,208,0.9)',
+                              marginBottom: 4,
+                            }}
+                          >
+                            Location
+                          </p>
+                          <input
+                            value={editLocation}
+                            onChange={(e) => setEditLocation(e.target.value)}
+                            placeholder="Venue / location"
+                            style={{
+                              width: '100%',
+                              borderRadius: 10,
+                              border: '1px solid rgba(148,163,184,0.8)',
+                              padding: 8,
+                              backgroundColor: '#020617',
+                              color: '#E5E7EB',
+                              fontSize: 14,
+                            }}
+                          />
+                        </div>
+
+                        {/* Start / End datetime */}
+                        <div
+                          style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 8,
+                          }}
+                        >
+                          <div>
+                            <p
+                              style={{
+                                margin: 0,
+                                fontSize: 12,
+                                textTransform: 'uppercase',
+                                letterSpacing: 0.08,
+                                color: 'rgba(167,243,208,0.9)',
+                                marginBottom: 4,
+                              }}
+                            >
+                              Start
+                            </p>
+                            <input
+                              type="datetime-local"
+                              value={editStart}
+                              onChange={(e) => setEditStart(e.target.value)}
+                              style={{
+                                width: '100%',
+                                borderRadius: 10,
+                                border: '1px solid rgba(148,163,184,0.8)',
+                                padding: 8,
+                                backgroundColor: '#020617',
+                                color: '#E5E7EB',
+                                fontSize: 14,
+                              }}
+                            />
+                          </div>
+
+                          <div>
+                            <p
+                              style={{
+                                margin: 0,
+                                fontSize: 12,
+                                textTransform: 'uppercase',
+                                letterSpacing: 0.08,
+                                color: 'rgba(167,243,208,0.9)',
+                                marginBottom: 4,
+                              }}
+                            >
+                              End (optional)
+                            </p>
+                            <input
+                              type="datetime-local"
+                              value={editEnd}
+                              onChange={(e) => setEditEnd(e.target.value)}
+                              style={{
+                                width: '100%',
+                                borderRadius: 10,
+                                border: '1px solid rgba(148,163,184,0.8)',
+                                padding: 8,
+                                backgroundColor: '#020617',
+                                color: '#E5E7EB',
+                                fontSize: 14,
+                              }}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Save / Cancel */}
+                        <div
+                          style={{
+                            marginTop: 10,
+                            display: 'flex',
+                            flexDirection: 'row',
+                            gap: 8,
+                          }}
+                        >
+                          <button
+                            type="button"
+                            onClick={handleSaveEventDetails}
+                            disabled={savingEvent}
+                            style={{
+                              flex: 1,
+                              borderRadius: 999,
+                              border: '1px solid rgba(52, 211, 153, 0.95)',
+                              paddingBlock: 8,
+                              fontSize: 14,
+                              fontWeight: 600,
+                              background:
+                                'linear-gradient(135deg, rgba(52,211,153,0.96), rgba(16,185,129,0.98))',
+                              color: '#ECFDF5',
+                              opacity: savingEvent ? 0.7 : 1,
+                            }}
+                          >
+                            {savingEvent ? 'Saving…' : 'Save changes'}
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setEditingEvent(false)}
+                            disabled={savingEvent}
+                            style={{
+                              flex: 1,
+                              borderRadius: 999,
+                              border: '1px solid rgba(148,163,184,0.9)',
+                              paddingBlock: 8,
                               fontSize: 14,
                               fontWeight: 500,
-                              color: '#EDE9FE',
+                              background: 'rgba(15,23,42,0.98)',
+                              color: '#E5E7EB',
                             }}
                           >
-                            {event.type === 'practice' ? 'Practice' : 'Show'}
-                          </p>
-                        ) : (
-                          <div
-                            style={{
-                              marginTop: 4,
-                              display: 'flex',
-                              gap: 8,
-                            }}
-                          >
-                            <button
-                              type="button"
-                              onClick={() => setEditType('show')}
-                              style={{
-                                flex: 1,
-                                paddingBlock: 8,
-                                borderRadius: 999,
-                                border:
-                                  editType === 'show'
-                                    ? '1px solid rgba(167,139,250,0.95)'
-                                    : '1px solid rgba(148,163,184,0.8)',
-                                background:
-                                  editType === 'show'
-                                    ? 'linear-gradient(135deg, rgba(111, 44, 133, 0.95), rgba(107, 39, 134, 0.98))'
-                                    : 'rgba(15,23,42,0.96)',
-                                color:
-                                  editType === 'show'
-                                    ? '#EEF2FF'
-                                    : 'rgba(209,213,219,0.95)',
-                                fontSize: 13,
-                                fontWeight: 600,
-                                cursor: 'pointer',
-                              }}
-                            >
-                              Show
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() => setEditType('practice')}
-                              style={{
-                                flex: 1,
-                                paddingBlock: 8,
-                                borderRadius: 999,
-                                border:
-                                  editType === 'practice'
-                                    ? '1px solid rgba(167,139,250,0.95)'
-                                    : '1px solid rgba(148,163,184,0.8)',
-                                background:
-                                  editType === 'practice'
-                                    ? 'linear-gradient(135deg, rgba(111, 44, 133, 0.95), rgba(107, 39, 134, 0.98))'
-                                    : 'rgba(15,23,42,0.96)',
-                                color:
-                                  editType === 'practice'
-                                    ? '#ECFEFF'
-                                    : 'rgba(209,213,219,0.95)',
-                                fontSize: 13,
-                                fontWeight: 600,
-                                cursor: 'pointer',
-                              }}
-                            >
-                              Practice
-                            </button>
-                          </div>
-                        )}
+                            Cancel
+                          </button>
+                        </div>
                       </div>
-                    </div>
+                    )}
 
-                    {/* CALENDAR CTA stays the same */}
-                    <div
-                      style={{
-                        marginTop: 14,
-                        marginBottom: 16,
-                        paddingLeft: 6,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: 8,
-                      }}
-                    >
-                      <button
-                        type="button"
-                        onClick={handleExportGoogle}
-                        disabled={!hasStart}
+                    {/* Add to Google Calendar */}
+                    {!editingEvent && (
+                      <div
                         style={{
-                          width: '100%',
-                          paddingBlock: 10,
-                          borderRadius: 999,
-                          border: '1px solid rgba(216,180,254,0.9)',
-                          fontSize: 14,
-                          fontWeight: 600,
-                          background: hasStart
-                            ? 'linear-gradient(135deg, rgba(147,51,234,0.96), rgba(107, 58, 157, 0.98))'
-                            : 'rgba(17,24,39,0.9)',
-                          color: hasStart
-                            ? '#F5F3FF'
-                            : 'rgba(196,181,253,0.85)',
-                          opacity: hasStart ? 1 : 0.7,
+                          marginTop: 14,
+                          marginBottom: 16,
+                          paddingLeft: 6,
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: 8,
                         }}
                       >
-                        Add to Google Calendar
-                      </button>
-                    </div>
+                        <IonButton
+                          type="button"
+                          onClick={handleExportGoogle}
+                          disabled={!hasStart}
+                          style={{
+                            '--background': 'rgba(15,23,42,0.98)',
+                            '--background-activated': 'rgba(45,212,191,0.95)',
+                            '--border-color': 'rgba(45,212,191,0.8)',
+                            '--color': 'rgba(45,212,191,0.95)',
+                            '--color-activated': '#000000',
+                            borderRadius: 999,
+                          }}
+                        >
+                          Add to Google Calendar
+                        </IonButton>
+                      </div>
+                    )}
+
+                    {/* Add to Public Band Page */}
+                    {!editingEvent && isAdmin && (
+                      <div
+                        style={{
+                          marginTop: 4,
+                          paddingLeft: 6,
+                          paddingRight: 4,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: 12,
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 2,
+                          }}
+                        >
+                          <p
+                            style={{
+                              margin: 0,
+                              fontSize: 12,
+                              textTransform: 'uppercase',
+                              letterSpacing: 0.08,
+                              color: 'rgba(167,243,208,0.9)',
+                            }}
+                          >
+                            Public listing
+                          </p>
+                          <p
+                            style={{
+                              margin: 0,
+                              fontSize: 12,
+                              color: 'rgba(148,163,184,0.9)',
+                            }}
+                          >
+                            Show this event on your public Amplee band page.
+                          </p>
+                        </div>
+
+                        <IonToggle
+                          checked={!!event.is_public}
+                          color="warning"
+                          disabled={savingPublic}
+                          onIonChange={handleTogglePublic}
+                          style={{ transform: 'scale(0.9)' }}
+                        />
+                      </div>
+                    )}
                   </div>
 
                   {/* LINEUP CARD */}
                   <div
                     style={{
                       borderRadius: 18,
-                      background:
-                        'linear-gradient(145deg, #08070d, #050509 55%, #0b0614)',
-                      border: '1px solid rgba(88,28,135,0.7)',
+                      border: '1px solid rgba(52,211,153,0.32)',
                       padding: 14,
                       marginBottom: 16,
                     }}
@@ -1082,7 +1206,7 @@ export default function EventSheetMobile() {
                           fontWeight: 700,
                           letterSpacing: 0.04,
                           textTransform: 'uppercase',
-                          color: 'rgba(237,233,254,0.96)',
+                          color: 'rgba(209,250,229,0.96)',
                         }}
                       >
                         Lineup
@@ -1091,7 +1215,7 @@ export default function EventSheetMobile() {
                         style={{
                           margin: '4px 0 0',
                           fontSize: 13,
-                          color: 'rgba(196,181,253,0.9)',
+                          color: 'rgba(148,163,184,0.9)',
                         }}
                       >
                         See the lineup for this event and their RSVP.
@@ -1581,3 +1705,34 @@ function RosterPanelMobile({
     </div>
   );
 }
+
+const EVENT_TAB_META: Record<
+  TabKey,
+  { label: string; accent: string; col: number }
+> = {
+  'Green Room': {
+    label: 'Green Room',
+    accent: 'rgba(52, 211, 153, 0.95)',
+    col: 1,
+  },
+  'roll call': {
+    label: 'Roll Call',
+    accent: 'rgba(52, 211, 153, 0.95)',
+    col: 2,
+  },
+  setlist: {
+    label: 'Setlist',
+    accent: 'rgba(52, 211, 153, 0.95)',
+    col: 3,
+  },
+  notes: {
+    label: 'Notes',
+    accent: 'rgba(52, 211, 153, 0.95)',
+    col: 4,
+  },
+  files: {
+    label: 'Files',
+    accent: 'rgba(52, 211, 153, 0.95)',
+    col: 5,
+  },
+};

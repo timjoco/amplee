@@ -21,11 +21,12 @@ import {
   chevronBackOutline,
   closeCircleOutline,
   createOutline,
-  helpCircleOutline,
   trashOutline,
 } from 'ionicons/icons';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+
+import DateTimePickerMobile from '../components/ui/DateTimePickerMobile';
 import { supabase } from '../lib/supabase';
 
 type Option = {
@@ -50,8 +51,6 @@ type RouteParams = {
   proposalId: string;
 };
 
-const APP_URL = import.meta.env.VITE_APP_URL as string | undefined;
-
 function toLocalInputValue(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
@@ -72,7 +71,7 @@ export default function ProposedGigSheetMobile() {
 
   const [proposal, setProposal] = useState<Proposal | null>(null);
   const [membersCount, setMembersCount] = useState(0);
-  const [myId, setMyId] = useState('');
+  const [myId, setMyId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -83,7 +82,11 @@ export default function ProposedGigSheetMobile() {
 
   // proposal meta
   const [proposedByName, setProposedByName] = useState<string | null>(null);
-  const [showHelp, setShowHelp] = useState(false);
+  const [showVotingHelp, setShowVotingHelp] = useState(false);
+  const [showTimesHelp, setShowTimesHelp] = useState(false);
+
+  // proposal conversion
+  const [converting, setConverting] = useState<string | null>(null);
 
   // delete proposal flow
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -105,22 +108,23 @@ export default function ProposedGigSheetMobile() {
       setLoading(true);
       setError(null);
 
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      const uid = user?.id ?? '';
-      setMyId(uid);
-
-      const { count: memCount } = await supabase
-        .from('band_members')
-        .select('user_id', { count: 'exact', head: true })
-        .eq('band_id', bandId);
-      setMembersCount(memCount ?? 0);
-
-      const { data, error: propErr } = await supabase
-        .from('gig_proposals')
-        .select(
-          `
+      // Get user, members count, and proposal in parallel
+      const [
+        {
+          data: { user },
+        },
+        membersResult,
+        propResult,
+      ] = await Promise.all([
+        supabase.auth.getUser(),
+        supabase
+          .from('band_members')
+          .select('user_id', { count: 'exact', head: true })
+          .eq('band_id', bandId),
+        supabase
+          .from('gig_proposals')
+          .select(
+            `
           id,
           title,
           venue,
@@ -135,27 +139,36 @@ export default function ProposedGigSheetMobile() {
             )
           )
         `
-        )
-        .eq('id', proposalId)
-        .maybeSingle();
+          )
+          .eq('id', proposalId)
+          .maybeSingle(),
+      ]);
 
-      if (propErr) throw propErr;
+      const uid = user?.id ?? '';
+      setMyId(uid || null);
+      setMembersCount(membersResult.count ?? 0);
+
+      if (propResult.error) throw propResult.error;
+      const data = propResult.data;
+
       if (!data) {
         setError('Proposal not found');
         setProposal(null);
         return;
       }
 
-      const options = (data.gig_proposal_options ?? []).map((o: any) => {
-        const votes = o.gig_proposal_votes ?? [];
-        return {
-          id: o.id,
-          starts_at: o.starts_at,
-          yes: votes.filter((v: any) => v.vote === 'yes').length,
-          no: votes.filter((v: any) => v.vote === 'no').length,
-          myVote: votes.find((v: any) => v.user_id === uid)?.vote,
-        } as Option;
-      });
+      const options: Option[] = (data.gig_proposal_options ?? []).map(
+        (o: any) => {
+          const votes = o.gig_proposal_votes ?? [];
+          return {
+            id: o.id,
+            starts_at: o.starts_at,
+            yes: votes.filter((v: any) => v.vote === 'yes').length,
+            no: votes.filter((v: any) => v.vote === 'no').length,
+            myVote: votes.find((v: any) => v.user_id === uid)?.vote,
+          };
+        }
+      );
 
       // lookup "proposed by"
       if (data.created_by) {
@@ -200,24 +213,52 @@ export default function ProposedGigSheetMobile() {
   const isAdmin = !!(proposal && myId && proposal.created_by === myId);
 
   async function vote(optionId: string, voteVal: 'yes' | 'no') {
+    if (!proposalId || !myId) {
+      console.error('No user id or proposal id available for vote');
+      return;
+    }
+
     try {
       setSaving(true);
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not signed in');
 
       await supabase.from('gig_proposal_votes').upsert(
         {
           proposal_id: proposalId,
           option_id: optionId,
-          user_id: user.id,
+          user_id: myId,
           vote: voteVal,
         },
         { onConflict: 'proposal_id,option_id,user_id' }
       );
 
-      await fetchData();
+      // Update local state instead of refetching
+      setProposal((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          options: prev.options.map((o) => {
+            if (o.id !== optionId) return o;
+
+            let yes = o.yes;
+            let no = o.no;
+
+            // remove previous vote impact
+            if (o.myVote === 'yes') yes--;
+            if (o.myVote === 'no') no--;
+
+            // add new vote
+            if (voteVal === 'yes') yes++;
+            if (voteVal === 'no') no++;
+
+            return {
+              ...o,
+              yes,
+              no,
+              myVote: voteVal,
+            };
+          }),
+        };
+      });
     } catch (e) {
       console.error(e);
     } finally {
@@ -231,18 +272,39 @@ export default function ProposedGigSheetMobile() {
       setSaving(true);
 
       const iso = new Date(newDate).toISOString();
-      const { error: insertErr } = await supabase
+      const { data: inserted, error: insertErr } = await supabase
         .from('gig_proposal_options')
         .insert({
           proposal_id: proposalId,
           starts_at: iso,
-        });
+        })
+        .select('id, starts_at')
+        .single();
 
       if (insertErr) throw insertErr;
 
       setNewDate('');
       setAdding(false);
-      await fetchData();
+
+      // Append new option locally with 0 votes
+      if (inserted) {
+        setProposal((prev) =>
+          prev
+            ? {
+                ...prev,
+                options: [
+                  ...prev.options,
+                  {
+                    id: inserted.id,
+                    starts_at: inserted.starts_at,
+                    yes: 0,
+                    no: 0,
+                  },
+                ],
+              }
+            : prev
+        );
+      }
     } catch (e: any) {
       console.error(e);
       setError('Failed to add date option');
@@ -253,32 +315,45 @@ export default function ProposedGigSheetMobile() {
 
   async function convert(optionId: string) {
     try {
-      if (!APP_URL) {
-        throw new Error('Missing VITE_APP_URL for convert endpoint');
+      if (!proposal) {
+        throw new Error('No proposal loaded');
+      }
+      if (!myId) {
+        throw new Error('Not signed in');
       }
 
-      setSaving(true);
-
-      const res = await fetch(
-        `${APP_URL}/api/bands/${bandId}/proposals/${proposalId}/convert`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ optionId }),
-        }
-      );
-
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(text || 'Failed to convert to event');
+      const opt = proposal.options.find((o) => o.id === optionId);
+      if (!opt) {
+        throw new Error('Option not found for this proposal');
       }
 
+      setError(null);
+      setConverting(optionId);
+
+      const { error: insErr } = await supabase.from('events').insert({
+        band_id: bandId,
+        title: proposal.title ?? 'Show',
+        location: proposal.venue ?? null,
+        starts_at: opt.starts_at,
+        type: 'show',
+        is_cancelled: false,
+        created_by: myId,
+      });
+
+      if (insErr) {
+        throw insErr;
+      }
+
+      // delete proposal
+      await supabase.from('gig_proposals').delete().eq('id', proposal.id);
+
+      // show the alert; navigation handled in onDidDismiss
       setShowConvertAlert(true);
     } catch (e: any) {
       console.error(e);
       setError(e?.message ?? 'Failed to convert to event');
     } finally {
-      setSaving(false);
+      setConverting(null);
     }
   }
 
@@ -318,7 +393,15 @@ export default function ProposedGigSheetMobile() {
 
       if (delErr) throw delErr;
 
-      await fetchData();
+      // remove from local state instead of refetching
+      setProposal((prev) =>
+        prev
+          ? {
+              ...prev,
+              options: prev.options.filter((o) => o.id !== optionId),
+            }
+          : prev
+      );
     } catch (e: any) {
       console.error(e);
       setError(e?.message ?? 'Failed to delete date option');
@@ -394,9 +477,20 @@ export default function ProposedGigSheetMobile() {
 
       if (updErr) throw updErr;
 
+      // update local state instead of refetching
+      setProposal((prev) =>
+        prev
+          ? {
+              ...prev,
+              options: prev.options.map((o) =>
+                o.id === editingOptionId ? { ...o, starts_at: iso } : o
+              ),
+            }
+          : prev
+      );
+
       setEditingOptionId(null);
       setEditingOptionDate('');
-      await fetchData();
     } catch (e: any) {
       console.error(e);
       setError(e?.message ?? 'Failed to update date option');
@@ -456,6 +550,31 @@ export default function ProposedGigSheetMobile() {
         ? 'You'
         : proposedByName || 'Bandmate'
       : 'Unknown';
+
+    // Highest YES percentage across options
+    const bestYes =
+      membersCount > 0 && proposal.options.length > 0
+        ? proposal.options.reduce(
+            (acc, o) => {
+              const pct = (o.yes / membersCount) * 100;
+              if (pct > acc.pct) {
+                return { pct, yes: o.yes, option: o };
+              }
+              return acc;
+            },
+            { pct: 0, yes: 0, option: null as Option | null }
+          )
+        : { pct: 0, yes: 0, option: null as Option | null };
+
+    const bestYesPct = Math.round(bestYes.pct);
+
+    const bestYesLabel =
+      bestYes.option && bestYesPct > 0
+        ? new Date(bestYes.option.starts_at).toLocaleString(undefined, {
+            dateStyle: 'medium',
+            timeStyle: 'short',
+          })
+        : null;
 
     return (
       <div
@@ -577,6 +696,118 @@ export default function ProposedGigSheetMobile() {
             </div>
           </div>
 
+          {membersCount > 0 && proposal.options.length > 0 && (
+            <div
+              style={{
+                marginTop: 12,
+              }}
+            >
+              {/* Voting Status + helper circle */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  marginBottom: 4,
+                }}
+              >
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: 12,
+                    textTransform: 'uppercase',
+                    letterSpacing: 0.08,
+                    color: 'rgba(245,158,11,0.9)',
+                  }}
+                >
+                  Voting Status
+                </p>
+
+                <button
+                  type="button"
+                  onClick={() => setShowVotingHelp(true)}
+                  style={{
+                    width: 16,
+                    height: 16,
+                    borderRadius: '999px',
+                    border: '1px solid rgba(245, 158, 11, 0.9)',
+                    background: 'rgba(15,23,42,0.95)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: 0,
+                    fontSize: 10,
+                    lineHeight: 1,
+                    color: '#FBBF24',
+                    cursor: 'pointer',
+                  }}
+                >
+                  ?
+                </button>
+              </div>
+
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  fontSize: 11,
+                  color: '#9CA3AF',
+                  marginBottom: 4,
+                }}
+              >
+                <span>
+                  {bestYesPct > 0 ? 'Total votes' : 'Waiting on more votes'}
+                </span>
+                <span>
+                  {bestYesPct}% ({bestYes.yes}/{membersCount})
+                </span>
+              </div>
+
+              {bestYesLabel && (
+                <p
+                  style={{
+                    margin: 0,
+                    marginBottom: 6,
+                    fontSize: 12,
+                    color: '#9CA3AF',
+                  }}
+                >
+                  Highest yes votes:{' '}
+                  <span
+                    style={{
+                      fontWeight: 600,
+                      color: 'rgba(52,211,153,0.96)',
+                    }}
+                  >
+                    {bestYesLabel}
+                  </span>
+                  .
+                </p>
+              )}
+
+              <div
+                style={{
+                  width: '100%',
+                  height: 6,
+                  borderRadius: 999,
+                  background: 'rgba(31,41,55,0.9)',
+                  overflow: 'hidden',
+                }}
+              >
+                <div
+                  style={{
+                    width: `${bestYesPct}%`,
+                    height: '100%',
+                    borderRadius: 999,
+                    background:
+                      'linear-gradient(90deg, rgba(52,211,153,0.95), rgba(16,185,129,0.98))',
+                    transition: 'width 160ms ease-out',
+                  }}
+                />
+              </div>
+            </div>
+          )}
+
           {isAdmin && (
             <div
               style={{
@@ -600,7 +831,7 @@ export default function ProposedGigSheetMobile() {
                 onClick={startEditProposal}
               >
                 <IonIcon icon={createOutline} slot="start" />
-                Edit proposed gig
+                Edit proposal
               </IonButton>
               <IonButton
                 size="small"
@@ -612,7 +843,7 @@ export default function ProposedGigSheetMobile() {
                 }}
               >
                 <IonIcon icon={trashOutline} slot="start" />
-                Delete proposed gig
+                Delete proposal
               </IonButton>
             </div>
           )}
@@ -630,8 +861,7 @@ export default function ProposedGigSheetMobile() {
             style={{
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: 8,
+              gap: 6,
               marginBottom: 4,
             }}
           >
@@ -642,33 +872,36 @@ export default function ProposedGigSheetMobile() {
                   fontSize: 12,
                   letterSpacing: 0.14,
                   textTransform: 'uppercase',
-                  color: 'rgba(245, 158, 11)', // amber label
+                  color: 'rgba(245, 158, 11)',
                 }}
               >
                 Time options
               </p>
             </IonText>
 
-            {/* ? helper button */}
-            <IonButton
-              onClick={() => setShowHelp(true)}
-              fill="clear"
-              size="small"
+            <button
+              type="button"
+              onClick={() => setShowTimesHelp(true)}
               style={{
-                minWidth: 0,
-                paddingInline: 6,
-                paddingBlock: 4,
-                borderRadius: 999,
+                width: 16,
+                height: 16,
+                borderRadius: '999px',
+                border: '1px solid rgba(245, 158, 11, 0.9)',
+                background: 'rgba(15,23,42,0.95)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: 0,
+                fontSize: 10,
+                lineHeight: 1,
+                color: '#FBBF24',
+                cursor: 'pointer',
               }}
             >
-              <IonIcon
-                icon={helpCircleOutline}
-                style={{ fontSize: 18, color: 'rgba(45,212,191,0.95)' }} // teal icon
-              />
-            </IonButton>
+              ?
+            </button>
           </div>
 
-          {/* If there are NO options yet */}
           {proposal.options.length === 0 ? (
             <IonText color="light">
               <p
@@ -687,7 +920,6 @@ export default function ProposedGigSheetMobile() {
             </IonText>
           ) : (
             <>
-              {/* Normal explanation when there ARE options */}
               <IonText color="medium">
                 <p
                   style={{
@@ -802,9 +1034,9 @@ export default function ProposedGigSheetMobile() {
                                   display: 'flex',
                                   flexDirection: 'row',
                                   gap: 6,
+                                  width: '100%',
                                 }}
                               >
-                                {/* YES = teal */}
                                 <IonButton
                                   size="small"
                                   fill={
@@ -815,16 +1047,20 @@ export default function ProposedGigSheetMobile() {
                                   style={
                                     o.myVote === 'yes'
                                       ? {
+                                          flex: 1,
+                                          justifyContent: 'center',
                                           '--background':
-                                            'rgba(45,212,191,0.95)',
+                                            'rgba(251, 191, 36, 0.95)',
                                           '--background-activated':
-                                            'rgba(45,212,191,1)',
-                                          '--color': '#022c22',
+                                            'rgba(251, 191, 36, 1)',
+                                          '--color': '#451a03',
                                         }
                                       : {
+                                          flex: 1,
+                                          justifyContent: 'center',
                                           '--border-color':
-                                            'rgba(45,212,191,0.85)',
-                                          '--color': 'rgba(45,212,191,0.95)',
+                                            'rgba(251, 191, 36, 0.9)',
+                                          '--color': 'rgba(251, 191, 36, 0.95)',
                                         }
                                   }
                                 >
@@ -835,7 +1071,6 @@ export default function ProposedGigSheetMobile() {
                                   Yes ({o.yes})
                                 </IonButton>
 
-                                {/* NO = amber-ish danger for proposals */}
                                 <IonButton
                                   size="small"
                                   fill={o.myVote === 'no' ? 'solid' : 'outline'}
@@ -844,16 +1079,21 @@ export default function ProposedGigSheetMobile() {
                                   style={
                                     o.myVote === 'no'
                                       ? {
+                                          flex: 1,
+                                          justifyContent: 'center',
                                           '--background':
-                                            'rgba(251, 191, 36, 0.95)',
+                                            'rgba(248, 113, 113, 0.95)',
                                           '--background-activated':
-                                            'rgba(251, 191, 36, 1)',
-                                          '--color': '#451a03',
+                                            'rgba(248, 113, 113, 1)',
+                                          '--color': '#450a0a',
                                         }
                                       : {
+                                          flex: 1,
+                                          justifyContent: 'center',
                                           '--border-color':
-                                            'rgba(251, 191, 36, 0.9)',
-                                          '--color': 'rgba(251, 191, 36, 0.95)',
+                                            'rgba(248, 113, 113, 0.9)',
+                                          '--color':
+                                            'rgba(248, 113, 113, 0.95)',
                                         }
                                   }
                                 >
@@ -890,22 +1130,10 @@ export default function ProposedGigSheetMobile() {
                                 </p>
                               </IonText>
 
-                              <input
-                                type="datetime-local"
-                                value={editingOptionDate}
-                                onChange={(e) =>
-                                  setEditingOptionDate(e.target.value)
-                                }
-                                style={{
-                                  width: '100%',
-                                  borderRadius: 10,
-                                  border: '1px solid rgba(148,163,184,0.8)',
-                                  padding: 8,
-                                  backgroundColor: '#020617',
-                                  color: '#E5E7EB',
-                                }}
+                              <DateTimePickerMobile
+                                value={editingOptionDate || undefined}
+                                onChange={(iso) => setEditingOptionDate(iso)}
                               />
-
                               <div
                                 style={{
                                   display: 'flex',
@@ -919,11 +1147,13 @@ export default function ProposedGigSheetMobile() {
                                   onClick={saveOptionEdit}
                                   disabled={!editingOptionDate || saving}
                                   style={{
-                                    '--background': 'rgba(45,212,191,0.95)',
+                                    '--background': 'rgba(251, 191, 36, 0.95)',
                                     '--background-activated':
-                                      'rgba(45,212,191,1)',
-                                    '--color': '#022c22',
+                                      'rgba(251, 191, 36, 1)',
+                                    '--color': '#451a03',
                                     borderRadius: 999,
+                                    boxShadow:
+                                      '0 0 18px rgba(251, 191, 36, 0.45)',
                                   }}
                                 >
                                   Save
@@ -958,15 +1188,16 @@ export default function ProposedGigSheetMobile() {
                                 marginTop: 10,
                               }}
                               onClick={() => convert(o.id)}
-                              disabled={saving}
+                              disabled={saving || converting === o.id}
                             >
-                              Convert to Event
+                              {converting === o.id
+                                ? 'Converting…'
+                                : 'Convert to Event'}
                             </IonButton>
                           )}
                         </div>
                       </IonItem>
 
-                      {/* SWIPE ACTIONS — HIDDEN WHILE EDITING */}
                       {isAdmin && !isEditingThis && (
                         <IonItemOptions
                           side="end"
@@ -1086,13 +1317,10 @@ export default function ProposedGigSheetMobile() {
                   onClick={() => setAdding(true)}
                   disabled={saving}
                   style={{
-                    '--background': 'rgba(15,23,42,0.98)',
-                    '--border-color': 'rgba(45,212,191,0.8)',
-                    '--color': 'rgba(45,212,191,0.95)',
-                    '--background-activated': 'rgba(27, 124, 111, 1)',
+                    '--border-color': 'rgba(245,158,11,0.85)',
+                    '--color': 'rgba(245,158,11,0.95)',
+                    '--background-activated': 'rgba(245,158,11,0.85)',
                     borderRadius: 999,
-                    boxShadow:
-                      '0 0 0 1px rgba(15,23,42,0.9), 0 8px 22px rgba(0,0,0,0.9)',
                   }}
                 >
                   <IonIcon icon={addCircleOutline} slot="start" />
@@ -1125,23 +1353,7 @@ export default function ProposedGigSheetMobile() {
                     </p>
                   </IonText>
 
-                  <input
-                    type="datetime-local"
-                    value={newDate}
-                    onChange={(e) => setNewDate(e.target.value)}
-                    style={{
-                      width: '100%',
-                      maxWidth: '100%',
-                      display: 'block',
-                      boxSizing: 'border-box',
-                      borderRadius: 10,
-                      border: '1px solid rgba(148,163,184,0.8)',
-                      padding: '10px 12px',
-                      backgroundColor: '#020617',
-                      color: '#E5E7EB',
-                      fontSize: 14,
-                    }}
-                  />
+                  <DateTimePickerMobile value={newDate} onChange={setNewDate} />
 
                   <div
                     style={{
@@ -1157,12 +1369,11 @@ export default function ProposedGigSheetMobile() {
                       onClick={addOption}
                       disabled={!newDate || saving}
                       style={{
-                        '--background': 'rgba(45,212,191,0.95)',
-                        '--background-activated': 'rgba(45,212,191,1)',
-                        '--background-hover': 'rgba(45,212,191,1)',
-                        '--color': '#022c22',
+                        '--background': 'rgba(251, 191, 36, 0.95)',
+                        '--background-activated': 'rgba(251, 191, 36, 1)',
+                        '--color': '#451a03',
                         borderRadius: 999,
-                        boxShadow: '0 0 18px rgba(45,212,191,0.45)',
+                        boxShadow: '0 0 18px rgba(251, 191, 36, 0.45)',
                       }}
                     >
                       Save
@@ -1274,7 +1485,7 @@ export default function ProposedGigSheetMobile() {
                   marginLeft: 10,
                   padding: '4px 10px',
                   borderRadius: 999,
-                  border: '1px solid rgba(245, 158, 11, 0.25)', // amber
+                  border: '1px solid rgba(245, 158, 11, 0.25)',
                   color: 'rgba(245,158,11,0.97)',
                   fontSize: 11,
                   fontWeight: 600,
@@ -1310,16 +1521,28 @@ export default function ProposedGigSheetMobile() {
         isOpen={showConvertAlert}
         onDidDismiss={() => {
           setShowConvertAlert(false);
-          nav(-1);
+          if (bandId) {
+            nav(`/bands/${bandId}`);
+            window.dispatchEvent(
+              new CustomEvent('amplee:band-tab', {
+                detail: { tab: 'events' },
+              })
+            );
+          } else {
+            nav(-1);
+          }
         }}
         header="Converted!"
         message="This proposed gig has been converted to an event. Check your Events tab."
         buttons={['OK']}
+        className="custom-dark-alert"
       />
 
       {/* helper popup explaining voting */}
-      {/* helper popup explaining voting */}
-      <IonModal isOpen={showHelp} onDidDismiss={() => setShowHelp(false)}>
+      <IonModal
+        isOpen={showVotingHelp}
+        onDidDismiss={() => setShowVotingHelp(false)}
+      >
         <IonContent
           style={{
             '--background':
@@ -1341,7 +1564,6 @@ export default function ProposedGigSheetMobile() {
                 maxWidth: 360,
                 borderRadius: 18,
                 padding: 18,
-
                 border: '1px solid rgba(245, 158, 11, 0.75)',
                 boxShadow: '0 18px 60px rgba(0,0,0,0.9)',
               }}
@@ -1352,10 +1574,10 @@ export default function ProposedGigSheetMobile() {
                     margin: 0,
                     fontSize: 17,
                     fontWeight: 700,
-                    color: '#FBBF24', // amber title
+                    color: '#FBBF24',
                   }}
                 >
-                  How Proposed Gigs Work
+                  Voting Status &amp; Best Yes
                 </p>
               </IonText>
 
@@ -1368,31 +1590,33 @@ export default function ProposedGigSheetMobile() {
                     lineHeight: 1.5,
                   }}
                 >
-                  Each proposed date is a possible time for this gig.
+                  The <strong>Voting Status</strong> bar shows how many people
+                  in your band are currently saying <strong>Yes</strong> across
+                  the time options. The percentage is the share of your band
+                  that&apos;s leaning yes, so a higher number means this gig is
+                  closer to being a lock.
                   <br />
                   <br />
-                  Tap <strong>Yes</strong> for any dates that work for you, and{' '}
-                  <strong>No</strong> for dates that don&apos;t.
+                  The option with the most yes votes is your band&apos;s current{' '}
+                  <strong>Best Yes</strong> — the date that works for the most
+                  people at a glance.
                   <br />
                   <br />
-                  When every member has said <strong>Yes</strong> to a time,
-                  your band admin can convert that option into a confirmed event
-                  in the Events tab.
-                  <br />
-                  <br />
-                  All proposed gigs live on your band overview and in the
-                  Proposals tab.
+                  When every member has said <strong>Yes</strong> to a specific
+                  time, your band admin can convert that option into a confirmed
+                  event in the Events tab.
                 </p>
               </IonText>
 
               <IonButton
                 expand="block"
-                onClick={() => setShowHelp(false)}
+                onClick={() => setShowVotingHelp(false)}
                 style={{
                   '--background': 'rgba(15,23,42,0.98)',
-                  '--background-activated': 'rgba(27, 124, 111, 1)',
-                  '--border-color': 'rgba(45,212,191,0.8)',
-                  '--color': 'rgba(45,212,191,0.95)',
+                  '--background-activated': 'rgba(52, 211, 153, 0.95)',
+                  '--border-color': 'rgba(52, 211, 153, 0.95)',
+                  '--color': 'rgba(52, 211, 153, 0.95)',
+                  '--color-activated': '#000000',
                   borderRadius: 999,
                 }}
               >
@@ -1403,15 +1627,15 @@ export default function ProposedGigSheetMobile() {
         </IonContent>
       </IonModal>
 
-      {/* Dark delete popup */}
+      {/* helper popup explaining time options */}
       <IonModal
-        isOpen={showDeleteConfirm}
-        onDidDismiss={() => !deleting && setShowDeleteConfirm(false)}
+        isOpen={showTimesHelp}
+        onDidDismiss={() => setShowTimesHelp(false)}
       >
         <IonContent
           style={{
             '--background':
-              'radial-gradient(circle at top, rgba(76,29,149,0.4), #020617 55%)',
+              'radial-gradient(circle at top,  rgba(34, 15, 42, 0.98), #020617 55%)',
           }}
         >
           <div
@@ -1429,8 +1653,93 @@ export default function ProposedGigSheetMobile() {
                 maxWidth: 360,
                 borderRadius: 18,
                 padding: 18,
-                background:
-                  'linear-gradient(180deg, rgba(15,23,42,0.98), rgba(3,7,18,0.98))',
+                border: '1px solid rgba(245, 158, 11, 0.75)',
+                boxShadow: '0 18px 60px rgba(0,0,0,0.9)',
+              }}
+            >
+              <IonText>
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: 17,
+                    fontWeight: 700,
+                    color: '#FBBF24',
+                  }}
+                >
+                  Time Options &amp; Voting
+                </p>
+              </IonText>
+
+              <IonText color="light">
+                <p
+                  style={{
+                    marginTop: 8,
+                    marginBottom: 18,
+                    fontSize: 14,
+                    lineHeight: 1.5,
+                  }}
+                >
+                  Each row under <strong>Time options</strong> is a possible
+                  date and time for this gig.
+                  <br />
+                  <br />
+                  Tap <strong>Yes</strong> for any dates that work for you, and{' '}
+                  <strong>No</strong> for dates that don&apos;t. You can say{' '}
+                  <strong>Yes</strong> to more than one option if multiple dates
+                  would work for you.
+                  <br />
+                  <br />
+                  As everyone in your band votes, the{' '}
+                  <strong>Voting Status</strong> bar and Best Yes summary help
+                  your admin quickly see which dates are rising to the top
+                  before locking in a final event.
+                </p>
+              </IonText>
+
+              <IonButton
+                expand="block"
+                onClick={() => setShowTimesHelp(false)}
+                style={{
+                  '--background': 'rgba(15,23,42,0.98)',
+                  '--background-activated': 'rgba(45, 212, 191, 0.95)',
+                  '--border-color': 'rgba(45, 212, 191, 0.95)',
+                  '--color': 'rgba(45, 212, 191, 0.95)',
+                  '--color-activated': '#000000',
+                  borderRadius: 999,
+                }}
+              >
+                Got it
+              </IonButton>
+            </div>
+          </div>
+        </IonContent>
+      </IonModal>
+
+      {/* Dark delete popup */}
+      <IonModal
+        style={{
+          '--background':
+            'radial-gradient(circle at top,  rgba(34, 15, 42, 0.98), #020617 55%)',
+        }}
+        isOpen={showDeleteConfirm}
+        onDidDismiss={() => !deleting && setShowDeleteConfirm(false)}
+      >
+        <IonContent>
+          <div
+            style={{
+              height: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: 24,
+            }}
+          >
+            <div
+              style={{
+                width: '100%',
+                maxWidth: 360,
+                borderRadius: 18,
+                padding: 18,
                 border: '1px solid rgba(248,113,113,0.6)',
                 boxShadow: '0 18px 60px rgba(0,0,0,0.9)',
               }}
@@ -1501,7 +1810,7 @@ export default function ProposedGigSheetMobile() {
         <IonContent
           style={{
             '--background':
-              'radial-gradient(circle at top, rgba(76,29,149,0.4), #020617 55%)',
+              'radial-gradient(circle at top,  rgba(34, 15, 42, 0.98), #020617 55%)',
           }}
         >
           <div
@@ -1519,9 +1828,7 @@ export default function ProposedGigSheetMobile() {
                 maxWidth: 360,
                 borderRadius: 18,
                 padding: 18,
-                background:
-                  'linear-gradient(180deg, rgba(15,23,42,0.98), rgba(3,7,18,0.98))',
-                border: '1px solid rgba(129,140,248,0.7)',
+                border: '1px solid rgba(245, 158, 11, 0.75)',
                 boxShadow: '0 18px 60px rgba(0,0,0,0.9)',
               }}
             >
@@ -1531,10 +1838,10 @@ export default function ProposedGigSheetMobile() {
                     margin: 0,
                     fontSize: 17,
                     fontWeight: 700,
-                    color: '#EDEBFF',
+                    color: '#FBBF24',
                   }}
                 >
-                  Edit proposed gig
+                  Edit proposal
                 </p>
               </IonText>
 
@@ -1622,6 +1929,14 @@ export default function ProposedGigSheetMobile() {
                   expand="block"
                   disabled={savingProposal}
                   onClick={saveProposalEdits}
+                  style={{
+                    '--background': 'rgba(15,23,42,0.98)',
+                    '--background-activated': 'rgba(45,212,191,0.95)',
+                    '--border-color': 'rgba(45,212,191,0.8)',
+                    '--color': 'rgba(45,212,191,0.95)',
+                    '--color-activated': '#000000',
+                    borderRadius: 999,
+                  }}
                 >
                   {savingProposal ? 'Saving…' : 'Save changes'}
                 </IonButton>

@@ -2,8 +2,8 @@
 import {
   IonAvatar,
   IonButton,
+  IonButtons,
   IonContent,
-  IonFooter,
   IonHeader,
   IonIcon,
   IonInput,
@@ -19,7 +19,11 @@ import {
   IonToast,
   IonToolbar,
 } from '@ionic/react';
-import { close as closeIcon } from 'ionicons/icons';
+import {
+  calendarOutline,
+  close as closeIcon,
+  peopleOutline,
+} from 'ionicons/icons';
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCreateBand } from '../../src/hooks/useCreateBand';
@@ -115,13 +119,45 @@ export default function GlobalCreateMobile({
   } = useCreateBand();
 
   React.useEffect(() => {
-    const onOpen = () => setOpen(true);
+    const onOpen = () => {
+      setStep('menu');
+      setOpen(true);
+    };
+
     const onClose = () => setOpen(false);
+
+    const onAmpleeGlobalCreate = (evt: Event) => {
+      const custom = evt as CustomEvent<
+        { kind?: string; bandId?: string } | undefined
+      >;
+      const detail = custom.detail || {};
+
+      if (detail.kind === 'event') {
+        setStep('newEvent');
+        if (detail.bandId) {
+          setEventBandId(detail.bandId);
+        }
+      } else {
+        setStep('menu');
+      }
+
+      setOpen(true);
+    };
+
     window.addEventListener('global-create:open', onOpen);
     window.addEventListener('global-create:close', onClose);
+    window.addEventListener(
+      'amplee:global-create',
+      onAmpleeGlobalCreate as any
+    );
+
     return () => {
       window.removeEventListener('global-create:open', onOpen);
       window.removeEventListener('global-create:close', onClose);
+      window.removeEventListener(
+        'amplee:global-create',
+        onAmpleeGlobalCreate as any
+      );
     };
   }, [setOpen]);
 
@@ -295,6 +331,16 @@ export default function GlobalCreateMobile({
                 ? 'Create Band'
                 : 'Create Event'}
             </IonTitle>
+
+            <IonButtons slot="end">
+              <IonButton
+                onClick={closeAll}
+                aria-label="Close"
+                style={{ marginRight: 4 }}
+              >
+                <IonIcon icon={closeIcon} />
+              </IonButton>
+            </IonButtons>
           </IonToolbar>
         </IonHeader>
 
@@ -333,20 +379,150 @@ export default function GlobalCreateMobile({
           )}
 
           {step === 'menu' && (
-            <IonList lines="none">
-              <IonItem button detail onClick={() => setStep('newBand')}>
-                <IonLabel>
-                  <div style={{ fontWeight: 800 }}>New Band</div>
-                  <small>Start a new group or solo act</small>
-                </IonLabel>
-              </IonItem>
-              <IonItem button detail onClick={() => setStep('newEvent')}>
-                <IonLabel>
-                  <div style={{ fontWeight: 800 }}>New Event</div>
-                  <small>Create a show or practice</small>
-                </IonLabel>
-              </IonItem>
-            </IonList>
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 16,
+                padding: '4px 4px 24px',
+              }}
+            >
+              <div style={{ textAlign: 'center', marginBottom: 4 }}>
+                <IonText color="light">
+                  <p
+                    style={{
+                      margin: 0,
+                      fontSize: 13,
+                      letterSpacing: 0.3,
+                      textTransform: 'uppercase',
+                      opacity: 0.75,
+                    }}
+                  >
+                    Start something new
+                  </p>
+                </IonText>
+              </div>
+
+              {/* New Band card */}
+              <button
+                type="button"
+                onClick={() => setStep('newBand')}
+                style={{
+                  width: '100%',
+                  borderRadius: 20,
+                  padding: '14px 16px',
+                  border: 'none',
+                  outline: 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 12,
+                  background:
+                    'radial-gradient(circle at 0% 0%, rgba(168,85,247,0.28), transparent 55%), linear-gradient(135deg, rgba(15,23,42,0.98), rgba(17,24,39,0.98))',
+
+                  color: '#E5E7EB',
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                }}
+              >
+                <div
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 999,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    background:
+                      'radial-gradient(circle at 30% 0%, rgba(244,244,245,0.18), transparent 60%)',
+                  }}
+                >
+                  <IonIcon icon={peopleOutline} style={{ fontSize: 22 }} />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div
+                    style={{
+                      fontSize: 16,
+                      fontWeight: 800,
+                      letterSpacing: 0.2,
+                    }}
+                  >
+                    New Band
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 13,
+                      opacity: 0.8,
+                      marginTop: 2,
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                    }}
+                  >
+                    Start a new group or solo project in one tap.
+                  </div>
+                </div>
+              </button>
+
+              {/* New Event card */}
+              <button
+                type="button"
+                onClick={() => setStep('newEvent')}
+                style={{
+                  width: '100%',
+                  borderRadius: 20,
+                  padding: '14px 16px',
+                  border: 'none',
+                  outline: 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 12,
+                  background:
+                    'radial-gradient(circle at 0% 0%, rgba(45,212,191,0.25), transparent 55%), linear-gradient(135deg, rgba(15,23,42,0.98), rgba(15,23,42,0.98))',
+
+                  color: '#E5E7EB',
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                }}
+              >
+                <div
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 999,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    background:
+                      'radial-gradient(circle at 30% 0%, rgba(244,244,245,0.18), transparent 60%)',
+                  }}
+                >
+                  <IonIcon icon={calendarOutline} style={{ fontSize: 22 }} />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div
+                    style={{
+                      fontSize: 16,
+                      fontWeight: 800,
+                      letterSpacing: 0.2,
+                    }}
+                  >
+                    New Event
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 13,
+                      opacity: 0.8,
+                      marginTop: 2,
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                    }}
+                  >
+                    Create a show or practice and invite your band.
+                  </div>
+                </div>
+              </button>
+            </div>
           )}
 
           {step === 'newBand' && (
@@ -581,21 +757,6 @@ export default function GlobalCreateMobile({
             </>
           )}
         </IonContent>
-
-        <IonFooter>
-          <div
-            style={{ padding: 8, display: 'flex', justifyContent: 'center' }}
-          >
-            <IonButton
-              color="medium"
-              fill="clear"
-              onClick={closeAll}
-              aria-label="Close"
-            >
-              <IonIcon icon={closeIcon} />
-            </IonButton>
-          </div>
-        </IonFooter>
       </IonModal>
 
       {/* Toast */}

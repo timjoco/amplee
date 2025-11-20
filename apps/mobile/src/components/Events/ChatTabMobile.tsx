@@ -75,7 +75,9 @@ export default function ChatTabMobile({
   const [keyboardOffset, setKeyboardOffset] = useState(0);
   const [showStatusPicker, setShowStatusPicker] = useState(false);
 
-  // keep messagesRef in sync with state, so we can use it in subscriptions
+  // this helps with ios keyboard
+  const MAX_KEYBOARD_SHIFT = 50;
+
   useEffect(() => {
     messagesRef.current = messages;
   }, [messages]);
@@ -692,11 +694,12 @@ export default function ChatTabMobile({
         display: 'flex',
         flexDirection: 'column',
         background: '#050509',
+
         transform:
           keyboardOffset > 0
             ? `translateY(-${Math.min(
                 Math.max(keyboardOffset - 20, 0),
-                260
+                MAX_KEYBOARD_SHIFT
               )}px)`
             : 'none',
         transition: 'transform 160ms ease-out',
@@ -718,7 +721,7 @@ export default function ChatTabMobile({
           minHeight: 0,
           overflowY: 'auto',
           WebkitOverflowScrolling: 'touch',
-          padding: '8px 0 4px',
+          padding: '8px 0 12px',
         }}
       >
         {loading ? (
@@ -993,15 +996,15 @@ export default function ChatTabMobile({
       <div
         style={{
           background: '#050509',
-          borderTop: '0.5px solid rgba(88,28,135,0.7)',
-          paddingBottom: 'env(safe-area-inset-bottom)',
+          borderTop: '0.5px solid rgba(52, 211, 153, 0.4)',
+          paddingBottom: 'calc(env(safe-area-inset-bottom) + 8px)',
           width: '100%',
           marginInline: 0,
         }}
       >
         <div
           style={{
-            paddingTop: 4,
+            paddingTop: 10,
             paddingInline: 10,
             paddingBottom: 4,
             display: 'flex',

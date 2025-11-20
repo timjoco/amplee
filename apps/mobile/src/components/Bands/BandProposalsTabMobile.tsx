@@ -101,21 +101,6 @@ export default function BandProposalsTabMobile({ bandId, isAdmin }: Props) {
         </EmptyListMessage>
       ) : (
         <>
-          <IonText color="light">
-            <p
-              style={{
-                margin: '0 16px 8px',
-                fontWeight: 600,
-                fontSize: 14,
-                letterSpacing: 0.4,
-                textTransform: 'uppercase',
-                color: 'rgba(245, 158, 11, 0.95)',
-              }}
-            >
-              Proposed gigs
-            </p>
-          </IonText>
-
           <IonList
             inset={false}
             style={{
@@ -146,12 +131,10 @@ export default function BandProposalsTabMobile({ bandId, isAdmin }: Props) {
                   onClick={() => nav(`/bands/${bandId}/proposals/${p.id}`)}
                   style={
                     {
-                      '--background':
-                        'linear-gradient(135deg, rgba(15,23,42,0.96), rgba(17,24,39,0.98))',
                       borderRadius: 16,
                       marginBottom: 10,
                       boxShadow:
-                        '0 10px 30px rgba(0,0,0,0.85), 0 0 22px rgba(8,47,73,0.45)', // subtle teal-ish glow
+                        '0 10px 30px rgba(0,0,0,0.85), 0 0 22px rgba(8,47,73,0.45)',
                     } as any
                   }
                 >
@@ -223,15 +206,18 @@ export default function BandProposalsTabMobile({ bandId, isAdmin }: Props) {
           }}
         >
           <IonButton
+            fill="outline"
+            size="default"
             onClick={() => setOpenNew(true)}
-            style={{
-              '--background': 'rgba(45,212,191,0.95)', // teal button
-              '--background-activated': 'rgba(15,118,110,1)',
-              '--background-hover': 'rgba(20,184,166,1)',
-              '--color': '#022c22',
-              borderRadius: 999,
-              boxShadow: '0 10px 30px rgba(45,212,191,0.35)',
-            }}
+            style={
+              {
+                '--color': 'rgba(245, 158, 11, 0.95)',
+                '--border-color': 'rgba(245, 158, 11, 0.95)',
+                '--background-activated': 'rgba(245, 158, 11, 0.95)',
+                '--border-color-activated': 'rgba(245, 158, 11, 0.95)',
+                '--color-activated': '#000000',
+              } as React.CSSProperties
+            }
           >
             <IonIcon icon={addOutline} slot="start" />
             Propose new gig
@@ -442,12 +428,11 @@ function AddProposalModalMobile({
               onClick={handleSave}
               disabled={!title.trim() || saving}
               style={{
-                '--background': 'rgba(45,212,191,0.95)',
-                '--background-activated': 'rgba(15,118,110,1)',
-                '--background-hover': 'rgba(20,184,166,1)',
+                '--background': 'rgba(245, 158, 11, 0.95)',
+                '--background-activated': 'rgba(245, 158, 11, 0.95)',
+                '--background-hover': 'rgba(130, 119, 100, 0.95)',
                 '--color': '#022c22',
                 borderRadius: 999,
-                boxShadow: '0 10px 28px rgba(45,212,191,0.4)',
               }}
             >
               {saving ? <IonSpinner name="crescent" /> : 'Create proposal'}

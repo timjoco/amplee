@@ -1,4 +1,3 @@
-// apps/mobile/src/components/Events/RSVPTabMobile.tsx
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { IonSpinner, IonText, IonToast } from '@ionic/react';
 import * as React from 'react';
@@ -134,8 +133,9 @@ export default function RSVPTabMobile({ eventId }: { eventId: string }) {
           style={{
             borderRadius: 18,
             background:
-              'linear-gradient(145deg, #08070d, #050509 55%, #0b0614)',
-            border: '1px solid rgba(88,28,135,0.7)',
+              'radial-gradient(circle at top left, rgba(15,118,110,0.16), #020617 45%, #020617 100%)',
+            border: '1px solid rgba(52,211,153,0.30)',
+            boxShadow: '0 14px 32px rgba(0,0,0,0.85)',
             padding: 14,
             marginBottom: 16,
           }}
@@ -148,14 +148,13 @@ export default function RSVPTabMobile({ eventId }: { eventId: string }) {
                 fontWeight: 700,
                 letterSpacing: 0.04,
                 textTransform: 'uppercase',
-                color: 'rgba(237,233,254,0.96)',
+                color: 'rgba(209,250,229,0.96)',
               }}
             >
               Can you make the show?
             </p>
           </div>
 
-          {/* buttons row */}
           <div
             style={{
               display: 'flex',
@@ -171,10 +170,14 @@ export default function RSVPTabMobile({ eventId }: { eventId: string }) {
               style={{
                 ...primaryButtonBase,
                 background: isAccepted
-                  ? 'linear-gradient(135deg, rgba(147,51,234,0.96), rgba(107,58,157,0.98))'
-                  : 'rgba(17,24,39,0.95)',
-                color: isAccepted ? '#F5F3FF' : 'rgba(196,181,253,0.85)',
+                  ? 'linear-gradient(135deg, rgba(52, 211, 153, 0.75))'
+                  : 'rgba(0, 0, 0, 0.95)',
+                color: isAccepted ? '#ECFDF5' : 'rgba(52,211,153,0.75)',
                 opacity: saving && isAccepted ? 0.8 : 1,
+                border: isAccepted
+                  ? '1px solid rgba(22,163,74,0.9)'
+                  : '1px solid rgba(30,64,75,0.9)',
+                boxShadow: '0 10px 24px rgba(0,0,0,0.85)',
               }}
             >
               {saving && isAccepted && (
@@ -194,11 +197,15 @@ export default function RSVPTabMobile({ eventId }: { eventId: string }) {
               style={{
                 ...secondaryButtonBase,
                 border: isPending
-                  ? '1px solid rgba(148,163,184,0.95)'
-                  : '1px solid rgba(107,114,128,0.7)',
+                  ? '1px solid rgba(251,191,36,0.95)'
+                  : '1px solid rgba(51,65,85,0.9)',
                 background: isPending
-                  ? 'rgba(15,23,42,0.98)'
-                  : 'rgba(17,24,39,0.9)',
+                  ? 'linear-gradient(135deg, rgba(251,191,36,0.18)'
+                  : 'rgba(15,23,42,0.96)',
+                color: isPending ? '#FEFCE8' : 'rgba(148,163,184,0.95)',
+                boxShadow: isPending
+                  ? '0 10px 26px rgba(15,23,42,0.95)'
+                  : '0 10px 24px rgba(0,0,0,0.85)',
               }}
             >
               {saving && isPending && (
@@ -263,7 +270,7 @@ export default function RSVPTabMobile({ eventId }: { eventId: string }) {
 
             <div style={{ marginTop: 2 }}>
               Band RSVP:{' '}
-              <strong style={{ color: '#C4B5FD' }}>
+              <strong style={{ color: 'rgba(52, 211, 153, 0.95)' }}>
                 {counts.accepted}/{counts.total}
               </strong>{' '}
               marked as &quot;Yes&quot;
@@ -277,7 +284,7 @@ export default function RSVPTabMobile({ eventId }: { eventId: string }) {
             borderRadius: 18,
             background:
               'linear-gradient(145deg, #08070d, #050509 55%, #0b0614)',
-            border: '1px solid rgba(88,28,135,0.85)',
+            border: '1px solid rgba(52, 211, 153, 0.40)',
             padding: 14,
           }}
         >
@@ -410,7 +417,7 @@ function ConfirmStatusPopup({
           maxWidth: 360,
           borderRadius: 18,
           background: 'linear-gradient(160deg, #02010a, #050509 55%, #050111)',
-          border: '1px solid rgba(88,28,135,0.85)',
+          border: '1px solid rgba(52, 211, 153, 0.95)',
           padding: 16,
           boxShadow: '0 22px 45px rgba(0,0,0,0.9)',
         }}
@@ -452,10 +459,9 @@ function ConfirmStatusPopup({
               width: '100%',
               paddingBlock: 10,
               borderRadius: 999,
-              border: '1px solid rgba(216,180,254,0.9)',
-              background:
-                'linear-gradient(135deg, rgba(147,51,234,0.96), rgba(107,58,157,0.98))',
-              color: '#F9FAFB',
+              border: '1px solid rgba(52, 211, 153, 0.95)',
+              background: ' rgba(14, 5, 22, 0.96)',
+              color: 'rgba(52, 211, 153, 0.95)',
               fontSize: 14,
               fontWeight: 600,
               textAlign: 'center',
@@ -470,7 +476,11 @@ function ConfirmStatusPopup({
             {saving && (
               <IonSpinner
                 name="dots"
-                style={{ width: 14, height: 14, marginRight: 2 }}
+                style={{
+                  width: 14,
+                  height: 14,
+                  marginRight: 2,
+                }}
               />
             )}
             Confirm

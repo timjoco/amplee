@@ -2,13 +2,14 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import {
   IonAvatar,
+  IonButton,
   IonIcon,
   IonItem,
   IonList,
   IonSpinner,
   IonText,
 } from '@ionic/react';
-import { chevronForwardOutline } from 'ionicons/icons';
+import { addOutline, chevronForwardOutline } from 'ionicons/icons';
 
 import { Capacitor } from '@capacitor/core';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
@@ -33,10 +34,14 @@ export default function EventInboxListMobile({
   onLoaded,
   bandId,
   showAvatars = true,
+  enableCreateForBand = false,
+  isAdmin,
 }: {
   onLoaded?: (count: number) => void;
   bandId?: string;
   showAvatars?: boolean;
+  enableCreateForBand?: boolean;
+  isAdmin?: boolean; // 👈 add this
 }) {
   const nav = useNavigate();
 
@@ -255,6 +260,18 @@ export default function EventInboxListMobile({
     nav(`/bands/${bId}/events/${eventId}`);
   };
 
+  const openGlobalCreateForBand = () => {
+    if (!bandId) return;
+    window.dispatchEvent(
+      new CustomEvent('amplee:global-create', {
+        detail: {
+          kind: 'event',
+          bandId,
+        },
+      })
+    );
+  };
+
   // --- Long-press haptic + visual “puff” --------------------------
 
   const handlePressStart = useCallback(
@@ -359,7 +376,53 @@ export default function EventInboxListMobile({
   }
 
   if (rows.length === 0) {
-    return <IonText color="medium">No events yet.</IonText>;
+    const message = isAdmin
+      ? 'No events yet. Create one to get your band calendar started.'
+      : 'No events yet. Your band admin can create events for upcoming shows and practices.';
+
+    return (
+      <div
+        style={{
+          paddingTop: 8,
+          paddingBottom: 16,
+          paddingInline: 16,
+          textAlign: 'center',
+        }}
+      >
+        <IonText color="medium">
+          <p
+            style={{
+              margin: 0,
+              marginBottom: enableCreateForBand && bandId && isAdmin ? 10 : 0,
+              fontSize: 14,
+              lineHeight: 1.5,
+            }}
+          >
+            {message}
+          </p>
+        </IonText>
+
+        {enableCreateForBand && bandId && isAdmin && (
+          <IonButton
+            fill="outline"
+            size="default"
+            onClick={openGlobalCreateForBand}
+            style={{
+              marginTop: 4,
+              '--color': 'rgba(52, 211, 153, 0.95)',
+              '--border-color': 'rgba(52, 211, 153, 0.95)',
+              '--background-activated': 'rgba(52, 211, 153, 0.95)',
+              '--border-color-activated': 'rgba(52, 211, 153, 0.95)',
+              '--color-activated': '#000000',
+              borderRadius: 999,
+            }}
+          >
+            <IonIcon icon={addOutline} slot="start" />
+            Create new event
+          </IonButton>
+        )}
+      </div>
+    );
   }
 
   // --- Render list ------------------------------------------------
@@ -406,12 +469,12 @@ export default function EventInboxListMobile({
             <IonItem
               key={e.id}
               detail={false}
-              onClick={() => openEvent(e.band_id, e.id)} // short tap still opens, no haptic
+              onClick={() => openEvent(e.band_id, e.id)}
               lines="none"
               style={{
                 ['--background' as any]: 'transparent',
                 ['--background-hover' as any]: 'transparent',
-                marginInline: 0,
+                marginInline: -8, // ⬅️ was 0 — now reaches 8px past the content padding
                 paddingInline: 0,
                 paddingBlock: 3,
               }}
@@ -504,7 +567,7 @@ export default function EventInboxListMobile({
 
                   <span
                     style={{
-                      marginTop: 6,
+                      marginTop: 8, // ⬅️ slightly more breathing room under title
                       fontSize: 13,
                       opacity: 0.8,
                       whiteSpace: 'nowrap',
@@ -559,6 +622,33 @@ export default function EventInboxListMobile({
           );
         })}
       </IonList>
+
+      {enableCreateForBand && bandId && (
+        <div
+          style={{
+            marginTop: 12,
+            display: 'flex',
+            justifyContent: 'center',
+          }}
+        >
+          <IonButton
+            fill="outline"
+            size="default"
+            onClick={openGlobalCreateForBand}
+            style={{
+              '--color': 'rgba(52, 211, 153, 0.95)',
+              '--border-color': 'rgba(52, 211, 153, 0.95)',
+              '--background-activated': 'rgba(52, 211, 153, 0.95)',
+              '--border-color-activated': 'rgba(52, 211, 153, 0.95)',
+              '--color-activated': '#000000',
+              borderRadius: 999,
+            }}
+          >
+            <IonIcon icon={addOutline} slot="start" />
+            Create new event
+          </IonButton>
+        </div>
+      )}
     </div>
   );
 }
