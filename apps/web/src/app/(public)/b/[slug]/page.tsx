@@ -179,12 +179,12 @@ export default async function PublicBandPage({
   params,
   searchParams,
 }: {
-  params: { slug: string };
-  searchParams?: { theme?: string };
+  params: Promise<{ slug: string }>;
+  searchParams?: Promise<{ theme?: string }>;
 }) {
-  const { slug } = params;
-  const sp = searchParams || {};
-  const rawTheme = (sp.theme || '').toString();
+  const { slug } = await params;
+  const sp = (await searchParams) ?? {};
+  const rawTheme = (sp.theme ?? '').toString();
 
   const allThemeKeys = Object.keys(THEMES) as ThemeName[];
 
