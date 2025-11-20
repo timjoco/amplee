@@ -55,7 +55,7 @@ export default function DangerZone({
             }`,
             apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
           },
-          body: JSON.stringify({ band_id: bandId }), // ✅ use the prop
+          body: JSON.stringify({ band_id: bandId }),
         }
       );
 
@@ -64,7 +64,6 @@ export default function DangerZone({
         throw new Error(err?.error || `Delete failed (${res.status})`);
       }
 
-      // Success → close dialog and go back to dashboard
       setOpenDelete(false);
       router.replace('/dashboard');
       router.refresh();

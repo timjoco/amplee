@@ -15,14 +15,14 @@ const isEventSheetPath = (p: string) =>
 
 export default function AppFrameClient({ children, initialAuthed }: Props) {
   const [authed, setAuthed] = useState(initialAuthed);
-  const [mounted, setMounted] = useState(false); // ← add
+  const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
 
   const mdUp = useMediaQuery('(min-width:900px)');
   const isMobile = !mdUp;
 
   useEffect(() => {
-    setMounted(true); // ← add
+    setMounted(true);
     const sb = supabaseBrowser();
     sb.auth.getUser().then(({ data: { user } }) => setAuthed(!!user));
     const { data: sub } = sb.auth.onAuthStateChange((_e, s) =>
@@ -33,9 +33,12 @@ export default function AppFrameClient({ children, initialAuthed }: Props) {
 
   const showSideNav = authed;
 
-  // Only compute route-based UI after mount to avoid SSR/client mismatch
-  const isWaitlist = mounted && pathname?.startsWith('/waitlist'); // ← add
-  const showPublicHeader = mounted && !authed && !isWaitlist; // ← change
+  const isWaitlist = mounted && pathname?.startsWith('/waitlist');
+  // 🚫 Public band site (e.g. /b/teemandtiger) should NOT show HeaderPublic
+  const isPublicBandPage = mounted && pathname?.startsWith('/b/');
+
+  const showPublicHeader =
+    mounted && !authed && !isWaitlist && !isPublicBandPage;
 
   const hideBottomNav = useMemo(
     () => isMobile && isEventSheetPath(pathname || ''),
