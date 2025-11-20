@@ -16,6 +16,7 @@ import { chevronForwardOutline } from 'ionicons/icons';
 import * as React from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import BandOverviewMobile from '../components/Bands/BandOverviewMobile';
+import BandProposalsTabMobile from '../components/Bands/BandProposalsTabMobile';
 import BandSettingsSheetMobile from '../components/Bands/BandSheetModal';
 import EventInboxListMobile from '../components/Events/EventsInboxListMobile';
 import AvatarImageMobile from '../components/ui/AvatarImageMobile';
@@ -23,7 +24,7 @@ import { supabase } from '../lib/supabase';
 
 type MembershipRole = 'admin' | 'member';
 
-type TabKey = 'overview' | 'events' | 'proposals' | 'roster';
+type TabKey = 'overview' | 'events' | 'proposals' | 'roster' | 'library';
 
 export default function BandSheetMobile() {
   const params = useParams<{ bandId?: string; id?: string }>();
@@ -44,6 +45,8 @@ export default function BandSheetMobile() {
   const [tab, setTab] = React.useState<TabKey>('overview');
 
   const [showBandSettings, setShowBandSettings] = React.useState(false);
+
+  const isAdmin = myRole === 'admin';
 
   React.useEffect(() => {
     if (!bandId) {
@@ -178,7 +181,6 @@ export default function BandSheetMobile() {
                 cursor: 'pointer',
               }}
             >
-              {/* LEFT: avatar */}
               <div
                 style={{
                   flex: '0 0 auto',
@@ -194,7 +196,6 @@ export default function BandSheetMobile() {
                 />
               </div>
 
-              {/* CENTER: band name + chevron */}
               <div
                 style={{
                   flex: '1 1 auto',
@@ -278,6 +279,9 @@ export default function BandSheetMobile() {
             <IonSegmentButton value="roster">
               <IonLabel>Roster</IonLabel>
             </IonSegmentButton>
+            <IonSegmentButton value="library">
+              <IonLabel>Library</IonLabel>
+            </IonSegmentButton>
           </IonSegment>
         </IonToolbar>
       </IonHeader>
@@ -302,21 +306,9 @@ export default function BandSheetMobile() {
         ) : (
           <>
             {tab === 'overview' && <BandOverviewMobile bandId={bandId} />}
+
             {tab === 'events' && (
               <div style={{ padding: '8px 16px 0' }}>
-                <IonText color="light">
-                  <h2
-                    style={{
-                      margin: '0 0 10px',
-                      fontWeight: 700,
-                      fontSize: 16,
-                      letterSpacing: 0.2,
-                    }}
-                  >
-                    {/* All your band’s events */}
-                  </h2>
-                </IonText>
-
                 <EventInboxListMobile
                   showAvatars
                   bandId={bandId}
@@ -326,11 +318,7 @@ export default function BandSheetMobile() {
             )}
 
             {tab === 'proposals' && (
-              <div style={{ padding: 16 }}>
-                <IonText color="medium">
-                  <p>Proposed gigs view coming to mobile.</p>
-                </IonText>
-              </div>
+              <BandProposalsTabMobile bandId={bandId} isAdmin={isAdmin} />
             )}
             {tab === 'roster' && (
               <div style={{ padding: 16 }}>

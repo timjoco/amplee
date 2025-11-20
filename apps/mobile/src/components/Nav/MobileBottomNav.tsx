@@ -104,8 +104,8 @@ export default function MobileBottomNav() {
     pathname.startsWith('/profile/basics') ||
     /^\/bands\/[^/]+\/events\/[^/]+\/?$/.test(pathname) ||
     /^\/event\/[^/]+\/?$/.test(pathname) ||
-    /^\/bands\/[^/]+\/settings\/?$/i.test(pathname);
-
+    /^\/bands\/[^/]+\/settings\/?$/i.test(pathname) ||
+    /^\/bands\/[^/]+\/proposals\/[^/]+$/.test(pathname);
   if (hidden) return null;
 
   const HOME_INDEX = 0;

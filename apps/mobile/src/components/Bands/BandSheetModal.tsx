@@ -319,7 +319,6 @@ export default function BandSheetModal({
                   cursor: 'pointer',
                 }}
               >
-                {/* LEFT: icon puck + text */}
                 <div
                   style={{
                     display: 'flex',
@@ -328,7 +327,6 @@ export default function BandSheetModal({
                     overflow: 'hidden',
                   }}
                 >
-                  {/* black circle around icon */}
                   <span
                     style={{
                       width: 28,
@@ -359,7 +357,6 @@ export default function BandSheetModal({
                   </span>
                 </div>
 
-                {/* RIGHT: chevron */}
                 <IonIcon
                   icon={chevronForwardOutline}
                   style={{ fontSize: 18, color: '#E5E7EB', flexShrink: 0 }}
@@ -368,7 +365,6 @@ export default function BandSheetModal({
             </div>
           )}
 
-          {/* Scrollable content */}
           <div
             style={{
               flex: 1,
@@ -379,7 +375,6 @@ export default function BandSheetModal({
               gap: 12,
             }}
           >
-            {/* Members list */}
             <div
               style={{
                 borderRadius: 18,
@@ -500,7 +495,6 @@ export default function BandSheetModal({
               )}
             </div>
 
-            {/* Band summary */}
             <div
               style={{
                 borderRadius: 18,

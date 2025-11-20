@@ -771,6 +771,7 @@ export default function ChatTabMobile({
 
                 const name = m.profiles?.display_name || 'Member';
                 const isActive = activeMessageId === m.id;
+                const isMine = m.user_id === myUserId;
 
                 return (
                   <div key={m.id}>

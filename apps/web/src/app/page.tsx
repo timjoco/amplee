@@ -9,7 +9,6 @@ import GroupsIcon from '@mui/icons-material/Groups';
 import MusicNoteIcon from '@mui/icons-material/MusicNote';
 import {
   Avatar,
-  AvatarGroup,
   Box,
   Button,
   Card,
@@ -34,11 +33,11 @@ export default async function HomePage() {
   return (
     <Box sx={{ bgcolor: '#0B0A0F', color: '#E8E6F0', minHeight: '100vh' }}>
       <Hero />
-      <SocialProof />
+      {/* <SocialProof /> */}
       <FeaturesSection />
       <ShowcaseSection />
       <HowItWorksSection />
-      <TestimonialsSection />
+      {/* <TestimonialsSection /> */}
       <FinalCTA />
     </Box>
   );
@@ -153,9 +152,9 @@ function Hero() {
                   mb: 2,
                 }}
               >
-                Stop the chaos.
+                Simplify the chaos
                 <br />
-                Start the show.
+                Amplify the music
               </Typography>
 
               {/* Subheadline */}
@@ -232,40 +231,6 @@ function Hero() {
                   Join beta waitlist
                 </Button>
               </Stack>
-
-              {/* Social proof mini */}
-              <Stack
-                direction="row"
-                spacing={2}
-                alignItems="center"
-                sx={{ pt: 2, opacity: 0.8 }}
-              >
-                <AvatarGroup
-                  max={4}
-                  sx={{
-                    '& .MuiAvatar-root': {
-                      width: 32,
-                      height: 32,
-                      fontSize: '0.875rem',
-                      border: '2px solid #0B0A0F',
-                    },
-                  }}
-                >
-                  <Avatar sx={{ bgcolor: '#8B5CF6' }}>A</Avatar>
-                  <Avatar sx={{ bgcolor: '#5ECED3' }}>B</Avatar>
-                  <Avatar sx={{ bgcolor: '#F59E0B' }}>C</Avatar>
-                  <Avatar sx={{ bgcolor: '#EC4899' }}>D</Avatar>
-                </AvatarGroup>
-                <Typography
-                  variant="body2"
-                  sx={{
-                    color: 'rgba(232, 230, 240, 0.7)',
-                    fontSize: '0.9rem',
-                  }}
-                >
-                  <strong>200+</strong> bands already vibing
-                </Typography>
-              </Stack>
             </Stack>
           </Grid>
 
@@ -315,7 +280,7 @@ function Hero() {
                     🎸 Tonight's Show
                   </Typography>
                   <Chip
-                    label="Live"
+                    label="Booked"
                     size="small"
                     sx={{
                       bgcolor: 'rgba(34, 197, 94, 0.15)',
@@ -1040,131 +1005,131 @@ function HowItWorksSection() {
 }
 
 /* -------------------------- TESTIMONIALS -------------------------- */
-function TestimonialsSection() {
-  const testimonials = [
-    {
-      quote:
-        "We went from 'chaos mode' to actually feeling professional. Game changer.",
-      author: 'Sarah M.',
-      role: 'Lead vocalist, indie rock band',
-      avatar: 'S',
-      color: '#8B5CF6',
-    },
-    {
-      quote:
-        "No more screenshot setlists. Everyone actually knows what we're playing now.",
-      author: 'Marcus T.',
-      role: 'Guitarist, funk collective',
-      avatar: 'M',
-      color: '#5ECED3',
-    },
-    {
-      quote:
-        'The Green Room feature alone is worth it. Every show has its own space. So clean.',
-      author: 'Jenna K.',
-      role: 'Drummer, jazz trio',
-      avatar: 'J',
-      color: '#F59E0B',
-    },
-  ];
+// function TestimonialsSection() {
+//   const testimonials = [
+//     {
+//       quote:
+//         "We went from 'chaos mode' to actually feeling professional. Game changer.",
+//       author: 'Sarah M.',
+//       role: 'Lead vocalist, indie rock band',
+//       avatar: 'S',
+//       color: '#8B5CF6',
+//     },
+//     {
+//       quote:
+//         "No more screenshot setlists. Everyone actually knows what we're playing now.",
+//       author: 'Marcus T.',
+//       role: 'Guitarist, funk collective',
+//       avatar: 'M',
+//       color: '#5ECED3',
+//     },
+//     {
+//       quote:
+//         'The Green Room feature alone is worth it. Every show has its own space. So clean.',
+//       author: 'Jenna K.',
+//       role: 'Drummer, jazz trio',
+//       avatar: 'J',
+//       color: '#F59E0B',
+//     },
+//   ];
 
-  return (
-    <Box
-      sx={{
-        py: { xs: 8, md: 12 },
-        background:
-          'linear-gradient(180deg, #0B0A0F 0%, rgba(139, 92, 246, 0.05) 100%)',
-      }}
-    >
-      <Container maxWidth="lg">
-        <Stack
-          spacing={2}
-          sx={{ textAlign: 'center', mb: { xs: 6, md: 8 } }}
-          alignItems="center"
-        >
-          <Chip
-            label="Testimonials"
-            sx={{
-              bgcolor: 'rgba(139, 92, 246, 0.15)',
-              color: '#C4B5FD',
-              fontWeight: 600,
-              fontSize: '0.8rem',
-              textTransform: 'uppercase',
-            }}
-          />
-          <Typography
-            variant="h3"
-            sx={{
-              fontWeight: 900,
-              color: '#FFFFFF',
-              fontSize: { xs: '2rem', md: '2.75rem' },
-            }}
-          >
-            Loved by bands everywhere
-          </Typography>
-        </Stack>
+//   return (
+//     <Box
+//       sx={{
+//         py: { xs: 8, md: 12 },
+//         background:
+//           'linear-gradient(180deg, #0B0A0F 0%, rgba(139, 92, 246, 0.05) 100%)',
+//       }}
+//     >
+//       <Container maxWidth="lg">
+//         <Stack
+//           spacing={2}
+//           sx={{ textAlign: 'center', mb: { xs: 6, md: 8 } }}
+//           alignItems="center"
+//         >
+//           <Chip
+//             label="Testimonials"
+//             sx={{
+//               bgcolor: 'rgba(139, 92, 246, 0.15)',
+//               color: '#C4B5FD',
+//               fontWeight: 600,
+//               fontSize: '0.8rem',
+//               textTransform: 'uppercase',
+//             }}
+//           />
+//           <Typography
+//             variant="h3"
+//             sx={{
+//               fontWeight: 900,
+//               color: '#FFFFFF',
+//               fontSize: { xs: '2rem', md: '2.75rem' },
+//             }}
+//           >
+//             Loved by bands everywhere
+//           </Typography>
+//         </Stack>
 
-        <Grid container spacing={{ xs: 3, md: 4 }}>
-          {testimonials.map((testimonial, idx) => (
-            <Grid key={idx} size={{ xs: 12, md: 4 }}>
-              <Card
-                elevation={0}
-                sx={{
-                  height: '100%',
-                  borderRadius: '16px',
-                  border: '1px solid rgba(139, 92, 246, 0.15)',
-                  background:
-                    'linear-gradient(145deg, rgba(20, 18, 28, 0.8), rgba(10, 8, 15, 0.9))',
-                  p: 3,
-                }}
-              >
-                <Stack spacing={2.5}>
-                  <Typography
-                    variant="body1"
-                    sx={{
-                      color: '#E8E6F0',
-                      fontSize: '1.05rem',
-                      lineHeight: 1.7,
-                      fontStyle: 'italic',
-                    }}
-                  >
-                    "{testimonial.quote}"
-                  </Typography>
-                  <Stack direction="row" spacing={2} alignItems="center">
-                    <Avatar
-                      sx={{
-                        bgcolor: testimonial.color,
-                        width: 48,
-                        height: 48,
-                        fontWeight: 700,
-                      }}
-                    >
-                      {testimonial.avatar}
-                    </Avatar>
-                    <Box>
-                      <Typography
-                        variant="subtitle2"
-                        sx={{ fontWeight: 700, color: '#FFFFFF' }}
-                      >
-                        {testimonial.author}
-                      </Typography>
-                      <Typography
-                        variant="caption"
-                        sx={{ color: 'rgba(232, 230, 240, 0.6)' }}
-                      >
-                        {testimonial.role}
-                      </Typography>
-                    </Box>
-                  </Stack>
-                </Stack>
-              </Card>
-            </Grid>
-          ))}
-        </Grid>
-      </Container>
-    </Box>
-  );
-}
+//         <Grid container spacing={{ xs: 3, md: 4 }}>
+//           {testimonials.map((testimonial, idx) => (
+//             <Grid key={idx} size={{ xs: 12, md: 4 }}>
+//               <Card
+//                 elevation={0}
+//                 sx={{
+//                   height: '100%',
+//                   borderRadius: '16px',
+//                   border: '1px solid rgba(139, 92, 246, 0.15)',
+//                   background:
+//                     'linear-gradient(145deg, rgba(20, 18, 28, 0.8), rgba(10, 8, 15, 0.9))',
+//                   p: 3,
+//                 }}
+//               >
+//                 <Stack spacing={2.5}>
+//                   <Typography
+//                     variant="body1"
+//                     sx={{
+//                       color: '#E8E6F0',
+//                       fontSize: '1.05rem',
+//                       lineHeight: 1.7,
+//                       fontStyle: 'italic',
+//                     }}
+//                   >
+//                     "{testimonial.quote}"
+//                   </Typography>
+//                   <Stack direction="row" spacing={2} alignItems="center">
+//                     <Avatar
+//                       sx={{
+//                         bgcolor: testimonial.color,
+//                         width: 48,
+//                         height: 48,
+//                         fontWeight: 700,
+//                       }}
+//                     >
+//                       {testimonial.avatar}
+//                     </Avatar>
+//                     <Box>
+//                       <Typography
+//                         variant="subtitle2"
+//                         sx={{ fontWeight: 700, color: '#FFFFFF' }}
+//                       >
+//                         {testimonial.author}
+//                       </Typography>
+//                       <Typography
+//                         variant="caption"
+//                         sx={{ color: 'rgba(232, 230, 240, 0.6)' }}
+//                       >
+//                         {testimonial.role}
+//                       </Typography>
+//                     </Box>
+//                   </Stack>
+//                 </Stack>
+//               </Card>
+//             </Grid>
+//           ))}
+//         </Grid>
+//       </Container>
+//     </Box>
+//   );
+// }
 
 /* ---------------------------- FINAL CTA ---------------------------- */
 function FinalCTA() {
