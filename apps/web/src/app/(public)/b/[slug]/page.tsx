@@ -1,4 +1,4 @@
-// apps/web/src/app/public/b/[slug]/page.tsx
+import { ThemePickerPublicBand } from '@/components/Public/ThemePickerPublicBand';
 import { supabaseServer } from '@/lib/supabaseServer';
 import AppleIcon from '@mui/icons-material/Apple';
 import AudiotrackIcon from '@mui/icons-material/Audiotrack';
@@ -9,6 +9,7 @@ import LinkIcon from '@mui/icons-material/Link';
 import MusicNoteIcon from '@mui/icons-material/MusicNote';
 import TwitterIcon from '@mui/icons-material/Twitter';
 import YouTubeIcon from '@mui/icons-material/YouTube';
+
 import {
   Avatar,
   Box,
@@ -22,337 +23,16 @@ import {
 } from '@mui/material';
 import { revalidatePath } from 'next/cache';
 import Image from 'next/image';
-import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
+import {
+  type BandPageTheme,
+  THEMES,
+  type ThemeName,
+  isDarkTheme,
+} from '@/themes/publicPageThemes';
+
 export const revalidate = 60;
-
-type ThemeName =
-  | 'default'
-  | 'cherry'
-  | 'white'
-  | 'woods'
-  | 'deepPurple'
-  | 'banana'
-  | 'samus'
-  | 'liquidDeath'
-  | 'blackout'
-  | 'money'
-  | 'silver'
-  | 'onepiece'
-  | 'chocolate'
-  | 'bioshock'
-  | 'mario'
-  | 'mattePurple'
-  | 'matteYellow'
-  | 'matteRed';
-
-const DARK_THEMES: ThemeName[] = [
-  'default',
-  'deepPurple',
-  'samus',
-  'liquidDeath',
-  'blackout',
-];
-
-function isDarkTheme(key: ThemeName) {
-  return DARK_THEMES.includes(key);
-}
-
-type BandPageTheme = {
-  background: string;
-  avatarGlow: string;
-  textGradient: string;
-  showBg: string;
-  borderColor: string;
-  followButtonBg: string;
-  followButtonBorder: string;
-  followButtonTextColor: string;
-  mainTextColor: string;
-  secondaryTextColor: string;
-};
-
-const blackoutTheme: BandPageTheme = {
-  background: '#000000', // Solid black background
-  avatarGlow: 'linear-gradient(135deg, #444444, #111111)', // Subtle dark gray glow
-  textGradient: 'linear-gradient(135deg, #ffffff, #cccccc)', // Light gradient for text
-  showBg: 'rgba(255, 255, 255, 0.1)', // Light background for shows
-  borderColor: 'rgba(255, 255, 255, 0.3)', // White border color
-  followButtonBg: 'rgba(255, 255, 255, 0.1)', // Slightly transparent white for buttons
-  followButtonBorder: 'rgba(255, 255, 255, 0.3)', // White border for buttons
-  followButtonTextColor: '#ffffff', // White text color
-  mainTextColor: '#ffffff', // White main text
-  secondaryTextColor: '#cccccc', // Light gray for secondary text
-};
-
-const moneyTheme: BandPageTheme = {
-  background: '#00ff00', // Bright green background
-  avatarGlow: 'linear-gradient(135deg, #aaffaa, #007700)', // Light green to dark green glow
-  textGradient: 'linear-gradient(135deg, #333333, #ffffff)', // Dark to white gradient for text
-  showBg: 'rgba(0, 255, 0, 0.1)', // Light green for shows
-  borderColor: 'rgba(0, 128, 0, 0.6)', // Dark green border color
-  followButtonBg: 'rgba(0, 200, 0, 0.8)', // Green for buttons
-  followButtonBorder: 'rgba(0, 150, 0, 0.6)', // Darker green border for buttons
-  followButtonTextColor: '#ffffff', // White text color
-  mainTextColor: '#111111', // Dark gray main text
-  secondaryTextColor: '#555555', // Medium gray for secondary text
-};
-
-const silverTheme: BandPageTheme = {
-  background: '#C0C0C0', // Silver background
-  avatarGlow: 'linear-gradient(135deg, #ffffff, #a0a0a0)', // Light to dark silver glow
-  textGradient: 'linear-gradient(135deg, #333333, #ffffff)', // Dark to white gradient for text
-  showBg: 'rgba(192, 192, 192, 0.1)', // Light silver for shows
-  borderColor: 'rgba(128, 128, 128, 0.6)', // Dark gray border color
-  followButtonBg: 'rgba(192, 192, 192, 0.8)', // Slightly transparent silver for buttons
-  followButtonBorder: 'rgba(128, 128, 128, 0.6)', // Dark gray border for buttons
-  followButtonTextColor: '#000000', // Black text color
-  mainTextColor: '#000000', // Black main text
-  secondaryTextColor: '#444444', // Dark gray for secondary text
-};
-
-const onepieceTheme: BandPageTheme = {
-  background: '#ffcc00', // Yellow background inspired by One Piece
-  avatarGlow: 'linear-gradient(135deg, #ff6600, #cc0000)', // Orange to red glow
-  textGradient: 'linear-gradient(135deg, #000000, #ffffff)', // Black to white gradient for text
-  showBg: 'rgba(255, 204, 0, 0.1)', // Light yellow for shows
-  borderColor: 'rgba(255, 153, 0, 0.6)', // Orange border color
-  followButtonBg: 'rgba(255, 204, 0, 0.8)', // Yellow for buttons
-  followButtonBorder: 'rgba(255, 153, 0, 0.6)', // Orange border for buttons
-  followButtonTextColor: '#000000', // Black text color
-  mainTextColor: '#000000', // Black main text
-  secondaryTextColor: '#333333', // Dark gray for secondary text
-};
-
-const cherryBlossomTheme: BandPageTheme = {
-  background: 'linear-gradient(to bottom, #ffe4e1, #fff0f5)',
-  avatarGlow: 'linear-gradient(135deg, #ffb6c1, #ff69b4)',
-  textGradient: 'linear-gradient(135deg, #ff69b4, #ffb6c1)',
-  showBg: 'rgba(255, 192, 203, 0.7)',
-  borderColor: 'rgba(255, 105, 180, 0.6)',
-  followButtonBg: 'rgba(255, 182, 193, 0.8)',
-  followButtonBorder: 'rgba(255, 105, 180, 0.7)',
-  followButtonTextColor: '#d81b60',
-  mainTextColor: '#d81b60',
-  secondaryTextColor: '#6d4c41',
-};
-
-const whiteTheme: BandPageTheme = {
-  background: '#ffffff',
-  avatarGlow: '#e0e0e0',
-  textGradient: '#333333',
-  showBg: 'rgba(240, 240, 240, 0.5)',
-  borderColor: 'rgba(0, 0, 0, 0.1)',
-  followButtonBg: '#f9f9f9',
-  followButtonBorder: 'rgba(0, 0, 0, 0.2)',
-  followButtonTextColor: '#333333',
-  mainTextColor: '#000000',
-  secondaryTextColor: '#555555',
-};
-
-const treesAndWoodsTheme: BandPageTheme = {
-  background: '#f0f8ff',
-  avatarGlow: 'linear-gradient(135deg, #8FBC8F, #6B8E23)',
-  textGradient: 'linear-gradient(135deg, #556B2F, #8FBC8F)',
-  showBg: 'rgba(34, 139, 34, 0.18)',
-  borderColor: 'rgba(139, 69, 19, 0.6)',
-  followButtonBg: 'rgba(34, 139, 34, 0.6)',
-  followButtonBorder: 'rgba(139, 69, 19, 0.7)',
-  followButtonTextColor: '#fff8dc',
-  mainTextColor: '#1b4332',
-  secondaryTextColor: '#4a5568',
-};
-
-const deepPurpleTheme: BandPageTheme = {
-  background: 'linear-gradient(to bottom, #5e35b1, #673ab7)',
-  avatarGlow: 'linear-gradient(135deg, #7b1fa2, #ab47bc)',
-  textGradient: 'linear-gradient(135deg, #d5006d, #f50057)',
-  showBg: 'rgba(255, 255, 255, 0.1)',
-  borderColor: 'rgba(156, 39, 176, 0.5)',
-  followButtonBg: 'rgba(255, 255, 255, 0.1)',
-  followButtonBorder: 'rgba(255, 255, 255, 0.3)',
-  followButtonTextColor: '#ffffff',
-  mainTextColor: '#ffffff',
-  secondaryTextColor: '#e1bee7',
-};
-
-const bananaTheme: BandPageTheme = {
-  background: 'linear-gradient(to bottom, #fff176, #ffe135)',
-  avatarGlow: 'linear-gradient(135deg, #fbc02d, #fdd835)',
-  textGradient: 'linear-gradient(135deg, #fbc02d, #f9a825)',
-  showBg: 'rgba(255, 235, 59, 0.7)',
-  borderColor: 'rgba(255, 235, 59, 0.5)',
-  followButtonBg: 'rgba(255, 245, 157, 0.5)',
-  followButtonBorder: 'rgba(255, 193, 7, 0.6)',
-  followButtonTextColor: '#4a4a4a',
-  mainTextColor: '#5d4037',
-  secondaryTextColor: '#8d6e63',
-};
-
-const samusAranTheme: BandPageTheme = {
-  background: 'linear-gradient(to bottom, #ff6f00, #b2ff59)',
-  avatarGlow: 'linear-gradient(135deg, #ff8f00, #c6ff00)',
-  textGradient: 'linear-gradient(135deg, #ff5722, #ffab40)',
-  showBg: 'rgba(0, 150, 136, 0.6)',
-  borderColor: 'rgba(255, 87, 34, 0.5)',
-  followButtonBg: 'rgba(0, 150, 136, 0.1)',
-  followButtonBorder: 'rgba(0, 150, 136, 0.3)',
-  followButtonTextColor: '#ffffff',
-  mainTextColor: '#ffffff',
-  secondaryTextColor: '#ffcc80',
-};
-
-const liquidDeathTheme: BandPageTheme = {
-  background: 'linear-gradient(to bottom, #111111, #222222)',
-  avatarGlow: 'linear-gradient(135deg, #ffd700, #ffcc00)',
-  textGradient: 'linear-gradient(135deg, #ffcc00, #ffd700)',
-  showBg: 'rgba(0, 0, 0, 0.8)',
-  borderColor: 'rgba(255, 215, 0, 0.5)',
-  followButtonBg: 'rgba(255, 215, 0, 0.1)',
-  followButtonBorder: 'rgba(255, 215, 0, 0.3)',
-  followButtonTextColor: '#ffd700',
-  mainTextColor: '#ffd700',
-  secondaryTextColor: '#ffffff',
-};
-
-// neon / default
-const defaultTheme: BandPageTheme = {
-  background: `
-    radial-gradient(ellipse at 50% -50%, rgba(139, 92, 246, 0.15) 0%, transparent 60%),
-    radial-gradient(ellipse at 0% 100%, rgba(236, 72, 153, 0.12) 0%, transparent 50%),
-    radial-gradient(ellipse at 100% 100%, rgba(59, 130, 246, 0.12) 0%, transparent 50%),
-    linear-gradient(180deg, #0a0a0f 0%, #050509 100%)
-  `,
-  avatarGlow: 'linear-gradient(135deg, #8b5cf6, #ec4899)',
-  textGradient: 'linear-gradient(135deg, #fff, #a78bfa)',
-  showBg: 'rgba(30, 41, 59, 0.6)',
-  borderColor: 'rgba(71, 85, 105, 0.65)',
-  followButtonBg: 'rgba(15,23,42,0.95)',
-  followButtonBorder: 'rgba(236, 72, 153, 0.6)',
-  followButtonTextColor: '#f9a8d4',
-  mainTextColor: '#ffffff',
-  secondaryTextColor: '#d1d5db',
-};
-
-const chocolateTheme: BandPageTheme = {
-  background: 'linear-gradient(to bottom, #4e342e, #3e2723)',
-  avatarGlow: 'linear-gradient(135deg, #6d4c41, #a1887f)',
-  textGradient: 'linear-gradient(135deg, #ffccbc, #ffe0b2)',
-  showBg: 'rgba(62, 39, 35, 0.75)',
-  borderColor: 'rgba(161, 136, 127, 0.7)',
-  followButtonBg: 'rgba(33, 22, 18, 0.95)',
-  followButtonBorder: 'rgba(198, 166, 144, 0.9)',
-  followButtonTextColor: '#ffe0b2',
-  mainTextColor: '#fff7ed',
-  secondaryTextColor: '#ffccbc',
-};
-
-const bioshockTheme: BandPageTheme = {
-  background: 'linear-gradient(to bottom, #0f172a, #022c22)',
-  avatarGlow: 'linear-gradient(135deg, #22c55e, #0ea5e9)',
-  textGradient: 'linear-gradient(135deg, #e5e7eb, #a7f3d0)',
-  showBg: 'rgba(15, 23, 42, 0.8)',
-  borderColor: 'rgba(148, 163, 184, 0.7)',
-  followButtonBg: 'rgba(15, 23, 42, 0.95)',
-  followButtonBorder: 'rgba(56, 189, 248, 0.7)',
-  followButtonTextColor: '#e0f2fe',
-  mainTextColor: '#f9fafb',
-  secondaryTextColor: '#a7f3d0',
-};
-
-const marioTheme: BandPageTheme = {
-  background: 'linear-gradient(to bottom, #ef4444, #1d4ed8)',
-  avatarGlow: 'linear-gradient(135deg, #f97316, #facc15)',
-  textGradient: 'linear-gradient(135deg, #fef3c7, #facc15)',
-  showBg: 'rgba(15, 23, 42, 0.75)',
-  borderColor: 'rgba(248, 250, 252, 0.6)',
-  followButtonBg: 'rgba(248, 250, 252, 0.14)',
-  followButtonBorder: 'rgba(248, 250, 252, 0.7)',
-  followButtonTextColor: '#fef9c3',
-  mainTextColor: '#fefce8',
-  secondaryTextColor: '#fde68a',
-};
-
-const mattePurpleTheme: BandPageTheme = {
-  background: '#171427',
-  avatarGlow: 'linear-gradient(135deg, #7c3aed, #a855f7)',
-  textGradient: 'linear-gradient(135deg, #e5e7eb, #a855f7)',
-  showBg: 'rgba(15, 15, 26, 0.9)',
-  borderColor: 'rgba(129, 140, 248, 0.6)',
-  followButtonBg: '#1f172f',
-  followButtonBorder: 'rgba(168, 85, 247, 0.8)',
-  followButtonTextColor: '#ede9fe',
-  mainTextColor: '#f9fafb',
-  secondaryTextColor: '#c4b5fd',
-};
-
-const matteYellowTheme: BandPageTheme = {
-  background: '#1e1b18',
-  avatarGlow: 'linear-gradient(135deg, #fbbf24, #facc15)',
-  textGradient: 'linear-gradient(135deg, #fef3c7, #facc15)',
-  showBg: 'rgba(24, 20, 15, 0.95)',
-  borderColor: 'rgba(245, 158, 11, 0.7)',
-  followButtonBg: '#29221a',
-  followButtonBorder: 'rgba(234, 179, 8, 0.9)',
-  followButtonTextColor: '#fef3c7',
-  mainTextColor: '#fef9c3',
-  secondaryTextColor: '#fcd34d',
-};
-
-const matteRedTheme: BandPageTheme = {
-  background: '#1a1111',
-  avatarGlow: 'linear-gradient(135deg, #ef4444, #f97316)',
-  textGradient: 'linear-gradient(135deg, #fecaca, #f97316)',
-  showBg: 'rgba(24, 14, 14, 0.95)',
-  borderColor: 'rgba(248, 113, 113, 0.7)',
-  followButtonBg: '#241111',
-  followButtonBorder: 'rgba(239, 68, 68, 0.9)',
-  followButtonTextColor: '#fee2e2',
-  mainTextColor: '#fee2e2',
-  secondaryTextColor: '#fecaca',
-};
-
-const THEMES: Record<ThemeName, BandPageTheme> = {
-  default: defaultTheme,
-  cherry: cherryBlossomTheme,
-  white: whiteTheme,
-  woods: treesAndWoodsTheme,
-  deepPurple: deepPurpleTheme,
-  banana: bananaTheme,
-  samus: samusAranTheme,
-  liquidDeath: liquidDeathTheme,
-  blackout: blackoutTheme,
-  money: moneyTheme,
-  silver: silverTheme,
-  onepiece: onepieceTheme,
-  chocolate: chocolateTheme,
-  bioshock: bioshockTheme,
-  mario: marioTheme,
-  mattePurple: mattePurpleTheme,
-  matteYellow: matteYellowTheme,
-  matteRed: matteRedTheme,
-};
-
-const THEME_OPTIONS: { key: ThemeName; label: string }[] = [
-  { key: 'default', label: 'Neon' },
-  { key: 'cherry', label: 'Blossom' },
-  { key: 'white', label: 'White' },
-  { key: 'woods', label: 'Woods' },
-  { key: 'deepPurple', label: 'Deep Purple' },
-  { key: 'banana', label: 'Banana' },
-  { key: 'samus', label: 'Samus' },
-  { key: 'liquidDeath', label: 'Liquid Death' },
-  { key: 'blackout', label: 'Blackout' },
-  { key: 'money', label: 'Money' },
-  { key: 'silver', label: 'Silver' },
-  { key: 'onepiece', label: 'One Piece' },
-  { key: 'chocolate', label: 'Chocolate' },
-  { key: 'bioshock', label: 'BioShock' },
-  { key: 'mario', label: 'Mario' },
-  { key: 'mattePurple', label: 'Matte Purple' },
-  { key: 'matteYellow', label: 'Matte Yellow' },
-  { key: 'matteRed', label: 'Matte Red' },
-];
 
 type StreamingLink =
   | {
@@ -434,7 +114,7 @@ const primaryButtonStyles = (theme: BandPageTheme) => ({
   fontSize: 14,
   backgroundColor: theme.followButtonBg,
   color: theme.followButtonTextColor,
-  border: `1px solid ${theme.followButtonBorder}`,
+  border: `1px solid ${theme.secondaryTextColor}`,
   boxShadow: 'none',
   transition: 'background-color 0.15s ease, transform 0.1s ease',
   '&:hover': {
@@ -475,7 +155,6 @@ function formatLocation(city: string | null, state: string | null) {
 function pickIconForType(type?: string | null) {
   const key = (type || '').toLowerCase();
 
-  // music / listen platforms
   if (key === 'spotify') return <MusicNoteIcon fontSize="large" />;
   if (key === 'apple' || key === 'applemusic')
     return <AppleIcon fontSize="large" />;
@@ -484,27 +163,27 @@ function pickIconForType(type?: string | null) {
   if (key === 'youtube' || key === 'youtube_music')
     return <YouTubeIcon fontSize="large" />;
 
-  // socials
   if (key === 'instagram') return <InstagramIcon fontSize="large" />;
   if (key === 'facebook') return <FacebookIcon fontSize="large" />;
   if (key === 'twitter' || key === 'x') return <TwitterIcon fontSize="large" />;
   if (key === 'tiktok') return <AudiotrackIcon fontSize="large" />;
 
-  // link hubs / misc
   if (key === 'linktree' || key === 'website' || key === 'site') {
     return <LinkIcon fontSize="large" />;
   }
 
-  // fallback
   return <LinkIcon fontSize="large" />;
 }
 
-export default async function PublicBandPage(props: {
-  params: Promise<{ slug: string }>;
-  searchParams?: Promise<{ theme?: string }>;
+export default async function PublicBandPage({
+  params,
+  searchParams,
+}: {
+  params: { slug: string };
+  searchParams?: { theme?: string };
 }) {
-  const { slug } = await props.params;
-  const sp = (await props.searchParams) || {};
+  const { slug } = params;
+  const sp = searchParams || {};
   const rawTheme = (sp.theme || '').toString();
 
   const allThemeKeys = Object.keys(THEMES) as ThemeName[];
@@ -514,8 +193,6 @@ export default async function PublicBandPage(props: {
     : 'default';
 
   const activeTheme = THEMES[themeKey];
-
-  // --- Server Actions ------------------------------------------------
 
   async function addComment(formData: FormData) {
     'use server';
@@ -529,21 +206,13 @@ export default async function PublicBandPage(props: {
 
     if (!bandId || !body) return;
 
-    // basic text moderation
-    const blockedWords = [
-      'slur1',
-      'slur2',
-      'swear1',
-      'swear2',
-      // TODO: replace with whatever list you actually want
-    ];
+    const blockedWords = ['slur1', 'slur2', 'swear1', 'swear2'];
     const lower = body.toLowerCase();
     if (blockedWords.some((w) => w && lower.includes(w))) {
       console.warn('[public band comments] blocked comment due to moderation');
       return;
     }
 
-    // hard cap length so people can’t post a novel
     if (body.length > 1000) {
       body = body.slice(0, 1000);
     }
@@ -590,7 +259,6 @@ export default async function PublicBandPage(props: {
 
   const supabase = await supabaseServer();
 
-  // --- BAND --------------------------------------------------------
   const { data: band, error } = await supabase
     .from('public_band_profiles')
     .select(
@@ -607,7 +275,6 @@ export default async function PublicBandPage(props: {
     notFound();
   }
 
-  // --- COMMENTS ----------------------------------------------------
   const { data: commentRows, error: commentsError } = await supabase
     .from('public_band_comments')
     .select('id, display_name, body, created_at')
@@ -621,7 +288,6 @@ export default async function PublicBandPage(props: {
 
   const comments: PublicComment[] = (commentRows ?? []) as PublicComment[];
 
-  // --- EVENTS ------------------------------------------------------
   const { data: events, error: eventsError } = await supabase
     .from('public_band_events')
     .select(
@@ -677,7 +343,6 @@ export default async function PublicBandPage(props: {
     FOLLOW_TYPES.includes((l.type || '').toLowerCase())
   );
 
-  // everything NOT an explicit social goes into "Listen"
   const listenLinks = orderedLinks.filter(
     (l) => !FOLLOW_TYPES.includes((l.type || '').toLowerCase())
   );
@@ -687,7 +352,6 @@ export default async function PublicBandPage(props: {
 
   const dark = isDarkTheme(themeKey);
 
-  // --- UI ---------------------------------------------------------
   return (
     <Box
       sx={{
@@ -697,7 +361,7 @@ export default async function PublicBandPage(props: {
         background: '#0a0a0f',
       }}
     >
-      {/* ANIMATED BACKGROUND */}
+      {/* Background */}
       <Box
         sx={{
           position: 'fixed',
@@ -709,7 +373,6 @@ export default async function PublicBandPage(props: {
           background: activeTheme.background,
         }}
       >
-        {/* Animated gradient lines */}
         <Box
           sx={{
             position: 'absolute',
@@ -735,7 +398,6 @@ export default async function PublicBandPage(props: {
           }}
         />
 
-        {/* Glowing orbs */}
         <Box
           sx={{
             position: 'absolute',
@@ -771,12 +433,12 @@ export default async function PublicBandPage(props: {
         />
       </Box>
 
-      {/* MAIN CONTENT */}
+      {/* Main content */}
       <Box
         sx={{
           position: 'relative',
           zIndex: 1,
-          py: { xs: 4, md: 6 },
+          py: { xs: 3, md: 4 }, // slightly tighter so top controls are higher
           px: { xs: 2.5, md: 4 },
           display: 'flex',
           justifyContent: 'center',
@@ -789,8 +451,23 @@ export default async function PublicBandPage(props: {
             display: 'flex',
             flexDirection: 'column',
             gap: 3,
+            alignItems: 'center',
           }}
         >
+          {/* THEME PICKER – centered at top */}
+          <Box
+            sx={{
+              width: '100%',
+              maxWidth: 420,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              mb: 1,
+            }}
+          >
+            <ThemePickerPublicBand themeKey={themeKey} />
+          </Box>
+
           {/* HERO */}
           <Box
             sx={{
@@ -799,9 +476,10 @@ export default async function PublicBandPage(props: {
               gap: 3,
               alignItems: 'center',
               p: { xs: 1, md: 2 },
+              width: '100%',
             }}
           >
-            {/* Avatar with epic glow */}
+            {/* Avatar with clean ring */}
             <Box
               sx={{
                 position: 'relative',
@@ -810,29 +488,15 @@ export default async function PublicBandPage(props: {
             >
               <Box
                 sx={{
-                  position: 'absolute',
-                  inset: -8,
-                  borderRadius: '50%',
-                  background: activeTheme.avatarGlow,
-                  opacity: 0.6,
-                  filter: 'blur(20px)',
-                  '@keyframes pulse': {
-                    '0%, 100%': { opacity: 0.6, transform: 'scale(1)' },
-                    '50%': { opacity: 0.8, transform: 'scale(1.05)' },
-                  },
-                  animation: 'pulse 2s ease-in-out infinite',
-                }}
-              />
-              <Box
-                sx={{
-                  position: 'relative',
                   width: 120,
                   height: 120,
                   borderRadius: '50%',
-                  overflow: 'hidden',
-                  border: '4px solid transparent',
-                  background: 'linear-gradient(135deg, #8b5cf6, #ec4899)',
                   padding: '3px',
+                  background: activeTheme.avatarGlow,
+                  boxShadow: '0 0 28px rgba(0,0,0,0.85)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
                 }}
               >
                 <Box
@@ -842,7 +506,7 @@ export default async function PublicBandPage(props: {
                     borderRadius: '50%',
                     overflow: 'hidden',
                     position: 'relative',
-                    bgcolor: 'rgba(15,23,42,0.98)',
+                    bgcolor: activeTheme.fieldColor || 'rgba(15,23,42,0.98)',
                   }}
                 >
                   {avatarSrc ? (
@@ -883,7 +547,7 @@ export default async function PublicBandPage(props: {
             </Box>
 
             {/* Name + Bio */}
-            <Box>
+            <Box sx={{ flex: 1, minWidth: 0 }}>
               <Typography
                 sx={{
                   fontSize: { xs: 28, md: 36 },
@@ -925,59 +589,6 @@ export default async function PublicBandPage(props: {
             </Box>
           </Box>
 
-          {/* THEME SWITCHER */}
-          {/* THEME SWITCHER */}
-          <Box
-            sx={{
-              alignSelf: { xs: 'center', md: 'flex-end' },
-              mb: 1,
-              width: '100%',
-              maxWidth: 420,
-            }}
-          >
-            <Box
-              sx={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', // 4 x 2 grid
-                gap: 0.75,
-              }}
-            >
-              {THEME_OPTIONS.map((t) => (
-                <Box
-                  key={t.key}
-                  component={Link}
-                  href={t.key === 'default' ? '?' : `?theme=${t.key}`}
-                  sx={{
-                    px: 1.25,
-                    py: 0.6,
-                    borderRadius: 999,
-                    fontSize: 11,
-                    textAlign: 'center',
-                    border:
-                      t.key === themeKey
-                        ? '1px solid rgba(255,255,255,0.9)'
-                        : '1px solid rgba(148,163,184,0.5)',
-                    color:
-                      t.key === themeKey ? '#0f172a' : 'rgba(226,232,240,0.9)',
-                    backgroundColor:
-                      t.key === themeKey
-                        ? 'rgba(248,250,252,0.95)'
-                        : 'rgba(15,23,42,0.7)',
-                    textDecoration: 'none',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease',
-                    '&:hover': {
-                      transform: 'translateY(-1px)',
-                      boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
-                    },
-                  }}
-                >
-                  {t.label}
-                </Box>
-              ))}
-            </Box>
-          </Box>
-
           {/* UPCOMING SHOWS */}
           {shows.length > 0 && (
             <>
@@ -986,19 +597,20 @@ export default async function PublicBandPage(props: {
                   fontSize: { xs: 26, md: 30 },
                   fontWeight: 900,
                   letterSpacing: 0.08,
-                  color: activeTheme.mainTextColor, // themed
+                  color: activeTheme.mainTextColor,
                   mb: 1,
                   mt: 3,
                   textTransform: 'uppercase',
                   display: 'flex',
                   alignItems: 'center',
                   gap: 1,
+                  width: '100%',
                 }}
               >
                 Upcoming Shows
               </Typography>
 
-              <Stack spacing={2.25}>
+              <Stack spacing={2.25} sx={{ width: '100%' }}>
                 {shows.slice(0, 5).map((show) => {
                   const dateParts = formatShowDate(show.starts_at);
 
@@ -1016,24 +628,26 @@ export default async function PublicBandPage(props: {
                         transition: 'all 0.2s ease',
                         cursor: 'pointer',
                         '&:hover': {
-                          // keep a darker hover bg for all themes
                           background:
-                            themeKey === 'white' || themeKey === 'cherry'
-                              ? 'rgba(15,23,42,0.06)'
-                              : 'rgba(30, 41, 59, 0.9)',
+                            themeKey === 'chocolate'
+                              ? 'rgba(33, 20, 16, 0.98)'
+                              : dark
+                              ? 'rgba(15, 23, 42, 0.96)'
+                              : 'rgba(255, 255, 255, 0.96)',
                           borderColor:
-                            themeKey === 'white' || themeKey === 'cherry'
-                              ? activeTheme.borderColor
-                              : 'rgba(59, 130, 246, 0.7)',
+                            activeTheme.followButtonBorder ||
+                            activeTheme.borderColor,
                           transform: 'translateX(4px)',
                           boxShadow:
-                            themeKey === 'white' || themeKey === 'cherry'
-                              ? 'none'
-                              : '-4px 0 0 rgba(59, 130, 246, 0.7)',
+                            themeKey === 'chocolate'
+                              ? '0 8px 20px rgba(15, 10, 8, 0.8)'
+                              : dark
+                              ? `-4px 0 0 ${activeTheme.followButtonBorder}`
+                              : '0 6px 18px rgba(15,23,42,0.15)',
                         },
                       }}
                     >
-                      {/* Date Badge */}
+                      {/* Date badge */}
                       <Box
                         sx={{
                           width: 70,
@@ -1088,7 +702,6 @@ export default async function PublicBandPage(props: {
                         </Typography>
                       </Box>
 
-                      {/* Show Info */}
                       <Box sx={{ flex: 1, minWidth: 0 }}>
                         <Typography
                           sx={{
@@ -1137,6 +750,7 @@ export default async function PublicBandPage(props: {
                   display: 'flex',
                   alignItems: 'center',
                   gap: 1,
+                  width: '100%',
                 }}
               >
                 Listen
@@ -1151,6 +765,7 @@ export default async function PublicBandPage(props: {
                   mb: 4,
                   background: 'transparent',
                   borderRadius: 2,
+                  width: '100%',
                 }}
               >
                 {topListenLinks.map((link, idx) => (
@@ -1227,6 +842,7 @@ export default async function PublicBandPage(props: {
                   display: 'flex',
                   alignItems: 'center',
                   gap: 1,
+                  width: '100%',
                 }}
               >
                 Follow
@@ -1241,6 +857,7 @@ export default async function PublicBandPage(props: {
                   mb: 4,
                   background: 'transparent',
                   borderRadius: 2,
+                  width: '100%',
                 }}
               >
                 {topFollowLinks.map((link, idx) => (
@@ -1302,7 +919,7 @@ export default async function PublicBandPage(props: {
             </>
           )}
 
-          {/* NEWSLETTER SIGNUP */}
+          {/* NEWSLETTER */}
           <>
             <Typography
               sx={{
@@ -1316,6 +933,7 @@ export default async function PublicBandPage(props: {
                 display: 'flex',
                 alignItems: 'center',
                 gap: 1,
+                width: '100%',
               }}
             >
               Newsletter
@@ -1330,21 +948,7 @@ export default async function PublicBandPage(props: {
                 border: `1px solid ${activeTheme.borderColor}`,
                 backdropFilter: 'blur(18px)',
                 transition: 'all 0.2s ease',
-                '&:hover': {
-                  background:
-                    themeKey === 'white' || themeKey === 'cherry'
-                      ? 'rgba(15,23,42,0.06)'
-                      : 'rgba(30, 41, 59, 0.9)',
-                  borderColor:
-                    themeKey === 'white' || themeKey === 'cherry'
-                      ? activeTheme.borderColor
-                      : 'rgba(59, 130, 246, 0.7)',
-                  transform: 'translateX(4px)',
-                  boxShadow:
-                    themeKey === 'white' || themeKey === 'cherry'
-                      ? 'none'
-                      : '-4px 0 0 rgba(59, 130, 246, 0.7)',
-                },
+                width: '100%',
               }}
             >
               <Typography
@@ -1387,7 +991,7 @@ export default async function PublicBandPage(props: {
                       sx: {
                         fontSize: 14,
                         color: activeTheme.mainTextColor,
-                        bgcolor: 'rgba(15,23,42,0.5)',
+                        bgcolor: activeTheme.fieldColor,
                         borderRadius: 2,
                         px: 1.5,
                         py: 1,
@@ -1422,7 +1026,7 @@ export default async function PublicBandPage(props: {
             </Paper>
           </>
 
-          {/* COMMENTS / MESSAGE THE BAND */}
+          {/* COMMENTS */}
           <>
             <Typography
               sx={{
@@ -1436,9 +1040,10 @@ export default async function PublicBandPage(props: {
                 display: 'flex',
                 alignItems: 'center',
                 gap: 1,
+                width: '100%',
               }}
             >
-              Message the Band
+              Talk to the band
             </Typography>
 
             <Paper
@@ -1450,21 +1055,7 @@ export default async function PublicBandPage(props: {
                 backdropFilter: 'blur(20px)',
                 border: `1px solid ${activeTheme.borderColor}`,
                 transition: 'all 0.2s ease',
-                '&:hover': {
-                  background:
-                    themeKey === 'white' || themeKey === 'cherry'
-                      ? 'rgba(15,23,42,0.06)'
-                      : 'rgba(30, 41, 59, 0.9)',
-                  borderColor:
-                    themeKey === 'white' || themeKey === 'cherry'
-                      ? activeTheme.borderColor
-                      : 'rgba(59, 130, 246, 0.7)',
-                  transform: 'translateX(4px)',
-                  boxShadow:
-                    themeKey === 'white' || themeKey === 'cherry'
-                      ? 'none'
-                      : '-4px 0 0 rgba(59, 130, 246, 0.7)',
-                },
+                width: '100%',
               }}
             >
               {/* Header */}
@@ -1488,17 +1079,6 @@ export default async function PublicBandPage(props: {
                     gap: 1,
                   }}
                 >
-                  <Box
-                    component="span"
-                    sx={{
-                      width: 8,
-                      height: 8,
-                      borderRadius: '50%',
-                      bgcolor: '#3b82f6',
-                      boxShadow: '0 0 14px #3b82f6',
-                      animation: 'pulse 2s ease-in-out infinite',
-                    }}
-                  />
                   Comments
                 </Typography>
                 <Typography
@@ -1556,9 +1136,6 @@ export default async function PublicBandPage(props: {
                     '&::-webkit-scrollbar-thumb': {
                       background: activeTheme.borderColor,
                       borderRadius: 999,
-                      '&:hover': {
-                        background: activeTheme.followButtonBorder,
-                      },
                     },
                   }}
                 >
@@ -1571,31 +1148,70 @@ export default async function PublicBandPage(props: {
                           gap: 2,
                           p: 2,
                           borderRadius: 2,
-                          backgroundColor: dark ? '#000000' : '#ffffff', // 👈 rule: only black or white
-                          color: dark ? '#f9fafb' : '#0f172a', // text white on black, dark on white
+                          backgroundColor: activeTheme.commentBg,
+                          color: dark ? activeTheme.mainTextColor : '#0f172a',
                           border: `1px solid ${activeTheme.borderColor}`,
                           transition:
                             'background-color 0.2s ease, transform 0.2s ease',
-                          '&:hover': {
-                            backgroundColor: dark ? '#000000' : '#ffffff', // stay flat, no extra tints
-                            transform: 'translateX(4px)',
-                          },
                         }}
                       >
-                        <Avatar
+                        {/* Responsive circular avatar + glow */}
+                        <Box
                           sx={{
-                            width: 44,
-                            height: 44,
-                            bgcolor: 'transparent',
-                            background:
-                              'linear-gradient(135deg, #3b82f6, #8b5cf6)',
-                            fontWeight: 700,
-                            boxShadow: '0 0 20px rgba(59, 130, 246, 0.3)',
-                            fontSize: 14,
+                            position: 'relative',
+                            flexShrink: 0,
+                            width: 52,
+                            height: 52,
                           }}
                         >
-                          {initialsFromName(c.display_name)}
-                        </Avatar>
+                          {/* glow behind */}
+                          <Box
+                            sx={{
+                              position: 'absolute',
+                              inset: 0,
+                              borderRadius: '50%',
+                              background: activeTheme.avatarGlow,
+                              opacity: 0.7,
+                              filter: 'blur(4px)',
+                              pointerEvents: 'none',
+                            }}
+                          />
+                          {/* ring + avatar */}
+                          <Box
+                            sx={{
+                              position: 'relative',
+                              width: '100%',
+                              height: '100%',
+                              borderRadius: '50%',
+                              padding: '2px',
+                              background: activeTheme.avatarGlow,
+                              boxSizing: 'border-box',
+                            }}
+                          >
+                            <Avatar
+                              sx={{
+                                width: '100%',
+                                height: '100%',
+                                borderRadius: '50%',
+                                fontWeight: 700,
+                                fontSize: 14,
+                                bgcolor: dark
+                                  ? activeTheme.commentBg
+                                  : '#ffffff',
+                                color: dark
+                                  ? activeTheme.mainTextColor
+                                  : '#0f172a',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                textTransform: 'uppercase',
+                              }}
+                            >
+                              {initialsFromName(c.display_name)}
+                            </Avatar>
+                          </Box>
+                        </Box>
+
                         <Box sx={{ flex: 1 }}>
                           <Box
                             sx={{
@@ -1609,7 +1225,7 @@ export default async function PublicBandPage(props: {
                               sx={{
                                 fontSize: 15,
                                 fontWeight: 700,
-                                color: dark ? '#ffffff' : '#0f172a',
+                                color: dark ? '#ffffff' : '#757983ff',
                               }}
                             >
                               {c.display_name || 'Guest'}
@@ -1652,7 +1268,7 @@ export default async function PublicBandPage(props: {
                       sx: {
                         fontSize: 14,
                         color: activeTheme.mainTextColor,
-                        bgcolor: 'rgba(15,23,42,0.5)',
+                        bgcolor: activeTheme.fieldColor,
                         borderRadius: 2,
                         px: 1.5,
                         py: 1,
@@ -1669,7 +1285,7 @@ export default async function PublicBandPage(props: {
                     sx={{
                       borderRadius: 2,
                       p: 2,
-                      background: 'rgba(15,23,42,0.5)',
+                      background: activeTheme.fieldColor,
                       border: '1px solid rgba(71, 85, 105, 0.6)',
                       transition: 'all 0.3s ease',
                       '&:focus-within': {
@@ -1718,6 +1334,7 @@ export default async function PublicBandPage(props: {
               py: 3,
               textAlign: 'center',
               borderTop: '1px solid rgba(71, 85, 105, 0.3)',
+              width: '100%',
             }}
           >
             <Typography

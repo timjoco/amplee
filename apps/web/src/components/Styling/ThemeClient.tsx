@@ -1,7 +1,7 @@
 'use client';
 
 import { CssBaseline, GlobalStyles, ThemeProvider } from '@mui/material';
-import theme from '../../theme';
+import theme from '../../themes/theme';
 
 export default function ThemeClient({
   children,
