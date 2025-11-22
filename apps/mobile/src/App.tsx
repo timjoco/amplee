@@ -20,6 +20,8 @@ import BandSettingsMobile from './pages/BandSettingsMobile';
 
 import { Capacitor, type PluginListenerHandle } from '@capacitor/core';
 import { Keyboard, KeyboardResize } from '@capacitor/keyboard';
+import EventSettingsMobile from './pages/EventSettingsMobile';
+import InviteBandMobile from './pages/InviteBandMobile';
 import ProposedGigSheetMobile from './pages/ProposedGigSheetMobile';
 
 export default function App() {
@@ -110,21 +112,26 @@ export default function App() {
             {/* band sheets */}
             <Route path="/bands/:id" element={<BandSheetMobile />} />
             <Route path="/bands/:bandId" element={<BandSheetMobile />} />
+            <Route
+              path="/bands/:bandId/settings"
+              element={<BandSettingsMobile />}
+            />
+            <Route
+              path="/bands/:bandId/proposals/:proposalId"
+              element={<ProposedGigSheetMobile />}
+            />
+
+            {/* Band Invites sheet */}
+            <Route path="/invite" element={<InviteBandMobile />} />
 
             {/* event sheet */}
             <Route
               path="/bands/:bandId/events/:eventId"
               element={<EventSheetMobile />}
             />
-
             <Route
-              path="/bands/:bandId/proposals/:proposalId"
-              element={<ProposedGigSheetMobile />}
-            />
-
-            <Route
-              path="/bands/:bandId/settings"
-              element={<BandSettingsMobile />}
+              path="/bands/:bandId/events/:eventId/settings"
+              element={<EventSettingsMobile />}
             />
 
             {/* profile routes */}

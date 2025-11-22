@@ -11,6 +11,7 @@ import {
   IonPage,
   IonText,
   IonTitle,
+  IonToast,
   IonToolbar,
 } from '@ionic/react';
 import { chevronBackOutline, warningOutline } from 'ionicons/icons';
@@ -48,9 +49,13 @@ export default function BandSettingsMobile() {
   const [memberBusyId, setMemberBusyId] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
+  // delete and leave state
   const [busyDanger, setBusyDanger] = useState(false);
   const [showLeaveAlert, setShowLeaveAlert] = useState(false);
   const [showDeleteAlert, setShowDeleteAlert] = useState(false);
+  const [showDeleteToast, setShowDeleteToast] = useState(false);
+
+  const trimmedBandName = bandName.trim();
 
   useEffect(() => {
     if (!bandId) {
@@ -92,7 +97,6 @@ export default function BandSettingsMobile() {
 
         setMyRole((mem.role as MembershipRole) ?? 'member');
 
-        // band
         const { data: band, error: bandErr } = await supabase
           .from('bands')
           .select('id, name, avatar_url')
@@ -110,7 +114,6 @@ export default function BandSettingsMobile() {
         setBandName(band.name);
         setBandAvatarPath(band.avatar_url ?? null);
 
-        // members for admin management
         const { data: memRows, error: memRowsErr } = await supabase
           .from('band_members')
           .select(
@@ -170,7 +173,8 @@ export default function BandSettingsMobile() {
   }
 
   async function handleDeleteBand() {
-    if (!bandId) return;
+    if (!bandId || myRole !== 'admin') return;
+
     try {
       setBusyDanger(true);
       setError(null);
@@ -182,7 +186,7 @@ export default function BandSettingsMobile() {
 
       if (delErr) throw delErr;
 
-      nav('/home', { replace: true });
+      setShowDeleteToast(true);
     } catch (e: any) {
       setError(e?.message || 'Failed to delete band.');
     } finally {
@@ -514,7 +518,7 @@ export default function BandSettingsMobile() {
                   </IonList>
                 </div>
 
-                {/* Danger Zone (admin: delete band) */}
+                {/* Danger Zone */}
                 <div
                   style={{
                     borderRadius: 18,
@@ -616,14 +620,16 @@ export default function BandSettingsMobile() {
 
                 <IonButton
                   expand="block"
-                  color="medium"
                   fill="outline"
                   disabled={busyDanger}
                   onClick={() => setShowLeaveAlert(true)}
                   style={
                     {
                       '--border-radius': '999px',
-                      '--border-color': 'rgba(148,163,184,0.7)',
+                      '--border-color': 'rgba(248,113,113,0.95)',
+                      '--color': 'rgba(248,113,113,0.98)',
+                      '--background-hover': 'rgba(127,29,29,0.35)',
+                      '--background-activated': 'rgba(127,29,29,0.55)',
                     } as any
                   }
                 >
@@ -684,25 +690,13 @@ export default function BandSettingsMobile() {
         isOpen={showDeleteAlert}
         onDidDismiss={() => setShowDeleteAlert(false)}
         header="Delete band?"
-        message={`This will permanently delete ${bandName} for everyone.\n\nType the band name exactly to confirm.`}
-        style={
-          {
-            '--background': '#050509',
-            '--color': '#E5E7EB',
-            '--backdrop-opacity': '0.9',
-            '--button-color': '#E5E7EB',
-            '--border-radius': '18px',
-
-            // 👇 make the alert a bit wider so text + input fit comfortably
-            '--width': '92vw',
-            '--max-width': '420px',
-          } as any
-        }
+        message={`This will permanently delete ${trimmedBandName} for everyone.\n\nType the band name exactly to confirm.`}
+        cssClass="custom-dark-alert delete-event-alert"
         inputs={[
           {
             name: 'confirm',
             type: 'text',
-            placeholder: `Type "${bandName}"`,
+            placeholder: `Type "${trimmedBandName}"`,
           },
         ]}
         buttons={[
@@ -718,17 +712,30 @@ export default function BandSettingsMobile() {
               const val =
                 typeof data?.confirm === 'string' ? data.confirm.trim() : '';
 
-              if (val !== bandName) {
-                setError(`To delete this band, type "${bandName}" exactly.`);
-                return false; // keep alert open
+              if (!trimmedBandName || val !== trimmedBandName) {
+                setError(
+                  `To delete this band, type "${trimmedBandName}" exactly.`
+                );
+                return false;
               }
 
               setShowDeleteAlert(false);
-              handleDeleteBand();
+              void handleDeleteBand();
               return true;
             },
           },
         ]}
+      />
+
+      <IonToast
+        isOpen={showDeleteToast}
+        message="Band successfully deleted."
+        duration={1800}
+        onDidDismiss={() => {
+          setShowDeleteToast(false);
+          nav('/home', { replace: true });
+        }}
+        cssClass="amplee-toast-success"
       />
     </IonPage>
   );

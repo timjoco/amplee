@@ -97,7 +97,6 @@ export default function BandSheetMobile() {
         }
         setMyRole((mem.role as MembershipRole) ?? 'member');
 
-        // band record (include updated_at for avatar cache-busting)
         const { data: band, error: bandErr } = await supabase
           .from('bands')
           .select('id, name, avatar_url, updated_at')
@@ -141,7 +140,6 @@ export default function BandSheetMobile() {
   }, []);
 
   if (!bandId) {
-    // short-circuit while redirect happens
     return (
       <IonPage>
         <IonHeader>
@@ -242,7 +240,6 @@ export default function BandSheetMobile() {
                 </div>
               </div>
 
-              {/* RIGHT: spacer to keep name centered */}
               <div
                 style={{
                   flex: '0 0 auto',
@@ -274,7 +271,7 @@ export default function BandSheetMobile() {
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(5, 1fr)', // 5 tabs
+              gridTemplateColumns: 'repeat(5, 1fr)',
               gridAutoRows: 'auto',
               rowGap: 4,
               padding: '0 8px',
@@ -441,7 +438,9 @@ export default function BandSheetMobile() {
             )}
 
             {tab === 'proposals' && (
-              <BandProposalsTabMobile bandId={bandId} isAdmin={isAdmin} />
+              <div style={{ padding: '8px 16px 0' }}>
+                <BandProposalsTabMobile bandId={bandId} isAdmin={isAdmin} />
+              </div>
             )}
 
             {tab === 'roster' && (

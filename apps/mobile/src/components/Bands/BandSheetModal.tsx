@@ -64,7 +64,6 @@ export default function BandSheetModal({
         setMembersLoading(true);
         setMembersError(null);
 
-        // load members + profiles
         const { data, error } = await supabase
           .from('band_members')
           .select(
@@ -258,7 +257,7 @@ export default function BandSheetModal({
             </button>
           </div>
 
-          {/* Invite button (admin only) */}
+          {/* Invite button */}
           {isAdmin && (
             <div
               style={{
@@ -284,15 +283,6 @@ export default function BandSheetModal({
                 >
                   Invite band members
                 </p>
-                <p
-                  style={{
-                    margin: '4px 0 0',
-                    fontSize: 12,
-                    color: 'rgba(196,181,253,0.9)',
-                  }}
-                >
-                  Send an invite link to add new bandmates.
-                </p>
               </div>
 
               <button
@@ -302,21 +292,32 @@ export default function BandSheetModal({
                   nav(`/invite?band=${bandId}`);
                 }}
                 style={{
-                  width: '100%', // stretch full container
+                  width: '100%',
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'space-between', // text left, chevron right
-                  padding: '10px 14px',
-                  borderRadius: 14, // more square, card-like
+                  justifyContent: 'space-between',
+                  padding: '12px 16px',
+                  borderRadius: 14,
                   border: 'none',
                   background:
-                    'linear-gradient(135deg, rgba(147,51,234,0.96), rgba(88,28,135,0.98))',
+                    'linear-gradient(135deg, rgba(147,51,234,1), rgba(88,28,135,1))',
                   color: '#F9FAFB',
-                  fontSize: 14,
+                  fontSize: 16,
                   fontWeight: 700,
-                  letterSpacing: 0.02,
-                  boxShadow: '0 14px 30px rgba(0,0,0,0.85)',
+                  letterSpacing: 0.05,
+                  boxShadow: '0 10px 20px rgba(0,0,0,0.5)',
                   cursor: 'pointer',
+                  transition: 'background 0.3s ease, transform 0.2s ease',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background =
+                    'linear-gradient(135deg, rgba(147,51,234,1), rgba(88,28,135,0.8))';
+                  e.currentTarget.style.transform = 'scale(1.02)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background =
+                    'linear-gradient(135deg, rgba(147,51,234,1), rgba(88,28,135,1))';
+                  e.currentTarget.style.transform = 'scale(1)';
                 }}
               >
                 <div
@@ -329,11 +330,11 @@ export default function BandSheetModal({
                 >
                   <span
                     style={{
-                      width: 28,
-                      height: 28,
-                      borderRadius: 999,
-                      background: '#01030bff',
-                      border: '1px solid rgba(209,213,219,0.3)',
+                      width: 36,
+                      height: 36,
+                      borderRadius: '50%',
+                      background: '#01030b',
+                      border: '1px solid rgba(209,213,219,0.5)',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
@@ -342,24 +343,23 @@ export default function BandSheetModal({
                   >
                     <IonIcon
                       icon={personAddOutline}
-                      style={{ fontSize: 16, color: '#e0d9e3ff' }}
+                      style={{ fontSize: 20, color: '#e0d9e3' }}
                     />
                   </span>
-
                   <span
                     style={{
                       whiteSpace: 'nowrap',
                       textOverflow: 'ellipsis',
                       overflow: 'hidden',
+                      fontSize: 16,
                     }}
                   >
                     Invite band members
                   </span>
                 </div>
-
                 <IonIcon
                   icon={chevronForwardOutline}
-                  style={{ fontSize: 18, color: '#E5E7EB', flexShrink: 0 }}
+                  style={{ fontSize: 20, color: '#E5E7EB', flexShrink: 0 }}
                 />
               </button>
             </div>

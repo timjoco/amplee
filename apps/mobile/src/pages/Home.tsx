@@ -11,7 +11,7 @@ import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
 import BandGridMobile from '../components/Bands/BandGridMobile';
 import EventInboxListMobile from '../components/Events/EventsInboxListMobile';
-import { getBandsCache, setBandsCache } from '../lib/bandCache';
+import { getBandsCache, setBandsCache } from '../lib/cache/bandCache';
 import { supabase } from '../lib/supabase';
 import type { BandWithRole } from '../types/bands';
 

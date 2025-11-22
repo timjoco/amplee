@@ -103,9 +103,11 @@ export default function MobileBottomNav() {
     pathname.startsWith('/invite/') ||
     pathname.startsWith('/profile/basics') ||
     /^\/bands\/[^/]+\/events\/[^/]+\/?$/.test(pathname) ||
+    /^\/bands\/[^/]+\/events\/[^/]+\/settings\/?$/.test(pathname) ||
     /^\/event\/[^/]+\/?$/.test(pathname) ||
     /^\/bands\/[^/]+\/settings\/?$/i.test(pathname) ||
     /^\/bands\/[^/]+\/proposals\/[^/]+$/.test(pathname);
+
   if (hidden) return null;
 
   const HOME_INDEX = 0;
