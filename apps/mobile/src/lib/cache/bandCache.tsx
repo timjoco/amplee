@@ -1,13 +1,13 @@
-import type { BandWithRole } from '../types/bands';
+import type { BandWithRole } from '../../types/bands';
 import { setAvatarPath } from './eventInboxCache';
 
 type CacheShape = {
   bands: BandWithRole[];
-  updatedAt: number; // ms
+  updatedAt: number;
 };
 
 const STORAGE_KEY = 'amplee:bands:v1';
-export const BANDS_TTL_MS = 2 * 60 * 1000; // 2 minutes
+export const BANDS_TTL_MS = 2 * 60 * 1000;
 
 let cache: CacheShape = { bands: [], updatedAt: 0 };
 
@@ -37,7 +37,6 @@ export function setBandsCache(bands: BandWithRole[]) {
   cache.bands = bands;
   cache.updatedAt = Date.now();
 
-  // seed avatar storage paths into avatar cache for lazy signing
   for (const b of bands) {
     if (b.avatar_url) setAvatarPath(b.id, b.avatar_url);
   }
