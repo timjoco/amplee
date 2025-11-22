@@ -107,7 +107,7 @@ export default function GlobalCreateMobile({
   const [eventBandId, setEventBandId] = React.useState<string>('');
   const [eventTitle, setEventTitle] = React.useState('');
   const [eventType, setEventType] = React.useState<EventType>('show');
-  const [eventStarts, setEventStarts] = React.useState(''); // local datetime string
+  const [eventStarts, setEventStarts] = React.useState('');
   const [eventEnds, setEventEnds] = React.useState('');
   const [eventLocation, setEventLocation] = React.useState('');
 
@@ -416,8 +416,7 @@ export default function GlobalCreateMobile({
                   display: 'flex',
                   alignItems: 'center',
                   gap: 12,
-                  background:
-                    'radial-gradient(circle at 0% 0%, rgba(168,85,247,0.28), transparent 55%), linear-gradient(135deg, rgba(15,23,42,0.98), rgba(17,24,39,0.98))',
+                  background: 'rgba(139, 92, 246, 0.55)',
 
                   color: '#E5E7EB',
                   textAlign: 'left',
@@ -476,8 +475,7 @@ export default function GlobalCreateMobile({
                   display: 'flex',
                   alignItems: 'center',
                   gap: 12,
-                  background:
-                    'radial-gradient(circle at 0% 0%, rgba(45,212,191,0.25), transparent 55%), linear-gradient(135deg, rgba(15,23,42,0.98), rgba(15,23,42,0.98))',
+                  background: 'rgba(52, 211, 153, 0.55)',
 
                   color: '#E5E7EB',
                   textAlign: 'left',

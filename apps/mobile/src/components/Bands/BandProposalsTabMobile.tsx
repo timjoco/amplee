@@ -15,7 +15,11 @@ import {
   IonTitle,
   IonToolbar,
 } from '@ionic/react';
-import { addOutline, closeOutline } from 'ionicons/icons';
+import {
+  addOutline,
+  chevronForwardOutline,
+  closeOutline,
+} from 'ionicons/icons';
 import * as React from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -73,7 +77,7 @@ export default function BandProposalsTabMobile({ bandId, isAdmin }: Props) {
   }
 
   return (
-    <div style={{ paddingBottom: 16 }}>
+    <div style={{ paddingBottom: 16, paddingTop: 5, paddingInline: 12 }}>
       {err && (
         <div style={{ padding: 16 }}>
           <IonText color="danger">
@@ -104,8 +108,13 @@ export default function BandProposalsTabMobile({ bandId, isAdmin }: Props) {
           <IonList
             inset={false}
             style={{
+              margin: 0,
+              padding: 0,
+              paddingTop: 8,
               background: 'transparent',
-              padding: '0 16px 0',
+              display: 'flex',
+              flexDirection: 'column',
+              rowGap: 4,
             }}
           >
             {proposals.map((p) => {
@@ -120,75 +129,137 @@ export default function BandProposalsTabMobile({ bandId, isAdmin }: Props) {
               const venueText = p.venue?.trim();
               const subtitle = venueText
                 ? venueText
-                : 'Tap to add time options';
+                : isAdmin
+                ? 'Tap to add time options'
+                : 'Open to vote on times';
 
               return (
                 <IonItem
                   key={p.id}
                   button
-                  detail={true}
+                  detail={false}
                   lines="none"
                   onClick={() => nav(`/bands/${bandId}/proposals/${p.id}`)}
-                  style={
-                    {
-                      borderRadius: 16,
-                      marginBottom: 10,
-                      boxShadow:
-                        '0 10px 30px rgba(0,0,0,0.85), 0 0 22px rgba(8,47,73,0.45)',
-                    } as any
-                  }
+                  style={{
+                    ['--background' as any]: 'transparent',
+                    ['--background-hover' as any]: 'transparent',
+                    marginInline: -20,
+                    paddingInline: 0,
+                    paddingBlock: 3,
+                  }}
                 >
-                  <IonLabel>
-                    <h2
-                      style={{
-                        margin: 0,
-                        fontSize: 16,
-                        fontWeight: 800,
-                        color: '#E5E7EB',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      {title}
-                    </h2>
-                    <p
-                      style={{
-                        margin: '2px 0 0',
-                        fontSize: 13.5,
-                        color: 'rgba(226, 232, 240, 0.9)',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      {subtitle}
-                    </p>
-                    <p
-                      style={{
-                        margin: '4px 0 0',
-                        fontSize: 12,
-                        color: '#6B7280',
-                      }}
-                    >
-                      Created {createdLabel}
-                    </p>
-                  </IonLabel>
-
                   <div
-                    slot="end"
                     style={{
-                      fontSize: 11,
-                      padding: '3px 7px',
-                      borderRadius: 999,
-                      border: '1px solid rgba(245, 158, 11, 0.75)',
-                      color: 'rgba(245, 158, 11, 0.95)',
-                      textTransform: 'uppercase',
-                      letterSpacing: 0.7,
-                      whiteSpace: 'nowrap',
+                      borderRadius: 20,
+                      paddingInline: 20,
+                      paddingBlock: 12,
+                      minHeight: 85,
+                      width: '100%',
+                      display: 'grid',
+                      gridTemplateColumns: '1fr auto auto',
+                      alignItems: 'center',
+                      columnGap: 10,
+                      background:
+                        'linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02))',
+                      boxShadow: '0 10px 24px rgba(0,0,0,.32)',
+                      transform: 'scale(1)',
+                      transition:
+                        'transform 120ms ease-out, box-shadow 120ms ease-out, background 120ms ease-out',
                     }}
                   >
-                    Proposed
+                    {/* Text column */}
+                    <div
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        minWidth: 0,
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontWeight: 800,
+                          fontSize: 16,
+                          letterSpacing: 0.2,
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          color: '#E5E7EB',
+                        }}
+                        title={title}
+                      >
+                        {title}
+                      </span>
+
+                      <span
+                        style={{
+                          marginTop: 8,
+                          fontSize: 13,
+                          opacity: 0.85,
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          color: 'rgba(226,232,240,0.9)',
+                        }}
+                        title={subtitle}
+                      >
+                        {subtitle}
+                      </span>
+
+                      <span
+                        style={{
+                          marginTop: 4,
+                          fontSize: 11.5,
+                          color: '#6B7280',
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                        }}
+                      >
+                        Created {createdLabel}
+                      </span>
+                    </div>
+
+                    {/* Proposed pill */}
+                    <div
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'flex-end',
+                        justifyContent: 'center',
+                        marginLeft: 6,
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: 11,
+                          padding: '3px 7px',
+                          borderRadius: 999,
+                          border: '1px solid rgba(245, 158, 11, 0.75)',
+                          color: 'rgba(245, 158, 11, 0.95)',
+                          textTransform: 'uppercase',
+                          letterSpacing: 0.7,
+                          whiteSpace: 'nowrap',
+                          background: 'rgba(24, 20, 11, 0.9)',
+                        }}
+                      >
+                        Proposed
+                      </span>
+                    </div>
+
+                    {/* Chevron */}
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'flex-end',
+                        paddingLeft: 4,
+                      }}
+                    >
+                      <IonIcon
+                        icon={chevronForwardOutline}
+                        style={{ fontSize: 18, opacity: 0.6 }}
+                      />
+                    </div>
                   </div>
                 </IonItem>
               );

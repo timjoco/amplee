@@ -25,8 +25,9 @@ import {
   setEvents,
   setLastMsgsBulk,
   upsertLastMsg,
-} from '../../lib/eventInboxCache';
+} from '../../lib/cache/eventInboxCache';
 import { supabase } from '../../lib/supabase';
+import EventStatusChip from './EventStatusChip';
 
 type LastMsg = { event_id: string; body: string; created_at: string };
 
@@ -41,7 +42,7 @@ export default function EventInboxListMobile({
   bandId?: string;
   showAvatars?: boolean;
   enableCreateForBand?: boolean;
-  isAdmin?: boolean; // 👈 add this
+  isAdmin?: boolean;
 }) {
   const nav = useNavigate();
 
@@ -69,6 +70,8 @@ export default function EventInboxListMobile({
 
   const [pressedId, setPressedId] = useState<string | null>(null);
   const MOVE_THRESHOLD = 12;
+
+  const canCreateEvent = Boolean(enableCreateForBand && bandId && isAdmin);
 
   const triggerHaptic = useCallback(async () => {
     if (Capacitor.getPlatform() === 'web') return;
@@ -272,8 +275,7 @@ export default function EventInboxListMobile({
     );
   };
 
-  // --- Long-press haptic + visual “puff” --------------------------
-
+  // --- Long-press haptic --- //
   const handlePressStart = useCallback(
     (
       id: string,
@@ -281,7 +283,6 @@ export default function EventInboxListMobile({
         | React.TouchEvent<HTMLDivElement>
         | React.MouseEvent<HTMLDivElement, MouseEvent>
     ) => {
-      // clear any previous timer
       if (longPressTimeoutRef.current != null) {
         window.clearTimeout(longPressTimeoutRef.current);
       }
@@ -299,7 +300,6 @@ export default function EventInboxListMobile({
 
       pressStartRef.current = { x: clientX, y: clientY };
 
-      // ⏱️ only on long press do we "press" + haptic
       longPressTimeoutRef.current = window.setTimeout(() => {
         setPressedId(id);
         void triggerHaptic();
@@ -317,7 +317,6 @@ export default function EventInboxListMobile({
     const dx = t.clientX - x;
     const dy = t.clientY - y;
 
-    // if user is scrolling, cancel long press
     if (Math.abs(dx) > MOVE_THRESHOLD || Math.abs(dy) > MOVE_THRESHOLD) {
       window.clearTimeout(longPressTimeoutRef.current);
       longPressTimeoutRef.current = null;
@@ -331,14 +330,12 @@ export default function EventInboxListMobile({
     }
     pressStartRef.current = null;
 
-    // let the scale hang for a beat, then reset
     if (pressedId != null) {
       setTimeout(() => setPressedId(null), 130);
     }
   }, [pressedId]);
 
-  // --- Avatar initials --------------------------------------------
-
+  // --- Avatar initials --- //
   const renderAvatarInitials = (name?: string | null) => {
     const initials =
       name
@@ -364,8 +361,7 @@ export default function EventInboxListMobile({
     );
   };
 
-  // --- Render guards ----------------------------------------------
-
+  // --- role guards --- //
   if (loading && rows.length === 0) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -381,52 +377,45 @@ export default function EventInboxListMobile({
       : 'No events yet. Your band admin can create events for upcoming shows and practices.';
 
     return (
-      <div
-        style={{
-          paddingTop: 8,
-          paddingBottom: 16,
-          paddingInline: 16,
-          textAlign: 'center',
-        }}
-      >
-        <IonText color="medium">
-          <p
-            style={{
-              margin: 0,
-              marginBottom: enableCreateForBand && bandId && isAdmin ? 10 : 0,
-              fontSize: 14,
-              lineHeight: 1.5,
-            }}
-          >
-            {message}
-          </p>
-        </IonText>
+      <div style={{ paddingBottom: 16 }}>
+        <div style={{ padding: 16 }}>
+          <IonText color="medium">
+            <p style={{ margin: 0 }}>{message}</p>
+          </IonText>
+        </div>
 
-        {enableCreateForBand && bandId && isAdmin && (
-          <IonButton
-            fill="outline"
-            size="default"
-            onClick={openGlobalCreateForBand}
+        {canCreateEvent && (
+          <div
             style={{
-              marginTop: 4,
-              '--color': 'rgba(52, 211, 153, 0.95)',
-              '--border-color': 'rgba(52, 211, 153, 0.95)',
-              '--background-activated': 'rgba(52, 211, 153, 0.95)',
-              '--border-color-activated': 'rgba(52, 211, 153, 0.95)',
-              '--color-activated': '#000000',
-              borderRadius: 999,
+              padding: 16,
+              paddingTop: 0,
+              display: 'flex',
+              justifyContent: 'center',
             }}
           >
-            <IonIcon icon={addOutline} slot="start" />
-            Create new event
-          </IonButton>
+            <IonButton
+              fill="outline"
+              size="default"
+              onClick={openGlobalCreateForBand}
+              style={{
+                '--color': 'rgba(52, 211, 153, 0.95)',
+                '--border-color': 'rgba(52, 211, 153, 0.95)',
+                '--background-activated': 'rgba(52, 211, 153, 0.95)',
+                '--border-color-activated': 'rgba(52, 211, 153, 0.95)',
+                '--color-activated': '#000000',
+                borderRadius: 999,
+              }}
+            >
+              <IonIcon icon={addOutline} slot="start" />
+              Create new event
+            </IonButton>
+          </div>
         )}
       </div>
     );
   }
 
-  // --- Render list ------------------------------------------------
-
+  // --- Render list --- //
   return (
     <div
       style={{
@@ -474,7 +463,7 @@ export default function EventInboxListMobile({
               style={{
                 ['--background' as any]: 'transparent',
                 ['--background-hover' as any]: 'transparent',
-                marginInline: -8, // ⬅️ was 0 — now reaches 8px past the content padding
+                marginInline: -20,
                 paddingInline: 0,
                 paddingBlock: 3,
               }}
@@ -567,7 +556,7 @@ export default function EventInboxListMobile({
 
                   <span
                     style={{
-                      marginTop: 8, // ⬅️ slightly more breathing room under title
+                      marginTop: 8,
                       fontSize: 13,
                       opacity: 0.8,
                       whiteSpace: 'nowrap',
@@ -601,7 +590,11 @@ export default function EventInboxListMobile({
                       {when}
                     </span>
                   )}
-                  <MiniStatusChip isBooked={e.is_booked} />
+                  <EventStatusChip
+                    isBooked={e.is_booked}
+                    isCancelled={e.is_cancelled}
+                    size="md"
+                  />
                 </div>
 
                 <div
@@ -650,33 +643,5 @@ export default function EventInboxListMobile({
         </div>
       )}
     </div>
-  );
-}
-
-function MiniStatusChip({ isBooked }: { isBooked: boolean }) {
-  const label = isBooked ? 'Booked' : 'Pending';
-  const bg = isBooked ? 'rgba(76,175,80,0.16)' : 'rgba(255,193,7,0.2)';
-  const border = isBooked ? 'rgba(76,175,80,0.45)' : 'rgba(255,193,7,0.5)';
-  const color = isBooked ? '#C9F5D0' : '#FFE7AA';
-
-  return (
-    <span
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '2px 8px',
-        borderRadius: 999,
-        fontSize: 11,
-        fontWeight: 600,
-        textTransform: 'capitalize',
-        background: bg,
-        color,
-        border: `1px solid ${border}`,
-        whiteSpace: 'nowrap',
-      }}
-    >
-      {label}
-    </span>
   );
 }

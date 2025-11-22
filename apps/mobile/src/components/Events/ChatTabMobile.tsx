@@ -10,12 +10,7 @@ import {
   IonText,
   IonTextarea,
 } from '@ionic/react';
-import {
-  addOutline,
-  copyOutline,
-  send as sendIcon,
-  trashOutline,
-} from 'ionicons/icons';
+import { copyOutline, send as sendIcon, trashOutline } from 'ionicons/icons';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import AvatarImageMobile from '../ui/AvatarImageMobile';
@@ -705,16 +700,6 @@ export default function ChatTabMobile({
         transition: 'transform 160ms ease-out',
       }}
     >
-      {/* STATUS PICKER OVERLAY */}
-      {showStatusPicker && (
-        <StatusPickerPopover
-          onClose={() => setShowStatusPicker(false)}
-          onPick={(body) => {
-            void sendQuickStatus(body);
-            setShowStatusPicker(false);
-          }}
-        />
-      )}
       <div
         style={{
           flex: 1,
@@ -1013,7 +998,7 @@ export default function ChatTabMobile({
           }}
         >
           {/* + STATUS BUTTON (left bubble) */}
-          <button
+          {/* <button
             type="button"
             onClick={() => {
               setShowStatusPicker((v) => !v);
@@ -1036,7 +1021,7 @@ export default function ChatTabMobile({
             }}
           >
             <IonIcon icon={addOutline} style={{ fontSize: 22 }} />
-          </button>
+          </button> */}
 
           <div
             style={{
@@ -1081,7 +1066,7 @@ export default function ChatTabMobile({
                 borderRadius: 999,
                 border: 'none',
                 background:
-                  'radial-gradient(circle at top left, rgba(168,85,247,0.85), rgba(88,28,135,1))',
+                  'radial-gradient(circle at top left, rgba(52, 211, 153, 0.95), rgba(22, 101, 72, 0.95))',
                 display: 'inline-flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -1281,155 +1266,6 @@ function EmojiGridMobile({
           {e}
         </button>
       ))}
-    </div>
-  );
-}
-
-function StatusPickerPopover({
-  onClose,
-  onPick,
-}: {
-  onClose: () => void;
-  onPick: (body: string) => void;
-}) {
-  const handlePick = (body: string) => {
-    if (Capacitor.getPlatform() !== 'web') {
-      Haptics.impact({ style: ImpactStyle.Light }).catch(() => {});
-    }
-    onPick(body);
-  };
-
-  return (
-    <div
-      onClick={onClose}
-      style={{
-        position: 'absolute',
-        inset: 0,
-        background: 'transparent',
-        zIndex: 50,
-        display: 'flex',
-        justifyContent: 'flex-start',
-        alignItems: 'flex-end',
-      }}
-    >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          marginLeft: 12,
-          marginBottom: 70,
-          background: 'rgba(9,9,13,0.98)',
-          borderRadius: 20,
-          padding: '12px 14px 14px',
-          minWidth: 260,
-          border: '1px solid rgba(148,163,184,0.45)',
-          boxShadow: '0 20px 45px rgba(0,0,0,0.95)',
-        }}
-      >
-        {/* Arrival */}
-        <div
-          style={{
-            fontSize: 14,
-            fontWeight: 700,
-            color: '#F9FAFB',
-            marginBottom: 8,
-          }}
-        >
-          Gigs
-        </div>
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: '1fr 1fr',
-            gap: 8,
-            marginBottom: 10,
-          }}
-        >
-          <StatusChip
-            emoji="🚙"
-            label="On the way"
-            onClick={() => {
-              handlePick('🚙 On the way');
-              onClose();
-            }}
-          />
-          <StatusChip
-            emoji="✅"
-            label="Arrived"
-            onClick={() => {
-              handlePick('✅ Arrived');
-              onClose();
-            }}
-          />
-          <StatusChip
-            emoji="🕒"
-            label="Running late"
-            onClick={() => {
-              handlePick('🕒 Running late');
-              onClose();
-            }}
-          />
-          <StatusChip
-            emoji="🎵"
-            label="At soundcheck"
-            onClick={() => {
-              handlePick('🎵 At soundcheck');
-              onClose();
-            }}
-          />
-        </div>
-
-        {/* General */}
-        <div
-          style={{
-            fontSize: 14,
-            fontWeight: 700,
-            color: '#F9FAFB',
-            marginBottom: 8,
-          }}
-        >
-          General
-        </div>
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: '1fr 1fr',
-            gap: 8,
-          }}
-        >
-          <StatusChip
-            emoji="💬"
-            label="Need info"
-            onClick={() => {
-              handlePick('💬 Need info');
-              onClose();
-            }}
-          />
-          <StatusChip
-            emoji="🥤"
-            label="Break"
-            onClick={() => {
-              handlePick('🥤 Break');
-              onClose();
-            }}
-          />
-          <StatusChip
-            emoji="🔄"
-            label="Swapping gear"
-            onClick={() => {
-              handlePick('🔄 Swapping gear');
-              onClose();
-            }}
-          />
-          <StatusChip
-            emoji="🎙"
-            label="Ready"
-            onClick={() => {
-              handlePick('🎙 Ready');
-              onClose();
-            }}
-          />
-        </div>
-      </div>
     </div>
   );
 }

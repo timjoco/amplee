@@ -3,7 +3,13 @@ import { IonSpinner, IonText, IonToast } from '@ionic/react';
 import * as React from 'react';
 import { useAttendance, type AttStatus } from '../../hooks/useAttendance';
 
-export default function RSVPTabMobile({ eventId }: { eventId: string }) {
+export default function RSVPTabMobile({
+  eventId,
+  onLocalBookedChange,
+}: {
+  eventId: string;
+  onLocalBookedChange?: (isBooked: boolean) => void;
+}) {
   const {
     mine,
     counts,
@@ -14,19 +20,18 @@ export default function RSVPTabMobile({ eventId }: { eventId: string }) {
     error,
     update,
     updateSubRequest,
+    hydrated,
   } = useAttendance(eventId);
 
   const [showSubPopup, setShowSubPopup] = React.useState(false);
   const [showSubToast, setShowSubToast] = React.useState(false);
-
-  // confirmation popup state for RSVP
   const [confirmTarget, setConfirmTarget] = React.useState<AttStatus | null>(
     null
   );
 
   const hasSubRequested = needsSub;
-  const isAccepted = !hasSubRequested && mine === 'accepted';
-  const isPending = !hasSubRequested && mine === 'pending';
+  const isAccepted = hydrated && !hasSubRequested && mine === 'accepted';
+  const isPending = hydrated && !hasSubRequested && mine === 'pending';
 
   const primaryButtonBase: React.CSSProperties = {
     width: '100%',
@@ -70,7 +75,26 @@ export default function RSVPTabMobile({ eventId }: { eventId: string }) {
       await updateSubRequest(false, '');
     }
 
-    // Apply the RSVP
+    // --- Optimistic: compute next band accepted count ---
+    if (onLocalBookedChange) {
+      const total = counts.total;
+      const prevAccepted = counts.accepted;
+
+      const wasAccepted = mine === 'accepted';
+      const willBeAccepted = confirmTarget === 'accepted';
+
+      let nextAccepted = prevAccepted;
+
+      // If I *was* accepted and I'm leaving that state, decrement
+      if (wasAccepted && !willBeAccepted) nextAccepted -= 1;
+      // If I *wasn't* accepted and I'm becoming accepted, increment
+      if (!wasAccepted && willBeAccepted) nextAccepted += 1;
+
+      const optimisticIsBooked = total > 0 && nextAccepted === total;
+
+      onLocalBookedChange(optimisticIsBooked);
+    }
+
     await update(confirmTarget);
 
     setConfirmTarget(null);
@@ -132,10 +156,8 @@ export default function RSVPTabMobile({ eventId }: { eventId: string }) {
         <div
           style={{
             borderRadius: 18,
-            background:
-              'radial-gradient(circle at top left, rgba(15,118,110,0.16), #020617 45%, #020617 100%)',
-            border: '1px solid rgba(52,211,153,0.30)',
-            boxShadow: '0 14px 32px rgba(0,0,0,0.85)',
+            border: '1px solid rgba(52, 211, 153, 0.55)',
+            boxShadow: '0 14px 32px rgba(0,0,0,0.55)',
             padding: 14,
             marginBottom: 16,
           }}
@@ -162,10 +184,9 @@ export default function RSVPTabMobile({ eventId }: { eventId: string }) {
               marginTop: 6,
             }}
           >
-            {/* YES / ACCEPTED */}
             <button
               type="button"
-              disabled={saving}
+              disabled={saving || !hydrated}
               onClick={() => handleAskConfirm('accepted')}
               style={{
                 ...primaryButtonBase,
@@ -237,7 +258,9 @@ export default function RSVPTabMobile({ eventId }: { eventId: string }) {
               <span>
                 Your status:{' '}
                 <strong style={{ color: '#EDE9FE' }}>
-                  {hasSubRequested ? (
+                  {!hydrated ? (
+                    'Checking…'
+                  ) : hasSubRequested ? (
                     <span
                       style={{
                         display: 'inline-flex',
@@ -282,9 +305,7 @@ export default function RSVPTabMobile({ eventId }: { eventId: string }) {
         <div
           style={{
             borderRadius: 18,
-            background:
-              'linear-gradient(145deg, #08070d, #050509 55%, #0b0614)',
-            border: '1px solid rgba(52, 211, 153, 0.40)',
+            border: '1px solid rgba(52, 211, 153, 0.95)',
             padding: 14,
           }}
         >
@@ -342,7 +363,7 @@ export default function RSVPTabMobile({ eventId }: { eventId: string }) {
           </p>
         </div>
 
-        {/* DARK CONFIRMATION POPUP (RSVP) */}
+        {/* DARK CONFIRMATION POPUP */}
         {confirmTarget && (
           <ConfirmStatusPopup
             target={confirmTarget}

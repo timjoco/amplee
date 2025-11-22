@@ -1,44 +1,41 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import {
   IonButton,
+  IonButtons,
   IonContent,
   IonHeader,
   IonIcon,
-  IonItem,
-  IonList,
-  IonModal,
   IonPage,
   IonSegment,
   IonSegmentButton,
-  IonSpinner,
   IonText,
-  IonToggle,
   IonToolbar,
 } from '@ionic/react';
 import {
   chatbubblesOutline,
   chevronBackOutline,
   chevronForwardOutline,
-  createOutline,
   documentTextOutline,
   folderOpenOutline,
   musicalNotesOutline,
   peopleOutline,
 } from 'ionicons/icons';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import ChatTabMobile from '../components/Events/ChatTabMobile';
+import EventSheetModal from '../components/Events/EventSheetModal';
 import RSVPTabMobile from '../components/Events/RSVPTabMobile';
 import SetlistTabMobile from '../components/Events/SetlistTabMobile';
-import AvatarImageMobile from '../components/ui/AvatarImageMobile';
 import { supabase } from '../lib/supabase';
 import { exportEventToCalendar } from '../utils/exportEventToCalendar';
+
+type EventType = 'show' | 'practice';
 
 type EventRow = {
   id: string;
   band_id: string;
   title: string;
-  type: 'show' | 'practice' | string;
+  type: EventType | null;
   starts_at: string | null;
   ends_at: string | null;
   location: string | null;
@@ -59,39 +56,15 @@ export default function EventSheetMobile() {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<TabKey>('Green Room');
   const [isAdmin, setIsAdmin] = useState(false);
-
   const pageRef = useRef<HTMLElement | null>(null);
   const [showInfoSheet, setShowInfoSheet] = useState(false);
-
   const [, setMyUserId] = useState<string | null>(null);
-
-  const [editingEvent, setEditingEvent] = useState(false);
-  const [savingEvent, setSavingEvent] = useState(false);
-
-  const [editTitle, setEditTitle] = useState('');
-  const [editLocation, setEditLocation] = useState('');
-
-  const [editStart, setEditStart] = useState('');
-  const [editEnd, setEditEnd] = useState('');
-
   const [savingPublic, setSavingPublic] = useState(false);
 
-  function fromLocalToIso(val: string | null): string | null {
-    if (!val) return null;
-    const d = new Date(val);
-    if (Number.isNaN(d.getTime())) return null;
-    return d.toISOString();
-  }
-
+  const location = useLocation();
+  const cameFromSettings = (location.state as any)?.fromSettings;
   const nav = useNavigate();
-
-  const handleBack = () => {
-    if (window.history.length > 1) {
-      nav(-1);
-    } else {
-      nav('/home', { replace: true });
-    }
-  };
+  const hasStart = !!event?.starts_at;
 
   const startsAtLabel = useMemo(() => {
     if (!event || !event.starts_at) return '';
@@ -153,79 +126,8 @@ export default function EventSheetMobile() {
     };
   }, [event]);
 
-  const hasStart = !!event?.starts_at;
-
   const eventIconColor = (key: TabKey) =>
     tab === key ? EVENT_TAB_META[key].accent : 'rgba(148,163,184,0.9)';
-
-  function toLocalInputValue(iso: string | null | undefined): string {
-    if (!iso) return '';
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return '';
-    const pad = (n: number) => String(n).padStart(2, '0');
-    const yyyy = d.getFullYear();
-    const mm = pad(d.getMonth() + 1);
-    const dd = pad(d.getDate());
-    const hh = pad(d.getHours());
-    const mi = pad(d.getMinutes());
-    return `${yyyy}-${mm}-${dd}T${hh}:${mi}`;
-  }
-
-  const handleStartEditEvent = useCallback(() => {
-    if (!event) return;
-
-    setEditTitle(event.title ?? '');
-    setEditLocation(event.location ?? '');
-    setEditStart(toLocalInputValue(event.starts_at));
-    setEditEnd(toLocalInputValue(event.ends_at ?? null));
-    setEditingEvent(true);
-  }, [event]);
-
-  const handleSaveEventDetails = useCallback(async () => {
-    if (!event) return;
-    try {
-      setSavingEvent(true);
-
-      const updates: {
-        title?: string | null;
-        location?: string | null;
-        starts_at?: string | null;
-        ends_at?: string | null;
-      } = {
-        title: editTitle.trim() || null,
-        location: editLocation.trim() || null,
-        starts_at: fromLocalToIso(editStart),
-        ends_at: fromLocalToIso(editEnd),
-      };
-
-      const { error } = await supabase
-        .from('events')
-        .update(updates)
-        .eq('id', event.id)
-        .eq('band_id', event.band_id);
-
-      if (error) {
-        console.error('Failed to update event', error);
-        return;
-      }
-
-      setEvent((prev) =>
-        prev
-          ? {
-              ...prev,
-              title: updates.title ?? prev.title,
-              location: updates.location ?? prev.location,
-              starts_at: updates.starts_at ?? prev.starts_at,
-              ends_at: updates.ends_at ?? prev.ends_at,
-            }
-          : prev
-      );
-
-      setEditingEvent(false);
-    } finally {
-      setSavingEvent(false);
-    }
-  }, [event, editTitle, editLocation, editStart, editEnd, supabase]);
 
   const handleTogglePublic = async () => {
     if (!event || !isAdmin || savingPublic) return;
@@ -241,14 +143,20 @@ export default function EventSheetMobile() {
 
       if (error) {
         console.error('[event public toggle] error', error.message);
-        // optional: you can surface a toast here if you like
         return;
       }
 
-      // Optimistically update local event state so UI reflects the change
       setEvent((prev) => (prev ? { ...prev, is_public: next } : prev));
     } finally {
       setSavingPublic(false);
+    }
+  };
+
+  const handleBack = () => {
+    if (cameFromSettings && bandId) {
+      nav(`/bands/${bandId}`);
+    } else {
+      nav(-1);
     }
   };
 
@@ -261,7 +169,7 @@ export default function EventSheetMobile() {
       const { data, error } = await supabase
         .from('events_with_my_attendance')
         .select(
-          'id, band_id, title, type, starts_at, ends_at, location, is_booked, is_cancelled'
+          'id, band_id, title, type, starts_at, ends_at, location, is_booked, is_cancelled, is_public'
         )
         .eq('id', eventId)
         .maybeSingle();
@@ -380,7 +288,7 @@ export default function EventSheetMobile() {
           <div
             style={{
               width: '100%',
-              paddingInline: 12,
+              paddingInline: 21,
               paddingBlock: 6,
             }}
           >
@@ -389,38 +297,30 @@ export default function EventSheetMobile() {
                 width: '100%',
                 display: 'flex',
                 alignItems: 'center',
-                padding: '10px 14px',
+                padding: '20px 14px',
                 borderRadius: 20,
                 background: 'rgba(14, 15, 16, 0.98)',
-                border: '.5px solid rgba(52, 211, 153, 0.35)',
+                border: '.5px solid rgba(18, 55, 41, 0.9)',
                 boxShadow: '0 16px 40px rgba(0,0,0,0.55)',
                 outline: 'none',
-                gap: 12,
+                gap: 10,
               }}
             >
               {/* Column 1: Back button */}
-              <button
-                type="button"
-                onClick={handleBack}
-                style={{
-                  flex: '0 0 auto',
-                  background: 'transparent',
-                  border: 'none',
-                  padding: 6,
-                  borderRadius: 999,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                }}
-              >
-                <IonIcon
-                  icon={chevronBackOutline}
-                  style={{ color: '#F9FAFB', fontSize: 24 }}
-                />
-              </button>
+              <IonButtons slot="start">
+                <IonButton
+                  fill="clear"
+                  onClick={handleBack}
+                  style={{ minWidth: 0, paddingInline: 4 }}
+                >
+                  <IonIcon
+                    icon={chevronBackOutline}
+                    style={{ color: '#F9FAFB', fontSize: 22 }}
+                  />
+                </IonButton>
+              </IonButtons>
 
-              {/* Column 2: Title + metadata (clickable for modal) */}
+              {/* Column 2: Title + metadata (with status chip inside title row) */}
               <button
                 type="button"
                 onClick={() => setShowInfoSheet(true)}
@@ -439,45 +339,84 @@ export default function EventSheetMobile() {
                   cursor: 'pointer',
                 }}
               >
-                {/* Event title + tiny chevron right next to name */}
+                {/* Title row: title + status chip + chevron */}
                 <div
                   style={{
                     display: 'flex',
                     alignItems: 'center',
-                    gap: 4,
-                    maxWidth: '100%',
+                    justifyContent: 'space-between', // 👈 spread left cluster + pill
+                    width: '100%',
+                    minWidth: 0,
+                    gap: 8,
                   }}
                 >
-                  <span
+                  {/* Left cluster: title + chevron, only as wide as needed */}
+                  <div
                     style={{
-                      flexGrow: 0,
-                      flexShrink: 1,
+                      display: 'flex',
+                      alignItems: 'center',
                       minWidth: 0,
-                      maxWidth: '100%',
-                      fontSize: 20, // bumped slightly to feel closer to band header
-                      fontWeight: 700,
-                      color: '#F9FAFB',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                      textAlign: 'left',
+                      flexShrink: 1, // 👈 can shrink, but won't grow to fill
+                      gap: 6,
                     }}
                   >
-                    {event?.title ?? (loading ? 'Loading…' : 'Event')}
-                  </span>
+                    <span
+                      style={{
+                        flexShrink: 1,
+                        minWidth: 0,
+                        maxWidth: '100%',
+                        fontSize: 20,
+                        fontWeight: 700,
+                        color: '#F9FAFB',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        textAlign: 'left',
+                      }}
+                    >
+                      {event?.title ?? (loading ? 'Loading…' : 'Event')}
+                    </span>
 
-                  <IonIcon
-                    icon={chevronForwardOutline}
-                    style={{
-                      fontSize: 16,
-                      opacity: 0.8,
-                      flexShrink: 0,
-                      color: '#ffffffff',
-                    }}
-                  />
+                    <IonIcon
+                      icon={chevronForwardOutline}
+                      style={{
+                        fontSize: 13,
+                        opacity: 0.8,
+                        flexShrink: 0,
+                        color: '#ffffffff',
+                      }}
+                    />
+                  </div>
+
+                  {/* Right: Status pill pinned to far right */}
+                  {event && status && (
+                    <div
+                      style={{
+                        flexShrink: 0,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: 10.5,
+                        lineHeight: 1.1,
+                        fontWeight: 600,
+                        textTransform: 'capitalize',
+                        paddingInline: 7,
+                        paddingBlock: 2,
+                        borderRadius: 999,
+                        whiteSpace: 'nowrap',
+                        background: status.bg,
+                        color: status.color,
+                        border: `1px solid ${status.border}`,
+                        transform: 'scale(0.84)',
+                        transformOrigin: 'center right',
+                      }}
+                    >
+                      {status.label}
+                    </div>
+                  )}
                 </div>
 
-                {/* Meta row: date/time • truncated location */}
+                {/* Meta row: date/time */}
                 <span
                   style={{
                     fontSize: 13,
@@ -515,39 +454,10 @@ export default function EventSheetMobile() {
                     : 'Loading details…'}
                 </span>
               </button>
-
-              {/* Column 3: Status pill (far right) */}
-              {event && status && (
-                <div
-                  style={{
-                    flex: '0 0 auto',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: 10.5,
-                    lineHeight: 1.1,
-                    fontWeight: 600,
-                    textTransform: 'capitalize',
-                    paddingInline: 7,
-                    paddingBlock: 2,
-                    borderRadius: 999,
-                    whiteSpace: 'nowrap',
-                    background: status.bg,
-                    color: status.color,
-                    border: `1px solid ${status.border}`,
-                    marginLeft: 4,
-                    transform: 'scale(0.94)',
-                    transformOrigin: 'center right',
-                  }}
-                >
-                  {status.label}
-                </div>
-              )}
             </div>
           </div>
         </IonToolbar>
 
-        {/* TABS BELOW CARD */}
         {/* TABS BELOW CARD */}
         <IonToolbar
           style={{
@@ -558,7 +468,7 @@ export default function EventSheetMobile() {
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(5, 1fr)', // 5 tabs now
+              gridTemplateColumns: 'repeat(5, 1fr)',
               gridAutoRows: 'auto',
               rowGap: 0,
               padding: '0 8px',
@@ -699,568 +609,25 @@ export default function EventSheetMobile() {
         </IonToolbar>
       </IonHeader>
 
-      {/*EVENT DETAILS POPUP */}
-      <IonModal
+      <EventSheetModal
         isOpen={showInfoSheet}
-        onDidDismiss={() => {
+        onDismiss={() => {
           setShowInfoSheet(false);
-          setEditingEvent(false);
         }}
-        breakpoints={[0, 0.9]}
-        initialBreakpoint={0.9}
-        handleBehavior="cycle"
-        className="event-info-sheet"
-      >
-        <IonContent>
-          <div
-            style={{
-              position: 'relative',
-              padding: 16,
-              paddingBottom: 24,
-              height: '100%',
-              color: '#E5E7EB',
-              display: 'flex',
-              flexDirection: 'column',
-            }}
-          >
-            {/* GRABBER */}
-            <div
-              style={{
-                width: 40,
-                height: 4,
-                borderRadius: 999,
-                margin: '4px auto 12px',
-                background: 'rgba(52,211,153,0.75)',
-              }}
-            />
-
-            {event ? (
-              <>
-                <div
-                  style={{
-                    position: 'relative',
-                    marginBottom: 12,
-                  }}
-                >
-                  <h2
-                    style={{
-                      margin: 0,
-                      fontSize: 20,
-                      fontWeight: 800,
-                      textAlign: 'center',
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      paddingInline: 40,
-                      color: '#F9FAFB',
-                    }}
-                  >
-                    {editingEvent
-                      ? editTitle || 'Event'
-                      : event.title || 'Event'}
-                  </h2>
-                </div>
-
-                <div
-                  style={{
-                    flex: 1,
-                    overflowY: 'auto',
-                    paddingRight: 2,
-                  }}
-                >
-                  {/* EVENT OVERVIEW CARD */}
-                  <div
-                    style={{
-                      borderRadius: 18,
-
-                      border: '1px solid rgba(52,211,153,0.40)',
-                      padding: 14,
-                      marginBottom: 16,
-                      boxShadow: '0 22px 45px rgba(0,0,0,0.9)',
-                      position: 'relative',
-                    }}
-                  >
-                    {/* top-right edit icon (admin only) */}
-                    {isAdmin && !editingEvent && (
-                      <button
-                        type="button"
-                        onClick={handleStartEditEvent}
-                        style={{
-                          position: 'absolute',
-                          top: 10,
-                          right: 10,
-                          borderRadius: 999,
-                          border: '1px solid rgba(52,211,153,0.65)',
-                          background:
-                            'radial-gradient(circle at top, rgba(52,211,153,0.24), rgba(15,23,42,1))',
-                          padding: 6,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        <IonIcon
-                          icon={createOutline}
-                          style={{
-                            fontSize: 16,
-                            color: 'rgba(209,250,229,0.96)',
-                          }}
-                        />
-                      </button>
-                    )}
-
-                    <div style={{ marginBottom: 10 }}>
-                      <p
-                        style={{
-                          margin: 0,
-                          fontSize: 13,
-                          fontWeight: 700,
-                          letterSpacing: 0.04,
-                          textTransform: 'uppercase',
-                          color: 'rgba(209,250,229,0.96)', // heading -> soft green
-                        }}
-                      >
-                        Event overview
-                      </p>
-                      <p
-                        style={{
-                          margin: '4px 0 0',
-                          fontSize: 13,
-                          color: 'rgba(148,163,184,0.9)', // neutral body
-                        }}
-                      >
-                        {editingEvent
-                          ? 'Edit the core details for this event.'
-                          : 'Basic info about this event.'}
-                      </p>
-                    </div>
-
-                    {/* READ-ONLY VIEW */}
-                    {!editingEvent && (
-                      <div
-                        style={{
-                          marginTop: 4,
-                          paddingLeft: 6,
-                        }}
-                      >
-                        <div style={{ marginBottom: 10 }}>
-                          <p
-                            style={{
-                              margin: 0,
-                              fontSize: 12,
-                              textTransform: 'uppercase',
-                              letterSpacing: 0.08,
-                              color: 'rgba(167,243,208,0.9)', // label green
-                            }}
-                          >
-                            When
-                          </p>
-                          <p
-                            style={{
-                              margin: '4px 0 0',
-                              fontSize: 14,
-                              fontWeight: 500,
-                              color: '#ECFDF5',
-                            }}
-                          >
-                            {startsAtLabel || 'TBD'}
-                          </p>
-                        </div>
-
-                        <div style={{ marginBottom: 10 }}>
-                          <p
-                            style={{
-                              margin: 0,
-                              fontSize: 12,
-                              textTransform: 'uppercase',
-                              letterSpacing: 0.08,
-                              color: 'rgba(167,243,208,0.9)',
-                            }}
-                          >
-                            Where
-                          </p>
-                          <p
-                            style={{
-                              margin: '4px 0 0',
-                              fontSize: 14,
-                              fontWeight: 500,
-                              color: '#ECFDF5',
-                            }}
-                          >
-                            {event.location || 'TBD'}
-                          </p>
-                        </div>
-
-                        <div>
-                          <p
-                            style={{
-                              margin: 0,
-                              fontSize: 12,
-                              textTransform: 'uppercase',
-                              letterSpacing: 0.08,
-                              color: 'rgba(167,243,208,0.9)',
-                            }}
-                          >
-                            Type
-                          </p>
-                          <p
-                            style={{
-                              margin: '4px 0 0',
-                              fontSize: 14,
-                              fontWeight: 500,
-                              color: '#ECFDF5',
-                            }}
-                          >
-                            {event.type === 'practice' ? 'Practice' : 'Show'}
-                          </p>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* EDIT MODE */}
-                    {editingEvent && (
-                      <div
-                        style={{
-                          marginTop: 8,
-                          paddingLeft: 4,
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: 10,
-                        }}
-                      >
-                        {/* Title */}
-                        <div>
-                          <p
-                            style={{
-                              margin: 0,
-                              fontSize: 12,
-                              textTransform: 'uppercase',
-                              letterSpacing: 0.08,
-                              color: 'rgba(167,243,208,0.9)',
-                              marginBottom: 4,
-                            }}
-                          >
-                            Title
-                          </p>
-                          <input
-                            value={editTitle}
-                            onChange={(e) => setEditTitle(e.target.value)}
-                            placeholder="Event title"
-                            style={{
-                              width: '100%',
-                              borderRadius: 10,
-                              border: '1px solid rgba(148,163,184,0.8)',
-                              padding: 8,
-                              backgroundColor: '#020617',
-                              color: '#E5E7EB',
-                              fontSize: 14,
-                            }}
-                          />
-                        </div>
-
-                        {/* Location */}
-                        <div>
-                          <p
-                            style={{
-                              margin: 0,
-                              fontSize: 12,
-                              textTransform: 'uppercase',
-                              letterSpacing: 0.08,
-                              color: 'rgba(167,243,208,0.9)',
-                              marginBottom: 4,
-                            }}
-                          >
-                            Location
-                          </p>
-                          <input
-                            value={editLocation}
-                            onChange={(e) => setEditLocation(e.target.value)}
-                            placeholder="Venue / location"
-                            style={{
-                              width: '100%',
-                              borderRadius: 10,
-                              border: '1px solid rgba(148,163,184,0.8)',
-                              padding: 8,
-                              backgroundColor: '#020617',
-                              color: '#E5E7EB',
-                              fontSize: 14,
-                            }}
-                          />
-                        </div>
-
-                        {/* Start / End datetime */}
-                        <div
-                          style={{
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: 8,
-                          }}
-                        >
-                          <div>
-                            <p
-                              style={{
-                                margin: 0,
-                                fontSize: 12,
-                                textTransform: 'uppercase',
-                                letterSpacing: 0.08,
-                                color: 'rgba(167,243,208,0.9)',
-                                marginBottom: 4,
-                              }}
-                            >
-                              Start
-                            </p>
-                            <input
-                              type="datetime-local"
-                              value={editStart}
-                              onChange={(e) => setEditStart(e.target.value)}
-                              style={{
-                                width: '100%',
-                                borderRadius: 10,
-                                border: '1px solid rgba(148,163,184,0.8)',
-                                padding: 8,
-                                backgroundColor: '#020617',
-                                color: '#E5E7EB',
-                                fontSize: 14,
-                              }}
-                            />
-                          </div>
-
-                          <div>
-                            <p
-                              style={{
-                                margin: 0,
-                                fontSize: 12,
-                                textTransform: 'uppercase',
-                                letterSpacing: 0.08,
-                                color: 'rgba(167,243,208,0.9)',
-                                marginBottom: 4,
-                              }}
-                            >
-                              End (optional)
-                            </p>
-                            <input
-                              type="datetime-local"
-                              value={editEnd}
-                              onChange={(e) => setEditEnd(e.target.value)}
-                              style={{
-                                width: '100%',
-                                borderRadius: 10,
-                                border: '1px solid rgba(148,163,184,0.8)',
-                                padding: 8,
-                                backgroundColor: '#020617',
-                                color: '#E5E7EB',
-                                fontSize: 14,
-                              }}
-                            />
-                          </div>
-                        </div>
-
-                        {/* Save / Cancel */}
-                        <div
-                          style={{
-                            marginTop: 10,
-                            display: 'flex',
-                            flexDirection: 'row',
-                            gap: 8,
-                          }}
-                        >
-                          <button
-                            type="button"
-                            onClick={handleSaveEventDetails}
-                            disabled={savingEvent}
-                            style={{
-                              flex: 1,
-                              borderRadius: 999,
-                              border: '1px solid rgba(52, 211, 153, 0.95)',
-                              paddingBlock: 8,
-                              fontSize: 14,
-                              fontWeight: 600,
-                              background:
-                                'linear-gradient(135deg, rgba(52,211,153,0.96), rgba(16,185,129,0.98))',
-                              color: '#ECFDF5',
-                              opacity: savingEvent ? 0.7 : 1,
-                            }}
-                          >
-                            {savingEvent ? 'Saving…' : 'Save changes'}
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => setEditingEvent(false)}
-                            disabled={savingEvent}
-                            style={{
-                              flex: 1,
-                              borderRadius: 999,
-                              border: '1px solid rgba(148,163,184,0.9)',
-                              paddingBlock: 8,
-                              fontSize: 14,
-                              fontWeight: 500,
-                              background: 'rgba(15,23,42,0.98)',
-                              color: '#E5E7EB',
-                            }}
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Add to Google Calendar */}
-                    {!editingEvent && (
-                      <div
-                        style={{
-                          marginTop: 14,
-                          marginBottom: 16,
-                          paddingLeft: 6,
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: 8,
-                        }}
-                      >
-                        <IonButton
-                          type="button"
-                          onClick={handleExportGoogle}
-                          disabled={!hasStart}
-                          style={{
-                            '--background': 'rgba(15,23,42,0.98)',
-                            '--background-activated': 'rgba(45,212,191,0.95)',
-                            '--border-color': 'rgba(45,212,191,0.8)',
-                            '--color': 'rgba(45,212,191,0.95)',
-                            '--color-activated': '#000000',
-                            borderRadius: 999,
-                          }}
-                        >
-                          Add to Google Calendar
-                        </IonButton>
-                      </div>
-                    )}
-
-                    {/* Add to Public Band Page */}
-                    {!editingEvent && isAdmin && (
-                      <div
-                        style={{
-                          marginTop: 4,
-                          paddingLeft: 6,
-                          paddingRight: 4,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          gap: 12,
-                        }}
-                      >
-                        <div
-                          style={{
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: 2,
-                          }}
-                        >
-                          <p
-                            style={{
-                              margin: 0,
-                              fontSize: 12,
-                              textTransform: 'uppercase',
-                              letterSpacing: 0.08,
-                              color: 'rgba(167,243,208,0.9)',
-                            }}
-                          >
-                            Public listing
-                          </p>
-                          <p
-                            style={{
-                              margin: 0,
-                              fontSize: 12,
-                              color: 'rgba(148,163,184,0.9)',
-                            }}
-                          >
-                            Show this event on your public Amplee band page.
-                          </p>
-                        </div>
-
-                        <IonToggle
-                          checked={!!event.is_public}
-                          color="warning"
-                          disabled={savingPublic}
-                          onIonChange={handleTogglePublic}
-                          style={{ transform: 'scale(0.9)' }}
-                        />
-                      </div>
-                    )}
-                  </div>
-
-                  {/* LINEUP CARD */}
-                  <div
-                    style={{
-                      borderRadius: 18,
-                      border: '1px solid rgba(52,211,153,0.32)',
-                      padding: 14,
-                      marginBottom: 16,
-                    }}
-                  >
-                    <div style={{ marginBottom: 10 }}>
-                      <p
-                        style={{
-                          margin: 0,
-                          fontSize: 13,
-                          fontWeight: 700,
-                          letterSpacing: 0.04,
-                          textTransform: 'uppercase',
-                          color: 'rgba(209,250,229,0.96)',
-                        }}
-                      >
-                        Lineup
-                      </p>
-                      <p
-                        style={{
-                          margin: '4px 0 0',
-                          fontSize: 13,
-                          color: 'rgba(148,163,184,0.9)',
-                        }}
-                      >
-                        See the lineup for this event and their RSVP.
-                      </p>
-                    </div>
-
-                    <IonList
-                      inset={false}
-                      style={{
-                        margin: 0,
-                        background: 'transparent',
-                      }}
-                    >
-                      <IonItem
-                        lines="none"
-                        style={
-                          {
-                            '--background': 'transparent',
-                            paddingInline: 0,
-                          } as any
-                        }
-                      >
-                        <RosterPanelMobile
-                          bandId={event.band_id}
-                          eventId={event.id}
-                        />
-                      </IonItem>
-                    </IonList>
-                  </div>
-                </div>
-              </>
-            ) : (
-              <div
-                style={{
-                  height: '100%',
-                  display: 'grid',
-                  placeItems: 'center',
-                }}
-              >
-                <IonSpinner name="dots" />
-              </div>
-            )}
-          </div>
-        </IonContent>
-      </IonModal>
+        event={event}
+        isAdmin={isAdmin}
+        savingPublic={savingPublic}
+        hasStart={hasStart}
+        startsAtLabel={startsAtLabel}
+        onExportGoogle={handleExportGoogle}
+        onTogglePublic={handleTogglePublic}
+        onGotoSettings={() => {
+          setShowInfoSheet(false);
+          if (event) {
+            nav(`/bands/${event.band_id}/events/${event.id}/settings`);
+          }
+        }}
+      />
 
       {/* MAIN BODY */}
       <IonContent
@@ -1319,390 +686,22 @@ export default function EventSheetMobile() {
                     isAdmin={isAdmin}
                   />
                 )}
-
-                {tab === 'roll call' && <RSVPTabMobile eventId={event.id} />}
+                {tab === 'roll call' && (
+                  <RSVPTabMobile
+                    eventId={event.id}
+                    onLocalBookedChange={(isBooked) => {
+                      setEvent((prev) =>
+                        prev ? { ...prev, is_booked: isBooked } : prev
+                      );
+                    }}
+                  />
+                )}{' '}
               </div>
             )}
           </>
         )}
       </IonContent>
     </IonPage>
-  );
-}
-
-type RosterStatus = 'accepted' | 'declined' | 'tentative' | 'pending';
-
-type RosterRow = {
-  user_id: string;
-  name: string;
-  status: RosterStatus;
-  needs_sub: boolean;
-  avatar_url?: string | null;
-  updated_at?: string | null;
-};
-
-function RosterPanelMobile({
-  bandId,
-  eventId,
-}: {
-  bandId: string;
-  eventId: string;
-}) {
-  type BaseMember = {
-    user_id: string;
-    name: string;
-    avatar_url: string | null;
-    updated_at: string | null;
-  };
-
-  const [baseMembers, setBaseMembers] = useState<BaseMember[] | null>(null);
-  const [rows, setRows] = useState<RosterRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const initialLoadDone = useRef(false);
-
-  const loadBaseMembers = useCallback(async () => {
-    if (!initialLoadDone.current) setLoading(true);
-
-    try {
-      const { data: members } = await supabase
-        .from('band_members')
-        .select('user_id')
-        .eq('band_id', bandId)
-        .order('created_at', { ascending: true });
-
-      const ids = (members ?? []).map((m: any) => m.user_id);
-
-      if (ids.length === 0) {
-        setBaseMembers([]);
-        setRows([]);
-        initialLoadDone.current = true;
-        setLoading(false);
-        return;
-      }
-
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('id, display_name, first_name, avatar_url, updated_at')
-        .in('id', ids);
-
-      const byId = new Map(
-        (profiles ?? []).map((p: any) => [
-          p.id,
-          {
-            user_id: p.id,
-            name: p.display_name ?? p.first_name ?? 'Member',
-            avatar_url: p.avatar_url ?? null,
-            updated_at: p.updated_at ?? null,
-          } as BaseMember,
-        ])
-      );
-
-      // keep original band member order
-      const ordered: BaseMember[] = ids
-        .map((id) => byId.get(id)!)
-        .filter(Boolean);
-
-      setBaseMembers(ordered);
-    } finally {
-      // don't flip initialLoadDone here; we want attendance too
-    }
-  }, [bandId]);
-
-  const loadAttendance = useCallback(async () => {
-    if (!baseMembers) return;
-
-    if (baseMembers.length === 0) {
-      setRows([]);
-      initialLoadDone.current = true;
-      setLoading(false);
-      return;
-    }
-
-    if (!initialLoadDone.current) setLoading(true);
-
-    try {
-      const { data: att } = await supabase
-        .from('event_attendance')
-        .select('user_id, status, needs_sub')
-        .eq('event_id', eventId);
-
-      const attMap = new Map(
-        (att ?? []).map((a: any) => [
-          a.user_id,
-          {
-            status: (a.status as RosterStatus) ?? 'pending',
-            needs_sub: !!a.needs_sub,
-          },
-        ])
-      );
-
-      const merged: RosterRow[] = baseMembers.map((base) => {
-        const attInfo = attMap.get(base.user_id) ?? {
-          status: 'pending' as RosterStatus,
-          needs_sub: false,
-        };
-
-        return {
-          user_id: base.user_id,
-          name: base.name,
-          status: attInfo.status,
-          needs_sub: attInfo.needs_sub,
-          avatar_url: base.avatar_url,
-          updated_at: base.updated_at,
-        };
-      });
-
-      setRows(merged);
-    } finally {
-      initialLoadDone.current = true;
-      setLoading(false);
-    }
-  }, [eventId, baseMembers]);
-
-  useEffect(() => {
-    initialLoadDone.current = false;
-    setRows([]);
-    setBaseMembers(null);
-    setLoading(true);
-    void loadBaseMembers();
-  }, [loadBaseMembers]);
-
-  // Once baseMembers are ready, load attendance once
-  useEffect(() => {
-    if (baseMembers) {
-      void loadAttendance();
-    }
-  }, [baseMembers, loadAttendance]);
-
-  // Realtime subscriptions
-  useEffect(() => {
-    const chAtt = supabase
-      .channel(`event:${eventId}:attendance-roster`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'event_attendance',
-          filter: `event_id=eq.${eventId}`,
-        },
-        (payload: any) => {
-          const row = payload.new ?? payload.old;
-          if (!row) return;
-
-          const userId = row.user_id as string;
-
-          setRows((prev) => {
-            // make sure we have something to update
-            if (!prev || prev.length === 0) return prev;
-
-            if (payload.eventType === 'DELETE') {
-              // fallback to "pending" when attendance row is deleted
-              return prev.map((r) =>
-                r.user_id === userId
-                  ? {
-                      ...r,
-                      status: 'pending' as RosterStatus,
-                      needs_sub: false,
-                    }
-                  : r
-              );
-            }
-
-            const status =
-              (row.status as RosterStatus | undefined) ??
-              ('pending' as RosterStatus);
-            const needs_sub = !!row.needs_sub;
-
-            return prev.map((r) =>
-              r.user_id === userId ? { ...r, status, needs_sub } : r
-            );
-          });
-        }
-      )
-      .subscribe();
-
-    // Profile realtime: patch baseMembers + rows instead of re-querying
-    const chProf = supabase
-      .channel(`band:${bandId}:profile-roster`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'profiles',
-        },
-        (payload: any) => {
-          const p = payload.new;
-          if (!p) return;
-
-          const userId = p.id as string;
-          const name = (p.display_name ?? p.first_name ?? 'Member') as string;
-          const avatar_url = (p.avatar_url ?? null) as string | null;
-          const updated_at = (p.updated_at ?? null) as string | null;
-
-          // update baseMembers
-          setBaseMembers((prev) => {
-            if (!prev) return prev;
-            return prev.map((b) =>
-              b.user_id === userId ? { ...b, name, avatar_url, updated_at } : b
-            );
-          });
-
-          // update visible rows
-          setRows((prev) =>
-            prev.map((r) =>
-              r.user_id === userId ? { ...r, name, avatar_url, updated_at } : r
-            )
-          );
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(chAtt);
-      supabase.removeChannel(chProf);
-    };
-  }, [bandId, eventId]);
-
-  const statusStyle = (s: RosterStatus) => {
-    if (s === 'accepted') {
-      return {
-        bg: 'rgba(34,197,94,0.18)',
-        border: 'rgba(34,197,94,0.65)',
-        color: '#BBF7D0',
-      };
-    }
-    if (s === 'declined') {
-      return {
-        bg: 'rgba(248,113,113,0.18)',
-        border: 'rgba(248,113,113,0.7)',
-        color: '#FCA5A5',
-      };
-    }
-    return {
-      bg: 'rgba(251,191,36,0.18)',
-      border: 'rgba(251,191,36,0.7)',
-      color: '#FDE68A',
-    };
-  };
-
-  if (loading && !initialLoadDone.current) {
-    return (
-      <div
-        style={{
-          width: '100%',
-          paddingBlock: 16,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 8,
-        }}
-      >
-        <IonSpinner name="dots" />
-        <IonText color="medium">
-          <p style={{ margin: 0, fontSize: 13 }}>Loading roster…</p>
-        </IonText>
-      </div>
-    );
-  }
-
-  if (!loading && rows.length === 0) {
-    return (
-      <IonText color="medium">
-        <p style={{ margin: 0, fontSize: 13 }}>No members found.</p>
-      </IonText>
-    );
-  }
-
-  return (
-    <div style={{ width: '100%' }}>
-      {rows.map((r, i) => {
-        const st = statusStyle(r.status);
-
-        return (
-          <div key={r.user_id}>
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                paddingBlock: 6,
-              }}
-            >
-              <AvatarImageMobile
-                name={r.name}
-                bucket="profile-avatars"
-                avatarPath={r.avatar_url || undefined}
-                updatedAt={r.updated_at || undefined}
-                size={32}
-              />
-
-              <div
-                style={{
-                  flex: 1,
-                  minWidth: 0,
-                }}
-              >
-                <span
-                  style={{
-                    display: 'block',
-                    fontSize: 14,
-                    fontWeight: 600,
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                  }}
-                >
-                  {r.name}
-                </span>
-              </div>
-
-              {/* STATUS PILL (Only blue when sub is requested) */}
-              <span
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  paddingInline: 8,
-                  paddingBlock: 2,
-                  borderRadius: 999,
-                  fontSize: 11,
-                  fontWeight: 600,
-                  textTransform: 'capitalize',
-                  whiteSpace: 'nowrap',
-                  ...(r.needs_sub
-                    ? {
-                        background: 'rgba(37,99,235,0.18)',
-                        border: '1px solid rgba(59,130,246,0.85)',
-                        color: '#BFDBFE',
-                      }
-                    : {
-                        background: st.bg,
-                        border: `1px solid ${st.border}`,
-                        color: st.color,
-                      }),
-                }}
-              >
-                {r.needs_sub ? 'Sub requested' : r.status}
-              </span>
-            </div>
-
-            {/* divider */}
-            {i < rows.length - 1 && (
-              <div
-                style={{
-                  height: 1,
-                  marginInline: 4,
-                  opacity: 0.14,
-                  backgroundColor: 'rgba(148,163,184,0.6)',
-                }}
-              />
-            )}
-          </div>
-        );
-      })}
-    </div>
   );
 }
 
