@@ -1,5 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useCallback, useEffect, useState } from 'react';
+import {
+  getAttendanceCache,
+  setAttendanceCache,
+} from '../lib/cache/eventAttendanceCache';
 import { supabase } from '../lib/supabase';
 
 export type RawAtt = 'accepted' | 'pending';
@@ -15,14 +19,15 @@ export function useAttendance(eventId: string) {
   const [needsSub, setNeedsSub] = useState(false);
   const [subReason, setSubReason] = useState('');
 
-  const [saving, setSaving] = useState(false); // RSVP saving
-  const [savingSub, setSavingSub] = useState(false); // sub request saving
+  const [saving, setSaving] = useState(false);
+  const [savingSub, setSavingSub] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [hydrated, setHydrated] = useState(false); // 👈 NEW
 
   const normalize = (s: AttStatus | null | undefined): RawAtt =>
     s === 'accepted' ? 'accepted' : 'pending';
 
-  /* ---------------- LOAD ---------------- */
   const load = useCallback(async () => {
     setError(null);
 
@@ -38,10 +43,22 @@ export function useAttendance(eventId: string) {
       setCounts({ accepted: 0, total: 0 });
       setNeedsSub(false);
       setSubReason('');
+      setHydrated(true); // 👈 even "no user" is now a known state
       return;
     }
 
-    // my record
+    // 1) Try cache first
+    const cached = getAttendanceCache(eventId, user.id);
+    if (cached) {
+      setMine(cached.mine);
+      setCounts(cached.counts);
+      setNeedsSub(cached.needsSub);
+      setSubReason(cached.subReason);
+      setHydrated(true); // 👈 avoid flash, we have a real value
+      return;
+    }
+
+    // 2) Fallback to DB if no valid cache
     const { data: me, error: meErr } = await supabase
       .from('event_attendance')
       .select('status, needs_sub, sub_reason')
@@ -49,19 +66,27 @@ export function useAttendance(eventId: string) {
       .eq('user_id', user.id)
       .maybeSingle();
 
+    let nextMine: RawAtt = 'pending';
+    let nextNeedsSub = false;
+    let nextSubReason = '';
+
     if (!meErr) {
-      setMine(normalize(me?.status as AttStatus));
-      setNeedsSub(!!me?.needs_sub);
-      setSubReason(me?.sub_reason ?? '');
+      nextMine = normalize(me?.status as AttStatus);
+      nextNeedsSub = !!me?.needs_sub;
+      nextSubReason = me?.sub_reason ?? '';
+      setMine(nextMine);
+      setNeedsSub(nextNeedsSub);
+      setSubReason(nextSubReason);
     } else {
       setError(meErr.message);
     }
 
-    // counts
     const { data: all, error: cErr } = await supabase
       .from('event_attendance')
       .select('status')
       .eq('event_id', eventId);
+
+    let nextCounts = { accepted: 0, total: 0 };
 
     if (!cErr) {
       const total = all?.length ?? 0;
@@ -69,17 +94,27 @@ export function useAttendance(eventId: string) {
         (r) => r.status === 'accepted'
       ).length;
 
-      setCounts({ accepted, total });
+      nextCounts = { accepted, total };
+      setCounts(nextCounts);
     } else {
       setError(cErr.message);
     }
+
+    // 3) Write fresh values to cache
+    setAttendanceCache(eventId, user.id, {
+      mine: nextMine,
+      counts: nextCounts,
+      needsSub: nextNeedsSub,
+      subReason: nextSubReason,
+    });
+
+    setHydrated(true); // 👈 done with first load
   }, [eventId]);
 
-  /* ---------------- REALTIME ---------------- */
   useEffect(() => {
     let active = true;
 
-    if (active) load();
+    if (active) void load();
 
     const ch = supabase
       .channel(`event:${eventId}:attendance`)
@@ -91,7 +126,10 @@ export function useAttendance(eventId: string) {
           table: 'event_attendance',
           filter: `event_id=eq.${eventId}`,
         },
-        () => load()
+        () => {
+          // DB changed → re-pull & refresh cache
+          void load();
+        }
       )
       .subscribe();
 
@@ -101,12 +139,10 @@ export function useAttendance(eventId: string) {
     };
   }, [eventId, load]);
 
-  /* ---------------- UPDATE RSVP ---------------- */
   const update = useCallback(
     async (nextInput: AttStatus) => {
       const next = normalize(nextInput);
 
-      // if user selects "Yes I'm in", ALWAYS reset sub-request
       const resetSub = next === 'accepted';
 
       if (next === mine && !resetSub) return;
@@ -119,15 +155,19 @@ export function useAttendance(eventId: string) {
       const prevNeedsSub = needsSub;
       const prevSubReason = subReason;
 
-      // optimistic UI
       const acceptedDelta =
         (prevMine === 'accepted' ? -1 : 0) + (next === 'accepted' ? 1 : 0);
 
-      setMine(next);
-      setCounts({
+      const optimisticMine = next;
+      const optimisticCounts = {
         accepted: counts.accepted + acceptedDelta,
         total: counts.total,
-      });
+      };
+      const optimisticNeedsSub = resetSub ? false : prevNeedsSub;
+      const optimisticSubReason = resetSub ? '' : prevSubReason;
+
+      setMine(optimisticMine);
+      setCounts(optimisticCounts);
 
       if (resetSub) {
         setNeedsSub(false);
@@ -135,7 +175,9 @@ export function useAttendance(eventId: string) {
       }
 
       try {
-        const user = (await supabase.auth.getUser()).data.user;
+        const { data, error: authErr } = await supabase.auth.getUser();
+        const user = data.user;
+        if (authErr) throw authErr;
         if (!user) throw new Error('Not authenticated.');
 
         const { error: upErr } = await supabase.from('event_attendance').upsert(
@@ -151,8 +193,15 @@ export function useAttendance(eventId: string) {
         );
 
         if (upErr) throw upErr;
+
+        // Sync cache with optimistic state
+        setAttendanceCache(eventId, user.id, {
+          mine: optimisticMine,
+          counts: optimisticCounts,
+          needsSub: optimisticNeedsSub,
+          subReason: optimisticSubReason,
+        });
       } catch (e: any) {
-        // rollback
         setMine(prevMine);
         setCounts(prevCounts);
         setNeedsSub(prevNeedsSub);
@@ -169,7 +218,6 @@ export function useAttendance(eventId: string) {
     [eventId, mine, needsSub, subReason, counts]
   );
 
-  /* ---------------- UPDATE SUB REQUEST ---------------- */
   const updateSubRequest = useCallback(
     async (nextNeedsSub: boolean, reason: string) => {
       setSavingSub(true);
@@ -183,7 +231,6 @@ export function useAttendance(eventId: string) {
       let nextMine = mine;
       let nextCounts = counts;
 
-      // If user requests a sub while accepted → they become pending
       if (nextNeedsSub && mine === 'accepted') {
         nextMine = 'pending';
         nextCounts = {
@@ -192,16 +239,15 @@ export function useAttendance(eventId: string) {
         };
       }
 
-      // If user cancels sub request, nothing changes unless logic changes later
-
-      // optimistic
       setNeedsSub(nextNeedsSub);
       setSubReason(reason);
       setMine(nextMine);
       setCounts(nextCounts);
 
       try {
-        const user = (await supabase.auth.getUser()).data.user;
+        const { data, error: authErr } = await supabase.auth.getUser();
+        const user = data.user;
+        if (authErr) throw authErr;
         if (!user) throw new Error('Not authenticated.');
 
         const { error: upsertErr } = await supabase
@@ -219,8 +265,15 @@ export function useAttendance(eventId: string) {
           );
 
         if (upsertErr) throw upsertErr;
+
+        // Sync cache with optimistic sub state
+        setAttendanceCache(eventId, user.id, {
+          mine: nextMine,
+          counts: nextCounts,
+          needsSub: nextNeedsSub,
+          subReason: reason || '',
+        });
       } catch (e: any) {
-        // rollback
         setNeedsSub(prevNeeds);
         setSubReason(prevReason);
         setMine(prevMine);
@@ -247,5 +300,6 @@ export function useAttendance(eventId: string) {
     error,
     update,
     updateSubRequest,
+    hydrated,
   };
 }
