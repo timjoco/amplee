@@ -20,15 +20,15 @@ export type ThemeName =
   | 'citySky'
   | 'royalty'
   | 'tacos'
-  | 'largeRing'
+  | 'heyLow'
   | 'pumpkin'
   | 'google'
   | 'pastel'
   | 'pepsi'
   | 'metalGear'
-  | 'silentHill2'
-  | 'eldenRing'
-  | 'eldenRingNightreign'
+  | 'quietHill'
+  | 'oldRing'
+  | 'nightrain'
   | 'zoroWano'
   | 'spiderman'
   | 'batman'
@@ -44,7 +44,14 @@ export type ThemeName =
   | 'zelda'
   | 'coffee'
   | 'amplee'
-  | 'retroCalc';
+  | 'retroCalc'
+  | 'cosmicVortex' // ⭐ PREMIUM
+  | 'holographicDream' // ⭐ PREMIUM
+  | 'cyberpunkNeon' // ⭐ PREMIUM
+  | 'auraBorealis' // ⭐ PREMIUM
+  | 'quantumRealm'
+  | 'premiumSakura' // ⭐⭐ ULTRA PREMIUM
+  | 'stellarOdyssey';
 
 export const DARK_THEMES: ThemeName[] = [
   'default',
@@ -59,14 +66,14 @@ export const DARK_THEMES: ThemeName[] = [
   'matteRed',
   'royalty',
   'tacos',
-  'largeRing',
+  'heyLow',
   'pumpkin',
   'google',
   'pepsi',
   'metalGear',
-  'silentHill2',
-  'eldenRing',
-  'eldenRingNightreign',
+  'quietHill',
+  'oldRing',
+  'nightrain',
   'zoroWano',
   'spiderman',
   'batman',
@@ -76,6 +83,11 @@ export const DARK_THEMES: ThemeName[] = [
   'zelda',
   'coffee',
   'amplee',
+  'cosmicVortex', // ⭐ PREMIUM
+  'holographicDream', // ⭐ PREMIUM
+  'cyberpunkNeon', // ⭐ PREMIUM
+  'quantumRealm', // ⭐ PREMIUM
+  'stellarOdyssey',
 ];
 
 export function isDarkTheme(key: ThemeName) {
@@ -606,7 +618,7 @@ const tacosTheme: BandPageTheme = {
   commentBg: 'rgba(18, 22, 80, 0.96)',
 };
 
-const largeRingTheme: BandPageTheme = {
+const heyLowTheme: BandPageTheme = {
   background: 'linear-gradient(180deg, #6C8D71 0%, #879250 45%, #99D21B 100%)',
   avatarGlow: 'linear-gradient(135deg, #838B64, #99D21B)',
   textGradient: 'linear-gradient(135deg, #F9FAFB, #99D21B)',
@@ -708,7 +720,7 @@ const metalGearTheme: BandPageTheme = {
   commentBg: 'rgba(7, 40, 36, 0.96)',
 };
 
-const silentHill2Theme: BandPageTheme = {
+const quietHillTheme: BandPageTheme = {
   background: `
     radial-gradient(circle at 0% 0%, #C7CBBF 0%, rgba(199,203,191,0) 45%),
     linear-gradient(180deg, #1F2A24 0%, #3F5244 40%, #0F1511 100%)
@@ -726,7 +738,7 @@ const silentHill2Theme: BandPageTheme = {
   commentBg: 'rgba(30, 38, 31, 0.97)',
 };
 
-const eldenRingTheme: BandPageTheme = {
+const oldRingTheme: BandPageTheme = {
   background: `
     radial-gradient(circle at 15% 0%, #C5A15F 0%, rgba(197,161,95,0) 45%),
     linear-gradient(180deg, #060B10 0%, #102020 40%, #020509 100%)
@@ -744,7 +756,7 @@ const eldenRingTheme: BandPageTheme = {
   commentBg: 'rgba(11, 28, 30, 0.97)',
 };
 
-const eldenRingNightreignTheme: BandPageTheme = {
+const NightRainTheme: BandPageTheme = {
   background: `
     radial-gradient(circle at 80% 0%, #9F7CFF 0%, rgba(159,124,255,0) 55%),
     linear-gradient(180deg, #050816 0%, #0C1224 40%, #02010A 100%)
@@ -888,6 +900,362 @@ const sunnyDayTheme: BandPageTheme = {
   commentBg: 'rgba(239, 246, 255, 0.98)',
 };
 
+const cosmicVortexTheme: BandPageTheme = {
+  background: `
+    radial-gradient(ellipse at 50% 50%, rgba(138, 43, 226, 0.4) 0%, transparent 50%),
+    radial-gradient(ellipse at 20% 80%, rgba(255, 20, 147, 0.35) 0%, transparent 40%),
+    radial-gradient(ellipse at 80% 20%, rgba(0, 191, 255, 0.35) 0%, transparent 40%),
+    conic-gradient(from 0deg at 50% 50%, 
+      #000000 0deg, 
+      #1a0033 60deg, 
+      #4a148c 120deg, 
+      #7b1fa2 180deg, 
+      #4a148c 240deg, 
+      #1a0033 300deg, 
+      #000000 360deg
+    ),
+    repeating-conic-gradient(from 0deg at 50% 50%, 
+      transparent 0deg 8deg, 
+      rgba(138, 43, 226, 0.03) 8deg 10deg
+    )
+  `,
+  avatarGlow: `
+    conic-gradient(from 0deg, 
+      #8A2BE2, #FF1493, #00BFFF, #7B68EE, #FF69B4, #00CED1, #8A2BE2
+    )
+  `,
+  textGradient: 'linear-gradient(135deg, #FFFFFF, #E0B0FF, #00BFFF)',
+  showBg: 'rgba(10, 0, 25, 0.92)',
+  borderColor: 'rgba(138, 43, 226, 0.8)',
+  followButtonBg: 'rgba(138, 43, 226, 0.2)',
+  followButtonBorder: 'rgba(255, 20, 147, 0.9)',
+  followButtonTextColor: '#E0B0FF',
+  mainTextColor: '#FFFFFF',
+  secondaryTextColor: '#E0B0FF',
+  fieldColor: 'rgba(26, 0, 51, 0.95)',
+  commentBg: 'rgba(20, 0, 40, 0.97)',
+};
+
+// ⭐ PREMIUM THEME 2: HOLOGRAPHIC DREAM
+// Features: Iridescent shimmer, rainbow refraction, glass morphism
+const holographicDreamTheme: BandPageTheme = {
+  background: `
+    linear-gradient(125deg, 
+      rgba(255, 255, 255, 0.15) 0%, 
+      rgba(255, 255, 255, 0.05) 25%,
+      transparent 50%,
+      rgba(255, 255, 255, 0.05) 75%,
+      rgba(255, 255, 255, 0.15) 100%
+    ),
+    repeating-linear-gradient(
+      45deg,
+      #FF6EC7 0px,
+      #FFA500 100px,
+      #FFFF00 200px,
+      #00FF00 300px,
+      #00BFFF 400px,
+      #8A2BE2 500px,
+      #FF1493 600px,
+      #FF6EC7 700px
+    ),
+    linear-gradient(180deg, #0a0015 0%, #1a0033 50%, #0a0015 100%)
+  `,
+  avatarGlow: `
+    conic-gradient(from 45deg, 
+      #FF6EC7, #FFA500, #FFFF00, #00FF00, #00BFFF, #8A2BE2, #FF1493, #FF6EC7
+    )
+  `,
+  textGradient: `
+    linear-gradient(90deg, 
+      #FF6EC7, #FFA500, #FFFF00, #00FF00, #00BFFF, #8A2BE2, #FF1493
+    )
+  `,
+  showBg: 'rgba(255, 255, 255, 0.08)',
+  borderColor: 'rgba(255, 255, 255, 0.25)',
+  followButtonBg: 'rgba(255, 255, 255, 0.12)',
+  followButtonBorder: 'rgba(138, 43, 226, 0.6)',
+  followButtonTextColor: '#FFFFFF',
+  mainTextColor: '#FFFFFF',
+  secondaryTextColor: '#E0B0FF',
+  fieldColor: 'rgba(255, 255, 255, 0.1)',
+  commentBg: 'rgba(255, 255, 255, 0.08)',
+};
+
+// ⭐ PREMIUM THEME 3: CYBERPUNK NEON
+// Features: Glitching neon signs, scanline effects, matrix rain aesthetic
+const cyberpunkNeonTheme: BandPageTheme = {
+  background: `
+    repeating-linear-gradient(
+      0deg,
+      rgba(0, 255, 255, 0.03) 0px,
+      transparent 2px,
+      transparent 4px,
+      rgba(0, 255, 255, 0.03) 4px
+    ),
+    radial-gradient(circle at 10% 20%, rgba(255, 0, 128, 0.4) 0%, transparent 50%),
+    radial-gradient(circle at 90% 80%, rgba(0, 255, 255, 0.4) 0%, transparent 50%),
+    radial-gradient(circle at 50% 50%, rgba(255, 255, 0, 0.15) 0%, transparent 60%),
+    linear-gradient(180deg, #000000 0%, #0a0a0a 25%, #1a001a 50%, #001a1a 75%, #000000 100%)
+  `,
+  avatarGlow: `
+    conic-gradient(from 90deg, 
+      #FF0080, #00FFFF, #FFFF00, #FF0080
+    ),
+    radial-gradient(circle, rgba(255, 255, 255, 0.8) 0%, transparent 70%)
+  `,
+  textGradient: 'linear-gradient(135deg, #00FFFF, #FF0080, #FFFF00)',
+  showBg: 'rgba(0, 0, 0, 0.85)',
+  borderColor: 'rgba(0, 255, 255, 0.8)',
+  followButtonBg: 'rgba(255, 0, 128, 0.15)',
+  followButtonBorder: 'rgba(0, 255, 255, 0.9)',
+  followButtonTextColor: '#00FFFF',
+  mainTextColor: '#00FFFF',
+  secondaryTextColor: '#FF0080',
+  fieldColor: 'rgba(0, 20, 20, 0.95)',
+  commentBg: 'rgba(10, 0, 10, 0.97)',
+};
+
+// ⭐ PREMIUM THEME 4: AURORA BOREALIS
+// Features: Flowing northern lights, ethereal waves, luminescent particles
+const auraaBorealisTheme: BandPageTheme = {
+  background: `
+    radial-gradient(ellipse at 30% 0%, rgba(0, 255, 127, 0.4) 0%, transparent 50%),
+    radial-gradient(ellipse at 70% 0%, rgba(138, 43, 226, 0.4) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 40%, rgba(0, 191, 255, 0.3) 0%, transparent 60%),
+    linear-gradient(180deg, 
+      #001a1a 0%, 
+      #002b36 20%, 
+      #003d4d 40%, 
+      #002b36 60%, 
+      #001a1a 80%, 
+      #000d0d 100%
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent 0px,
+      rgba(0, 255, 127, 0.02) 50px,
+      transparent 100px
+    )
+  `,
+  avatarGlow: `
+    conic-gradient(from 180deg, 
+      #00FF7F, #00BFFF, #8A2BE2, #FF1493, #00FF7F
+    )
+  `,
+  textGradient: 'linear-gradient(135deg, #00FF7F, #00BFFF, #8A2BE2)',
+  showBg: 'rgba(0, 20, 25, 0.88)',
+  borderColor: 'rgba(0, 255, 127, 0.6)',
+  followButtonBg: 'rgba(0, 191, 255, 0.15)',
+  followButtonBorder: 'rgba(0, 255, 127, 0.8)',
+  followButtonTextColor: '#E0FFFF',
+  mainTextColor: '#E0FFFF',
+  secondaryTextColor: '#B0E0E6',
+  fieldColor: 'rgba(0, 30, 35, 0.94)',
+  commentBg: 'rgba(0, 25, 30, 0.96)',
+};
+
+// ⭐ PREMIUM THEME 5: QUANTUM REALM
+// Features: Particle effects, quantum tunneling visuals, energy waves
+const quantumRealmTheme: BandPageTheme = {
+  background: `
+    radial-gradient(circle at 50% 50%, rgba(0, 255, 0, 0.15) 0%, transparent 30%),
+    radial-gradient(circle at 20% 30%, rgba(255, 0, 255, 0.2) 0%, transparent 35%),
+    radial-gradient(circle at 80% 70%, rgba(0, 255, 255, 0.2) 0%, transparent 35%),
+    repeating-radial-gradient(
+      circle at 50% 50%,
+      transparent 0px,
+      rgba(0, 255, 0, 0.03) 50px,
+      transparent 100px,
+      rgba(255, 0, 255, 0.03) 150px,
+      transparent 200px
+    ),
+    linear-gradient(180deg, #000000 0%, #001100 30%, #001a1a 50%, #110011 70%, #000000 100%)
+  `,
+  avatarGlow: `
+    conic-gradient(from 0deg, 
+      #00FF00 0deg, 
+      #00FFFF 90deg, 
+      #FF00FF 180deg, 
+      #FFFF00 270deg, 
+      #00FF00 360deg
+    ),
+    radial-gradient(circle, rgba(255, 255, 255, 0.6) 0%, transparent 60%)
+  `,
+  textGradient: 'linear-gradient(135deg, #00FF00, #00FFFF, #FF00FF)',
+  showBg: 'rgba(0, 10, 10, 0.92)',
+  borderColor: 'rgba(0, 255, 0, 0.7)',
+  followButtonBg: 'rgba(0, 255, 0, 0.1)',
+  followButtonBorder: 'rgba(0, 255, 255, 0.8)',
+  followButtonTextColor: '#E0FFE0',
+  mainTextColor: '#E0FFE0',
+  secondaryTextColor: '#B0FFB0',
+  fieldColor: 'rgba(0, 20, 15, 0.96)',
+  commentBg: 'rgba(0, 15, 15, 0.97)',
+};
+
+const premiumSakuraTheme: BandPageTheme = {
+  background: `
+    radial-gradient(circle 3px at 15% 20%, rgba(255, 182, 193, 0.9) 0%, transparent 3px),
+    radial-gradient(circle 4px at 85% 15%, rgba(255, 192, 203, 0.85) 0%, transparent 4px),
+    radial-gradient(circle 2px at 45% 35%, rgba(255, 182, 193, 0.8) 0%, transparent 2px),
+    radial-gradient(circle 3px at 70% 50%, rgba(255, 192, 203, 0.9) 0%, transparent 3px),
+    radial-gradient(circle 2px at 25% 60%, rgba(255, 182, 193, 0.75) 0%, transparent 2px),
+    radial-gradient(circle 4px at 90% 75%, rgba(255, 192, 203, 0.85) 0%, transparent 4px),
+    radial-gradient(circle 3px at 10% 85%, rgba(255, 182, 193, 0.8) 0%, transparent 3px),
+    radial-gradient(circle 2px at 55% 90%, rgba(255, 192, 203, 0.9) 0%, transparent 2px),
+    radial-gradient(ellipse 200px 400px at 5% 30%, rgba(76, 111, 68, 0.15) 0%, transparent 70%),
+    radial-gradient(ellipse 180px 380px at 95% 40%, rgba(85, 125, 78, 0.15) 0%, transparent 70%),
+    radial-gradient(ellipse 150px 350px at 10% 60%, rgba(76, 111, 68, 0.12) 0%, transparent 70%),
+    linear-gradient(135deg, 
+      rgba(139, 195, 74, 0.08) 0% 2%, 
+      transparent 2% 3%,
+      rgba(104, 159, 56, 0.06) 3% 4%,
+      transparent 4% 98%,
+      rgba(139, 195, 74, 0.08) 98% 100%
+    ),
+    linear-gradient(45deg, 
+      transparent 0% 48%,
+      rgba(85, 125, 78, 0.1) 48% 52%,
+      transparent 52% 100%
+    ),
+    repeating-linear-gradient(
+      90deg,
+      rgba(139, 195, 74, 0.03) 0px,
+      transparent 2px,
+      transparent 150px,
+      rgba(104, 159, 56, 0.03) 152px,
+      transparent 154px
+    ),
+    radial-gradient(ellipse at 50% 100%, #FFF5F7 0%, #FFE4E9 30%, #FFD1DC 60%, #FFC0CB 100%),
+    linear-gradient(180deg, #FFF0F3 0%, #FFE4E9 25%, #FFD1DC 50%, #FFC0CB 75%, #FFB6C1 100%)
+  `,
+  avatarGlow: `
+    conic-gradient(from 45deg, 
+      #FF69B4, #FFB6C1, #8BC34A, #689F38, #FF69B4
+    ),
+    radial-gradient(circle, rgba(255, 182, 193, 0.6) 0%, transparent 70%)
+  `,
+  textGradient: `
+    linear-gradient(135deg, 
+      #C2185B 0%, 
+      #E91E63 25%, 
+      #FF4081 50%, 
+      #F06292 75%, 
+      #FFB6C1 100%
+    )
+  `,
+  showBg: 'rgba(255, 245, 247, 0.92)',
+  borderColor: 'rgba(255, 105, 180, 0.5)',
+  followButtonBg: `
+    linear-gradient(135deg, 
+      rgba(255, 182, 193, 0.9) 0%, 
+      rgba(255, 192, 203, 0.85) 50%,
+      rgba(255, 182, 193, 0.9) 100%
+    )
+  `,
+  followButtonBorder: 'rgba(139, 195, 74, 0.6)',
+  followButtonTextColor: '#880E4F',
+  mainTextColor: '#880E4F',
+  secondaryTextColor: '#AD1457',
+  fieldColor: 'rgba(255, 250, 252, 0.96)',
+  commentBg: 'rgba(255, 252, 253, 0.97)',
+};
+
+// ⭐⭐ ULTRA PREMIUM: STELLAR ODYSSEY
+// Features: Twinkling stars, nebula clouds, shooting stars, planet rings, cosmic dust
+const stellarOdysseyTheme: BandPageTheme = {
+  background: `
+    radial-gradient(circle 1px at 12% 8%, rgba(255, 255, 255, 0.9) 0%, transparent 1px),
+    radial-gradient(circle 2px at 88% 12%, rgba(255, 255, 255, 1) 0%, transparent 2px),
+    radial-gradient(circle 1px at 35% 18%, rgba(200, 220, 255, 0.85) 0%, transparent 1px),
+    radial-gradient(circle 1px at 65% 25%, rgba(255, 255, 255, 0.8) 0%, transparent 1px),
+    radial-gradient(circle 2px at 15% 32%, rgba(255, 240, 200, 0.95) 0%, transparent 2px),
+    radial-gradient(circle 1px at 92% 38%, rgba(255, 255, 255, 0.9) 0%, transparent 1px),
+    radial-gradient(circle 1px at 45% 45%, rgba(200, 220, 255, 0.8) 0%, transparent 1px),
+    radial-gradient(circle 2px at 78% 52%, rgba(255, 255, 255, 1) 0%, transparent 2px),
+    radial-gradient(circle 1px at 8% 58%, rgba(255, 255, 255, 0.85) 0%, transparent 1px),
+    radial-gradient(circle 1px at 58% 65%, rgba(255, 240, 200, 0.9) 0%, transparent 1px),
+    radial-gradient(circle 2px at 28% 72%, rgba(255, 255, 255, 0.95) 0%, transparent 2px),
+    radial-gradient(circle 1px at 82% 78%, rgba(200, 220, 255, 0.85) 0%, transparent 1px),
+    radial-gradient(circle 1px at 38% 85%, rgba(255, 255, 255, 0.9) 0%, transparent 1px),
+    radial-gradient(circle 1px at 72% 92%, rgba(255, 255, 255, 0.8) 0%, transparent 1px),
+    radial-gradient(circle 1px at 18% 95%, rgba(255, 240, 200, 0.85) 0%, transparent 1px),
+    radial-gradient(circle 1px at 52% 15%, rgba(255, 255, 255, 0.75) 0%, transparent 1px),
+    radial-gradient(circle 1px at 95% 48%, rgba(200, 220, 255, 0.8) 0%, transparent 1px),
+    radial-gradient(circle 1px at 25% 42%, rgba(255, 255, 255, 0.85) 0%, transparent 1px),
+    radial-gradient(circle 2px at 68% 68%, rgba(255, 240, 200, 1) 0%, transparent 2px),
+    radial-gradient(circle 1px at 5% 75%, rgba(255, 255, 255, 0.9) 0%, transparent 1px),
+    radial-gradient(ellipse 400px 300px at 20% 30%, rgba(138, 43, 226, 0.25) 0%, transparent 60%),
+    radial-gradient(ellipse 500px 350px at 80% 70%, rgba(75, 0, 130, 0.3) 0%, transparent 65%),
+    radial-gradient(ellipse 350px 280px at 50% 50%, rgba(72, 61, 139, 0.2) 0%, transparent 55%),
+    radial-gradient(ellipse 300px 250px at 10% 80%, rgba(123, 104, 238, 0.18) 0%, transparent 50%),
+    radial-gradient(ellipse 450px 320px at 90% 20%, rgba(106, 90, 205, 0.22) 0%, transparent 58%),
+    radial-gradient(circle 80px at 85% 15%, rgba(255, 215, 0, 0.15) 0%, rgba(255, 140, 0, 0.1) 40%, transparent 80%),
+    radial-gradient(circle 100px at 15% 85%, rgba(255, 69, 0, 0.12) 0%, rgba(255, 99, 71, 0.08) 45%, transparent 85%),
+    repeating-linear-gradient(
+      45deg,
+      transparent 0px,
+      rgba(138, 43, 226, 0.02) 1px,
+      transparent 2px,
+      transparent 200px
+    ),
+    repeating-linear-gradient(
+      -45deg,
+      transparent 0px,
+      rgba(75, 0, 130, 0.02) 1px,
+      transparent 2px,
+      transparent 180px
+    ),
+    linear-gradient(180deg, 
+      #000000 0%, 
+      #0a0015 15%, 
+      #1a0033 30%, 
+      #0f001f 45%,
+      #1a0033 60%,
+      #0a0015 80%,
+      #000000 100%
+    )
+  `,
+  avatarGlow: `
+    conic-gradient(from 0deg, 
+      #8A2BE2 0deg, 
+      #9370DB 60deg,
+      #BA55D3 120deg,
+      #DA70D6 180deg,
+      #EE82EE 240deg,
+      #DDA0DD 300deg,
+      #8A2BE2 360deg
+    ),
+    radial-gradient(circle, rgba(255, 255, 255, 0.4) 0%, transparent 70%),
+    radial-gradient(circle, rgba(138, 43, 226, 0.6) 20%, transparent 80%)
+  `,
+  textGradient: `
+    linear-gradient(135deg, 
+      #FFFFFF 0%, 
+      #E0B0FF 20%, 
+      #DA70D6 40%, 
+      #BA55D3 60%, 
+      #9370DB 80%, 
+      #8A2BE2 100%
+    )
+  `,
+  showBg: 'rgba(10, 0, 25, 0.88)',
+  borderColor: 'rgba(138, 43, 226, 0.6)',
+  followButtonBg: `
+    radial-gradient(ellipse at center, 
+      rgba(138, 43, 226, 0.3) 0%, 
+      rgba(75, 0, 130, 0.25) 50%,
+      rgba(72, 61, 139, 0.2) 100%
+    )
+  `,
+  followButtonBorder: 'rgba(186, 85, 211, 0.8)',
+  followButtonTextColor: '#E0B0FF',
+  mainTextColor: '#FFFFFF',
+  secondaryTextColor: '#E0B0FF',
+  fieldColor: 'rgba(26, 0, 51, 0.92)',
+  commentBg: 'rgba(20, 0, 40, 0.94)',
+};
+
 export const THEMES: Record<ThemeName, BandPageTheme> = {
   default: defaultTheme,
   cherry: cherryBlossomTheme,
@@ -910,15 +1278,15 @@ export const THEMES: Record<ThemeName, BandPageTheme> = {
   citySky: citySkyTheme,
   royalty: royaltyTheme,
   tacos: tacosTheme,
-  largeRing: largeRingTheme,
+  heyLow: heyLowTheme,
   pumpkin: pumpkinTheme,
   google: googleTheme,
   pastel: pastelTheme,
   pepsi: pepsiTheme,
   metalGear: metalGearTheme,
-  silentHill2: silentHill2Theme,
-  eldenRing: eldenRingTheme,
-  eldenRingNightreign: eldenRingNightreignTheme,
+  quietHill: quietHillTheme,
+  oldRing: oldRingTheme,
+  nightrain: NightRainTheme,
   zoroWano: zoroWanoTheme,
   spiderman: spidermanTheme,
   batman: batmanTheme,
@@ -935,9 +1303,21 @@ export const THEMES: Record<ThemeName, BandPageTheme> = {
   coffee: coffeeTheme,
   amplee: ampleeTheme,
   retroCalc: retroCalcTheme,
+  cosmicVortex: cosmicVortexTheme, // ⭐ PREMIUM
+  holographicDream: holographicDreamTheme, // ⭐ PREMIUM
+  cyberpunkNeon: cyberpunkNeonTheme, // ⭐ PREMIUM
+  auraBorealis: auraaBorealisTheme, // ⭐ PREMIUM
+  quantumRealm: quantumRealmTheme, // ⭐ PREMIUM
+  premiumSakura: premiumSakuraTheme, // ⭐⭐ ULTRA PREMIUM
+  stellarOdyssey: stellarOdysseyTheme, // ⭐⭐ ULTRA PREMIUM
 };
 
-export const THEME_OPTIONS: { key: ThemeName; label: string }[] = [
+// Add to THEME_OPTIONS
+export const THEME_OPTIONS: {
+  key: ThemeName;
+  label: string;
+  premium?: boolean;
+}[] = [
   { key: 'default', label: 'Neon' },
   { key: 'cherry', label: 'Blossom' },
   { key: 'white', label: 'White Out' },
@@ -959,15 +1339,15 @@ export const THEME_OPTIONS: { key: ThemeName; label: string }[] = [
   { key: 'matteRed', label: 'Matte Red' },
   { key: 'royalty', label: 'Royalty' },
   { key: 'tacos', label: 'Tacos' },
-  { key: 'largeRing', label: 'Large Ring in Space' },
+  { key: 'heyLow', label: 'Hey Low' },
   { key: 'pumpkin', label: 'Pumpkin' },
   { key: 'google', label: 'Fiber' },
   { key: 'pastel', label: 'Pastel' },
   { key: 'pepsi', label: 'Dark Cola' },
   { key: 'metalGear', label: 'Big Boss' },
-  { key: 'silentHill2', label: 'Head of a Pyramid' },
-  { key: 'eldenRing', label: 'Varys' },
-  { key: 'eldenRingNightreign', label: 'Night Wayne' },
+  { key: 'quietHill', label: 'Quiet Hill' },
+  { key: 'oldRing', label: 'Old Ring' },
+  { key: 'nightrain', label: 'Night Rain' },
   { key: 'zoroWano', label: 'Lost Samuari' },
   { key: 'spiderman', label: 'Bitten by a Spider' },
   { key: 'batman', label: 'Bitten by a Bat' },
@@ -984,4 +1364,11 @@ export const THEME_OPTIONS: { key: ThemeName; label: string }[] = [
   { key: 'coffee', label: 'Coffee' },
   { key: 'retroCalc', label: 'Retro Calc' },
   { key: 'amplee', label: 'Amplee' },
+  { key: 'cosmicVortex', label: '⭐ Cosmic Vortex', premium: true },
+  { key: 'holographicDream', label: '⭐ Holographic Dream', premium: true },
+  { key: 'cyberpunkNeon', label: '⭐ Cyberpunk Neon', premium: true },
+  { key: 'auraBorealis', label: '⭐ Aurora Borealis', premium: true },
+  { key: 'quantumRealm', label: '⭐ Quantum Realm', premium: true },
+  { key: 'premiumSakura', label: '⭐⭐ Sakura Garden', premium: true },
+  { key: 'stellarOdyssey', label: '⭐⭐ Stellar Odyssey', premium: true },
 ];

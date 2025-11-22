@@ -1,14 +1,58 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+// ---- CORS setup ----
+
+// Your API host
+const PROD_ORIGIN = 'https://amplee.app';
+
+// Origins allowed to call this endpoint from a browser
+const ALLOWED_ORIGINS = [PROD_ORIGIN, 'http://localhost:5173'];
+
+function createCorsResponse(
+  req: NextRequest,
+  body: any,
+  options: { status: number }
+) {
+  const origin = req.headers.get('origin') || '';
+  const allowedOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : PROD_ORIGIN;
+
+  return NextResponse.json(body, {
+    status: options.status,
+    headers: {
+      'Access-Control-Allow-Origin': allowedOrigin,
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+      'Access-Control-Max-Age': '86400',
+    },
+  });
+}
+
+export function OPTIONS(req: NextRequest) {
+  const origin = req.headers.get('origin') || '';
+  const allowedOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : PROD_ORIGIN;
+
+  return new NextResponse(null, {
+    status: 204,
+    headers: {
+      'Access-Control-Allow-Origin': allowedOrigin,
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+      'Access-Control-Max-Age': '86400',
+    },
+  });
+}
+
+// ---- existing helpers / handler ----
+
 type BodyIn = {
   email?: string;
   role?: 'member' | 'admin';
-
   bandName?: string;
 };
 
@@ -29,7 +73,8 @@ export async function POST(req: NextRequest, ctx: { params: any }) {
     const bandName = raw.bandName?.toString();
 
     if (!email || !role) {
-      return NextResponse.json(
+      return createCorsResponse(
+        req,
         { error: 'email and role are required' },
         { status: 400 }
       );
@@ -38,7 +83,8 @@ export async function POST(req: NextRequest, ctx: { params: any }) {
     const authHeader =
       req.headers.get('authorization') ?? req.headers.get('Authorization');
     if (!authHeader) {
-      return NextResponse.json(
+      return createCorsResponse(
+        req,
         { error: 'Missing Authorization header' },
         { status: 401 }
       );
@@ -70,14 +116,16 @@ export async function POST(req: NextRequest, ctx: { params: any }) {
           .maybeSingle();
 
         if (updRes.error) {
-          return NextResponse.json(
+          return createCorsResponse(
+            req,
             { error: updRes.error.message },
             { status: 400 }
           );
         }
         token = updRes.data?.token ?? null;
       } else {
-        return NextResponse.json(
+        return createCorsResponse(
+          req,
           {
             error: insertRes.error.message,
             details: insertRes.error.details,
@@ -91,16 +139,20 @@ export async function POST(req: NextRequest, ctx: { params: any }) {
     }
 
     if (!token) {
-      return NextResponse.json(
+      return createCorsResponse(
+        req,
         { error: 'Failed to create invite token' },
         { status: 400 }
       );
     }
 
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL;
-
     if (!baseUrl) {
-      throw new Error('Missing NEXT_PUBLIC_APP_URL');
+      return createCorsResponse(
+        req,
+        { error: 'Missing NEXT_PUBLIC_APP_URL' },
+        { status: 500 }
+      );
     }
 
     const site = baseUrl.startsWith('http') ? baseUrl : `https://${baseUrl}`;
@@ -116,23 +168,29 @@ export async function POST(req: NextRequest, ctx: { params: any }) {
       body: { to: email, acceptUrl, bandName },
     });
     if (invokeRes.error) {
-      return NextResponse.json(
+      return createCorsResponse(
+        req,
         { error: invokeRes.error.message },
         { status: 400 }
       );
     }
 
-    return NextResponse.json({ ok: true, token, acceptUrl, role });
+    return createCorsResponse(
+      req,
+      { ok: true, token, acceptUrl, role },
+      { status: 200 }
+    );
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    return NextResponse.json(
+    return createCorsResponse(
+      req,
       { error: msg || 'Invite failed' },
       { status: 500 }
     );
   }
 }
 
-export async function GET(_req: NextRequest, ctx: { params: any }) {
+export async function GET(req: NextRequest, ctx: { params: any }) {
   const bandId = await getBandId(ctx);
-  return NextResponse.json({ ok: true, bandId });
+  return createCorsResponse(req, { ok: true, bandId }, { status: 200 });
 }
