@@ -12,6 +12,11 @@ import BandSettingsMobile from './pages/BandSettingsMobile';
 import BandSheetMobile from './pages/BandSheetMobile';
 import BandSongSheetRouteMobile from './pages/BandSongSheetRouteMobile';
 import BandSongsRouteMobile from './pages/BandSongsRouteMobile';
+import EventChatPageMobile from './pages/EventChatPageMobile';
+import EventFilesPageMobile from './pages/EventFilesPageMobile';
+import EventNotesPageMobile from './pages/EventNotesPageMobile';
+import EventRollCallPageMobile from './pages/EventRollCallPageMobile';
+import EventSetlistPageMobile from './pages/EventSetlistPageMobile';
 import EventSettingsMobile from './pages/EventSettingsMobile';
 import EventSheetMobile from './pages/EventSheetMobile';
 import Home from './pages/Home';
@@ -86,8 +91,8 @@ export default function App() {
 
   /* HIDE NAV ON EVENT SHEET */
   const hideChrome =
-    /^\/bands\/[^/]+\/events\/[^/]+\/?$/.test(pathname) ||
-    /^\/event\/[^/]+\/?$/.test(pathname);
+    /^\/bands\/[^/]+\/events\/[^/]+(\/.*)?$/.test(pathname) ||
+    /^\/event\/[^/]+(\/.*)?$/.test(pathname);
 
   /* ROUTES */
   return (
@@ -132,10 +137,34 @@ export default function App() {
             <Route path="/invite" element={<InviteBandMobile />} />
 
             {/* event sheet */}
+            {/* event "hub" – you can either keep this overview page or redirect */}
             <Route
               path="/bands/:bandId/events/:eventId"
               element={<EventSheetMobile />}
             />
+
+            {/* event detail sections as standalone pages */}
+            <Route
+              path="/bands/:bandId/events/:eventId/rollcall"
+              element={<EventRollCallPageMobile />}
+            />
+            <Route
+              path="/bands/:bandId/events/:eventId/chat"
+              element={<EventChatPageMobile />}
+            />
+            <Route
+              path="/bands/:bandId/events/:eventId/setlist"
+              element={<EventSetlistPageMobile />}
+            />
+            <Route
+              path="/bands/:bandId/events/:eventId/notes"
+              element={<EventNotesPageMobile />}
+            />
+            <Route
+              path="/bands/:bandId/events/:eventId/files"
+              element={<EventFilesPageMobile />}
+            />
+
             <Route
               path="/bands/:bandId/events/:eventId/settings"
               element={<EventSettingsMobile />}

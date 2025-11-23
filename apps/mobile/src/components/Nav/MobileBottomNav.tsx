@@ -102,8 +102,10 @@ export default function MobileBottomNav() {
     pathname.startsWith('/auth/') ||
     pathname.startsWith('/invite/') ||
     pathname.startsWith('/profile/basics') ||
-    // event detail
-    /^\/bands\/[^/]+\/events\/[^/]+\/?$/.test(pathname) ||
+    // event detail + sub-pages (chat / rollcall / setlist / notes / files / settings)
+    /^\/bands\/[^/]+\/events\/[^/]+(\/(chat|rollcall|setlist|notes|files))?\/?$/.test(
+      pathname
+    ) ||
     /^\/bands\/[^/]+\/events\/[^/]+\/settings\/?$/.test(pathname) ||
     /^\/event\/[^/]+\/?$/.test(pathname) ||
     // band settings
