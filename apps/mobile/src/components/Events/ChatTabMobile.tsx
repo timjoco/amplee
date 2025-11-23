@@ -29,12 +29,20 @@ type ChatMsg = {
   body: string;
   created_at: string;
   profiles?: ProfileLite;
+  status?: 'sending' | 'sent' | 'failed';
 };
 
 type ReactionRow = {
   message_id: number;
   user_id: string;
   emoji: string;
+};
+
+type LinkPreview = {
+  title?: string;
+  description?: string;
+  image?: string;
+  url: string;
 };
 
 export default function ChatTabMobile({
@@ -49,33 +57,72 @@ export default function ChatTabMobile({
   const [loading, setLoading] = useState(true);
   const [input, setInput] = useState('');
   const [myUserId, setMyUserId] = useState<string | null>(null);
-  const userRef = useRef<any | null>(null); // cache supabase user object
-
+  const userRef = useRef<any | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const profilesById = useRef<Map<string, ProfileLite>>(new Map());
-
+  const [activeMessageId, setActiveMessageId] = useState<string | null>(null);
+  const longPressTimeoutRef = useRef<number | null>(null);
+  const pressStartRef = useRef<{ x: number; y: number } | null>(null);
+  const [sheetMessageId, setSheetMessageId] = useState<string | null>(null);
+  const [keyboardOffset, setKeyboardOffset] = useState(0);
   const [reactions, setReactions] = useState<
     Record<string, Record<string, number>>
   >({});
+
   const [myReactions, setMyReactions] = useState<
     Record<string, Record<string, true>>
   >({});
-
-  const [activeMessageId, setActiveMessageId] = useState<string | null>(null);
-
-  const longPressTimeoutRef = useRef<number | null>(null);
-  const pressStartRef = useRef<{ x: number; y: number } | null>(null);
-
-  const [sheetMessageId, setSheetMessageId] = useState<string | null>(null);
-  const [keyboardOffset, setKeyboardOffset] = useState(0);
-  const [showStatusPicker, setShowStatusPicker] = useState(false);
-
-  // this helps with ios keyboard
-  const MAX_KEYBOARD_SHIFT = 50;
+  const [linkPreviews, setLinkPreviews] = useState<Record<string, LinkPreview>>(
+    {}
+  );
+  const fetchedPreviewsRef = useRef<Set<string>>(new Set());
+  const MAX_KEYBOARD_SHIFT = 65;
+  const MOVE_THRESHOLD_PX = 12;
 
   useEffect(() => {
     messagesRef.current = messages;
   }, [messages]);
+
+  const extractLinks = useCallback((text: string): string[] => {
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    return text.match(urlRegex) || [];
+  }, []);
+
+  const fetchLinkPreview = useCallback(
+    async (url: string): Promise<LinkPreview | null> => {
+      try {
+        // Simple fetch to get basic metadata
+        // In production, you'd want a backend endpoint for this
+        const response = await fetch(url);
+        const html = await response.text();
+
+        const titleMatch = html.match(
+          /<meta property="og:title" content="([^"]+)"/
+        );
+        const descMatch = html.match(
+          /<meta property="og:description" content="([^"]+)"/
+        );
+        const imageMatch = html.match(
+          /<meta property="og:image" content="([^"]+)"/
+        );
+
+        return {
+          title: titleMatch?.[1] || new URL(url).hostname,
+          description: descMatch?.[1],
+          image: imageMatch?.[1],
+          url,
+        };
+      } catch (e) {
+        console.warn('[link preview error]', e);
+        return {
+          title: new URL(url).hostname,
+          url,
+        };
+      }
+    },
+    []
+  );
 
   const triggerHaptic = useCallback(async () => {
     if (Capacitor.getPlatform() === 'web') return;
@@ -87,7 +134,20 @@ export default function ChatTabMobile({
     }
   }, []);
 
-  const MOVE_THRESHOLD_PX = 12;
+  const isNearBottom = useCallback(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return true;
+    return el.scrollHeight - el.scrollTop - el.clientHeight < 150;
+  }, []);
+
+  const smartScrollToBottom = useCallback(
+    (behavior: ScrollBehavior = 'smooth') => {
+      if (isNearBottom()) {
+        bottomRef.current?.scrollIntoView({ behavior, block: 'end' });
+      }
+    },
+    [isNearBottom]
+  );
 
   const handlePressStart = useCallback(
     (
@@ -117,7 +177,7 @@ export default function ChatTabMobile({
         setActiveMessageId(id);
         setSheetMessageId(id);
         void triggerHaptic();
-      }, 350);
+      }, 500);
     },
     [triggerHaptic]
   );
@@ -158,7 +218,6 @@ export default function ChatTabMobile({
 
   const hasInput = input.trim().length > 0;
 
-  // load current user once
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -174,21 +233,19 @@ export default function ChatTabMobile({
     };
   }, []);
 
-  // realtime update for deleting and updating messages (not inserts)
   useEffect(() => {
     const ch = supabase
       .channel(`event:${eventId}`)
       .on(
         'postgres_changes',
         {
-          event: '*', // INSERT + UPDATE + DELETE
+          event: '*',
           schema: 'public',
           table: 'event_messages',
           filter: `event_id=eq.${eventId}`,
         },
         (payload) => {
           if (payload.eventType === 'INSERT') {
-            // handled in separate INSERT-only effect
             return;
           }
 
@@ -225,6 +282,15 @@ export default function ChatTabMobile({
               delete next[deletedId];
               return next;
             });
+
+            setLinkPreviews((prev) => {
+              if (!prev[deletedId]) return prev;
+              const next = { ...prev };
+              delete next[deletedId];
+              return next;
+            });
+
+            fetchedPreviewsRef.current.delete(deletedId);
           }
         }
       )
@@ -273,7 +339,6 @@ export default function ChatTabMobile({
     setMyReactions((prev) => ({ ...prev, ...mine }));
   }, []);
 
-  // initial load
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -304,6 +369,7 @@ export default function ChatTabMobile({
       const normalized = ((data as any[]) ?? []).map((m) => ({
         ...m,
         id: String(m.id),
+        status: 'sent' as const,
       })) as ChatMsg[];
 
       setMessages(normalized);
@@ -323,7 +389,6 @@ export default function ChatTabMobile({
     };
   }, [eventId, loadReactionsFor]);
 
-  // realtime inserts
   useEffect(() => {
     const ch = supabase
       .channel(`event:${eventId}:insert`)
@@ -355,6 +420,7 @@ export default function ChatTabMobile({
             ...row,
             id: String(row.id),
             profiles: prof,
+            status: 'sent',
           };
 
           setMessages((prev) => {
@@ -376,10 +442,7 @@ export default function ChatTabMobile({
             return [...prev, enriched];
           });
 
-          bottomRef.current?.scrollIntoView({
-            behavior: 'smooth',
-            block: 'end',
-          });
+          smartScrollToBottom('smooth');
         }
       )
       .subscribe();
@@ -387,9 +450,8 @@ export default function ChatTabMobile({
     return () => {
       supabase.removeChannel(ch);
     };
-  }, [eventId]);
+  }, [eventId, smartScrollToBottom]);
 
-  // realtime reactions (no more auth.getUser, no resubscribe on every message)
   useEffect(() => {
     const ch = supabase
       .channel(`event:${eventId}:reactions`)
@@ -403,7 +465,6 @@ export default function ChatTabMobile({
 
           const mid = String(base.message_id);
 
-          // ignore reactions for messages we don't have
           const hasMessage = messagesRef.current.some((m) => m.id === mid);
           if (!hasMessage) return;
 
@@ -456,7 +517,22 @@ export default function ChatTabMobile({
     };
   }, [eventId]);
 
-  // keyboard listeners → shift chat up
+  // ✅ FIXED: Fetch link previews without causing re-renders
+  useEffect(() => {
+    messages.forEach(async (m) => {
+      if (fetchedPreviewsRef.current.has(m.id)) return;
+
+      const links = extractLinks(m.body);
+      if (links.length > 0) {
+        fetchedPreviewsRef.current.add(m.id);
+        const preview = await fetchLinkPreview(links[0]);
+        if (preview) {
+          setLinkPreviews((prev) => ({ ...prev, [m.id]: preview }));
+        }
+      }
+    });
+  }, [messages, extractLinks, fetchLinkPreview]);
+
   useEffect(() => {
     if (Capacitor.getPlatform() === 'web') return;
 
@@ -468,14 +544,7 @@ export default function ChatTabMobile({
         const height = info.keyboardHeight ?? 0;
         setKeyboardOffset(height);
 
-        setTimeout(
-          () =>
-            bottomRef.current?.scrollIntoView({
-              behavior: 'smooth',
-              block: 'end',
-            }),
-          80
-        );
+        setTimeout(() => smartScrollToBottom('smooth'), 80);
       });
 
       hideSub = await Keyboard.addListener('keyboardWillHide', () => {
@@ -489,7 +558,7 @@ export default function ChatTabMobile({
       showSub?.remove();
       hideSub?.remove();
     };
-  }, []);
+  }, [smartScrollToBottom]);
 
   const toggleReaction = useCallback(
     async (messageId: string, emoji: string) => {
@@ -499,9 +568,10 @@ export default function ChatTabMobile({
       const userId = userRef.current?.id as string | undefined;
       if (!userId) return;
 
+      await triggerHaptic();
+
       const iHadItBefore = !!myReactions[messageId]?.[emoji];
 
-      // optimistic update
       setReactions((prev) => {
         const curr = { ...(prev[messageId] || {}) };
         const next = (curr[emoji] || 0) + (iHadItBefore ? -1 : 1);
@@ -525,7 +595,6 @@ export default function ChatTabMobile({
 
         if (error) {
           console.error('[reaction delete error]', error);
-          // rollback
           setReactions((prev) => {
             const curr = { ...(prev[messageId] || {}) };
             curr[emoji] = (curr[emoji] || 0) + 1;
@@ -547,7 +616,6 @@ export default function ChatTabMobile({
 
         if (error) {
           console.error('[reaction upsert error]', error);
-          // rollback
           setReactions((prev) => {
             const curr = { ...(prev[messageId] || {}) };
             const next = Math.max(0, (curr[emoji] || 1) - 1);
@@ -563,7 +631,7 @@ export default function ChatTabMobile({
         }
       }
     },
-    [myReactions]
+    [myReactions, triggerHaptic]
   );
 
   const send = useCallback(async () => {
@@ -600,10 +668,11 @@ export default function ChatTabMobile({
       body,
       created_at: new Date().toISOString(),
       profiles: me,
+      status: 'sending',
     };
 
     setMessages((prev) => [...prev, optimisticMsg]);
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    smartScrollToBottom('smooth');
 
     const { error } = await supabase
       .from('event_messages')
@@ -611,60 +680,14 @@ export default function ChatTabMobile({
 
     if (error) {
       console.error('[chat send error]', error);
-      setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === optimisticId ? { ...m, status: 'failed' as const } : m
+        )
+      );
       setInput(body);
     }
-  }, [input, eventId]);
-
-  const sendQuickStatus = useCallback(
-    async (body: string) => {
-      const text = body.trim();
-      if (!text) return;
-
-      const user = userRef.current;
-      if (!user) return;
-
-      const userId = user.id as string;
-
-      let me = profilesById.current.get(userId);
-      if (!me) {
-        const { data } = await supabase
-          .from('profiles')
-          .select('id, display_name, avatar_url, updated_at')
-          .eq('id', userId)
-          .single();
-        if (data) {
-          me = data as ProfileLite;
-          profilesById.current.set(userId, me);
-        } else {
-          me = { id: userId };
-        }
-      }
-
-      const optimisticId = `status-${Date.now()}`;
-      const optimisticMsg: ChatMsg = {
-        id: optimisticId,
-        event_id: eventId,
-        user_id: userId,
-        body: text,
-        created_at: new Date().toISOString(),
-        profiles: me,
-      };
-
-      setMessages((prev) => [...prev, optimisticMsg]);
-      bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-
-      const { error } = await supabase
-        .from('event_messages')
-        .insert({ event_id: eventId, user_id: userId, body: text });
-
-      if (error) {
-        console.error('[quick status send error]', error);
-        setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
-      }
-    },
-    [eventId]
-  );
+  }, [input, eventId, smartScrollToBottom]);
 
   const isEmpty = !loading && messages.length === 0;
 
@@ -701,6 +724,7 @@ export default function ChatTabMobile({
       }}
     >
       <div
+        ref={scrollContainerRef}
         style={{
           flex: 1,
           minHeight: 0,
@@ -722,11 +746,173 @@ export default function ChatTabMobile({
             <IonText color="medium">Loading…</IonText>
           </div>
         ) : isEmpty ? (
-          <div style={{ padding: 16, opacity: 0.8 }}>
-            <strong>Welcome to the Green Room.</strong>
-            <br />
-            This is your band’s hub for this event. Tap the box below to say
-            hello.
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              height: '100%',
+              padding: '40px 24px',
+              textAlign: 'center',
+            }}
+          >
+            {/* Large Chat Icon with Glow Effect */}
+            <div
+              style={{
+                position: 'relative',
+                marginBottom: 24,
+              }}
+            >
+              <div
+                style={{
+                  position: 'absolute',
+                  inset: -20,
+                  background:
+                    'radial-gradient(circle, rgba(52, 211, 153, 0.15) 0%, transparent 70%)',
+                  filter: 'blur(20px)',
+                  animation: 'pulse 3s ease-in-out infinite',
+                }}
+              />
+              <svg
+                width="80"
+                height="80"
+                viewBox="0 0 24 24"
+                fill="none"
+                style={{
+                  position: 'relative',
+                  filter: 'drop-shadow(0 0 12px rgba(52, 211, 153, 0.3))',
+                }}
+              >
+                <path
+                  d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 13.8214 2.48697 15.5291 3.33782 17L2.5 21.5L7 20.6622C8.47087 21.513 10.1786 22 12 22Z"
+                  stroke="url(#chat-gradient)"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d="M8 12H8.01M12 12H12.01M16 12H16.01"
+                  stroke="url(#chat-gradient)"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <defs>
+                  <linearGradient
+                    id="chat-gradient"
+                    x1="2"
+                    y1="2"
+                    x2="22"
+                    y2="22"
+                    gradientUnits="userSpaceOnUse"
+                  >
+                    <stop stopColor="#34D399" />
+                    <stop offset="1" stopColor="#10B981" />
+                  </linearGradient>
+                </defs>
+              </svg>
+            </div>
+
+            {/* Main Heading */}
+            <h2
+              style={{
+                fontSize: 24,
+                fontWeight: 800,
+                background: 'linear-gradient(135deg, #34D399 0%, #10B981 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text',
+                marginBottom: 12,
+                letterSpacing: -0.5,
+              }}
+            >
+              Welcome to the Green Room
+            </h2>
+
+            {/* Subheading */}
+            <p
+              style={{
+                fontSize: 16,
+                color: 'rgba(229, 231, 235, 0.85)',
+                marginBottom: 8,
+                lineHeight: 1.5,
+              }}
+            >
+              Your band's private hub for this event
+            </p>
+
+            {/* Call to Action */}
+            <p
+              style={{
+                fontSize: 15,
+                color: 'rgba(156, 163, 175, 0.9)',
+                fontWeight: 500,
+              }}
+            >
+              Message the band to get started 💬
+            </p>
+
+            {/* Decorative Elements */}
+            <div
+              style={{
+                marginTop: 32,
+                display: 'flex',
+                gap: 12,
+                opacity: 0.4,
+              }}
+            >
+              <div
+                style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: '50%',
+                  background: '#34D399',
+                  animation: 'fadeInOut 2s ease-in-out infinite',
+                }}
+              />
+              <div
+                style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: '50%',
+                  background: '#34D399',
+                  animation: 'fadeInOut 2s ease-in-out infinite 0.4s',
+                }}
+              />
+              <div
+                style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: '50%',
+                  background: '#34D399',
+                  animation: 'fadeInOut 2s ease-in-out infinite 0.8s',
+                }}
+              />
+            </div>
+
+            {/* Add CSS animations */}
+            <style>
+              {`
+                @keyframes pulse {
+                  0%, 100% {
+                    opacity: 1;
+                  }
+                  50% {
+                    opacity: 0.6;
+                  }
+                }
+                
+                @keyframes fadeInOut {
+                  0%, 100% {
+                    opacity: 0.2;
+                  }
+                  50% {
+                    opacity: 1;
+                  }
+                }
+              `}
+            </style>
           </div>
         ) : (
           <IonList
@@ -759,7 +945,6 @@ export default function ChatTabMobile({
 
                 const name = m.profiles?.display_name || 'Member';
                 const isActive = activeMessageId === m.id;
-                const isMine = m.user_id === myUserId;
 
                 return (
                   <div key={m.id}>
@@ -836,7 +1021,6 @@ export default function ChatTabMobile({
                           cursor: 'pointer',
                         }}
                       >
-                        {/* Avatar */}
                         <div
                           style={{
                             flexShrink: 0,
@@ -860,7 +1044,6 @@ export default function ChatTabMobile({
                             minWidth: 0,
                           }}
                         >
-                          {/* Name + date/time */}
                           <div
                             style={{
                               display: 'flex',
@@ -893,21 +1076,36 @@ export default function ChatTabMobile({
                             >
                               {dateLabel} · {timeFmt.format(msgDate)}
                             </span>
+
+                            {m.status === 'sending' && (
+                              <IonSpinner
+                                name="dots"
+                                style={{
+                                  width: 14,
+                                  height: 14,
+                                  opacity: 0.6,
+                                }}
+                              />
+                            )}
+                            {m.status === 'failed' && (
+                              <span
+                                style={{
+                                  fontSize: 11,
+                                  color: '#EF4444',
+                                  fontWeight: 600,
+                                }}
+                              >
+                                Failed
+                              </span>
+                            )}
                           </div>
 
-                          {/* Body */}
-                          <div
-                            style={{
-                              fontSize: 16,
-                              whiteSpace: 'pre-wrap',
-                              wordBreak: 'break-word',
-                              color: 'rgba(237,235,255,0.92)',
-                            }}
-                          >
-                            {m.body}
-                          </div>
+                          <MessageBodyWithLinks
+                            body={m.body}
+                            preview={linkPreviews[m.id]}
+                            status={m.status}
+                          />
 
-                          {/* Reactions */}
                           <ReactionBarMobile
                             reactions={reactions[m.id] || {}}
                             myReactions={myReactions[m.id] || {}}
@@ -980,11 +1178,11 @@ export default function ChatTabMobile({
       {/* COMPOSER */}
       <div
         style={{
-          background: '#050509',
-          borderTop: '0.5px solid rgba(52, 211, 153, 0.4)',
+          borderTop: '1px solid rgba(60, 61, 68, 0.25)',
           paddingBottom: 'calc(env(safe-area-inset-bottom) + 8px)',
           width: '100%',
           marginInline: 0,
+          backdropFilter: 'blur(10px)',
         }}
       >
         <div
@@ -994,45 +1192,20 @@ export default function ChatTabMobile({
             paddingBottom: 4,
             display: 'flex',
             alignItems: 'flex-end',
-            gap: 6,
+            gap: 8,
           }}
         >
-          {/* + STATUS BUTTON (left bubble) */}
-          {/* <button
-            type="button"
-            onClick={() => {
-              setShowStatusPicker((v) => !v);
-              void triggerHaptic();
-            }}
-            aria-label="Set status"
-            style={{
-              width: 40,
-              height: 40,
-              borderRadius: 999,
-              border: 'none',
-              background: '#111118',
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: 0,
-              color: '#EDE9FE',
-              boxShadow: '0 4px 14px rgba(0,0,0,0.6)',
-              cursor: 'pointer',
-            }}
-          >
-            <IonIcon icon={addOutline} style={{ fontSize: 22 }} />
-          </button> */}
-
           <div
             style={{
               flex: 1,
-              height: 40,
-              borderRadius: 999,
-              background: '#111118',
+              minHeight: 44,
+              borderRadius: 12,
+              background: 'rgba(52, 211, 153, 0.04))',
+              border: '1px solid rgba(60, 61, 68, 0.89)',
               paddingInline: 14,
               display: 'flex',
               alignItems: 'center',
-              boxShadow: '0 4px 18px rgba(0,0,0,0.7)',
+              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.4)',
             }}
           >
             <IonTextarea
@@ -1042,45 +1215,169 @@ export default function ChatTabMobile({
               rows={1}
               onIonInput={(e) => setInput(e.detail.value ?? '')}
               onFocus={() => {
-                setTimeout(
-                  () =>
-                    bottomRef.current?.scrollIntoView({
-                      behavior: 'smooth',
-                      block: 'end',
-                    }),
-                  120
-                );
+                setTimeout(() => smartScrollToBottom('smooth'), 120);
+              }}
+              style={{
+                '--color': '#e5e7eb',
+                '--placeholder-color': '#9ca3af',
+                fontSize: '16px',
               }}
             />
           </div>
 
-          {/* SEND BUTTON (right bubble) */}
-          {hasInput && (
-            <button
-              type="button"
-              onClick={send}
-              aria-label="Send message"
-              style={{
-                width: 40,
-                height: 40,
-                borderRadius: 999,
-                border: 'none',
-                background:
-                  'radial-gradient(circle at top left, rgba(52, 211, 153, 0.95), rgba(22, 101, 72, 0.95))',
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: 0,
-                boxShadow: '0 4px 16px rgba(0,0,0,0.85)',
-                color: '#F9FAFB',
-                cursor: 'pointer',
-              }}
-            >
-              <IonIcon icon={sendIcon} style={{ fontSize: 20 }} />
-            </button>
-          )}
+          {/* Send Button */}
+          <button
+            type="button"
+            onClick={send}
+            aria-label="Send message"
+            disabled={!hasInput}
+            style={{
+              width: 44,
+              height: 47,
+              borderRadius: 12,
+              border: hasInput
+                ? '1px solid rgba(52, 211, 153, 0.5)'
+                : '1px solid rgba(148, 163, 184, 0.3)',
+              background: hasInput
+                ? 'rgba(52, 211, 153, 0.95)'
+                : 'rgba(15, 23, 42, 0.8)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: 0,
+              boxShadow: hasInput
+                ? '0 4px 16px rgba(52, 211, 153, 0.4)'
+                : 'none',
+              color: hasInput ? '#000000' : '#9ca3af',
+              cursor: 'pointer',
+              transform: hasInput ? 'scale(1)' : 'scale(0.95)',
+              opacity: hasInput ? 1 : 0.6,
+              transition: 'all 200ms cubic-bezier(0.4, 0, 0.2, 1)',
+            }}
+          >
+            <IonIcon icon={sendIcon} style={{ fontSize: 20 }} />
+          </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function MessageBodyWithLinks({
+  body,
+  preview,
+  status,
+}: {
+  body: string;
+  preview?: LinkPreview;
+  status?: 'sending' | 'sent' | 'failed';
+}) {
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  const parts = body.split(urlRegex);
+
+  return (
+    <div>
+      <div
+        style={{
+          fontSize: 16,
+          whiteSpace: 'pre-wrap',
+          wordBreak: 'break-word',
+          color: 'rgba(237,235,255,0.92)',
+          opacity: status === 'failed' ? 0.5 : 1,
+        }}
+      >
+        {parts.map((part, i) => {
+          if (part.match(urlRegex)) {
+            return (
+              <a
+                key={i}
+                href={part}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  color: '#60A5FA',
+                  textDecoration: 'underline',
+                }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                {part}
+              </a>
+            );
+          }
+          return <span key={i}>{part}</span>;
+        })}
+      </div>
+
+      {preview && (
+        <div
+          onClick={(e) => {
+            e.stopPropagation();
+            window.open(preview.url, '_blank');
+          }}
+          style={{
+            marginTop: 8,
+            borderRadius: 12,
+            border: '1px solid rgba(148,163,184,0.3)',
+            background: 'rgba(15,23,42,0.6)',
+            overflow: 'hidden',
+            cursor: 'pointer',
+            maxWidth: 320,
+          }}
+        >
+          {preview.image && (
+            <img
+              src={preview.image}
+              alt=""
+              style={{
+                width: '100%',
+                height: 160,
+                objectFit: 'cover',
+              }}
+            />
+          )}
+          <div style={{ padding: 10 }}>
+            {preview.title && (
+              <div
+                style={{
+                  fontWeight: 600,
+                  fontSize: 14,
+                  color: '#E5E7EB',
+                  marginBottom: 4,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {preview.title}
+              </div>
+            )}
+            {preview.description && (
+              <div
+                style={{
+                  fontSize: 12,
+                  color: 'rgba(156,163,175,0.9)',
+                  lineHeight: 1.4,
+                  display: '-webkit-box',
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: 'vertical',
+                  overflow: 'hidden',
+                }}
+              >
+                {preview.description}
+              </div>
+            )}
+            <div
+              style={{
+                fontSize: 11,
+                color: 'rgba(148,163,184,0.7)',
+                marginTop: 6,
+              }}
+            >
+              {new URL(preview.url).hostname}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1097,12 +1394,28 @@ function ReactionBarMobile({
   showAddButton?: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const [justAdded, setJustAdded] = useState<string | null>(null);
 
   const entries = Object.entries(reactions).sort((a, b) => b[1] - a[1]);
   const hasReactions = entries.length > 0;
 
   const purpleBorder = 'rgba(150,120,255,0.9)';
   const purpleGlow = 'rgba(150,120,255,0.35)';
+
+  useEffect(() => {
+    if (justAdded) {
+      const timer = setTimeout(() => setJustAdded(null), 300);
+      return () => clearTimeout(timer);
+    }
+  }, [justAdded]);
+
+  const handleToggle = useCallback(
+    (emoji: string) => {
+      setJustAdded(emoji);
+      onToggle(emoji);
+    },
+    [onToggle]
+  );
 
   return (
     <div
@@ -1124,13 +1437,15 @@ function ReactionBarMobile({
         {hasReactions &&
           entries.map(([emoji, count]) => {
             const mine = !!myReactions[emoji];
+            const isNew = justAdded === emoji;
+
             return (
               <button
                 key={emoji}
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
-                  onToggle(emoji);
+                  handleToggle(emoji);
                 }}
                 style={{
                   display: 'inline-flex',
@@ -1151,6 +1466,20 @@ function ReactionBarMobile({
                   color: '#fff',
                   cursor: 'pointer',
                   minHeight: 24,
+                  transform: isNew ? 'scale(1.2)' : 'scale(1)',
+                  transition: 'transform 150ms cubic-bezier(0.4, 0, 0.2, 1)',
+                }}
+                onMouseDown={(e) => {
+                  if (!isNew) e.currentTarget.style.transform = 'scale(0.9)';
+                }}
+                onMouseUp={(e) => {
+                  if (!isNew) e.currentTarget.style.transform = 'scale(1)';
+                }}
+                onTouchStart={(e) => {
+                  if (!isNew) e.currentTarget.style.transform = 'scale(0.9)';
+                }}
+                onTouchEnd={(e) => {
+                  if (!isNew) e.currentTarget.style.transform = 'scale(1)';
                 }}
               >
                 <span aria-hidden style={{ fontSize: 13 }}>
@@ -1168,7 +1497,7 @@ function ReactionBarMobile({
             );
           })}
 
-        {showAddButton && (
+        {(hasReactions || showAddButton) && (
           <button
             type="button"
             aria-label="Add reaction"
@@ -1180,23 +1509,55 @@ function ReactionBarMobile({
               width: 28,
               height: 28,
               borderRadius: 999,
-              border: '1px dashed rgba(255,255,255,0.5)',
+              border: hasReactions
+                ? '1px solid rgba(148,163,184,0.4)'
+                : '1px dashed rgba(255,255,255,0.5)',
               display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
-              background: 'rgba(8,8,12,0.96)',
+              background: hasReactions
+                ? 'rgba(20,18,32,0.9)'
+                : 'rgba(8,8,12,0.96)',
               color: '#ffffff',
               padding: 0,
-              fontSize: 18,
+              fontSize: hasReactions ? 14 : 16,
               lineHeight: 1,
+              cursor: 'pointer',
+              transition: 'all 150ms ease',
+              opacity: hasReactions ? 0.4 : 1,
+              filter: hasReactions ? 'grayscale(1)' : 'none',
+            }}
+            onMouseDown={(e) => {
+              e.currentTarget.style.transform = 'scale(0.9)';
+              if (hasReactions) {
+                e.currentTarget.style.opacity = '0.6';
+              }
+            }}
+            onMouseUp={(e) => {
+              e.currentTarget.style.transform = 'scale(1)';
+              if (hasReactions) {
+                e.currentTarget.style.opacity = '0.4';
+              }
+            }}
+            onTouchStart={(e) => {
+              e.currentTarget.style.transform = 'scale(0.9)';
+              if (hasReactions) {
+                e.currentTarget.style.opacity = '0.6';
+              }
+            }}
+            onTouchEnd={(e) => {
+              e.currentTarget.style.transform = 'scale(1)';
+              if (hasReactions) {
+                e.currentTarget.style.opacity = '0.4';
+              }
             }}
           >
-            +
+            {hasReactions ? '😊' : '+'}
           </button>
         )}
       </div>
 
-      {showAddButton && open && (
+      {open && (
         <EmojiGridMobile
           emojis={[
             '👍',
@@ -1216,7 +1577,7 @@ function ReactionBarMobile({
             '⭐️',
           ]}
           onPick={(emoji) => {
-            onToggle(emoji);
+            handleToggle(emoji);
             setOpen(false);
           }}
         />
@@ -1267,41 +1628,6 @@ function EmojiGridMobile({
         </button>
       ))}
     </div>
-  );
-}
-
-function StatusChip({
-  emoji,
-  label,
-  onClick,
-}: {
-  emoji: string;
-  label: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      style={{
-        width: '100%',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 8,
-        padding: '6px 10px',
-        borderRadius: 999,
-        border: '1px solid rgba(55,65,81,0.9)',
-        background:
-          'radial-gradient(circle at top left, rgba(255,255,255,0.05), rgba(15,23,42,0.98))',
-        color: '#E5E7EB',
-        fontSize: 14,
-        textAlign: 'left',
-        cursor: 'pointer',
-      }}
-    >
-      <span style={{ fontSize: 18 }}>{emoji}</span>
-      <span style={{ flex: 1, whiteSpace: 'nowrap' }}>{label}</span>
-    </button>
   );
 }
 
@@ -1449,7 +1775,6 @@ function MessageActionSheet({
           padding: '12px 16px 24px',
         }}
       >
-        {/* grab handle */}
         <div
           style={{
             width: 36,
@@ -1460,7 +1785,6 @@ function MessageActionSheet({
           }}
         />
 
-        {/* editable preview card */}
         <div
           style={{
             marginBottom: 16,

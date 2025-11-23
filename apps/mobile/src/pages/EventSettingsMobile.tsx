@@ -16,7 +16,7 @@ import {
 import { chevronBackOutline, warningOutline } from 'ionicons/icons';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import AmpleeDateTimeWheel from '../components/ui/AmpleeDateTimePicker';
+import EventDateTimePicker from '../components/ui/EventDateTimePicker';
 import { supabase } from '../lib/supabase';
 
 type EventType = 'show' | 'practice';
@@ -755,7 +755,7 @@ function EventDetailsCard({
               : 'Tap to set an end time (optional)'}
           </button>
 
-          <AmpleeDateTimeWheel
+          <EventDateTimePicker
             open={showStartPicker}
             label="Pick start date & time"
             value={editStart ? new Date(editStart).toISOString() : undefined}
@@ -769,7 +769,7 @@ function EventDetailsCard({
             onDismiss={() => setShowStartPicker(false)}
           />
 
-          <AmpleeDateTimeWheel
+          <EventDateTimePicker
             open={showEndPicker}
             label="Pick end time (optional)"
             value={editEnd ? new Date(editEnd).toISOString() : undefined}

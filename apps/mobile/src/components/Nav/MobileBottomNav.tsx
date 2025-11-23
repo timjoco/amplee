@@ -102,11 +102,18 @@ export default function MobileBottomNav() {
     pathname.startsWith('/auth/') ||
     pathname.startsWith('/invite/') ||
     pathname.startsWith('/profile/basics') ||
+    // event detail
     /^\/bands\/[^/]+\/events\/[^/]+\/?$/.test(pathname) ||
     /^\/bands\/[^/]+\/events\/[^/]+\/settings\/?$/.test(pathname) ||
     /^\/event\/[^/]+\/?$/.test(pathname) ||
+    // band settings
     /^\/bands\/[^/]+\/settings\/?$/i.test(pathname) ||
-    /^\/bands\/[^/]+\/proposals\/[^/]+$/.test(pathname);
+    // proposal detail
+    /^\/bands\/[^/]+\/proposals\/[^/]+$/.test(pathname) ||
+    // song library
+    /^\/bands\/[^/]+\/songs\/?$/.test(pathname) ||
+    // song sheet
+    /^\/bands\/[^/]+\/songs\/[^/]+\/?$/.test(pathname);
 
   if (hidden) return null;
 

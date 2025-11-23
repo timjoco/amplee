@@ -1,5 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { IonSpinner, IonText, IonToast } from '@ionic/react';
+import { IonIcon, IonSpinner, IonText, IonToast } from '@ionic/react';
+import {
+  checkmarkCircleOutline,
+  helpCircleOutline,
+  personOutline,
+} from 'ionicons/icons';
 import * as React from 'react';
 import { useAttendance, type AttStatus } from '../../hooks/useAttendance';
 
@@ -32,30 +37,6 @@ export default function RSVPTabMobile({
   const hasSubRequested = needsSub;
   const isAccepted = hydrated && !hasSubRequested && mine === 'accepted';
   const isPending = hydrated && !hasSubRequested && mine === 'pending';
-
-  const primaryButtonBase: React.CSSProperties = {
-    width: '100%',
-    paddingBlock: 10,
-    borderRadius: 999,
-    fontSize: 14,
-    fontWeight: 600,
-    textAlign: 'center',
-    border: '1px solid rgba(216,180,254,0.9)',
-    cursor: 'pointer',
-  };
-
-  const secondaryButtonBase: React.CSSProperties = {
-    width: '100%',
-    paddingBlock: 10,
-    borderRadius: 999,
-    fontSize: 14,
-    fontWeight: 600,
-    textAlign: 'center',
-    border: '1px solid rgba(148,163,184,0.8)',
-    cursor: 'pointer',
-    background: 'rgba(15,23,42,0.9)',
-    color: 'rgba(209,213,219,0.9)',
-  };
 
   const handleAskConfirm = (target: AttStatus) => {
     if (saving) return;
@@ -123,65 +104,282 @@ export default function RSVPTabMobile({
     await updateSubRequest(false, '');
   };
 
+  // Calculate attendance percentage
+  const attendancePercentage =
+    counts.total > 0 ? Math.round((counts.accepted / counts.total) * 100) : 0;
+
   return (
     <>
       <div
         style={{
-          padding: 16,
-          paddingBottom: 24,
+          padding: '16px 16px 80px 16px',
           minHeight: '100%',
           color: '#E5E7EB',
           position: 'relative',
+          background:
+            'linear-gradient(180deg, rgba(5,5,9,0) 0%, rgba(5,5,9,0.3) 100%)',
         }}
       >
         {/* error */}
         {error && (
           <div
             style={{
-              borderRadius: 12,
-              border: '1px solid rgba(248,113,113,0.7)',
-              padding: 10,
-              fontSize: 13,
-              background: 'rgba(30,7,15,0.9)',
+              borderRadius: 16,
+              border: '1px solid rgba(248,113,113,0.4)',
+              padding: 16,
+              fontSize: 14,
+              background:
+                'linear-gradient(135deg, rgba(127, 29, 29, 0.2), rgba(127, 29, 29, 0.1))',
               marginBottom: 16,
+              backdropFilter: 'blur(10px)',
             }}
           >
             <IonText color="danger">
-              <p style={{ margin: 0 }}>{error}</p>
+              <p style={{ margin: 0, fontWeight: 600 }}>{error}</p>
             </IonText>
           </div>
         )}
 
-        {/* CARD 1: CAN YOU MAKE THE SHOW? */}
+        {/* STATS HEADER */}
         <div
           style={{
-            borderRadius: 18,
-            border: '1px solid rgba(52, 211, 153, 0.55)',
-            boxShadow: '0 14px 32px rgba(0,0,0,0.55)',
-            padding: 14,
+            background:
+              'linear-gradient(135deg, rgba(52, 211, 153, 0.08), rgba(52, 211, 153, 0.04))',
+            border: '1px solid rgba(52, 211, 153, 0.2)',
+            borderRadius: 16,
+            padding: '20px',
             marginBottom: 16,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
           }}
         >
-          <div style={{ marginBottom: 10 }}>
-            <p
+          <div>
+            <div
               style={{
-                margin: 0,
-                fontSize: 13,
-                fontWeight: 700,
-                letterSpacing: 0.04,
-                textTransform: 'uppercase',
-                color: 'rgba(209,250,229,0.96)',
+                fontSize: 32,
+                fontWeight: 800,
+                color: 'rgba(52, 211, 153, 0.95)',
+                lineHeight: 1,
+                marginBottom: 6,
               }}
             >
-              Can you make the show?
-            </p>
+              {counts.accepted}/{counts.total}
+            </div>
+            <div
+              style={{
+                fontSize: 12,
+                fontWeight: 600,
+                color: '#9ca3af',
+                textTransform: 'uppercase',
+                letterSpacing: 0.5,
+              }}
+            >
+              Confirmed
+            </div>
+          </div>
+
+          <div
+            style={{
+              width: 72,
+              height: 72,
+              borderRadius: '50%',
+              background: `conic-gradient(
+                rgba(52, 211, 153, 0.8) 0% ${attendancePercentage}%, 
+                rgba(15, 23, 42, 0.8) ${attendancePercentage}% 100%
+              )`,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              position: 'relative',
+            }}
+          >
+            <div
+              style={{
+                width: 56,
+                height: 56,
+                borderRadius: '50%',
+                background:
+                  'linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(15, 23, 42, 0.9))',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 16,
+                fontWeight: 800,
+                color: 'rgba(52, 211, 153, 0.95)',
+              }}
+            >
+              {attendancePercentage}%
+            </div>
+          </div>
+        </div>
+
+        {/* YOUR STATUS CARD */}
+        <div
+          style={{
+            background:
+              'linear-gradient(135deg, rgba(15, 23, 42, 0.8), rgba(15, 23, 42, 0.6))',
+            border: hasSubRequested
+              ? '1px solid rgba(59, 130, 246, 0.4)'
+              : isAccepted
+              ? '1px solid rgba(52, 211, 153, 0.4)'
+              : '1px solid rgba(251, 191, 36, 0.4)',
+            borderRadius: 16,
+            padding: 16,
+            marginBottom: 16,
+            backdropFilter: 'blur(10px)',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.4)',
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 12,
+              marginBottom: 12,
+            }}
+          >
+            <div
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 10,
+                background: hasSubRequested
+                  ? 'linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(59, 130, 246, 0.1))'
+                  : isAccepted
+                  ? 'linear-gradient(135deg, rgba(52, 211, 153, 0.2), rgba(52, 211, 153, 0.1))'
+                  : 'linear-gradient(135deg, rgba(251, 191, 36, 0.2), rgba(251, 191, 36, 0.1))',
+                border: hasSubRequested
+                  ? '1px solid rgba(59, 130, 246, 0.4)'
+                  : isAccepted
+                  ? '1px solid rgba(52, 211, 153, 0.4)'
+                  : '1px solid rgba(251, 191, 36, 0.4)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <IonIcon
+                icon={
+                  hasSubRequested
+                    ? personOutline
+                    : isAccepted
+                    ? checkmarkCircleOutline
+                    : helpCircleOutline
+                }
+                style={{
+                  fontSize: 20,
+                  color: hasSubRequested
+                    ? 'rgba(59, 130, 246, 0.95)'
+                    : isAccepted
+                    ? 'rgba(52, 211, 153, 0.95)'
+                    : 'rgba(251, 191, 36, 0.95)',
+                }}
+              />
+            </div>
+            <div style={{ flex: 1 }}>
+              <div
+                style={{
+                  fontSize: 13,
+                  fontWeight: 700,
+                  color: '#9ca3af',
+                  textTransform: 'uppercase',
+                  letterSpacing: 0.5,
+                  marginBottom: 4,
+                }}
+              >
+                Your Status
+              </div>
+              <div
+                style={{
+                  fontSize: 16,
+                  fontWeight: 700,
+                  color: hasSubRequested
+                    ? 'rgba(147, 197, 253, 0.95)'
+                    : isAccepted
+                    ? 'rgba(52, 211, 153, 0.95)'
+                    : 'rgba(251, 191, 36, 0.95)',
+                }}
+              >
+                {!hydrated
+                  ? 'Checking…'
+                  : hasSubRequested
+                  ? 'Sub Requested'
+                  : isAccepted
+                  ? "I'm In! ✓"
+                  : 'Not Sure Yet'}
+              </div>
+            </div>
+          </div>
+
+          {hasSubRequested && subReason && (
+            <div
+              style={{
+                padding: 12,
+                background: 'rgba(59, 130, 246, 0.1)',
+                border: '1px solid rgba(59, 130, 246, 0.3)',
+                borderRadius: 12,
+                marginTop: 12,
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: 'rgba(147, 197, 253, 0.8)',
+                  textTransform: 'uppercase',
+                  letterSpacing: 0.5,
+                  marginBottom: 6,
+                }}
+              >
+                Your Reason:
+              </div>
+              <div
+                style={{
+                  fontSize: 14,
+                  color: '#d1d5db',
+                  fontStyle: 'italic',
+                  lineHeight: 1.5,
+                }}
+              >
+                {subReason}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* CAN YOU MAKE THE SHOW? */}
+        <div
+          style={{
+            background:
+              'linear-gradient(135deg, rgba(15, 23, 42, 0.8), rgba(15, 23, 42, 0.6))',
+            border: '1px solid rgba(52, 211, 153, 0.25)',
+            borderRadius: 16,
+            padding: 16,
+            marginBottom: 16,
+            backdropFilter: 'blur(10px)',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.4)',
+          }}
+        >
+          <div style={{ marginBottom: 14 }}>
+            <h3
+              style={{
+                margin: 0,
+                fontSize: 15,
+                fontWeight: 700,
+                color: 'rgba(52, 211, 153, 0.95)',
+                textTransform: 'uppercase',
+                letterSpacing: 0.8,
+              }}
+            >
+              Can You Make It?
+            </h3>
           </div>
 
           <div
             style={{
               display: 'flex',
               gap: 10,
-              marginTop: 6,
             }}
           >
             <button
@@ -189,181 +387,201 @@ export default function RSVPTabMobile({
               disabled={saving || !hydrated}
               onClick={() => handleAskConfirm('accepted')}
               style={{
-                ...primaryButtonBase,
-                background: isAccepted
-                  ? 'linear-gradient(135deg, rgba(52, 211, 153, 0.75))'
-                  : 'rgba(0, 0, 0, 0.95)',
-                color: isAccepted ? '#ECFDF5' : 'rgba(52,211,153,0.75)',
-                opacity: saving && isAccepted ? 0.8 : 1,
+                flex: 1,
+                padding: '14px 16px',
+                borderRadius: 12,
+                fontSize: 14,
+                fontWeight: 700,
+                textAlign: 'center',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
                 border: isAccepted
-                  ? '1px solid rgba(22,163,74,0.9)'
-                  : '1px solid rgba(30,64,75,0.9)',
-                boxShadow: '0 10px 24px rgba(0,0,0,0.85)',
+                  ? '2px solid rgba(52, 211, 153, 0.6)'
+                  : '1px solid rgba(52, 211, 153, 0.3)',
+                background: isAccepted
+                  ? 'rgba(52, 211, 153, 0.95)'
+                  : 'rgba(15, 23, 42, 0.8)',
+                color: isAccepted ? '#000000' : 'rgba(52, 211, 153, 0.95)',
+                boxShadow: isAccepted
+                  ? '0 8px 20px rgba(52, 211, 153, 0.2)'
+                  : '0 4px 12px rgba(0, 0, 0, 0.4)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+              }}
+              onMouseEnter={(e) => {
+                if (!isAccepted && hydrated && !saving) {
+                  e.currentTarget.style.borderColor = 'rgba(52, 211, 153, 0.5)';
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                  e.currentTarget.style.boxShadow =
+                    '0 8px 20px rgba(52, 211, 153, 0.15)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!isAccepted) {
+                  e.currentTarget.style.borderColor = 'rgba(52, 211, 153, 0.3)';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow =
+                    '0 4px 12px rgba(0, 0, 0, 0.4)';
+                }
               }}
             >
               {saving && isAccepted && (
-                <IonSpinner
-                  name="dots"
-                  style={{ width: 14, height: 14, marginRight: 6 }}
-                />
+                <IonSpinner name="crescent" style={{ width: 16, height: 16 }} />
               )}
-              Yes, I&apos;m in
+              <IonIcon icon={checkmarkCircleOutline} style={{ fontSize: 18 }} />
+              Yes, I'm In
             </button>
 
-            {/* PENDING */}
             <button
               type="button"
               disabled={saving}
               onClick={() => handleAskConfirm('pending')}
               style={{
-                ...secondaryButtonBase,
+                flex: 1,
+                padding: '14px 16px',
+                borderRadius: 12,
+                fontSize: 14,
+                fontWeight: 700,
+                textAlign: 'center',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
                 border: isPending
-                  ? '1px solid rgba(251,191,36,0.95)'
-                  : '1px solid rgba(51,65,85,0.9)',
+                  ? '2px solid rgba(251, 191, 36, 0.6)'
+                  : '1px solid rgba(148, 163, 184, 0.3)',
                 background: isPending
-                  ? 'linear-gradient(135deg, rgba(251,191,36,0.18)'
-                  : 'rgba(15,23,42,0.96)',
-                color: isPending ? '#FEFCE8' : 'rgba(148,163,184,0.95)',
+                  ? 'rgba(251, 191, 36, 0.2)'
+                  : 'rgba(15, 23, 42, 0.8)',
+                color: isPending
+                  ? 'rgba(254, 243, 199, 0.95)'
+                  : 'rgba(148, 163, 184, 0.95)',
                 boxShadow: isPending
-                  ? '0 10px 26px rgba(15,23,42,0.95)'
-                  : '0 10px 24px rgba(0,0,0,0.85)',
+                  ? '0 8px 20px rgba(251, 191, 36, 0.15)'
+                  : '0 4px 12px rgba(0, 0, 0, 0.4)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+              }}
+              onMouseEnter={(e) => {
+                if (!isPending && !saving) {
+                  e.currentTarget.style.borderColor = 'rgba(251, 191, 36, 0.4)';
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                  e.currentTarget.style.boxShadow =
+                    '0 8px 20px rgba(251, 191, 36, 0.15)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!isPending) {
+                  e.currentTarget.style.borderColor =
+                    'rgba(148, 163, 184, 0.3)';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow =
+                    '0 4px 12px rgba(0, 0, 0, 0.4)';
+                }
               }}
             >
               {saving && isPending && (
-                <IonSpinner
-                  name="dots"
-                  style={{ width: 14, height: 14, marginRight: 6 }}
-                />
+                <IonSpinner name="crescent" style={{ width: 16, height: 16 }} />
               )}
-              Not sure
+              <IonIcon icon={helpCircleOutline} style={{ fontSize: 18 }} />
+              Not Sure
             </button>
-          </div>
-
-          {/* small status + counts + sub chip */}
-          <div
-            style={{
-              marginTop: 10,
-              fontSize: 12,
-              color: 'rgba(156,163,175,0.95)',
-            }}
-          >
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                flexWrap: 'wrap',
-              }}
-            >
-              <span>
-                Your status:{' '}
-                <strong style={{ color: '#EDE9FE' }}>
-                  {!hydrated ? (
-                    'Checking…'
-                  ) : hasSubRequested ? (
-                    <span
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        paddingInline: 8,
-                        paddingBlock: 3,
-                        borderRadius: 999,
-                        fontSize: 10,
-                        fontWeight: 600,
-                        letterSpacing: 0.04,
-                        textTransform: 'uppercase',
-                        background: 'rgba(37,99,235,0.18)',
-                        border: '1px solid rgba(59,130,246,0.85)',
-                        color: '#BFDBFE',
-                        whiteSpace: 'nowrap',
-                      }}
-                      title="You requested a sub for this event"
-                    >
-                      Sub requested
-                    </span>
-                  ) : isAccepted ? (
-                    'Yes, you are in'
-                  ) : (
-                    'Marked as pending'
-                  )}
-                </strong>
-              </span>
-            </div>
-
-            <div style={{ marginTop: 2 }}>
-              Band RSVP:{' '}
-              <strong style={{ color: 'rgba(52, 211, 153, 0.95)' }}>
-                {counts.accepted}/{counts.total}
-              </strong>{' '}
-              marked as &quot;Yes&quot;
-            </div>
           </div>
         </div>
 
-        {/* CARD 2: DO YOU NEED A SUB? */}
+        {/* DO YOU NEED A SUB? */}
         <div
           style={{
-            borderRadius: 18,
-            border: '1px solid rgba(52, 211, 153, 0.95)',
-            padding: 14,
+            background:
+              'linear-gradient(135deg, rgba(15, 23, 42, 0.8), rgba(15, 23, 42, 0.6))',
+            border: '1px solid rgba(59, 130, 246, 0.3)',
+            borderRadius: 16,
+            padding: 16,
+            backdropFilter: 'blur(10px)',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.4)',
           }}
         >
-          <div style={{ marginBottom: 10 }}>
-            <p
+          <div style={{ marginBottom: 14 }}>
+            <h3
               style={{
                 margin: 0,
-                fontSize: 13,
+                fontSize: 15,
                 fontWeight: 700,
-                letterSpacing: 0.04,
+                color: 'rgba(147, 197, 253, 0.95)',
                 textTransform: 'uppercase',
-                color: 'rgba(237,233,254,0.96)',
+                letterSpacing: 0.8,
               }}
             >
-              Do you need a sub?
-            </p>
+              Need a Substitute?
+            </h3>
           </div>
 
-          {/* sub request button (opens popup, no chip here) */}
           <button
             type="button"
             onClick={handleOpenSubPopup}
             disabled={savingSub}
             style={{
-              ...primaryButtonBase,
-              border: '1px solid rgba(37,99,235,0.9)',
+              width: '100%',
+              padding: '14px 16px',
+              borderRadius: 12,
+              fontSize: 14,
+              fontWeight: 700,
+              textAlign: 'center',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+              border: needsSub
+                ? '2px solid rgba(59, 130, 246, 0.6)'
+                : '1px solid rgba(59, 130, 246, 0.3)',
               background: needsSub
-                ? 'linear-gradient(135deg, rgba(59,130,246,0.96), rgba(37,99,235,0.98))'
-                : 'rgba(15,23,42,0.98)',
-              color: needsSub ? '#EFF6FF' : 'rgba(209,213,219,0.95)',
+                ? 'rgba(59, 130, 246, 0.95)'
+                : 'rgba(15, 23, 42, 0.8)',
+              color: needsSub ? '#000000' : 'rgba(147, 197, 253, 0.95)',
+              boxShadow: needsSub
+                ? '0 8px 20px rgba(59, 130, 246, 0.2)'
+                : '0 4px 12px rgba(0, 0, 0, 0.4)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: 6,
-              opacity: savingSub ? 0.85 : 1,
+              gap: 8,
+            }}
+            onMouseEnter={(e) => {
+              if (!savingSub) {
+                e.currentTarget.style.transform = 'translateY(-2px)';
+                e.currentTarget.style.boxShadow =
+                  '0 8px 20px rgba(59, 130, 246, 0.25)';
+              }
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = needsSub
+                ? '0 8px 20px rgba(59, 130, 246, 0.2)'
+                : '0 4px 12px rgba(0, 0, 0, 0.4)';
             }}
           >
             {savingSub && (
-              <IonSpinner
-                name="dots"
-                style={{ width: 14, height: 14, marginRight: 2 }}
-              />
+              <IonSpinner name="crescent" style={{ width: 16, height: 16 }} />
             )}
-            {needsSub ? 'Update sub request' : 'Request a sub'}
+            <IonIcon icon={personOutline} style={{ fontSize: 18 }} />
+            {needsSub ? 'Update Sub Request' : 'Request a Sub'}
           </button>
 
           <p
             style={{
-              marginTop: 8,
-              fontSize: 12,
-              color: 'rgba(156,163,175,0.95)',
+              marginTop: 12,
+              marginBottom: 0,
+              fontSize: 13,
+              color: '#9ca3af',
+              textAlign: 'center',
+              lineHeight: 1.5,
             }}
           >
-            Your band leader will be notified automatically{' '}
+            Your band leader will be notified automatically
           </p>
         </div>
 
-        {/* DARK CONFIRMATION POPUP */}
+        {/* CONFIRMATION POPUP */}
         {confirmTarget && (
           <ConfirmStatusPopup
             target={confirmTarget}
@@ -373,7 +591,7 @@ export default function RSVPTabMobile({
           />
         )}
 
-        {/* DARK SUB REQUEST POPUP */}
+        {/* SUB REQUEST POPUP */}
         {showSubPopup && (
           <SubRequestPopup
             initialReason={subReason}
@@ -384,20 +602,27 @@ export default function RSVPTabMobile({
         )}
       </div>
 
-      {/* TOAST: sub request sent */}
+      {/* TOAST */}
       <IonToast
         isOpen={showSubToast}
         onDidDismiss={() => setShowSubToast(false)}
-        message="Sub request sent to the band."
-        duration={2200}
+        message="✓ Sub request sent to your band"
+        duration={2500}
         position="top"
-        color="tertiary"
+        style={
+          {
+            '--background': 'rgba(52, 211, 153, 0.95)',
+            '--color': '#000000',
+            '--border-radius': '12px',
+            fontWeight: 600,
+          } as any
+        }
       />
     </>
   );
 }
 
-/* ---------- DARK POPUP CARD: RSVP STATUS ---------- */
+/* ---------- CONFIRMATION POPUP ---------- */
 
 function ConfirmStatusPopup({
   target,
@@ -412,10 +637,10 @@ function ConfirmStatusPopup({
 }) {
   const isYes = target === 'accepted';
 
-  const title = 'Confirm RSVP';
+  const title = isYes ? 'Confirm Attendance' : 'Mark as Pending';
   const body = isYes
-    ? 'Mark yourself as a YES for this show?'
-    : 'Mark yourself as PENDING for this show?';
+    ? "You'll be marked as attending this show."
+    : "You'll be marked as pending for this show.";
 
   return (
     <div
@@ -423,33 +648,66 @@ function ConfirmStatusPopup({
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(0,0,0,0.55)',
+        background: 'rgba(0,0,0,0.7)',
+        backdropFilter: 'blur(4px)',
         zIndex: 50,
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'center',
-        padding: 16,
+        padding: 20,
       }}
     >
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
           width: '100%',
-          maxWidth: 360,
-          borderRadius: 18,
-          background: 'linear-gradient(160deg, #02010a, #050509 55%, #050111)',
-          border: '1px solid rgba(52, 211, 153, 0.95)',
-          padding: 16,
-          boxShadow: '0 22px 45px rgba(0,0,0,0.9)',
+          maxWidth: 380,
+          borderRadius: 20,
+          background:
+            'linear-gradient(135deg, rgba(15, 23, 42, 0.98), rgba(15, 23, 42, 0.95))',
+          border: isYes
+            ? '1px solid rgba(52, 211, 153, 0.4)'
+            : '1px solid rgba(251, 191, 36, 0.4)',
+          padding: 24,
+          boxShadow: '0 20px 50px rgba(0, 0, 0, 0.8)',
         }}
       >
+        <div
+          style={{
+            width: 56,
+            height: 56,
+            borderRadius: '50%',
+            background: isYes
+              ? 'linear-gradient(135deg, rgba(52, 211, 153, 0.2), rgba(52, 211, 153, 0.1))'
+              : 'linear-gradient(135deg, rgba(251, 191, 36, 0.2), rgba(251, 191, 36, 0.1))',
+            border: isYes
+              ? '1px solid rgba(52, 211, 153, 0.4)'
+              : '1px solid rgba(251, 191, 36, 0.4)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginBottom: 16,
+          }}
+        >
+          <IonIcon
+            icon={isYes ? checkmarkCircleOutline : helpCircleOutline}
+            style={{
+              fontSize: 28,
+              color: isYes
+                ? 'rgba(52, 211, 153, 0.95)'
+                : 'rgba(251, 191, 36, 0.95)',
+            }}
+          />
+        </div>
+
         <h3
           style={{
             margin: 0,
-            marginBottom: 6,
-            fontSize: 16,
-            fontWeight: 700,
-            color: '#F5F3FF',
+            marginBottom: 8,
+            fontSize: 20,
+            fontWeight: 800,
+            color: '#f9fafb',
+            letterSpacing: -0.5,
           }}
         >
           {title}
@@ -457,9 +715,10 @@ function ConfirmStatusPopup({
         <p
           style={{
             margin: 0,
-            marginBottom: 14,
-            fontSize: 14,
-            color: 'rgba(209,213,219,0.96)',
+            marginBottom: 20,
+            fontSize: 15,
+            color: '#9ca3af',
+            lineHeight: 1.5,
           }}
         >
           {body}
@@ -469,7 +728,7 @@ function ConfirmStatusPopup({
           style={{
             display: 'flex',
             flexDirection: 'column',
-            gap: 8,
+            gap: 10,
           }}
         >
           <button
@@ -478,31 +737,29 @@ function ConfirmStatusPopup({
             onClick={onConfirm}
             style={{
               width: '100%',
-              paddingBlock: 10,
-              borderRadius: 999,
-              border: '1px solid rgba(52, 211, 153, 0.95)',
-              background: ' rgba(14, 5, 22, 0.96)',
-              color: 'rgba(52, 211, 153, 0.95)',
-              fontSize: 14,
-              fontWeight: 600,
+              padding: '14px 16px',
+              borderRadius: 12,
+              border: isYes
+                ? '1px solid rgba(52, 211, 153, 0.5)'
+                : '1px solid rgba(251, 191, 36, 0.5)',
+              background: isYes
+                ? 'rgba(52, 211, 153, 0.95)'
+                : 'rgba(251, 191, 36, 0.95)',
+              color: '#000000',
+              fontSize: 15,
+              fontWeight: 700,
               textAlign: 'center',
               cursor: 'pointer',
-              opacity: saving ? 0.85 : 1,
+              opacity: saving ? 0.7 : 1,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: 6,
+              gap: 8,
+              transition: 'all 0.2s',
             }}
           >
             {saving && (
-              <IonSpinner
-                name="dots"
-                style={{
-                  width: 14,
-                  height: 14,
-                  marginRight: 2,
-                }}
-              />
+              <IonSpinner name="crescent" style={{ width: 16, height: 16 }} />
             )}
             Confirm
           </button>
@@ -513,15 +770,16 @@ function ConfirmStatusPopup({
             onClick={onCancel}
             style={{
               width: '100%',
-              paddingBlock: 10,
-              borderRadius: 999,
-              border: '1px solid rgba(148,163,184,0.8)',
-              background: 'rgba(15,23,42,0.95)',
-              color: 'rgba(209,213,219,0.96)',
-              fontSize: 14,
+              padding: '14px 16px',
+              borderRadius: 12,
+              border: '1px solid rgba(148, 163, 184, 0.3)',
+              background: 'rgba(15, 23, 42, 0.8)',
+              color: '#9ca3af',
+              fontSize: 15,
               fontWeight: 600,
               textAlign: 'center',
               cursor: 'pointer',
+              transition: 'all 0.2s',
             }}
           >
             Cancel
@@ -532,7 +790,7 @@ function ConfirmStatusPopup({
   );
 }
 
-/* ---------- DARK POPUP CARD: SUB REQUEST REASON ---------- */
+/* ---------- SUB REQUEST POPUP ---------- */
 
 function SubRequestPopup({
   initialReason,
@@ -561,69 +819,93 @@ function SubRequestPopup({
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(0,0,0,0.55)',
+        background: 'rgba(0,0,0,0.7)',
+        backdropFilter: 'blur(4px)',
         zIndex: 60,
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'center',
-        padding: 16,
+        padding: 20,
       }}
     >
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
           width: '100%',
-          maxWidth: 380,
-          borderRadius: 18,
-          background: 'linear-gradient(165deg, #02010a, #050509 55%, #020617)',
-          border: '1px solid rgba(37,99,235,0.9)',
-          padding: 16,
-          boxShadow: '0 22px 45px rgba(0,0,0,0.95)',
+          maxWidth: 400,
+          borderRadius: 20,
+          background:
+            'linear-gradient(135deg, rgba(15, 23, 42, 0.98), rgba(15, 23, 42, 0.95))',
+          border: '1px solid rgba(59, 130, 246, 0.4)',
+          padding: 24,
+          boxShadow: '0 20px 50px rgba(0, 0, 0, 0.8)',
         }}
       >
+        <div
+          style={{
+            width: 56,
+            height: 56,
+            borderRadius: '50%',
+            background:
+              'linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(59, 130, 246, 0.1))',
+            border: '1px solid rgba(59, 130, 246, 0.4)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginBottom: 16,
+          }}
+        >
+          <IonIcon
+            icon={personOutline}
+            style={{
+              fontSize: 28,
+              color: 'rgba(147, 197, 253, 0.95)',
+            }}
+          />
+        </div>
+
         <h3
           style={{
             margin: 0,
-            marginBottom: 6,
-            fontSize: 16,
-            fontWeight: 700,
-            color: '#EFF6FF',
+            marginBottom: 8,
+            fontSize: 20,
+            fontWeight: 800,
+            color: '#f9fafb',
+            letterSpacing: -0.5,
           }}
         >
-          Request a sub
+          Request a Substitute
         </h3>
         <p
           style={{
             margin: 0,
-            marginBottom: 12,
-            fontSize: 13,
-            color: 'rgba(191,219,254,0.95)',
+            marginBottom: 16,
+            fontSize: 14,
+            color: '#9ca3af',
+            lineHeight: 1.5,
           }}
         >
-          Let your band know what&apos;s up so they can line up the right
-          coverage.
+          Let your band know why you need a sub so they can arrange coverage.
         </p>
 
-        <div
-          style={{
-            marginBottom: 14,
-          }}
-        >
+        <div style={{ marginBottom: 20 }}>
           <textarea
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             rows={4}
-            placeholder="Ex: I’m out of town that weekend / work conflict / family event…"
+            placeholder="e.g., Out of town, work conflict, family event..."
             style={{
               width: '100%',
-              borderRadius: 14,
-              padding: 10,
-              border: '1px solid rgba(55,65,81,0.9)',
-              background: 'rgba(15,23,42,0.98)',
-              color: '#E5E7EB',
-              fontSize: 13,
+              borderRadius: 12,
+              padding: 14,
+              border: '1px solid rgba(59, 130, 246, 0.3)',
+              background: 'rgba(15, 23, 42, 0.8)',
+              color: '#e5e7eb',
+              fontSize: 14,
               resize: 'none',
               outline: 'none',
+              fontFamily: 'inherit',
+              lineHeight: 1.5,
             }}
           />
         </div>
@@ -632,7 +914,7 @@ function SubRequestPopup({
           style={{
             display: 'flex',
             flexDirection: 'column',
-            gap: 8,
+            gap: 10,
           }}
         >
           <button
@@ -641,26 +923,27 @@ function SubRequestPopup({
             onClick={handleConfirmClick}
             style={{
               width: '100%',
-              paddingBlock: 10,
-              borderRadius: 999,
-              border: '1px solid rgba(59,130,246,0.95)',
-              background:
-                'linear-gradient(135deg, rgba(59,130,246,0.96), rgba(37,99,235,0.98))',
-              color: '#EFF6FF',
-              fontSize: 14,
-              fontWeight: 600,
+              padding: '14px 16px',
+              borderRadius: 12,
+              border: '1px solid rgba(59, 130, 246, 0.5)',
+              background: 'rgba(59, 130, 246, 0.95)',
+              color: '#000000',
+              fontSize: 15,
+              fontWeight: 700,
               textAlign: 'center',
               cursor: 'pointer',
-              opacity: saving ? 0.85 : 1,
+              opacity: saving ? 0.7 : 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+              transition: 'all 0.2s',
             }}
           >
             {saving && (
-              <IonSpinner
-                name="dots"
-                style={{ width: 14, height: 14, marginRight: 2 }}
-              />
+              <IonSpinner name="crescent" style={{ width: 16, height: 16 }} />
             )}
-            Send sub request
+            Send Request
           </button>
 
           <button
@@ -669,15 +952,16 @@ function SubRequestPopup({
             onClick={onCancel}
             style={{
               width: '100%',
-              paddingBlock: 10,
-              borderRadius: 999,
-              border: '1px solid rgba(148,163,184,0.8)',
-              background: 'rgba(15,23,42,0.95)',
-              color: 'rgba(209,213,219,0.96)',
-              fontSize: 14,
+              padding: '14px 16px',
+              borderRadius: 12,
+              border: '1px solid rgba(148, 163, 184, 0.3)',
+              background: 'rgba(15, 23, 42, 0.8)',
+              color: '#9ca3af',
+              fontSize: 15,
               fontWeight: 600,
               textAlign: 'center',
               cursor: 'pointer',
+              transition: 'all 0.2s',
             }}
           >
             Cancel

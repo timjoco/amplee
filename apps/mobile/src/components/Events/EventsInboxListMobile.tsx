@@ -36,7 +36,7 @@ export default function EventInboxListMobile({
   bandId,
   showAvatars = true,
   enableCreateForBand = false,
-  isAdmin,
+  isAdmin = false,
 }: {
   onLoaded?: (count: number) => void;
   bandId?: string;
@@ -395,7 +395,7 @@ export default function EventInboxListMobile({
           >
             <IonButton
               fill="outline"
-              size="default"
+              size="small"
               onClick={openGlobalCreateForBand}
               style={{
                 '--color': 'rgba(52, 211, 153, 0.95)',
@@ -491,9 +491,10 @@ export default function EventInboxListMobile({
                   background:
                     'linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02))',
                   boxShadow: isPressed
-                    ? '0 18px 40px rgba(0,0,0,0.9)'
-                    : '0 10px 24px rgba(0,0,0,.32)',
-                  transform: isPressed ? 'scale(1.03)' : 'scale(1)',
+                    ? '0 10px 24px rgba(0,0,0,.32)'
+                    : '0 18px 40px rgba(0,0,0,0.9)',
+                  // 🔽 same shrink effect as library
+                  transform: isPressed ? 'scale(0.97)' : 'scale(1)',
                   transition:
                     'transform 120ms ease-out, box-shadow 120ms ease-out, background 120ms ease-out',
                 }}
@@ -616,7 +617,7 @@ export default function EventInboxListMobile({
         })}
       </IonList>
 
-      {enableCreateForBand && bandId && (
+      {canCreateEvent && rows.length > 0 && (
         <div
           style={{
             marginTop: 12,
@@ -626,7 +627,7 @@ export default function EventInboxListMobile({
         >
           <IonButton
             fill="outline"
-            size="default"
+            size="small"
             onClick={openGlobalCreateForBand}
             style={{
               '--color': 'rgba(52, 211, 153, 0.95)',

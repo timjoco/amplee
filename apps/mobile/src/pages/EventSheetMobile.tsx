@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import {
   IonButton,
-  IonButtons,
   IonContent,
   IonHeader,
   IonIcon,
@@ -23,9 +22,9 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import ChatTabMobile from '../components/Events/ChatTabMobile';
+import EventSetlistTabMobile from '../components/Events/EventSetlistTabMobile';
 import EventSheetModal from '../components/Events/EventSheetModal';
 import RSVPTabMobile from '../components/Events/RSVPTabMobile';
-import SetlistTabMobile from '../components/Events/SetlistTabMobile';
 import { supabase } from '../lib/supabase';
 import { exportEventToCalendar } from '../utils/exportEventToCalendar';
 
@@ -42,29 +41,29 @@ type EventRow = {
   is_cancelled: boolean;
   is_booked: boolean;
   is_public: boolean;
+  setlist_template_id?: string | null;
 };
 
-type TabKey = 'Green Room' | 'roll call' | 'setlist' | 'notes' | 'files';
+type TabKey = 'chat' | 'roll call' | 'setlist' | 'notes' | 'files';
 
 export default function EventSheetMobile() {
-  const { bandId, eventId } = useParams<{
-    bandId: string;
-    eventId: string;
-  }>();
-
+  const nav = useNavigate();
+  const location = useLocation();
   const [event, setEvent] = useState<EventRow | null>(null);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<TabKey>('Green Room');
+  const [tab, setTab] = useState<TabKey>('chat');
   const [isAdmin, setIsAdmin] = useState(false);
-  const pageRef = useRef<HTMLElement | null>(null);
   const [showInfoSheet, setShowInfoSheet] = useState(false);
   const [, setMyUserId] = useState<string | null>(null);
   const [savingPublic, setSavingPublic] = useState(false);
 
-  const location = useLocation();
+  const pageRef = useRef<HTMLElement | null>(null);
   const cameFromSettings = (location.state as any)?.fromSettings;
-  const nav = useNavigate();
   const hasStart = !!event?.starts_at;
+  const { bandId, eventId } = useParams<{
+    bandId: string;
+    eventId: string;
+  }>();
 
   const startsAtLabel = useMemo(() => {
     if (!event || !event.starts_at) return '';
@@ -105,24 +104,24 @@ export default function EventSheetMobile() {
     if (event.is_cancelled) {
       return {
         label: 'Cancelled',
-        bg: 'rgba(248,113,113,0.18)',
-        border: 'rgba(248,113,113,0.7)',
-        color: '#FCA5A5',
+        bg: 'rgba(127, 29, 29, 0.2)',
+        border: 'rgba(248, 113, 113, 0.4)',
+        color: '#fca5a5',
       };
     }
     if (event.is_booked) {
       return {
         label: 'Booked',
-        bg: 'rgba(76,175,80,0.16)',
-        border: 'rgba(76,175,80,0.45)',
-        color: '#C9F5D0',
+        bg: 'rgba(52, 211, 153, 0.15)',
+        border: 'rgba(52, 211, 153, 0.4)',
+        color: '#6ee7b7',
       };
     }
     return {
       label: 'Pending',
-      bg: 'rgba(255,193,7,0.2)',
-      border: 'rgba(255,193,7,0.5)',
-      color: '#FFE7AA',
+      bg: 'rgba(251, 191, 36, 0.15)',
+      border: 'rgba(251, 191, 36, 0.4)',
+      color: '#fde68a',
     };
   }, [event]);
 
@@ -279,186 +278,142 @@ export default function EventSheetMobile() {
   return (
     <IonPage ref={pageRef as any}>
       <IonHeader translucent>
-        {/* CARD HEADER */}
+        {/* HEADER TOOLBAR */}
         <IonToolbar
           style={{
             '--background': 'rgba(8,8,12,0.98)',
+            borderBottom: '0.5px solid rgba(255,255,255,0.06)',
           }}
         >
           <div
             style={{
-              width: '100%',
-              paddingInline: 21,
-              paddingBlock: 6,
+              display: 'flex',
+              alignItems: 'center',
+              padding: '8px 16px',
+              gap: 12,
             }}
           >
-            <div
+            <IonButton
+              onClick={handleBack}
+              fill="clear"
               style={{
-                width: '100%',
-                display: 'flex',
-                alignItems: 'center',
-                padding: '20px 14px',
-                borderRadius: 20,
-                background: 'rgba(14, 15, 16, 0.98)',
-                border: '.5px solid rgba(18, 55, 41, 0.9)',
-                boxShadow: '0 16px 40px rgba(0,0,0,0.55)',
-                outline: 'none',
-                gap: 10,
+                minWidth: 0,
+                padding: 6,
               }}
             >
-              {/* Column 1: Back button */}
-              <IonButtons slot="start">
-                <IonButton
-                  fill="clear"
-                  onClick={handleBack}
-                  style={{ minWidth: 0, paddingInline: 4 }}
-                >
-                  <IonIcon
-                    icon={chevronBackOutline}
-                    style={{ color: '#F9FAFB', fontSize: 22 }}
-                  />
-                </IonButton>
-              </IonButtons>
+              <IonIcon
+                icon={chevronBackOutline}
+                style={{ color: '#F9FAFB', fontSize: 24 }}
+              />
+            </IonButton>
 
-              {/* Column 2: Title + metadata (with status chip inside title row) */}
-              <button
-                type="button"
-                onClick={() => setShowInfoSheet(true)}
-                style={{
-                  flex: '1 1 auto',
-                  minWidth: 0,
-                  background: 'transparent',
-                  border: 'none',
-                  padding: 0,
-                  margin: 0,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'flex-start',
-                  justifyContent: 'center',
-                  gap: 4,
-                  cursor: 'pointer',
-                }}
-              >
-                {/* Title row: title + status chip + chevron */}
+            <button
+              type="button"
+              onClick={() => setShowInfoSheet(true)}
+              style={{
+                flex: 1,
+                minWidth: 0,
+                background: 'transparent',
+                border: 'none',
+                padding: 0,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                cursor: 'pointer',
+              }}
+            >
+              <div style={{ flex: 1, minWidth: 0 }}>
                 <div
                   style={{
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'space-between', // 👈 spread left cluster + pill
-                    width: '100%',
-                    minWidth: 0,
-                    gap: 8,
+                    gap: 6,
                   }}
                 >
-                  {/* Left cluster: title + chevron, only as wide as needed */}
-                  <div
+                  <span
                     style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      minWidth: 0,
-                      flexShrink: 1, // 👈 can shrink, but won't grow to fill
-                      gap: 6,
+                      fontSize: 18,
+                      fontWeight: 700,
+                      color: '#F9FAFB',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
                     }}
                   >
-                    <span
-                      style={{
-                        flexShrink: 1,
-                        minWidth: 0,
-                        maxWidth: '100%',
-                        fontSize: 20,
-                        fontWeight: 700,
-                        color: '#F9FAFB',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                        textAlign: 'left',
-                      }}
-                    >
-                      {event?.title ?? (loading ? 'Loading…' : 'Event')}
-                    </span>
-
-                    <IonIcon
-                      icon={chevronForwardOutline}
-                      style={{
-                        fontSize: 13,
-                        opacity: 0.8,
-                        flexShrink: 0,
-                        color: '#ffffffff',
-                      }}
-                    />
-                  </div>
-
-                  {/* Right: Status pill pinned to far right */}
-                  {event && status && (
-                    <div
-                      style={{
-                        flexShrink: 0,
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontSize: 10.5,
-                        lineHeight: 1.1,
-                        fontWeight: 600,
-                        textTransform: 'capitalize',
-                        paddingInline: 7,
-                        paddingBlock: 2,
-                        borderRadius: 999,
-                        whiteSpace: 'nowrap',
-                        background: status.bg,
-                        color: status.color,
-                        border: `1px solid ${status.border}`,
-                        transform: 'scale(0.84)',
-                        transformOrigin: 'center right',
-                      }}
-                    >
-                      {status.label}
-                    </div>
-                  )}
+                    {event?.title ?? (loading ? 'Loading…' : 'Event')}
+                  </span>
+                  <IonIcon
+                    icon={chevronForwardOutline}
+                    style={{
+                      fontSize: 14,
+                      color: '#9ca3af',
+                      flexShrink: 0,
+                    }}
+                  />
                 </div>
 
-                {/* Meta row: date/time */}
-                <span
-                  style={{
-                    fontSize: 13,
-                    color: 'rgba(209,213,219,0.96)',
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                  }}
-                >
-                  {event
-                    ? (() => {
-                        const rawLoc = event.location?.trim() || 'Venue TBD';
-                        const maxLocLen = 15;
-                        const loc =
-                          rawLoc.length > maxLocLen
-                            ? rawLoc.slice(0, maxLocLen - 1).trimEnd() + '…'
-                            : rawLoc;
+                {event && (
+                  <div
+                    style={{
+                      fontSize: 13,
+                      color: '#9ca3af',
+                      marginTop: 2,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                      textAlign: 'left',
+                    }}
+                  >
+                    {(() => {
+                      const rawLoc = event.location?.trim() || 'Venue TBD';
+                      const maxLocLen = 15;
+                      const loc =
+                        rawLoc.length > maxLocLen
+                          ? rawLoc.slice(0, maxLocLen - 1).trimEnd() + '…'
+                          : rawLoc;
 
-                        if (event.starts_at) {
-                          const d = new Date(event.starts_at);
-                          const date = d.toLocaleDateString('en-US', {
-                            month: 'short',
-                            day: 'numeric',
-                            year: 'numeric',
-                          });
-                          const time = d.toLocaleTimeString('en-US', {
-                            hour: 'numeric',
-                            minute: '2-digit',
-                          });
-                          return `${date} • ${time} • ${loc}`;
-                        }
+                      if (event.starts_at) {
+                        const d = new Date(event.starts_at);
+                        const date = d.toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                        });
+                        const time = d.toLocaleTimeString('en-US', {
+                          hour: 'numeric',
+                          minute: '2-digit',
+                        });
+                        return `${date} • ${time} • ${loc}`;
+                      }
 
-                        return `Date & time TBD • ${loc}`;
-                      })()
-                    : 'Loading details…'}
-                </span>
-              </button>
-            </div>
+                      return `Date TBD • ${loc}`;
+                    })()}
+                  </div>
+                )}
+              </div>
+            </button>
+
+            {event && status && (
+              <div
+                style={{
+                  padding: '4px 12px',
+                  borderRadius: 999,
+                  background: status.bg,
+                  border: `1px solid ${status.border}`,
+                  color: status.color,
+                  fontSize: 11,
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  letterSpacing: 0.5,
+                  flexShrink: 0,
+                }}
+              >
+                {status.label}
+              </div>
+            )}
           </div>
         </IonToolbar>
 
-        {/* TABS BELOW CARD */}
+        {/* TABS TOOLBAR */}
         <IonToolbar
           style={{
             '--background': 'rgba(8,8,12,0.98)',
@@ -484,7 +439,7 @@ export default function EventSheetMobile() {
                 className="event-tabs"
               >
                 <IonSegmentButton
-                  value="Green Room"
+                  value="chat"
                   style={{
                     '--padding-start': '0px',
                     '--padding-end': '0px',
@@ -494,7 +449,7 @@ export default function EventSheetMobile() {
                     icon={chatbubblesOutline}
                     style={{
                       fontSize: 'clamp(18px, 4vw, 22px)',
-                      color: eventIconColor('Green Room'),
+                      color: eventIconColor('chat'),
                     }}
                   />
                 </IonSegmentButton>
@@ -576,13 +531,7 @@ export default function EventSheetMobile() {
               }}
             >
               {(
-                [
-                  'Green Room',
-                  'roll call',
-                  'setlist',
-                  'notes',
-                  'files',
-                ] as TabKey[]
+                ['chat', 'roll call', 'setlist', 'notes', 'files'] as TabKey[]
               ).map((key) => (
                 <div key={key} style={{ textAlign: 'center' }}>
                   <IonText>
@@ -632,8 +581,10 @@ export default function EventSheetMobile() {
       {/* MAIN BODY */}
       <IonContent
         fullscreen
-        scrollY={tab !== 'Green Room'}
-        className="ion-padding"
+        scrollY={tab !== 'chat'}
+        style={{
+          '--background': 'linear-gradient(180deg, #050509 0%, #020109 100%)',
+        }}
       >
         {loading && (
           <div
@@ -665,11 +616,11 @@ export default function EventSheetMobile() {
 
         {!loading && event && (
           <>
-            {tab === 'Green Room' && (
+            {tab === 'chat' && (
               <ChatTabMobile eventId={event.id} isAdmin={isAdmin} />
             )}
 
-            {tab !== 'Green Room' && (
+            {tab !== 'chat' && (
               <div
                 style={{
                   minHeight: '100%',
@@ -679,13 +630,6 @@ export default function EventSheetMobile() {
                   WebkitOverflowScrolling: 'touch',
                 }}
               >
-                {tab === 'setlist' && (
-                  <SetlistTabMobile
-                    eventId={event.id}
-                    bandId={event.band_id}
-                    isAdmin={isAdmin}
-                  />
-                )}
                 {tab === 'roll call' && (
                   <RSVPTabMobile
                     eventId={event.id}
@@ -695,7 +639,15 @@ export default function EventSheetMobile() {
                       );
                     }}
                   />
-                )}{' '}
+                )}
+
+                {tab === 'setlist' && (
+                  <EventSetlistTabMobile
+                    eventId={event.id}
+                    bandId={event.band_id}
+                    isAdmin={isAdmin}
+                  />
+                )}
               </div>
             )}
           </>
@@ -709,8 +661,8 @@ const EVENT_TAB_META: Record<
   TabKey,
   { label: string; accent: string; col: number }
 > = {
-  'Green Room': {
-    label: 'Green Room',
+  chat: {
+    label: 'chat',
     accent: 'rgba(52, 211, 153, 0.95)',
     col: 1,
   },
@@ -721,7 +673,7 @@ const EVENT_TAB_META: Record<
   },
   setlist: {
     label: 'Setlist',
-    accent: 'rgba(52, 211, 153, 0.95)',
+    accent: 'rgba(244, 114, 182, 0.95)',
     col: 3,
   },
   notes: {
