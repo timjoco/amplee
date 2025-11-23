@@ -1,0 +1,310 @@
+@keyframes neonPulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+@keyframes gridSlide {
+  0% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(40px);
+  }
+}
+
+/* 🌌 animated purple gradient for title */
+@keyframes gcTitleGradientShift {
+  0% {
+    background-position: 0% 50%;
+    text-shadow: 0 0 10px rgba(168, 85, 247, 0.6),
+      0 0 22px rgba(76, 29, 149, 0.6);
+  }
+  50% {
+    background-position: 100% 50%;
+    text-shadow: 0 0 16px rgba(196, 181, 253, 0.9),
+      0 0 30px rgba(168, 85, 247, 0.8);
+  }
+  100% {
+    background-position: 0% 50%;
+    text-shadow: 0 0 10px rgba(168, 85, 247, 0.6),
+      0 0 22px rgba(76, 29, 149, 0.6);
+  }
+}
+
+.gc-modal-root {
+  --gc-bg: #0a0e1a;
+  --gc-purple: #a855f7;
+  --gc-green: #10b981;
+  --gc-pink: #ec4899;
+  --gc-yellow: #eab308;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* Toolbar styling (if you want to keep this – it matches your earlier styles) */
+.gc-modal-toolbar {
+  background: linear-gradient(
+    180deg,
+    rgba(10, 14, 26, 0.98) 0%,
+    rgba(10, 14, 26, 0.95) 100%
+  );
+  border-bottom: 2px solid rgba(168, 85, 247, 0.3);
+  box-shadow: 0 4px 20px rgba(168, 85, 247, 0.15);
+  position: relative;
+  overflow: hidden;
+}
+
+.gc-modal-toolbar::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #a855f7, transparent);
+  animation: scanline 3s linear infinite;
+}
+
+@keyframes scanline {
+  0% {
+    left: -100%;
+  }
+  100% {
+    left: 100%;
+  }
+}
+
+.gc-title {
+  font-size: 22px;
+  font-weight: 900;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  background-image: linear-gradient(
+    120deg,
+    #4c1d95,
+    #7c3aed,
+    #a855f7,
+    #c4b5fd,
+    #a855f7,
+    #4c1d95
+  );
+  background-size: 220% 220%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: gcTitleGradientShift 4s ease-in-out infinite,
+    neonPulse 3s ease-in-out infinite;
+}
+
+.gc-content {
+  background: #0a0e1a;
+  position: relative;
+  overflow: hidden;
+}
+
+.gc-content::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: linear-gradient(
+      0deg,
+      transparent 24%,
+      rgba(168, 85, 247, 0.05) 25%,
+      rgba(168, 85, 247, 0.05) 26%,
+      transparent 27%,
+      transparent 74%,
+      rgba(168, 85, 247, 0.05) 75%,
+      rgba(168, 85, 247, 0.05) 76%,
+      transparent 77%,
+      transparent
+    ),
+    linear-gradient(
+      90deg,
+      transparent 24%,
+      rgba(168, 85, 247, 0.05) 25%,
+      rgba(168, 85, 247, 0.05) 26%,
+      transparent 27%,
+      transparent 74%,
+      rgba(168, 85, 247, 0.05) 75%,
+      rgba(168, 85, 247, 0.05) 76%,
+      transparent 77%,
+      transparent
+    );
+  background-size: 40px 40px;
+  animation: gridSlide 2s linear infinite;
+  pointer-events: none;
+  opacity: 0.4;
+}
+
+.gc-menu-container {
+  padding: 12px 12px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  position: relative;
+  z-index: 1;
+}
+
+.gc-menu-heading {
+  text-align: center;
+  margin-bottom: 8px;
+  font-size: 14px;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: #a855f7;
+  font-weight: 700;
+}
+
+.gc-card-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.95);
+  border: 1.5px solid rgba(148, 163, 184, 0.4);
+  position: relative;
+  z-index: 1;
+  overflow: hidden;
+}
+
+.gc-card-band .gc-card-icon {
+  border-color: rgba(168, 85, 247, 0.8);
+  color: #c4b5fd;
+  box-shadow: none;
+}
+
+.gc-card-event .gc-card-icon {
+  border-color: rgba(16, 185, 129, 0.8);
+  color: #6ee7b7;
+  box-shadow: none;
+}
+
+.gc-card-proposal .gc-card-icon {
+  border-color: rgba(234, 179, 8, 0.8);
+  color: #fde68a;
+  box-shadow: none;
+}
+
+.gc-card-song .gc-card-icon {
+  border-color: rgba(236, 72, 153, 0.8);
+  color: #f9a8d4;
+  box-shadow: none;
+}
+
+.gc-card-title {
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.gc-card-sub {
+  font-size: 13px;
+  color: rgba(226, 232, 240, 0.9);
+  margin-top: 4px;
+}
+
+.gc-list {
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(10px);
+  border-radius: 12px;
+  border: 2px solid rgba(148, 163, 184, 0.2);
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+.gc-label {
+  font-weight: 700;
+  margin-bottom: 4px;
+  font-size: 12px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #a855f7;
+}
+
+.gc-buttons {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.gc-btn-back {
+  --background: rgba(15, 23, 42, 0.8);
+  --border-color: rgba(148, 163, 184, 0.5);
+  --color: #e2e8f0;
+  --border-radius: 8px;
+  --border-width: 2px;
+  text-transform: uppercase;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  font-size: 13px;
+}
+
+.gc-btn-primary {
+  --border-radius: 8px;
+  text-transform: uppercase;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  font-size: 13px;
+  position: relative;
+  overflow: hidden;
+}
+
+.gc-btn-primary-band {
+  --background: #a855f7;
+  --background-activated: #9333ea;
+  --color: #ffffff;
+  box-shadow: 0 4px 20px rgba(168, 85, 247, 0.4),
+    inset 0 -2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.gc-btn-primary-event {
+  --background: #10b981;
+  --background-activated: #059669;
+  --color: #ffffff;
+  box-shadow: 0 4px 20px rgba(16, 185, 129, 0.4),
+    inset 0 -2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.gc-btn-primary-proposal {
+  --background: #eab308;
+  --background-activated: #ca8a04;
+  --color: #0f172a;
+  box-shadow: 0 4px 20px rgba(234, 179, 8, 0.4),
+    inset 0 -2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.gc-btn-primary-song {
+  --background: #ec4899;
+  --background-activated: #db2777;
+  --color: #ffffff;
+  box-shadow: 0 4px 20px rgba(236, 72, 153, 0.4),
+    inset 0 -2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.gc-error-box {
+  margin: 12px 16px 0;
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 2px solid #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+  backdrop-filter: blur(10px);
+  color: #fca5a5;
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: 0 0 20px rgba(239, 68, 68, 0.3);
+}
+
+.gc-modal-root input,
+.gc-modal-root textarea,
+.gc-modal-root .native-input {
+  font-size: 16px !important;
+}
