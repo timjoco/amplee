@@ -1,8 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Capacitor } from '@capacitor/core';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
-import { useCallback, useRef, useState } from 'react';
-
+import React, { useCallback, useRef, useState } from 'react';
 import type { BandWithRole } from '../../types/bands';
 import BandTileMobile from './BandTileMobile';
 
@@ -28,9 +27,13 @@ export default function BandGridMobile({
   const pressStartRef = useRef<{ x: number; y: number } | null>(null);
   const wasLongPressRef = useRef(false);
 
-  // Switch to 3 columns when 5+ bands, otherwise 2 columns
-  const columns = bands.length >= 5 ? 3 : 2;
-  // Smaller avatars when in 3-column mode
+  // Always 2 columns on the base layout (small screens)
+  const columns = 2;
+
+  // Adjust gap based on band count - you can keep this logic
+  const effectiveGap = bands.length === 4 ? 8 : bands.length >= 5 ? 10 : gapPx;
+
+  // Smaller avatars when in potentially denser layouts
   const effectiveAvatarSize = bands.length >= 5 ? 64 : avatarSize;
 
   const triggerLongPressHaptic = useCallback(() => {
@@ -39,20 +42,23 @@ export default function BandGridMobile({
   }, []);
 
   const handlePressStart = useCallback(
-    (band: BandWithRole, e: any) => {
+    (
+      band: BandWithRole,
+      e: React.TouchEvent<HTMLDivElement> | React.MouseEvent<HTMLDivElement>
+    ) => {
       if (longPressTimeoutRef.current != null) {
         window.clearTimeout(longPressTimeoutRef.current);
       }
-
       wasLongPressRef.current = false;
 
       let clientX = 0;
       let clientY = 0;
 
-      if (e?.touches && e.touches.length > 0) {
-        clientX = e.touches[0].clientX;
-        clientY = e.touches[0].clientY;
-      } else if (typeof e?.clientX === 'number') {
+      if ('touches' in e && e.touches.length > 0) {
+        const t = e.touches[0];
+        clientX = t.clientX;
+        clientY = t.clientY;
+      } else if ('clientX' in e) {
         clientX = e.clientX;
         clientY = e.clientY;
       }
@@ -68,7 +74,7 @@ export default function BandGridMobile({
     [triggerLongPressHaptic]
   );
 
-  const handlePressMove = useCallback((e: any) => {
+  const handlePressMove = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
     if (!pressStartRef.current || longPressTimeoutRef.current == null) return;
     if (!e.touches || e.touches.length !== 1) return;
 
@@ -110,13 +116,13 @@ export default function BandGridMobile({
         style={{
           display: 'grid',
           gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
-          gap: gapPx,
+          gap: effectiveGap,
           alignItems: 'stretch',
         }}
+        className="band-grid-responsive"
       >
         {bands.map((b) => {
           const pressed = activePressId === b.id;
-
           return (
             <div
               key={b.id}
@@ -131,6 +137,9 @@ export default function BandGridMobile({
                 width: '100%',
                 minHeight: 0,
                 aspectRatio: '1 / 1',
+                maxWidth: '180px',
+                maxHeight: '180px',
+                margin: '0 auto',
                 transform: pressed ? 'scale(1.03)' : 'scale(1)',
                 transition: 'transform 120ms ease-out',
               }}
@@ -149,6 +158,26 @@ export default function BandGridMobile({
           );
         })}
       </div>
+
+      <style>{`
+        @media (min-width: 700px) {
+          .band-grid-responsive {
+            grid-template-columns: repeat(${Math.min(
+              bands.length,
+              3
+            )}, minmax(0, 1fr)) !important;
+          }
+        }
+
+        @media (min-width: 1024px) {
+          .band-grid-responsive {
+            grid-template-columns: repeat(${Math.min(
+              bands.length,
+              4
+            )}, minmax(0, 1fr)) !important;
+          }
+        }
+      `}</style>
     </div>
   );
 }

@@ -148,7 +148,7 @@ export default function Home() {
           {/* Bands Section */}
           <div
             style={{
-              marginBottom: 28,
+              marginBottom: 36,
             }}
           >
             <div
