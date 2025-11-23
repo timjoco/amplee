@@ -635,7 +635,7 @@ export default function ProposedGigSheetMobile() {
                 marginBottom: bestDateLabel ? 8 : 0,
               }}
             >
-              Most Votes
+              Front Runner
             </div>
             {bestDateLabel && (
               <div
