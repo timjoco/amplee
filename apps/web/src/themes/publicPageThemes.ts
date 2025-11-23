@@ -51,7 +51,13 @@ export type ThemeName =
   | 'auraBorealis' // ⭐ PREMIUM
   | 'quantumRealm'
   | 'premiumSakura' // ⭐⭐ ULTRA PREMIUM
-  | 'stellarOdyssey';
+  | 'stellarOdyssey'
+  | 'krakensLair'
+  | 'piratesVoyage'
+  | 'cosmicRocket'
+  | 'deepSubmarine'
+  | 'galaxySpiral'
+  | 'supernovaBlast';
 
 export const DARK_THEMES: ThemeName[] = [
   'default',
@@ -1256,6 +1262,414 @@ const stellarOdysseyTheme: BandPageTheme = {
   commentBg: 'rgba(20, 0, 40, 0.94)',
 };
 
+// ⭐⭐⭐ ULTRA PREMIUM: KRAKEN'S LAIR
+// Features: Tentacles moving, bubbles rising, underwater currents, bioluminescent glow
+const krakensLairTheme: BandPageTheme = {
+  background: `
+    radial-gradient(circle 4px at 15% 20%, rgba(0, 255, 255, 0.6) 0%, transparent 4px),
+    radial-gradient(circle 3px at 85% 15%, rgba(0, 255, 255, 0.5) 0%, transparent 3px),
+    radial-gradient(circle 5px at 45% 35%, rgba(0, 255, 255, 0.4) 0%, transparent 5px),
+    radial-gradient(circle 3px at 70% 50%, rgba(0, 255, 255, 0.6) 0%, transparent 3px),
+    radial-gradient(circle 4px at 25% 60%, rgba(0, 255, 255, 0.5) 0%, transparent 4px),
+    radial-gradient(circle 6px at 90% 75%, rgba(0, 255, 255, 0.4) 0%, transparent 6px),
+    radial-gradient(circle 3px at 10% 85%, rgba(0, 255, 255, 0.6) 0%, transparent 3px),
+    radial-gradient(ellipse 300px 600px at 10% 50%, rgba(138, 43, 226, 0.15) 0%, transparent 70%),
+    radial-gradient(ellipse 250px 550px at 90% 30%, rgba(75, 0, 130, 0.18) 0%, transparent 65%),
+    radial-gradient(ellipse 350px 500px at 50% 80%, rgba(72, 61, 139, 0.12) 0%, transparent 60%),
+    repeating-linear-gradient(
+      90deg,
+      transparent 0px,
+      rgba(0, 255, 255, 0.03) 1px,
+      transparent 2px,
+      transparent 40px
+    ),
+    linear-gradient(180deg, 
+      #001a33 0%, 
+      #002b4d 20%, 
+      #003d66 40%, 
+      #004d80 60%,
+      #003d66 80%,
+      #001a33 100%
+    )
+  `,
+  avatarGlow: `
+    conic-gradient(from 0deg, 
+      #00CED1 0deg, 
+      #20B2AA 60deg,
+      #48D1CC 120deg,
+      #40E0D0 180deg,
+      #7FFFD4 240deg,
+      #00CED1 300deg,
+      #00CED1 360deg
+    ),
+    radial-gradient(circle, rgba(0, 255, 255, 0.5) 0%, transparent 70%),
+    radial-gradient(circle, rgba(138, 43, 226, 0.3) 20%, transparent 80%)
+  `,
+  textGradient: `
+    linear-gradient(135deg, 
+      #00FFFF 0%, 
+      #00CED1 25%, 
+      #48D1CC 50%, 
+      #20B2AA 75%, 
+      #008B8B 100%
+    )
+  `,
+  showBg: 'rgba(0, 26, 51, 0.85)',
+  borderColor: 'rgba(0, 206, 209, 0.7)',
+  followButtonBg: 'rgba(0, 77, 128, 0.6)',
+  followButtonBorder: 'rgba(0, 255, 255, 0.8)',
+  followButtonTextColor: '#E0FFFF',
+  mainTextColor: '#E0FFFF',
+  secondaryTextColor: '#AFEEEE',
+  fieldColor: 'rgba(0, 45, 77, 0.9)',
+  commentBg: 'rgba(0, 35, 64, 0.92)',
+};
+
+// ⭐⭐⭐ ULTRA PREMIUM: PIRATE'S VOYAGE
+// Features: Ship sails waving, treasure chest glow, ocean waves, gold coins sparkle
+const piratesVoyageTheme: BandPageTheme = {
+  background: `
+    radial-gradient(circle 3px at 20% 15%, rgba(255, 215, 0, 0.8) 0%, transparent 3px),
+    radial-gradient(circle 2px at 75% 25%, rgba(255, 215, 0, 0.7) 0%, transparent 2px),
+    radial-gradient(circle 4px at 40% 30%, rgba(255, 215, 0, 0.9) 0%, transparent 4px),
+    radial-gradient(circle 2px at 85% 45%, rgba(255, 215, 0, 0.6) 0%, transparent 2px),
+    radial-gradient(circle 3px at 15% 55%, rgba(255, 215, 0, 0.8) 0%, transparent 3px),
+    radial-gradient(circle 2px at 60% 65%, rgba(255, 215, 0, 0.7) 0%, transparent 2px),
+    radial-gradient(circle 4px at 92% 75%, rgba(255, 215, 0, 0.9) 0%, transparent 4px),
+    radial-gradient(circle 2px at 30% 85%, rgba(255, 215, 0, 0.8) 0%, transparent 2px),
+    repeating-linear-gradient(
+      0deg,
+      transparent 0px,
+      rgba(139, 69, 19, 0.1) 2px,
+      transparent 4px,
+      transparent 20px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent 0px,
+      rgba(160, 82, 45, 0.08) 2px,
+      transparent 4px,
+      transparent 25px
+    ),
+    linear-gradient(180deg, 
+      #1a0f0a 0%, 
+      #3d2817 15%, 
+      #0f4d5c 35%, 
+      #1a7a8f 50%,
+      #0f4d5c 65%,
+      #3d2817 85%,
+      #1a0f0a 100%
+    )
+  `,
+  avatarGlow: `
+    conic-gradient(from 45deg, 
+      #FFD700 0deg, 
+      #FFA500 60deg,
+      #FF8C00 120deg,
+      #8B4513 180deg,
+      #D2691E 240deg,
+      #CD853F 300deg,
+      #FFD700 360deg
+    ),
+    radial-gradient(circle, rgba(255, 215, 0, 0.6) 0%, transparent 70%)
+  `,
+  textGradient: `
+    linear-gradient(135deg, 
+      #FFD700 0%, 
+      #FFA500 30%, 
+      #FFDAB9 60%, 
+      #F4A460 100%
+    )
+  `,
+  showBg: 'rgba(26, 15, 10, 0.88)',
+  borderColor: 'rgba(205, 133, 63, 0.8)',
+  followButtonBg: 'rgba(139, 69, 19, 0.6)',
+  followButtonBorder: 'rgba(255, 215, 0, 0.9)',
+  followButtonTextColor: '#FFF8DC',
+  mainTextColor: '#FFF8DC',
+  secondaryTextColor: '#FFE4B5',
+  fieldColor: 'rgba(61, 40, 23, 0.9)',
+  commentBg: 'rgba(45, 30, 18, 0.92)',
+};
+
+// ⭐⭐⭐ ULTRA PREMIUM: COSMIC ROCKET
+// Features: Rocket trails, engine fire, speed lines, planetary orbit rings
+const cosmicRocketTheme: BandPageTheme = {
+  background: `
+    linear-gradient(135deg, 
+      transparent 0%, 
+      transparent 45%,
+      rgba(255, 69, 0, 0.15) 47%,
+      rgba(255, 140, 0, 0.2) 49%,
+      rgba(255, 215, 0, 0.15) 51%,
+      transparent 53%,
+      transparent 100%
+    ),
+    linear-gradient(45deg, 
+      transparent 0%, 
+      transparent 45%,
+      rgba(255, 69, 0, 0.12) 47%,
+      rgba(255, 140, 0, 0.18) 49%,
+      rgba(255, 215, 0, 0.12) 51%,
+      transparent 53%,
+      transparent 100%
+    ),
+    radial-gradient(circle 2px at 25% 20%, rgba(255, 255, 255, 0.9) 0%, transparent 2px),
+    radial-gradient(circle 1px at 75% 15%, rgba(255, 255, 255, 0.8) 0%, transparent 1px),
+    radial-gradient(circle 2px at 50% 30%, rgba(255, 255, 255, 1) 0%, transparent 2px),
+    radial-gradient(circle 1px at 85% 45%, rgba(200, 220, 255, 0.85) 0%, transparent 1px),
+    radial-gradient(circle 2px at 15% 60%, rgba(255, 255, 255, 0.95) 0%, transparent 2px),
+    radial-gradient(circle 1px at 60% 75%, rgba(255, 255, 255, 0.8) 0%, transparent 1px),
+    radial-gradient(circle 2px at 90% 80%, rgba(255, 255, 255, 1) 0%, transparent 2px),
+    radial-gradient(circle 100px at 70% 30%, rgba(255, 69, 0, 0.3) 0%, transparent 100px),
+    radial-gradient(circle 120px at 30% 70%, rgba(255, 140, 0, 0.25) 0%, transparent 120px),
+    linear-gradient(180deg, 
+      #000000 0%, 
+      #0a0a0f 20%, 
+      #1a1a2e 40%, 
+      #16213e 60%,
+      #0f3460 80%,
+      #000000 100%
+    )
+  `,
+  avatarGlow: `
+    conic-gradient(from 0deg, 
+      #FF4500 0deg, 
+      #FF6347 45deg,
+      #FF8C00 90deg,
+      #FFA500 135deg,
+      #FFD700 180deg,
+      #FFA500 225deg,
+      #FF8C00 270deg,
+      #FF6347 315deg,
+      #FF4500 360deg
+    ),
+    radial-gradient(circle, rgba(255, 255, 255, 0.5) 0%, transparent 70%)
+  `,
+  textGradient: `
+    linear-gradient(135deg, 
+      #FFFFFF 0%, 
+      #FFE4B5 20%, 
+      #FFA500 40%, 
+      #FF6347 60%, 
+      #FF4500 100%
+    )
+  `,
+  showBg: 'rgba(10, 10, 15, 0.87)',
+  borderColor: 'rgba(255, 140, 0, 0.7)',
+  followButtonBg: 'rgba(255, 69, 0, 0.3)',
+  followButtonBorder: 'rgba(255, 165, 0, 0.8)',
+  followButtonTextColor: '#FFE4B5',
+  mainTextColor: '#FFFFFF',
+  secondaryTextColor: '#FFE4B5',
+  fieldColor: 'rgba(26, 26, 46, 0.9)',
+  commentBg: 'rgba(22, 33, 62, 0.92)',
+};
+
+// ⭐⭐⭐ ULTRA PREMIUM: DEEP SUBMARINE
+// Features: Sonar pings, pressure waves, porthole light beams, depth markers
+const deepSubmarineTheme: BandPageTheme = {
+  background: `
+    repeating-radial-gradient(
+      circle at 50% 50%,
+      transparent 0px,
+      rgba(34, 197, 94, 0.08) 80px,
+      transparent 81px,
+      transparent 160px,
+      rgba(34, 197, 94, 0.06) 240px,
+      transparent 241px,
+      transparent 320px
+    ),
+    radial-gradient(circle 150px at 80% 20%, rgba(255, 255, 0, 0.15) 0%, transparent 150px),
+    radial-gradient(circle 120px at 20% 80%, rgba(255, 255, 0, 0.12) 0%, transparent 120px),
+    repeating-linear-gradient(
+      0deg,
+      transparent 0px,
+      rgba(34, 197, 94, 0.03) 50px,
+      transparent 51px,
+      transparent 100px
+    ),
+    linear-gradient(180deg, 
+      #000a0f 0%, 
+      #001a2e 25%, 
+      #002945 50%, 
+      #00374d 75%,
+      #001a2e 100%
+    )
+  `,
+  avatarGlow: `
+    conic-gradient(from 0deg, 
+      #22C55E 0deg, 
+      #10B981 60deg,
+      #14B8A6 120deg,
+      #06B6D4 180deg,
+      #0EA5E9 240deg,
+      #3B82F6 300deg,
+      #22C55E 360deg
+    ),
+    radial-gradient(circle, rgba(34, 197, 94, 0.4) 0%, transparent 70%)
+  `,
+  textGradient: `
+    linear-gradient(135deg, 
+      #ECFDF5 0%, 
+      #86EFAC 30%, 
+      #22C55E 60%, 
+      #15803D 100%
+    )
+  `,
+  showBg: 'rgba(0, 10, 15, 0.9)',
+  borderColor: 'rgba(34, 197, 94, 0.6)',
+  followButtonBg: 'rgba(0, 41, 77, 0.7)',
+  followButtonBorder: 'rgba(34, 197, 94, 0.8)',
+  followButtonTextColor: '#ECFDF5',
+  mainTextColor: '#ECFDF5',
+  secondaryTextColor: '#BBF7D0',
+  fieldColor: 'rgba(0, 26, 46, 0.92)',
+  commentBg: 'rgba(0, 20, 35, 0.94)',
+};
+
+// ⭐⭐⭐ ULTRA PREMIUM: GALAXY SPIRAL
+// Features: Spiral arms rotating, star clusters, cosmic dust clouds, gravitational lensing
+const galaxySpiralTheme: BandPageTheme = {
+  background: `
+    radial-gradient(circle 2px at 18% 12%, rgba(147, 51, 234, 0.9) 0%, transparent 2px),
+    radial-gradient(circle 1px at 82% 8%, rgba(236, 72, 153, 0.8) 0%, transparent 1px),
+    radial-gradient(circle 3px at 45% 18%, rgba(59, 130, 246, 0.95) 0%, transparent 3px),
+    radial-gradient(circle 1px at 68% 25%, rgba(147, 51, 234, 0.85) 0%, transparent 1px),
+    radial-gradient(circle 2px at 22% 35%, rgba(236, 72, 153, 0.9) 0%, transparent 2px),
+    radial-gradient(circle 1px at 88% 42%, rgba(59, 130, 246, 0.8) 0%, transparent 1px),
+    radial-gradient(circle 2px at 52% 55%, rgba(147, 51, 234, 0.9) 0%, transparent 2px),
+    radial-gradient(circle 3px at 15% 68%, rgba(236, 72, 153, 0.95) 0%, transparent 3px),
+    radial-gradient(circle 1px at 75% 72%, rgba(59, 130, 246, 0.85) 0%, transparent 1px),
+    radial-gradient(circle 2px at 35% 85%, rgba(147, 51, 234, 0.9) 0%, transparent 2px),
+    radial-gradient(circle 1px at 92% 88%, rgba(236, 72, 153, 0.8) 0%, transparent 1px),
+    radial-gradient(ellipse 400px 200px at 50% 50%, rgba(147, 51, 234, 0.25) 0%, transparent 60%),
+    radial-gradient(ellipse 350px 180px at 50% 50%, rgba(236, 72, 153, 0.2) 10%, transparent 55%),
+    radial-gradient(ellipse 300px 150px at 50% 50%, rgba(59, 130, 246, 0.18) 20%, transparent 50%),
+    conic-gradient(from 0deg at 50% 50%,
+      transparent 0deg,
+      rgba(147, 51, 234, 0.1) 45deg,
+      transparent 90deg,
+      rgba(236, 72, 153, 0.08) 135deg,
+      transparent 180deg,
+      rgba(59, 130, 246, 0.1) 225deg,
+      transparent 270deg,
+      rgba(147, 51, 234, 0.08) 315deg,
+      transparent 360deg
+    ),
+    linear-gradient(180deg, 
+      #000000 0%, 
+      #0f0520 25%, 
+      #1a0a40 50%, 
+      #0f0520 75%,
+      #000000 100%
+    )
+  `,
+  avatarGlow: `
+    conic-gradient(from 0deg, 
+      #9333EA 0deg, 
+      #A855F7 40deg,
+      #EC4899 80deg,
+      #F472B6 120deg,
+      #3B82F6 160deg,
+      #60A5FA 200deg,
+      #8B5CF6 240deg,
+      #C084FC 280deg,
+      #EC4899 320deg,
+      #9333EA 360deg
+    ),
+    radial-gradient(circle, rgba(255, 255, 255, 0.3) 0%, transparent 70%)
+  `,
+  textGradient: `
+    linear-gradient(135deg, 
+      #FFFFFF 0%, 
+      #E9D5FF 20%, 
+      #C084FC 40%, 
+      #F472B6 60%, 
+      #60A5FA 80%, 
+      #A855F7 100%
+    )
+  `,
+  showBg: 'rgba(15, 5, 32, 0.88)',
+  borderColor: 'rgba(147, 51, 234, 0.7)',
+  followButtonBg: 'rgba(26, 10, 64, 0.6)',
+  followButtonBorder: 'rgba(168, 85, 247, 0.8)',
+  followButtonTextColor: '#F3E8FF',
+  mainTextColor: '#FFFFFF',
+  secondaryTextColor: '#E9D5FF',
+  fieldColor: 'rgba(26, 10, 64, 0.92)',
+  commentBg: 'rgba(20, 8, 50, 0.94)',
+};
+
+// ⭐⭐⭐ ULTRA PREMIUM: SUPERNOVA BLAST
+// Features: Explosive energy waves, particle ejection, shockwave rings, stellar core
+const supernovaBlastTheme: BandPageTheme = {
+  background: `
+    repeating-radial-gradient(
+      circle at 50% 50%,
+      transparent 0px,
+      rgba(239, 68, 68, 0.15) 40px,
+      rgba(249, 115, 22, 0.12) 41px,
+      transparent 42px,
+      transparent 80px,
+      rgba(251, 191, 36, 0.1) 120px,
+      transparent 121px,
+      transparent 160px
+    ),
+    radial-gradient(circle 500px at 50% 50%, rgba(239, 68, 68, 0.4) 0%, rgba(249, 115, 22, 0.3) 30%, rgba(251, 191, 36, 0.15) 60%, transparent 100%),
+    radial-gradient(circle 2px at 25% 20%, rgba(255, 255, 255, 1) 0%, transparent 2px),
+    radial-gradient(circle 1px at 75% 15%, rgba(255, 255, 255, 0.9) 0%, transparent 1px),
+    radial-gradient(circle 3px at 15% 80%, rgba(255, 255, 255, 1) 0%, transparent 3px),
+    radial-gradient(circle 1px at 85% 75%, rgba(255, 255, 255, 0.8) 0%, transparent 1px),
+    radial-gradient(circle 2px at 90% 30%, rgba(255, 255, 255, 0.95) 0%, transparent 2px),
+    linear-gradient(180deg, 
+      #000000 0%, 
+      #1a0000 20%, 
+      #330a00 40%, 
+      #1a0505 60%,
+      #0a0000 80%,
+      #000000 100%
+    )
+  `,
+  avatarGlow: `
+    radial-gradient(circle, rgba(255, 255, 255, 0.8) 0%, transparent 30%),
+    conic-gradient(from 0deg, 
+      #FEF3C7 0deg, 
+      #FDE047 30deg,
+      #FACC15 60deg,
+      #FB923C 90deg,
+      #F97316 120deg,
+      #EF4444 150deg,
+      #DC2626 180deg,
+      #EF4444 210deg,
+      #F97316 240deg,
+      #FB923C 270deg,
+      #FACC15 300deg,
+      #FDE047 330deg,
+      #FEF3C7 360deg
+    )
+  `,
+  textGradient: `
+    linear-gradient(135deg, 
+      #FFFFFF 0%, 
+      #FEF3C7 15%, 
+      #FDE047 30%, 
+      #FB923C 50%, 
+      #F97316 70%, 
+      #EF4444 100%
+    )
+  `,
+  showBg: 'rgba(26, 0, 0, 0.85)',
+  borderColor: 'rgba(249, 115, 22, 0.8)',
+  followButtonBg: 'rgba(239, 68, 68, 0.3)',
+  followButtonBorder: 'rgba(251, 191, 36, 0.9)',
+  followButtonTextColor: '#FEF3C7',
+  mainTextColor: '#FFFFFF',
+  secondaryTextColor: '#FEF3C7',
+  fieldColor: 'rgba(51, 10, 0, 0.9)',
+  commentBg: 'rgba(26, 5, 5, 0.92)',
+};
+
 export const THEMES: Record<ThemeName, BandPageTheme> = {
   default: defaultTheme,
   cherry: cherryBlossomTheme,
@@ -1310,6 +1724,12 @@ export const THEMES: Record<ThemeName, BandPageTheme> = {
   quantumRealm: quantumRealmTheme, // ⭐ PREMIUM
   premiumSakura: premiumSakuraTheme, // ⭐⭐ ULTRA PREMIUM
   stellarOdyssey: stellarOdysseyTheme, // ⭐⭐ ULTRA PREMIUM
+  krakensLair: krakensLairTheme,
+  piratesVoyage: piratesVoyageTheme,
+  cosmicRocket: cosmicRocketTheme,
+  deepSubmarine: deepSubmarineTheme,
+  galaxySpiral: galaxySpiralTheme,
+  supernovaBlast: supernovaBlastTheme,
 };
 
 // Add to THEME_OPTIONS
@@ -1371,4 +1791,10 @@ export const THEME_OPTIONS: {
   { key: 'quantumRealm', label: '⭐ Quantum Realm', premium: true },
   { key: 'premiumSakura', label: '⭐⭐ Sakura Garden', premium: true },
   { key: 'stellarOdyssey', label: '⭐⭐ Stellar Odyssey', premium: true },
+  { key: 'krakensLair', label: "⭐⭐⭐ Kraken's Lair", premium: true },
+  { key: 'piratesVoyage', label: "⭐⭐⭐ Pirate's Voyage", premium: true },
+  { key: 'cosmicRocket', label: '⭐⭐⭐ Cosmic Rocket', premium: true },
+  { key: 'deepSubmarine', label: '⭐⭐⭐ Deep Submarine', premium: true },
+  { key: 'galaxySpiral', label: '⭐⭐⭐ Galaxy Spiral', premium: true },
+  { key: 'supernovaBlast', label: '⭐⭐⭐ Supernova Blast', premium: true },
 ];
