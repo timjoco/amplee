@@ -273,7 +273,7 @@ export default function BandSettingsMobile() {
           >
             <IonIcon
               icon={chevronBackOutline}
-              style={{ fontSize: 20, color: '#8049afff', marginRight: 4 }}
+              style={{ fontSize: 20, color: '#ffffffff', marginRight: 4 }}
             />
             <IonTitle style={{ color: '#e8e4ecff' }}>Band settings</IonTitle>
           </button>

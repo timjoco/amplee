@@ -4,15 +4,22 @@ import {
   IonHeader,
   IonIcon,
   IonInput,
-  IonItem,
-  IonLabel,
   IonPage,
+  IonSegment,
+  IonSegmentButton,
   IonSpinner,
   IonText,
   IonTitle,
   IonToolbar,
 } from '@ionic/react';
-import { chevronBackOutline, mailOutline } from 'ionicons/icons';
+import {
+  chatbubbleOutline,
+  checkmarkOutline,
+  chevronBackOutline,
+  copyOutline,
+  mailOutline,
+  personAddOutline,
+} from 'ionicons/icons';
 import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
@@ -26,6 +33,8 @@ function useQueryParam(name: string): string | null {
   }, [search, name]);
 }
 
+type InviteMode = 'email' | 'sms';
+
 export default function InviteBandMobile() {
   const bandId = useQueryParam('band');
   const nav = useNavigate();
@@ -36,11 +45,14 @@ export default function InviteBandMobile() {
   const [bandName, setBandName] = React.useState<string>('Band');
   const [isAdmin, setIsAdmin] = React.useState(false);
 
+  const [mode, setMode] = React.useState<InviteMode>('email');
   const [emailInput, setEmailInput] = React.useState('');
   const [emails, setEmails] = React.useState<string[]>([]);
-  const [sendingEmails, setSendingEmails] = React.useState(false);
+  const [sendingInvites, setSendingInvites] = React.useState(false);
+  const [inviteLink, setInviteLink] = React.useState<string | null>(null);
+  const [copied, setCopied] = React.useState(false);
 
-  // ---------- LOAD BAND + ROLE + ENSURE PROFILE (mirror web) ----------
+  // ---------- LOAD BAND + ROLE ----------
   React.useEffect(() => {
     let cancelled = false;
 
@@ -54,9 +66,7 @@ export default function InviteBandMobile() {
       try {
         setLoading(true);
         setErr(null);
-        console.log('[InviteBandMobile] loading for bandId', bandId);
 
-        // 1) get current user
         const {
           data: { user },
           error: userErr,
@@ -65,15 +75,12 @@ export default function InviteBandMobile() {
         if (userErr) throw userErr;
         if (!user) throw new Error('You must be signed in.');
 
-        // 2) ensure_profile – same function as web, no args
         const { error: ensureErr } = await supabase.rpc('ensure_profile');
         if (cancelled) return;
         if (ensureErr) {
           console.error('[InviteBandMobile] ensure_profile error', ensureErr);
-          // non-fatal: we still proceed; function is idempotent
         }
 
-        // 3) check membership + role
         const { data: mem, error: memErr } = await supabase
           .from('band_members')
           .select('role')
@@ -92,7 +99,6 @@ export default function InviteBandMobile() {
           throw new Error('Only band admins can create invites.');
         }
 
-        // 4) fetch band name
         const { data: band, error: bandErr } = await supabase
           .from('bands')
           .select('name')
@@ -105,6 +111,9 @@ export default function InviteBandMobile() {
 
         setBandName(band.name || 'Band');
         setIsAdmin(true);
+
+        // Generate invite link with proper domain
+        await generateInviteLink();
       } catch (e: any) {
         if (cancelled) return;
         console.error('[InviteBandMobile] load error', e);
@@ -123,8 +132,15 @@ export default function InviteBandMobile() {
     };
   }, [bandId]);
 
-  // ---------- EMAIL-ONLY INVITE FLOW (same backend as web) ----------
+  // ---------- GENERATE INVITE LINK ----------
+  async function generateInviteLink() {
+    // Use amplee.app domain instead of localhost
+    const domain = 'https://amplee.app';
+    const link = `${domain}/invite?band=${bandId}`;
+    setInviteLink(link);
+  }
 
+  // ---------- EMAIL HELPERS ----------
   function addEmailFromInput() {
     const trimmed = emailInput.trim().toLowerCase();
     if (!trimmed) return;
@@ -141,10 +157,10 @@ export default function InviteBandMobile() {
   }
 
   async function sendEmailInvites() {
-    if (!bandId || !isAdmin || emails.length === 0 || sendingEmails) return;
+    if (!bandId || !isAdmin || emails.length === 0 || sendingInvites) return;
 
     try {
-      setSendingEmails(true);
+      setSendingInvites(true);
       setErr(null);
 
       const {
@@ -160,13 +176,6 @@ export default function InviteBandMobile() {
         import.meta.env.VITE_API_BASE?.replace(/\/+$/, '') ||
         import.meta.env.VITE_APP_URL?.replace(/\/+$/, '') ||
         '';
-
-      console.log(
-        '[InviteBandMobile] API base =',
-        base,
-        'origin =',
-        window.location.origin
-      );
 
       for (const em of emails) {
         const res = await fetch(`${base}/api/bands/${bandId}/invite`, {
@@ -200,7 +209,28 @@ export default function InviteBandMobile() {
       console.error('[InviteBandMobile] sendEmailInvites error', e);
       setErr(e?.message || 'Failed to send email invites.');
     } finally {
-      setSendingEmails(false);
+      setSendingInvites(false);
+    }
+  }
+
+  // ---------- SMS VIA NATIVE APP ----------
+  function openNativeTexting() {
+    if (!inviteLink) return;
+
+    const message = `Join ${bandName} on Amplee! ${inviteLink}`;
+    const smsUrl = `sms:?&body=${encodeURIComponent(message)}`;
+
+    window.location.href = smsUrl;
+  }
+
+  async function copyInviteLink() {
+    if (!inviteLink) return;
+    try {
+      await navigator.clipboard.writeText(inviteLink);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (e) {
+      console.error('Failed to copy', e);
     }
   }
 
@@ -232,32 +262,57 @@ export default function InviteBandMobile() {
         <IonToolbar
           style={{
             '--background': 'transparent',
+            '--padding-start': '8px',
           }}
         >
-          <button
-            type="button"
-            onClick={() => nav(-1)}
+          <div
             style={{
-              background: 'transparent',
-              border: 'none',
-              padding: 8,
               display: 'flex',
               alignItems: 'center',
-              cursor: 'pointer',
+              gap: 12,
+              padding: '8px 0',
             }}
           >
-            <IonIcon
-              icon={chevronBackOutline}
-              style={{ fontSize: 20, color: '#8049afff', marginRight: 4 }}
-            />
-            <IonTitle style={{ color: '#e8e4ecff' }}>Invite a friend</IonTitle>
-          </button>
+            <button
+              type="button"
+              onClick={() => nav(-1)}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                padding: 8,
+                display: 'flex',
+                alignItems: 'center',
+                cursor: 'pointer',
+              }}
+            >
+              <IonIcon
+                icon={chevronBackOutline}
+                style={{ fontSize: 20, color: '#8049afff', marginRight: 4 }}
+              />
+            </button>
+            <div style={{ flex: 1 }}>
+              <IonText
+                style={{ color: '#e8e4ecff', fontSize: 18, fontWeight: 700 }}
+              >
+                Invite Friends
+              </IonText>
+              <IonText
+                style={{
+                  color: 'rgba(196,181,253,0.9)',
+                  fontSize: 13,
+                  display: 'block',
+                  marginTop: 2,
+                }}
+              >
+                to {bandName}
+              </IonText>
+            </div>
+          </div>
         </IonToolbar>
       </IonHeader>
 
       <IonContent
         fullscreen
-        className="ion-padding"
         style={{
           '--background':
             'radial-gradient(circle at top, rgba(8,47,73,0.45), #050509 45%, #020109 100%)',
@@ -266,235 +321,375 @@ export default function InviteBandMobile() {
         {loading ? (
           <div
             style={{
-              paddingTop: 40,
+              paddingTop: 80,
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
-              gap: 12,
+              gap: 16,
             }}
           >
-            <IonSpinner name="crescent" />
-            <IonText color="medium">
+            <IonSpinner name="crescent" style={{ color: '#8049afff' }} />
+            <IonText style={{ color: 'rgba(196,181,253,0.9)' }}>
               <p style={{ margin: 0 }}>Loading band…</p>
             </IonText>
           </div>
         ) : err ? (
-          <div style={{ paddingTop: 24 }}>
-            <IonText color="danger">
+          <div
+            style={{
+              padding: 20,
+              margin: 16,
+              background: 'rgba(242,63,67,0.1)',
+              border: '1px solid rgba(242,63,67,0.3)',
+              borderRadius: 18,
+            }}
+          >
+            <IonText style={{ color: '#f23f42' }}>
               <p style={{ margin: 0 }}>{err}</p>
             </IonText>
           </div>
         ) : !isAdmin ? (
-          <div style={{ paddingTop: 24 }}>
-            <IonText color="danger">
+          <div
+            style={{
+              padding: 20,
+              margin: 16,
+              background: 'rgba(250,166,26,0.1)',
+              border: '1px solid rgba(250,166,26,0.3)',
+              borderRadius: 18,
+            }}
+          >
+            <IonText style={{ color: '#faa61a' }}>
               <p style={{ margin: 0 }}>
                 Only band admins can send invites for {bandName}.
               </p>
             </IonText>
           </div>
         ) : (
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 16,
-              paddingTop: 4,
-            }}
-          >
-            {/* Heading */}
-            <div>
-              <IonText color="light">
-                <h2
-                  style={{
-                    margin: 0,
-                    fontSize: 20,
-                    fontWeight: 800,
-                  }}
-                >
-                  Invite to {bandName}
-                </h2>
-              </IonText>
-              <IonText color="medium">
-                <p
-                  style={{
-                    margin: '4px 0 0',
-                    fontSize: 13,
-                    lineHeight: 1.5,
-                  }}
-                >
-                  Send email invites so bandmates can join this band on Amplee.
-                  They’ll click the link in the email, hit your{' '}
-                  <code>/auth/callback</code> flow, and land in the app.
-                </p>
-              </IonText>
-            </div>
-
-            {/* Email “mode” row */}
+          <div style={{ padding: 16 }}>
+            {/* Invite Link Card */}
             <div
               style={{
-                display: 'flex',
-                gap: 8,
-                alignItems: 'center',
-                marginTop: 4,
+                borderRadius: 18,
+                background:
+                  'linear-gradient(145deg, #08070d, #050509 55%, #0b0614)',
+                border: '1px solid rgba(88,28,135,0.7)',
+                padding: 16,
+                marginBottom: 16,
+                boxShadow: '0 22px 45px rgba(0,0,0,0.9)',
               }}
             >
               <div
                 style={{
-                  width: 32,
-                  height: 32,
-                  borderRadius: 999,
-                  background: '#111827',
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'center',
-                  boxShadow: '0 0 0 1px rgba(148,163,184,0.4)',
+                  gap: 8,
+                  marginBottom: 12,
                 }}
               >
                 <IonIcon
-                  icon={mailOutline}
-                  style={{ fontSize: 18, color: '#a5b4fc' }}
+                  icon={personAddOutline}
+                  style={{ fontSize: 20, color: '#a78bfa' }}
                 />
-              </div>
-              <IonText color="medium">
-                <span style={{ fontSize: 12 }}>Email invites only</span>
-              </IonText>
-            </div>
-
-            {/* Email invites section */}
-            <div id="email-invites">
-              <IonText color="light">
-                <h3
+                <IonText
                   style={{
-                    margin: '12px 0 4px',
+                    color: 'rgba(237,233,254,0.96)',
                     fontSize: 15,
                     fontWeight: 700,
                   }}
                 >
-                  Send email invites
-                </h3>
-              </IonText>
-              <IonText color="medium">
-                <p
-                  style={{
-                    margin: 0,
-                    fontSize: 12,
-                  }}
-                >
-                  Add one or more email addresses. We’ll send the same invite
-                  emails used on the web app.
-                </p>
-              </IonText>
-
-              <IonItem
-                lines="none"
-                style={
-                  {
-                    '--background': 'rgba(15,23,42,0.96)',
-                    borderRadius: 10,
-                    marginTop: 8,
-                  } as any
-                }
-              >
-                <IonLabel position="stacked">Email address</IonLabel>
-                <IonInput
-                  type="email"
-                  value={emailInput}
-                  placeholder="friend@example.com"
-                  onIonChange={(e) => setEmailInput(e.detail.value ?? '')}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      addEmailFromInput();
-                    }
-                  }}
-                />
-              </IonItem>
-
-              <div
+                  Share Invite Link
+                </IonText>
+              </div>
+              <IonText
                 style={{
-                  marginTop: 8,
-                  display: 'flex',
-                  justifyContent: 'flex-end',
+                  color: 'rgba(196,181,253,0.9)',
+                  fontSize: 13,
+                  display: 'block',
+                  marginBottom: 12,
                 }}
               >
-                <IonButton
-                  size="small"
-                  fill="outline"
-                  onClick={addEmailFromInput}
-                  disabled={!emailInput.trim()}
-                  style={
-                    {
-                      '--border-radius': '999px',
-                    } as any
-                  }
+                Send a link for friends to join directly
+              </IonText>
+              <div
+                style={{
+                  background: 'rgba(15,23,42,0.96)',
+                  borderRadius: 10,
+                  padding: 12,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  marginBottom: 12,
+                }}
+              >
+                <IonText
+                  style={{
+                    color: '#a78bfa',
+                    fontSize: 13,
+                    flex: 1,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
                 >
-                  Add email
-                </IonButton>
+                  {inviteLink || 'Generating...'}
+                </IonText>
               </div>
+              <IonButton
+                expand="block"
+                onClick={copyInviteLink}
+                disabled={!inviteLink}
+                style={{
+                  '--background': copied
+                    ? 'rgba(34,197,94,0.9)'
+                    : 'linear-gradient(135deg, rgba(147,51,234,1), rgba(88,28,135,1))',
+                  '--background-hover': copied
+                    ? 'rgba(22,163,74,0.9)'
+                    : 'linear-gradient(135deg, rgba(147,51,234,0.9), rgba(88,28,135,0.9))',
+                  '--border-radius': '14px',
+                  height: 48,
+                  fontWeight: 700,
+                  fontSize: 15,
+                }}
+              >
+                <IonIcon
+                  icon={copied ? checkmarkOutline : copyOutline}
+                  slot="start"
+                />
+                {copied ? 'Copied!' : 'Copy Link'}
+              </IonButton>
+            </div>
 
-              {/* Chipped list of emails */}
-              {emails.length > 0 && (
+            {/* Divider */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12,
+                margin: '24px 0',
+              }}
+            >
+              <div
+                style={{
+                  flex: 1,
+                  height: 1,
+                  background: 'rgba(88,28,135,0.5)',
+                }}
+              />
+              <IonText
+                style={{
+                  color: 'rgba(196,181,253,0.9)',
+                  fontSize: 12,
+                  fontWeight: 600,
+                }}
+              >
+                OR SEND DIRECTLY
+              </IonText>
+              <div
+                style={{
+                  flex: 1,
+                  height: 1,
+                  background: 'rgba(88,28,135,0.5)',
+                }}
+              />
+            </div>
+
+            {/* Mode Selector */}
+            <IonSegment
+              value={mode}
+              onIonChange={(e) => setMode(e.detail.value as InviteMode)}
+              style={{
+                '--background':
+                  'linear-gradient(145deg, #08070d, #050509 55%, #0b0614)',
+                marginBottom: 16,
+                borderRadius: 12,
+                border: '1px solid rgba(88,28,135,0.5)',
+              }}
+            >
+              <IonSegmentButton value="email">
                 <div
                   style={{
-                    marginTop: 8,
                     display: 'flex',
-                    flexWrap: 'wrap',
+                    alignItems: 'center',
                     gap: 6,
+                    padding: '8px 0',
                   }}
                 >
-                  {emails.map((em) => (
-                    <button
-                      key={em}
-                      type="button"
-                      onClick={() => removeEmail(em)}
+                  <IonIcon icon={mailOutline} style={{ fontSize: 18 }} />
+                  <span style={{ fontSize: 14, fontWeight: 600 }}>Email</span>
+                </div>
+              </IonSegmentButton>
+              <IonSegmentButton value="sms">
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    padding: '8px 0',
+                  }}
+                >
+                  <IonIcon icon={chatbubbleOutline} style={{ fontSize: 18 }} />
+                  <span style={{ fontSize: 14, fontWeight: 600 }}>Text</span>
+                </div>
+              </IonSegmentButton>
+            </IonSegment>
+
+            {/* Input Card */}
+            <div
+              style={{
+                borderRadius: 18,
+                background:
+                  'linear-gradient(145deg, #08070d, #050509 55%, #0b0614)',
+                border: '1px solid rgba(88,28,135,0.7)',
+                padding: 16,
+                boxShadow: '0 22px 45px rgba(0,0,0,0.9)',
+              }}
+            >
+              {mode === 'email' ? (
+                <>
+                  <IonText
+                    style={{
+                      color: 'rgba(196,181,253,0.9)',
+                      fontSize: 13,
+                      display: 'block',
+                      marginBottom: 8,
+                    }}
+                  >
+                    Enter email addresses to send invites
+                  </IonText>
+                  <div
+                    style={{
+                      background: 'rgba(15,23,42,0.96)',
+                      borderRadius: 10,
+                      padding: '4px 12px',
+                      marginBottom: 12,
+                    }}
+                  >
+                    <IonInput
+                      type="email"
+                      value={emailInput}
+                      placeholder="friend@example.com"
+                      onIonChange={(e) => setEmailInput(e.detail.value ?? '')}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          addEmailFromInput();
+                        }
+                      }}
                       style={{
-                        borderRadius: 999,
-                        border: '1px solid rgba(148,163,184,0.8)',
-                        padding: '3px 8px',
-                        fontSize: 11,
-                        background: 'rgba(15,23,42,0.95)',
-                        color: '#e5e7eb',
+                        '--color': '#e8e4ecff',
+                        '--placeholder-color': 'rgba(156,163,175,0.7)',
+                      }}
+                    />
+                  </div>
+                  <IonButton
+                    expand="block"
+                    fill="outline"
+                    onClick={addEmailFromInput}
+                    disabled={!emailInput.trim()}
+                    style={{
+                      '--border-color': 'rgba(168,85,247,0.8)',
+                      '--color': '#a855f7',
+                      '--border-radius': '10px',
+                      height: 44,
+                      marginBottom: 12,
+                      fontWeight: 600,
+                    }}
+                  >
+                    Add Email
+                  </IonButton>
+
+                  {/* Email chips */}
+                  {emails.length > 0 && (
+                    <div
+                      style={{
                         display: 'flex',
-                        alignItems: 'center',
-                        gap: 4,
+                        flexWrap: 'wrap',
+                        gap: 8,
+                        marginBottom: 12,
                       }}
                     >
-                      <span>{em}</span>
-                      <span
-                        style={{
-                          fontSize: 12,
-                          opacity: 0.7,
-                        }}
-                      >
-                        ×
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              )}
+                      {emails.map((em) => (
+                        <button
+                          key={em}
+                          type="button"
+                          onClick={() => removeEmail(em)}
+                          style={{
+                            borderRadius: 999,
+                            border: '1px solid rgba(168,85,247,0.6)',
+                            padding: '6px 12px',
+                            fontSize: 13,
+                            background: 'rgba(147,51,234,0.2)',
+                            color: '#e8e4ecff',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 6,
+                            fontWeight: 500,
+                          }}
+                        >
+                          <span>{em}</span>
+                          <span style={{ fontSize: 16, opacity: 0.8 }}>×</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
 
-              <div
-                style={{
-                  marginTop: 10,
-                  display: 'flex',
-                  justifyContent: 'flex-end',
-                }}
-              >
-                <IonButton
-                  size="default"
-                  onClick={sendEmailInvites}
-                  disabled={emails.length === 0 || sendingEmails}
-                  style={
-                    {
-                      '--border-radius': '999px',
-                      '--background': 'rgba(147,51,234,0.96)',
-                      '--background-activated': 'rgba(124,58,237,0.98)',
-                    } as any
-                  }
-                >
-                  {sendingEmails ? 'Sending…' : 'Send invites'}
-                </IonButton>
-              </div>
+                  {/* Send button */}
+                  <IonButton
+                    expand="block"
+                    onClick={sendEmailInvites}
+                    disabled={emails.length === 0 || sendingInvites}
+                    style={{
+                      '--background':
+                        'linear-gradient(135deg, rgba(147,51,234,1), rgba(88,28,135,1))',
+                      '--background-hover':
+                        'linear-gradient(135deg, rgba(147,51,234,0.9), rgba(88,28,135,0.9))',
+                      '--border-radius': '14px',
+                      height: 48,
+                      fontWeight: 700,
+                      fontSize: 15,
+                      marginTop: 4,
+                    }}
+                  >
+                    {sendingInvites
+                      ? 'Sending...'
+                      : `Send ${emails.length} Email${
+                          emails.length !== 1 ? 's' : ''
+                        }`}
+                  </IonButton>
+                </>
+              ) : (
+                <>
+                  <IonText
+                    style={{
+                      color: 'rgba(196,181,253,0.9)',
+                      fontSize: 13,
+                      display: 'block',
+                      marginBottom: 12,
+                    }}
+                  >
+                    Opens your native texting app with the invite link
+                    pre-filled
+                  </IonText>
+
+                  <IonButton
+                    expand="block"
+                    onClick={openNativeTexting}
+                    disabled={!inviteLink}
+                    style={{
+                      '--background':
+                        'linear-gradient(135deg, rgba(147,51,234,1), rgba(88,28,135,1))',
+                      '--background-hover':
+                        'linear-gradient(135deg, rgba(147,51,234,0.9), rgba(88,28,135,0.9))',
+                      '--border-radius': '14px',
+                      height: 48,
+                      fontWeight: 700,
+                      fontSize: 15,
+                    }}
+                  >
+                    <IonIcon icon={chatbubbleOutline} slot="start" />
+                    Open Messages App
+                  </IonButton>
+                </>
+              )}
             </div>
           </div>
         )}

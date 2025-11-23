@@ -135,7 +135,6 @@ export default function Profile() {
     try {
       await supabase.auth.signOut();
     } finally {
-      // Session hook will flip, but we also navigate to make it snappy
       nav('/login');
     }
   };

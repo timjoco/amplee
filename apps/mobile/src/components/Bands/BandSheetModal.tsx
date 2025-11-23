@@ -296,28 +296,18 @@ export default function BandSheetModal({
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  padding: '12px 16px',
+                  padding: '14px 18px',
                   borderRadius: 14,
                   border: 'none',
                   background:
-                    'linear-gradient(135deg, rgba(147,51,234,1), rgba(88,28,135,1))',
-                  color: '#F9FAFB',
+                    'linear-gradient(135deg, rgba(88,28,135,1), rgba(88,28,135,1))',
+                  color: '#e8e4ecff',
                   fontSize: 16,
                   fontWeight: 700,
-                  letterSpacing: 0.05,
+                  letterSpacing: 0.03,
                   boxShadow: '0 10px 20px rgba(0,0,0,0.5)',
                   cursor: 'pointer',
-                  transition: 'background 0.3s ease, transform 0.2s ease',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background =
-                    'linear-gradient(135deg, rgba(147,51,234,1), rgba(88,28,135,0.8))';
-                  e.currentTarget.style.transform = 'scale(1.02)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background =
-                    'linear-gradient(135deg, rgba(147,51,234,1), rgba(88,28,135,1))';
-                  e.currentTarget.style.transform = 'scale(1)';
+                  transition: 'all 0.2s ease',
                 }}
               >
                 <div
@@ -333,8 +323,8 @@ export default function BandSheetModal({
                       width: 36,
                       height: 36,
                       borderRadius: '50%',
-                      background: '#01030b',
-                      border: '1px solid rgba(209,213,219,0.5)',
+                      background: 'rgba(15,23,42,0.96)',
+                      border: '1px solid rgba(168,85,247,0.5)',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
@@ -343,7 +333,7 @@ export default function BandSheetModal({
                   >
                     <IonIcon
                       icon={personAddOutline}
-                      style={{ fontSize: 20, color: '#e0d9e3' }}
+                      style={{ fontSize: 20, color: '#a78bfa' }}
                     />
                   </span>
                   <span
@@ -359,7 +349,7 @@ export default function BandSheetModal({
                 </div>
                 <IonIcon
                   icon={chevronForwardOutline}
-                  style={{ fontSize: 20, color: '#E5E7EB', flexShrink: 0 }}
+                  style={{ fontSize: 20, color: '#e8e4ecff', flexShrink: 0 }}
                 />
               </button>
             </div>

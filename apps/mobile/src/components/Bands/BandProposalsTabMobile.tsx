@@ -1,27 +1,17 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { Capacitor } from '@capacitor/core';
+import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import {
   IonButton,
-  IonButtons,
-  IonContent,
-  IonHeader,
   IonIcon,
-  IonInput,
   IonItem,
-  IonLabel,
   IonList,
-  IonModal,
   IonSpinner,
   IonText,
-  IonTitle,
-  IonToolbar,
 } from '@ionic/react';
-import {
-  addOutline,
-  chevronForwardOutline,
-  closeOutline,
-} from 'ionicons/icons';
+import { addOutline, chevronForwardOutline } from 'ionicons/icons';
 import * as React from 'react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 
@@ -40,7 +30,82 @@ export default function BandProposalsTabMobile({ bandId, isAdmin }: Props) {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [proposals, setProposals] = useState<ProposalLite[]>([]);
-  const [openNew, setOpenNew] = useState(false);
+
+  // --- Long-press haptic / puff state (copied from EventInboxListMobile) --- //
+  const longPressTimeoutRef = useRef<number | null>(null);
+  const pressStartRef = useRef<{ x: number; y: number } | null>(null);
+  const [pressedId, setPressedId] = useState<string | null>(null);
+  const MOVE_THRESHOLD = 12;
+
+  const triggerHaptic = useCallback(async () => {
+    if (Capacitor.getPlatform() === 'web') return;
+    try {
+      await Haptics.impact({ style: ImpactStyle.Medium });
+    } catch (e) {
+      console.warn('[proposal list haptic error]', e);
+    }
+  }, []);
+
+  const handlePressStart = useCallback(
+    (
+      id: string,
+      e:
+        | React.TouchEvent<HTMLDivElement>
+        | React.MouseEvent<HTMLDivElement, MouseEvent>
+    ) => {
+      if (longPressTimeoutRef.current != null) {
+        window.clearTimeout(longPressTimeoutRef.current);
+      }
+
+      let clientX = 0;
+      let clientY = 0;
+
+      if ('touches' in e && e.touches.length > 0) {
+        clientX = e.touches[0].clientX;
+        clientY = e.touches[0].clientY;
+      } else if ('clientX' in e) {
+        clientX = e.clientX;
+        clientY = e.clientY;
+      }
+
+      pressStartRef.current = { x: clientX, y: clientY };
+
+      longPressTimeoutRef.current = window.setTimeout(() => {
+        setPressedId(id);
+        void triggerHaptic();
+      }, 350);
+    },
+    [triggerHaptic]
+  );
+
+  const handlePressMove = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+    if (!pressStartRef.current || longPressTimeoutRef.current == null) return;
+    if (e.touches.length !== 1) return;
+
+    const { x, y } = pressStartRef.current;
+    const t = e.touches[0];
+    const dx = t.clientX - x;
+    const dy = t.clientY - y;
+
+    if (Math.abs(dx) > MOVE_THRESHOLD || Math.abs(dy) > MOVE_THRESHOLD) {
+      window.clearTimeout(longPressTimeoutRef.current);
+      longPressTimeoutRef.current = null;
+    }
+  }, []);
+
+  const handlePressEnd = useCallback(() => {
+    if (longPressTimeoutRef.current != null) {
+      window.clearTimeout(longPressTimeoutRef.current);
+      longPressTimeoutRef.current = null;
+    }
+    pressStartRef.current = null;
+
+    if (pressedId != null) {
+      setTimeout(() => setPressedId(null), 130);
+    }
+  }, [pressedId]);
+
+  // ------------------------------------------------------------ //
 
   const fetchAll = useCallback(async () => {
     try {
@@ -133,6 +198,8 @@ export default function BandProposalsTabMobile({ bandId, isAdmin }: Props) {
                 ? 'Tap to add time options'
                 : 'Open to vote on times';
 
+              const isPressed = pressedId === p.id;
+
               return (
                 <IonItem
                   key={p.id}
@@ -143,12 +210,21 @@ export default function BandProposalsTabMobile({ bandId, isAdmin }: Props) {
                   style={{
                     ['--background' as any]: 'transparent',
                     ['--background-hover' as any]: 'transparent',
+                    ['--background-activated' as any]: 'transparent', // ⬅️ remove press highlight
+                    ['--ripple-color' as any]: 'transparent', // ⬅️ remove ripple
                     marginInline: -20,
                     paddingInline: 0,
                     paddingBlock: 3,
                   }}
                 >
                   <div
+                    onTouchStart={(ev) => handlePressStart(p.id, ev)}
+                    onTouchMove={handlePressMove}
+                    onTouchEnd={handlePressEnd}
+                    onTouchCancel={handlePressEnd}
+                    onMouseDown={(ev) => handlePressStart(p.id, ev)}
+                    onMouseUp={handlePressEnd}
+                    onMouseLeave={handlePressEnd}
                     style={{
                       borderRadius: 20,
                       paddingInline: 20,
@@ -161,8 +237,11 @@ export default function BandProposalsTabMobile({ bandId, isAdmin }: Props) {
                       columnGap: 10,
                       background:
                         'linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02))',
-                      boxShadow: '0 10px 24px rgba(0,0,0,.32)',
-                      transform: 'scale(1)',
+                      boxShadow: isPressed
+                        ? '0 10px 24px rgba(0,0,0,.32)'
+                        : '0 18px 40px rgba(0,0,0,0.9)',
+                      // 🔽 this is the important part – match library “shrink”
+                      transform: isPressed ? 'scale(0.97)' : 'scale(1)',
                       transition:
                         'transform 120ms ease-out, box-shadow 120ms ease-out, background 120ms ease-out',
                     }}
@@ -278,8 +357,17 @@ export default function BandProposalsTabMobile({ bandId, isAdmin }: Props) {
         >
           <IonButton
             fill="outline"
-            size="default"
-            onClick={() => setOpenNew(true)}
+            size="small"
+            onClick={() => {
+              window.dispatchEvent(
+                new CustomEvent('amplee:global-create', {
+                  detail: {
+                    kind: 'proposal',
+                    bandId,
+                  },
+                })
+              );
+            }}
             style={
               {
                 '--color': 'rgba(245, 158, 11, 0.95)',
@@ -295,234 +383,6 @@ export default function BandProposalsTabMobile({ bandId, isAdmin }: Props) {
           </IonButton>
         </div>
       )}
-
-      <AddProposalModalMobile
-        bandId={bandId}
-        open={openNew}
-        onClose={() => setOpenNew(false)}
-        onCreated={(proposalId) => {
-          setOpenNew(false);
-          nav(`/bands/${bandId}/proposals/${proposalId}`);
-        }}
-      />
     </div>
-  );
-}
-
-/* ------------------------- ADD PROPOSAL MODAL ------------------------- */
-
-type AddModalProps = {
-  bandId: string;
-  open: boolean;
-  onClose: () => void;
-  onCreated: (proposalId: string) => void;
-};
-
-function AddProposalModalMobile({
-  bandId,
-  open,
-  onClose,
-  onCreated,
-}: AddModalProps) {
-  const [title, setTitle] = useState('');
-  const [venue, setVenue] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  function resetState() {
-    setTitle('');
-    setVenue('');
-    setError(null);
-  }
-
-  function handleDismiss() {
-    if (saving) return;
-    resetState();
-    onClose();
-  }
-
-  async function handleSave() {
-    try {
-      const trimmedTitle = title.trim();
-      if (!trimmedTitle) {
-        setError('Give this gig a title.');
-        return;
-      }
-
-      setSaving(true);
-      setError(null);
-
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) throw new Error('You must be signed in.');
-
-      const { data, error: propErr } = await supabase
-        .from('gig_proposals')
-        .insert({
-          band_id: bandId,
-          title: trimmedTitle,
-          venue: venue.trim() || null,
-          created_by: user.id,
-        })
-        .select('id')
-        .single();
-
-      if (propErr) throw propErr;
-
-      const proposalId = data?.id as string;
-      resetState();
-      onCreated(proposalId);
-    } catch (e: any) {
-      console.error(e);
-      setError(e.message ?? 'Failed to create proposal');
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <IonModal isOpen={open} onDidDismiss={handleDismiss}>
-      <IonHeader
-        translucent
-        style={{
-          '--background':
-            'radial-gradient(circle at top, rgba(8,47,73,0.6), #020617 55%)',
-        }}
-      >
-        <IonToolbar
-          style={{
-            '--background': 'transparent',
-          }}
-        >
-          <IonButtons slot="start">
-            <IonButton onClick={handleDismiss} disabled={saving}>
-              <IonIcon icon={closeOutline} slot="icon-only" />
-            </IonButton>
-          </IonButtons>
-          <IonTitle>Propose new gig</IonTitle>
-        </IonToolbar>
-      </IonHeader>
-
-      <IonContent
-        fullscreen
-        style={{
-          '--background':
-            'radial-gradient(circle at top, rgba(8,47,73,0.45), #050509 45%, #020109 100%)',
-        }}
-      >
-        <div
-          style={{
-            padding: 16,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 12,
-          }}
-        >
-          {error && (
-            <div
-              style={{
-                borderRadius: 12,
-                padding: 10,
-                backgroundColor: 'rgba(239,68,68,0.16)',
-                border: '1px solid rgba(239,68,68,0.4)',
-              }}
-            >
-              <IonText color="danger">
-                <p style={{ margin: 0 }}>{error}</p>
-              </IonText>
-            </div>
-          )}
-
-          <IonText color="medium">
-            <p
-              style={{
-                margin: '0 0 4px',
-                fontSize: 13,
-              }}
-            >
-              Start a proposed gig with a title and optional venue. You can add
-              dates for voting on the next screen.
-            </p>
-          </IonText>
-
-          {/* Title */}
-          <IonItem
-            lines="none"
-            style={
-              {
-                '--background': 'rgba(15,23,42,0.96)',
-                borderRadius: 10,
-                marginBottom: 4,
-                fontSize: 16,
-              } as any
-            }
-          >
-            <IonLabel position="stacked">Title</IonLabel>
-            <IonInput
-              value={title}
-              placeholder="Friday night at Riverfront"
-              onIonChange={(e) => setTitle(e.detail.value ?? '')}
-            />
-          </IonItem>
-
-          {/* Venue */}
-          <IonItem
-            lines="none"
-            style={
-              {
-                '--background': 'rgba(15,23,42,0.96)',
-                borderRadius: 10,
-                fontSize: 16,
-              } as any
-            }
-          >
-            <IonLabel position="stacked">Venue (optional)</IonLabel>
-            <IonInput
-              value={venue}
-              placeholder="The Record Bar"
-              onIonChange={(e) => setVenue(e.detail.value ?? '')}
-            />
-          </IonItem>
-
-          {/* Footer buttons */}
-          <div
-            style={{
-              marginTop: 20,
-              display: 'flex',
-              flexDirection: 'row',
-              gap: 8,
-            }}
-          >
-            <IonButton
-              expand="block"
-              onClick={handleSave}
-              disabled={!title.trim() || saving}
-              style={{
-                '--background': 'rgba(245, 158, 11, 0.95)',
-                '--background-activated': 'rgba(245, 158, 11, 0.95)',
-                '--background-hover': 'rgba(130, 119, 100, 0.95)',
-                '--color': '#022c22',
-                borderRadius: 999,
-              }}
-            >
-              {saving ? <IonSpinner name="crescent" /> : 'Create proposal'}
-            </IonButton>
-            <IonButton
-              expand="block"
-              fill="outline"
-              color="medium"
-              onClick={handleDismiss}
-              disabled={saving}
-              style={{
-                borderRadius: 999,
-              }}
-            >
-              Cancel
-            </IonButton>
-          </div>
-        </div>
-      </IonContent>
-    </IonModal>
   );
 }

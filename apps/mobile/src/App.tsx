@@ -4,25 +4,26 @@ import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import MobileBottomNav from './components/Nav/MobileBottomNav';
 import { useSession } from './lib/useSession';
 
+import { Capacitor, type PluginListenerHandle } from '@capacitor/core';
+import { Keyboard, KeyboardResize } from '@capacitor/keyboard';
 import AuthCallback from './pages/AuthCallback';
+import BandSetlistPageMobile from './pages/BandSetlistPageMobile';
+import BandSettingsMobile from './pages/BandSettingsMobile';
 import BandSheetMobile from './pages/BandSheetMobile';
+import BandSongSheetRouteMobile from './pages/BandSongSheetRouteMobile';
+import BandSongsRouteMobile from './pages/BandSongsRouteMobile';
+import EventSettingsMobile from './pages/EventSettingsMobile';
 import EventSheetMobile from './pages/EventSheetMobile';
 import Home from './pages/Home';
 import Invite from './pages/Invite';
+import InviteBandMobile from './pages/InviteBandMobile';
 import Login from './pages/Login';
 import Profile from './pages/Profile';
 import ProfileBasics from './pages/ProfileBasics';
+import ProposedGigSheetMobile from './pages/ProposedGigSheetMobile';
+import SetlistTemplateEditorMobile from './pages/SetlistTemplateEditorMobile';
 import VerifyEmail from './pages/VerifyEmail';
 import GlobalCreateHost from './shared/GlobalCreateHost';
-
-// ✅ NEW: import the band settings page
-import BandSettingsMobile from './pages/BandSettingsMobile';
-
-import { Capacitor, type PluginListenerHandle } from '@capacitor/core';
-import { Keyboard, KeyboardResize } from '@capacitor/keyboard';
-import EventSettingsMobile from './pages/EventSettingsMobile';
-import InviteBandMobile from './pages/InviteBandMobile';
-import ProposedGigSheetMobile from './pages/ProposedGigSheetMobile';
 
 export default function App() {
   const { loading, session } = useSession();
@@ -113,9 +114,15 @@ export default function App() {
             <Route path="/bands/:id" element={<BandSheetMobile />} />
             <Route path="/bands/:bandId" element={<BandSheetMobile />} />
             <Route
+              path="/bands/:bandId/songs"
+              element={<BandSongsRouteMobile />}
+            />
+
+            <Route
               path="/bands/:bandId/settings"
               element={<BandSettingsMobile />}
             />
+
             <Route
               path="/bands/:bandId/proposals/:proposalId"
               element={<ProposedGigSheetMobile />}
@@ -132,6 +139,29 @@ export default function App() {
             <Route
               path="/bands/:bandId/events/:eventId/settings"
               element={<EventSettingsMobile />}
+            />
+
+            <Route
+              path="/bands/:bandId/setlists"
+              element={<BandSetlistPageMobile />}
+            />
+            <Route
+              path="/bands/:bandId/setlists/:setlistId"
+              element={<SetlistTemplateEditorMobile />}
+            />
+
+            {/* band sheets */}
+            <Route path="/bands/:id" element={<BandSheetMobile />} />
+            <Route path="/bands/:bandId" element={<BandSheetMobile />} />
+
+            {/* song library + song sheet */}
+            <Route
+              path="/bands/:bandId/songs"
+              element={<BandSongsRouteMobile />}
+            />
+            <Route
+              path="/bands/:bandId/songs/:songId"
+              element={<BandSongSheetRouteMobile />}
             />
 
             {/* profile routes */}

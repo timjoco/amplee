@@ -17,16 +17,19 @@ import {
 } from '@ionic/react';
 import {
   addCircleOutline,
+  calendarOutline,
   checkmarkCircleOutline,
   chevronBackOutline,
   closeCircleOutline,
   createOutline,
+  locationOutline,
+  personOutline,
   trashOutline,
 } from 'ionicons/icons';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
-import DateTimePickerMobile from '../components/ui/DateTimePickerMobile';
+import EventDateTimePicker from '../components/ui/EventDateTimePicker';
 import { supabase } from '../lib/supabase';
 
 type Option = {
@@ -76,14 +79,12 @@ export default function ProposedGigSheetMobile() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [adding, setAdding] = useState(false);
-  const [newDate, setNewDate] = useState('');
+  const [showAddDatePicker, setShowAddDatePicker] = useState(false);
+  const [newDate, setNewDate] = useState<string | null>(null);
   const [showConvertAlert, setShowConvertAlert] = useState(false);
 
   // proposal meta
   const [proposedByName, setProposedByName] = useState<string | null>(null);
-  const [showVotingHelp, setShowVotingHelp] = useState(false);
-  const [showTimesHelp, setShowTimesHelp] = useState(false);
 
   // proposal conversion
   const [converting, setConverting] = useState<string | null>(null);
@@ -99,8 +100,11 @@ export default function ProposedGigSheetMobile() {
   const [savingProposal, setSavingProposal] = useState(false);
 
   // edit individual time option
+  const [showEditDatePicker, setShowEditDatePicker] = useState(false);
   const [editingOptionId, setEditingOptionId] = useState<string | null>(null);
-  const [editingOptionDate, setEditingOptionDate] = useState('');
+  const [editingOptionDate, setEditingOptionDate] = useState<string | null>(
+    null
+  );
 
   const fetchData = useCallback(async () => {
     if (!bandId || !proposalId) return;
@@ -266,12 +270,11 @@ export default function ProposedGigSheetMobile() {
     }
   }
 
-  async function addOption() {
+  async function addOption(iso: string | null) {
     try {
-      if (!newDate || !proposalId) return;
+      if (!iso || !proposalId) return;
       setSaving(true);
 
-      const iso = new Date(newDate).toISOString();
       const { data: inserted, error: insertErr } = await supabase
         .from('gig_proposal_options')
         .insert({
@@ -283,8 +286,7 @@ export default function ProposedGigSheetMobile() {
 
       if (insertErr) throw insertErr;
 
-      setNewDate('');
-      setAdding(false);
+      setNewDate(null);
 
       // Append new option locally with 0 votes
       if (inserted) {
@@ -456,19 +458,19 @@ export default function ProposedGigSheetMobile() {
 
   function startEditOption(option: Option) {
     setEditingOptionId(option.id);
-    setEditingOptionDate(toLocalInputValue(option.starts_at));
+    setEditingOptionDate(option.starts_at);
+    setShowEditDatePicker(true);
   }
 
-  async function saveOptionEdit() {
-    if (!editingOptionId || !editingOptionDate) {
+  async function saveOptionEdit(iso: string | null) {
+    if (!editingOptionId || !iso) {
       setEditingOptionId(null);
-      setEditingOptionDate('');
+      setEditingOptionDate(null);
       return;
     }
 
     try {
       setSaving(true);
-      const iso = new Date(editingOptionDate).toISOString();
 
       const { error: updErr } = await supabase
         .from('gig_proposal_options')
@@ -490,7 +492,7 @@ export default function ProposedGigSheetMobile() {
       );
 
       setEditingOptionId(null);
-      setEditingOptionDate('');
+      setEditingOptionDate(null);
     } catch (e: any) {
       console.error(e);
       setError(e?.message ?? 'Failed to update date option');
@@ -510,7 +512,10 @@ export default function ProposedGigSheetMobile() {
             marginTop: 48,
           }}
         >
-          <IonSpinner name="crescent" />
+          <IonSpinner
+            name="crescent"
+            style={{ color: 'rgba(251, 191, 36, 0.95)' }}
+          />
         </div>
       );
     }
@@ -520,14 +525,16 @@ export default function ProposedGigSheetMobile() {
         <div style={{ padding: 16 }}>
           <div
             style={{
-              borderRadius: 12,
-              padding: 12,
-              backgroundColor: 'rgba(239,68,68,0.16)',
-              border: '1px solid rgba(239,68,68,0.4)',
+              borderRadius: 16,
+              padding: 16,
+              background:
+                'linear-gradient(135deg, rgba(127, 29, 29, 0.2), rgba(127, 29, 29, 0.1))',
+              border: '1px solid rgba(248,113,113,0.4)',
+              backdropFilter: 'blur(10px)',
             }}
           >
             <IonText color="danger">
-              <p style={{ margin: 0 }}>{error}</p>
+              <p style={{ margin: 0, fontWeight: 600 }}>{error}</p>
             </IonText>
           </div>
         </div>
@@ -541,10 +548,7 @@ export default function ProposedGigSheetMobile() {
       { month: 'short', day: 'numeric', year: 'numeric' }
     );
 
-    const locationText = proposal.venue?.trim()
-      ? proposal.venue
-      : 'Location TBD';
-
+    const locationText = proposal.venue?.trim() || 'Location TBD';
     const proposedByText = proposal.created_by
       ? proposal.created_by === myId
         ? 'You'
@@ -552,13 +556,23 @@ export default function ProposedGigSheetMobile() {
       : 'Unknown';
 
     // Highest YES percentage across options
+    // In case of tie, choose the earliest date
     const bestYes =
       membersCount > 0 && proposal.options.length > 0
         ? proposal.options.reduce(
             (acc, o) => {
               const pct = (o.yes / membersCount) * 100;
+              // If this option has more yes votes, it wins
               if (pct > acc.pct) {
                 return { pct, yes: o.yes, option: o };
+              }
+              // If tied, choose the earlier date (tie-breaker)
+              if (pct === acc.pct && acc.option) {
+                const thisDate = new Date(o.starts_at);
+                const accDate = new Date(acc.option.starts_at);
+                if (thisDate < accDate) {
+                  return { pct, yes: o.yes, option: o };
+                }
               }
               return acc;
             },
@@ -568,835 +582,596 @@ export default function ProposedGigSheetMobile() {
 
     const bestYesPct = Math.round(bestYes.pct);
 
-    const bestYesLabel =
-      bestYes.option && bestYesPct > 0
-        ? new Date(bestYes.option.starts_at).toLocaleString(undefined, {
-            dateStyle: 'medium',
-            timeStyle: 'short',
-          })
-        : null;
+    // Format the best date for display
+    const bestDateLabel = bestYes.option
+      ? new Date(bestYes.option.starts_at).toLocaleDateString(undefined, {
+          weekday: 'short',
+          month: 'short',
+          day: 'numeric',
+        })
+      : null;
 
     return (
       <div
         style={{
-          padding: 16,
-          paddingBottom: 32,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 16,
+          padding: '16px 16px 80px 16px',
+          background:
+            'linear-gradient(180deg, rgba(5,5,9,0) 0%, rgba(5,5,9,0.3) 100%)',
         }}
       >
-        {/* SECTION 1: Proposed gig details (amber shell) */}
+        {/* STATS HEADER */}
         <div
           style={{
-            borderRadius: 18,
-            padding: 16,
-            border: '1px solid rgba(245, 158, 11, 0.25)', // amber
+            background:
+              'linear-gradient(135deg, rgba(251, 191, 36, 0.08), rgba(251, 191, 36, 0.04))',
+            border: '1px solid rgba(251, 191, 36, 0.2)',
+            borderRadius: 16,
+            padding: '20px',
+            marginBottom: 16,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
           }}
         >
-          <IonText>
-            <p
+          <div style={{ flex: 1 }}>
+            <div
               style={{
-                margin: 0,
+                fontSize: 32,
+                fontWeight: 800,
+                color: 'rgba(251, 191, 36, 0.95)',
+                lineHeight: 1,
+                marginBottom: 6,
+              }}
+            >
+              {bestYes.yes}/{membersCount}
+            </div>
+            <div
+              style={{
                 fontSize: 12,
-                letterSpacing: 0.14,
+                fontWeight: 600,
+                color: '#9ca3af',
                 textTransform: 'uppercase',
-                color: 'rgba(245,158,11,0.95)',
-                marginBottom: 4,
+                letterSpacing: 0.5,
+                marginBottom: bestDateLabel ? 8 : 0,
               }}
             >
-              Proposed gig
-            </p>
-          </IonText>
-
-          <h2
-            style={{
-              margin: 0,
-              fontSize: 19,
-              fontWeight: 800,
-              color: '#EDEBFF',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            {proposal.title || 'Proposed Gig'}
-          </h2>
-
-          <div
-            style={{
-              marginTop: 10,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 6,
-              fontSize: 13,
-              color: '#E5E7EB',
-            }}
-          >
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                gap: 8,
-              }}
-            >
-              <span style={{ opacity: 0.7 }}>Location</span>
-              <span
-                style={{
-                  fontWeight: 500,
-                  textAlign: 'right',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                  maxWidth: '60%',
-                }}
-              >
-                {locationText}
-              </span>
+              Most Votes
             </div>
-
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                gap: 8,
-              }}
-            >
-              <span style={{ opacity: 0.7 }}>Proposed by</span>
-              <span
-                style={{
-                  fontWeight: 500,
-                  textAlign: 'right',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                  maxWidth: '60%',
-                }}
-              >
-                {proposedByText}
-              </span>
-            </div>
-
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                gap: 8,
-              }}
-            >
-              <span style={{ opacity: 0.7 }}>Created</span>
-              <span
-                style={{
-                  fontWeight: 500,
-                  textAlign: 'right',
-                }}
-              >
-                {createdLabel}
-              </span>
-            </div>
-          </div>
-
-          {membersCount > 0 && proposal.options.length > 0 && (
-            <div
-              style={{
-                marginTop: 12,
-              }}
-            >
-              {/* Voting Status + helper circle */}
+            {bestDateLabel && (
               <div
                 style={{
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: 'rgba(251, 191, 36, 0.8)',
                   display: 'flex',
                   alignItems: 'center',
                   gap: 6,
-                  marginBottom: 4,
                 }}
               >
-                <p
-                  style={{
-                    margin: 0,
-                    fontSize: 12,
-                    textTransform: 'uppercase',
-                    letterSpacing: 0.08,
-                    color: 'rgba(245,158,11,0.9)',
-                  }}
-                >
-                  Voting Status
-                </p>
-
-                <button
-                  type="button"
-                  onClick={() => setShowVotingHelp(true)}
-                  style={{
-                    width: 16,
-                    height: 16,
-                    borderRadius: '999px',
-                    border: '1px solid rgba(245, 158, 11, 0.9)',
-                    background: 'rgba(15,23,42,0.95)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    padding: 0,
-                    fontSize: 10,
-                    lineHeight: 1,
-                    color: '#FBBF24',
-                    cursor: 'pointer',
-                  }}
-                >
-                  ?
-                </button>
+                <IonIcon icon={calendarOutline} style={{ fontSize: 14 }} />
+                {bestDateLabel}
               </div>
+            )}
+          </div>
 
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  fontSize: 11,
-                  color: '#9CA3AF',
-                  marginBottom: 4,
-                }}
-              >
-                <span>
-                  {bestYesPct > 0 ? 'Total votes' : 'Waiting on more votes'}
-                </span>
-                <span>
-                  {bestYesPct}% ({bestYes.yes}/{membersCount})
-                </span>
-              </div>
-
-              {bestYesLabel && (
-                <p
-                  style={{
-                    margin: 0,
-                    marginBottom: 6,
-                    fontSize: 12,
-                    color: '#9CA3AF',
-                  }}
-                >
-                  Highest yes votes:{' '}
-                  <span
-                    style={{
-                      fontWeight: 600,
-                      color: 'rgba(52,211,153,0.96)',
-                    }}
-                  >
-                    {bestYesLabel}
-                  </span>
-                  .
-                </p>
-              )}
-
-              <div
-                style={{
-                  width: '100%',
-                  height: 6,
-                  borderRadius: 999,
-                  background: 'rgba(31,41,55,0.9)',
-                  overflow: 'hidden',
-                }}
-              >
-                <div
-                  style={{
-                    width: `${bestYesPct}%`,
-                    height: '100%',
-                    borderRadius: 999,
-                    background:
-                      'linear-gradient(90deg, rgba(52,211,153,0.95), rgba(16,185,129,0.98))',
-                    transition: 'width 160ms ease-out',
-                  }}
-                />
-              </div>
-            </div>
-          )}
-
-          {isAdmin && (
+          <div
+            style={{
+              width: 72,
+              height: 72,
+              borderRadius: '50%',
+              background: `conic-gradient(
+                rgba(251, 191, 36, 0.8) 0% ${bestYesPct}%, 
+                rgba(15, 23, 42, 0.8) ${bestYesPct}% 100%
+              )`,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              position: 'relative',
+            }}
+          >
             <div
               style={{
-                marginTop: 14,
-                paddingTop: 8,
-                borderTop: '1px solid rgba(31,41,55,0.9)',
+                width: 56,
+                height: 56,
+                borderRadius: '50%',
+                background:
+                  'linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(15, 23, 42, 0.9))',
                 display: 'flex',
-                justifyContent: 'flex-end',
-                gap: 8,
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 16,
+                fontWeight: 800,
+                color: 'rgba(251, 191, 36, 0.95)',
               }}
             >
-              <IonButton
-                size="small"
-                fill="outline"
-                style={{
-                  '--border-color': 'rgba(245,158,11,0.85)',
-                  '--color': 'rgba(245,158,11,0.95)',
-                  '--background-activated': 'rgba(245,158,11,0.85)',
-                  borderRadius: 999,
-                }}
-                onClick={startEditProposal}
-              >
-                <IonIcon icon={createOutline} slot="start" />
-                Edit proposal
-              </IonButton>
-              <IonButton
-                size="small"
-                fill="outline"
-                color="danger"
-                onClick={() => setShowDeleteConfirm(true)}
-                style={{
-                  borderRadius: 999,
-                }}
-              >
-                <IonIcon icon={trashOutline} slot="start" />
-                Delete proposal
-              </IonButton>
+              {bestYesPct}%
             </div>
-          )}
+          </div>
         </div>
 
-        {/* SECTION 2: Proposed gig time options (amber + teal accent) */}
+        {/* GIG DETAILS CARD */}
         <div
           style={{
-            borderRadius: 18,
-            padding: 14,
-            border: '1px solid rgba(245, 158, 11, 0.25)', // amber
+            background:
+              'linear-gradient(135deg, rgba(15, 23, 42, 0.8), rgba(15, 23, 42, 0.6))',
+            border: '1px solid rgba(251, 191, 36, 0.25)',
+            borderRadius: 16,
+            padding: 16,
+            marginBottom: 16,
+            backdropFilter: 'blur(10px)',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.4)',
           }}
         >
           <div
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: 6,
-              marginBottom: 4,
+              gap: 12,
+              marginBottom: 16,
             }}
           >
-            <IonText>
-              <p
-                style={{
-                  margin: 0,
-                  fontSize: 12,
-                  letterSpacing: 0.14,
-                  textTransform: 'uppercase',
-                  color: 'rgba(245, 158, 11)',
-                }}
-              >
-                Time options
-              </p>
-            </IonText>
-
-            <button
-              type="button"
-              onClick={() => setShowTimesHelp(true)}
+            <div
               style={{
-                width: 16,
-                height: 16,
-                borderRadius: '999px',
-                border: '1px solid rgba(245, 158, 11, 0.9)',
-                background: 'rgba(15,23,42,0.95)',
+                width: 40,
+                height: 40,
+                borderRadius: 10,
+                background:
+                  'linear-gradient(135deg, rgba(251, 191, 36, 0.2), rgba(251, 191, 36, 0.1))',
+                border: '1px solid rgba(251, 191, 36, 0.4)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                padding: 0,
-                fontSize: 10,
-                lineHeight: 1,
-                color: '#FBBF24',
-                cursor: 'pointer',
               }}
             >
-              ?
-            </button>
-          </div>
-
-          {proposal.options.length === 0 ? (
-            <IonText color="light">
-              <p
+              <IonIcon
+                icon={calendarOutline}
                 style={{
-                  marginTop: 2,
-                  marginBottom: 10,
-                  fontSize: 12,
-                  lineHeight: 1.5,
+                  fontSize: 20,
+                  color: 'rgba(251, 191, 36, 0.95)',
+                }}
+              />
+            </div>
+            <div style={{ flex: 1 }}>
+              <div
+                style={{
+                  fontSize: 13,
+                  fontWeight: 700,
+                  color: '#9ca3af',
+                  textTransform: 'uppercase',
+                  letterSpacing: 0.5,
+                  marginBottom: 4,
                 }}
               >
-                Your band admin will add time options for this proposed gig.
-                Once times are added, you&apos;ll be able to vote{' '}
-                <strong>Yes</strong> on dates that work and <strong>No</strong>{' '}
-                on dates that don&apos;t.
-              </p>
-            </IonText>
-          ) : (
-            <>
-              <IonText color="medium">
-                <p
-                  style={{
-                    marginTop: 2,
-                    marginBottom: 10,
-                    fontSize: 12,
-                    lineHeight: 1.5,
-                  }}
-                >
-                  Tap <strong>Yes</strong> for any dates that work for you and{' '}
-                  <strong>No</strong> for dates that don&apos;t. When every
-                  member says <strong>Yes</strong> to an option, your admin can
-                  convert it into a confirmed event.
-                </p>
-              </IonText>
-
+                Proposed Gig
+              </div>
               <div
-                style={{ display: 'flex', flexDirection: 'column', gap: 10 }}
+                style={{
+                  fontSize: 18,
+                  fontWeight: 800,
+                  color: '#e5e7eb',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
               >
-                {proposal.options.map((o) => {
-                  const allYes =
-                    membersCount > 0 && o.yes === membersCount && o.no === 0;
+                {proposal.title || 'Proposed Gig'}
+              </div>
+            </div>
+          </div>
 
-                  const dt = new Date(o.starts_at);
-                  const label = dt.toLocaleString(undefined, {
-                    dateStyle: 'medium',
-                    timeStyle: 'short',
-                  });
+          {/* Info Grid */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <IonIcon
+                icon={locationOutline}
+                style={{ fontSize: 16, color: 'rgba(251, 191, 36, 0.7)' }}
+              />
+              <span style={{ fontSize: 14, color: '#9ca3af' }}>
+                {locationText}
+              </span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <IonIcon
+                icon={personOutline}
+                style={{ fontSize: 16, color: 'rgba(251, 191, 36, 0.7)' }}
+              />
+              <span style={{ fontSize: 14, color: '#9ca3af' }}>
+                Proposed by {proposedByText}
+              </span>
+            </div>
+          </div>
 
-                  const isEditingThis = editingOptionId === o.id;
+          {isAdmin && (
+            <div
+              style={{
+                marginTop: 16,
+                paddingTop: 16,
+                borderTop: '1px solid rgba(148, 163, 184, 0.2)',
+                display: 'flex',
+                gap: 8,
+              }}
+            >
+              <IonButton
+                size="small"
+                fill="outline"
+                expand="block"
+                style={
+                  {
+                    flex: 1,
+                    '--border-color': 'rgba(251, 191, 36, 0.5)',
+                    '--color': 'rgba(251, 191, 36, 0.95)',
+                    '--background-activated': 'rgba(251, 191, 36, 0.15)',
+                    borderRadius: 12,
+                  } as any
+                }
+                onClick={startEditProposal}
+              >
+                <IonIcon icon={createOutline} slot="start" />
+                Edit
+              </IonButton>
+              <IonButton
+                size="small"
+                fill="outline"
+                style={
+                  {
+                    '--border-color': 'rgba(248, 113, 113, 0.5)',
+                    '--color': 'rgba(248, 113, 113, 0.95)',
+                    '--background-activated': 'rgba(248, 113, 113, 0.15)',
+                    borderRadius: 12,
+                  } as any
+                }
+                onClick={() => setShowDeleteConfirm(true)}
+              >
+                <IonIcon icon={trashOutline} slot="icon-only" />
+              </IonButton>
+            </div>
+          )}
+        </div>
 
-                  let slidingRef: HTMLIonItemSlidingElement | null = null;
+        {/* DATE OPTIONS */}
+        <div
+          style={{
+            background:
+              'linear-gradient(135deg, rgba(15, 23, 42, 0.8), rgba(15, 23, 42, 0.6))',
+            border: '1px solid rgba(251, 191, 36, 0.25)',
+            borderRadius: 16,
+            padding: 16,
+            backdropFilter: 'blur(10px)',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.4)',
+          }}
+        >
+          <h3
+            style={{
+              margin: 0,
+              marginBottom: 14,
+              fontSize: 15,
+              fontWeight: 700,
+              color: 'rgba(251, 191, 36, 0.95)',
+              textTransform: 'uppercase',
+              letterSpacing: 0.8,
+            }}
+          >
+            📅 Vote on Dates
+          </h3>
 
-                  return (
-                    <IonItemSliding
-                      key={o.id}
-                      ref={(el) => {
-                        slidingRef = el;
+          {proposal.options.length === 0 ? (
+            <div
+              style={{
+                padding: '40px 20px',
+                textAlign: 'center',
+              }}
+            >
+              <div
+                style={{
+                  width: 60,
+                  height: 60,
+                  borderRadius: '50%',
+                  background:
+                    'linear-gradient(135deg, rgba(251, 191, 36, 0.15), rgba(251, 191, 36, 0.05))',
+                  border: '2px solid rgba(251, 191, 36, 0.3)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  margin: '0 auto 16px',
+                }}
+              >
+                <IonIcon
+                  icon={calendarOutline}
+                  style={{ fontSize: 28, color: 'rgba(251, 191, 36, 0.95)' }}
+                />
+              </div>
+              <p style={{ margin: 0, fontSize: 14, color: '#9ca3af' }}>
+                No date options yet
+              </p>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {proposal.options.map((o) => {
+                const allYes =
+                  membersCount > 0 && o.yes === membersCount && o.no === 0;
+
+                const dt = new Date(o.starts_at);
+                const label = dt.toLocaleString(undefined, {
+                  dateStyle: 'medium',
+                  timeStyle: 'short',
+                });
+
+                let slidingRef: HTMLIonItemSlidingElement | null = null;
+
+                return (
+                  <IonItemSliding
+                    key={o.id}
+                    ref={(el) => {
+                      slidingRef = el;
+                    }}
+                    disabled={!isAdmin}
+                  >
+                    <IonItem
+                      lines="none"
+                      style={{
+                        '--background': 'transparent',
+                        '--padding-start': '0px',
+                        '--inner-padding-end': '0px',
+                        paddingInline: 0,
                       }}
-                      disabled={!isAdmin || isEditingThis}
                     >
-                      <IonItem
-                        lines="none"
+                      <div
                         style={{
-                          '--background': 'transparent',
-                          '--padding-start': '0px',
-                          '--inner-padding-end': '0px',
-                          paddingInline: 0,
+                          position: 'relative',
+                          width: '100%',
+                          borderRadius: 14,
+                          padding: 14,
+                          background: allYes
+                            ? 'linear-gradient(135deg, rgba(52, 211, 153, 0.15), rgba(52, 211, 153, 0.08))'
+                            : 'linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(15, 23, 42, 0.9))',
+                          border: allYes
+                            ? '1px solid rgba(52, 211, 153, 0.4)'
+                            : '1px solid rgba(148, 163, 184, 0.2)',
+                          paddingRight: isAdmin ? 24 : 14,
                         }}
                       >
-                        <div
-                          style={{
-                            width: '100%',
-                            borderRadius: 12,
-                            padding: 10,
-                            border: '1px solid rgba(45,212,191,0.25)',
-                            background:
-                              'linear-gradient(180deg, rgba(15,23,42,0.98), rgba(3,7,18,0.98))',
-                            position: 'relative',
-                            overflow: 'hidden',
-                            paddingRight: 18,
-                          }}
-                        >
-                          {isAdmin && !isEditingThis && (
-                            <div
-                              style={{
-                                position: 'absolute',
-                                top: 6,
-                                bottom: 6,
-                                right: 0,
-                                width: 6,
-                                background: 'rgba(70, 71, 73, 0.9)',
-                                opacity: 0.7,
-                                pointerEvents: 'none',
-                                borderTopLeftRadius: 999,
-                                borderBottomLeftRadius: 999,
-                              }}
-                            />
-                          )}
-
-                          {/* HEADER ROW */}
+                        {isAdmin && (
                           <div
                             style={{
-                              display: 'flex',
-                              alignItems: 'flex-start',
-                              justifyContent: 'space-between',
-                              gap: 8,
+                              position: 'absolute',
+                              top: 8,
+                              bottom: 8,
+                              right: 0,
+                              width: 6,
+                              background: 'rgba(251, 191, 36, 0.4)',
+                              borderTopLeftRadius: 4,
+                              borderBottomLeftRadius: 4,
                             }}
-                          >
-                            <p
+                          />
+                        )}
+
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            gap: 12,
+                            marginBottom: 10,
+                          }}
+                        >
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div
                               style={{
-                                margin: 0,
-                                fontWeight: 700,
                                 fontSize: 15,
-                                color: '#E5E7EB',
-                                maxWidth: '55%',
+                                fontWeight: 700,
+                                color: '#e5e7eb',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
                               }}
                             >
                               {label}
-                            </p>
-
-                            <div
-                              style={{
-                                display: 'flex',
-                                flexDirection: 'column',
-                                alignItems: 'flex-end',
-                                gap: 6,
-                              }}
-                            >
-                              <div
-                                style={{
-                                  display: 'flex',
-                                  flexDirection: 'row',
-                                  gap: 6,
-                                  width: '100%',
-                                }}
-                              >
-                                <IonButton
-                                  size="small"
-                                  fill={
-                                    o.myVote === 'yes' ? 'solid' : 'outline'
-                                  }
-                                  onClick={() => vote(o.id, 'yes')}
-                                  disabled={saving}
-                                  style={
-                                    o.myVote === 'yes'
-                                      ? {
-                                          flex: 1,
-                                          justifyContent: 'center',
-                                          '--background':
-                                            'rgba(251, 191, 36, 0.95)',
-                                          '--background-activated':
-                                            'rgba(251, 191, 36, 1)',
-                                          '--color': '#451a03',
-                                        }
-                                      : {
-                                          flex: 1,
-                                          justifyContent: 'center',
-                                          '--border-color':
-                                            'rgba(251, 191, 36, 0.9)',
-                                          '--color': 'rgba(251, 191, 36, 0.95)',
-                                        }
-                                  }
-                                >
-                                  <IonIcon
-                                    icon={checkmarkCircleOutline}
-                                    slot="start"
-                                  />
-                                  Yes ({o.yes})
-                                </IonButton>
-
-                                <IonButton
-                                  size="small"
-                                  fill={o.myVote === 'no' ? 'solid' : 'outline'}
-                                  onClick={() => vote(o.id, 'no')}
-                                  disabled={saving}
-                                  style={
-                                    o.myVote === 'no'
-                                      ? {
-                                          flex: 1,
-                                          justifyContent: 'center',
-                                          '--background':
-                                            'rgba(248, 113, 113, 0.95)',
-                                          '--background-activated':
-                                            'rgba(248, 113, 113, 1)',
-                                          '--color': '#450a0a',
-                                        }
-                                      : {
-                                          flex: 1,
-                                          justifyContent: 'center',
-                                          '--border-color':
-                                            'rgba(248, 113, 113, 0.9)',
-                                          '--color':
-                                            'rgba(248, 113, 113, 0.95)',
-                                        }
-                                  }
-                                >
-                                  <IonIcon
-                                    icon={closeCircleOutline}
-                                    slot="start"
-                                  />
-                                  No ({o.no})
-                                </IonButton>
-                              </div>
                             </div>
                           </div>
-
-                          {/* INLINE EDITOR WHEN EDITING THIS OPTION */}
-                          {isEditingThis && (
-                            <div
-                              style={{
-                                marginTop: 10,
-                                paddingTop: 8,
-                                borderTop: '1px solid rgba(31,41,55,0.9)',
-                                display: 'flex',
-                                flexDirection: 'column',
-                                gap: 8,
-                              }}
-                            >
-                              <IonText color="medium">
-                                <p
-                                  style={{
-                                    margin: 0,
-                                    fontSize: 12,
-                                  }}
-                                >
-                                  Edit date &amp; time for this option
-                                </p>
-                              </IonText>
-
-                              <DateTimePickerMobile
-                                value={editingOptionDate || undefined}
-                                onChange={(iso) => setEditingOptionDate(iso)}
-                              />
-                              <div
-                                style={{
-                                  display: 'flex',
-                                  flexDirection: 'row',
-                                  gap: 8,
-                                }}
-                              >
-                                <IonButton
-                                  size="small"
-                                  expand="block"
-                                  onClick={saveOptionEdit}
-                                  disabled={!editingOptionDate || saving}
-                                  style={{
-                                    '--background': 'rgba(251, 191, 36, 0.95)',
-                                    '--background-activated':
-                                      'rgba(251, 191, 36, 1)',
-                                    '--color': '#451a03',
-                                    borderRadius: 999,
-                                    boxShadow:
-                                      '0 0 18px rgba(251, 191, 36, 0.45)',
-                                  }}
-                                >
-                                  Save
-                                </IonButton>
-                                <IonButton
-                                  size="small"
-                                  expand="block"
-                                  fill="outline"
-                                  color="medium"
-                                  onClick={() => {
-                                    setEditingOptionId(null);
-                                    setEditingOptionDate('');
-                                  }}
-                                  style={{
-                                    borderRadius: 999,
-                                  }}
-                                >
-                                  Cancel
-                                </IonButton>
-                              </div>
-                            </div>
-                          )}
-
-                          {allYes && (
-                            <IonButton
-                              size="small"
-                              expand="block"
-                              style={{
-                                '--background': 'rgba(22,163,74,0.95)',
-                                '--background-activated': 'rgba(22,163,74,1)',
-                                '--color': '#022c22',
-                                marginTop: 10,
-                              }}
-                              onClick={() => convert(o.id)}
-                              disabled={saving || converting === o.id}
-                            >
-                              {converting === o.id
-                                ? 'Converting…'
-                                : 'Convert to Event'}
-                            </IonButton>
-                          )}
                         </div>
-                      </IonItem>
 
-                      {isAdmin && !isEditingThis && (
-                        <IonItemOptions
-                          side="end"
-                          style={{
-                            background: 'transparent',
-                            paddingInline: 4,
-                            paddingBlock: 2,
-                          }}
-                        >
-                          <IonItemOption
+                        <div style={{ display: 'flex', gap: 8 }}>
+                          <button
+                            type="button"
+                            onClick={() => vote(o.id, 'yes')}
+                            disabled={saving}
                             style={{
-                              '--background': 'transparent',
-                              padding: 0,
-                              margin: 0,
-                            }}
-                            onClick={(e) => {
-                              e.stopPropagation();
+                              flex: 1,
+                              padding: '10px 14px',
+                              borderRadius: 10,
+                              border:
+                                o.myVote === 'yes'
+                                  ? '2px solid rgba(251, 191, 36, 0.6)'
+                                  : '1px solid rgba(251, 191, 36, 0.3)',
+                              background:
+                                o.myVote === 'yes'
+                                  ? 'rgba(251, 191, 36, 0.95)'
+                                  : 'rgba(15, 23, 42, 0.8)',
+                              color:
+                                o.myVote === 'yes'
+                                  ? '#000000'
+                                  : 'rgba(251, 191, 36, 0.95)',
+                              fontSize: 13,
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: 6,
+                              transition: 'all 0.2s',
                             }}
                           >
-                            <div
-                              style={{
-                                display: 'flex',
-                                flexDirection: 'row',
-                                gap: 2,
-                                alignItems: 'center',
-                                justifyContent: 'flex-end',
-                              }}
-                            >
-                              {/* EDIT */}
-                              <IonButton
-                                size="small"
-                                fill="outline"
-                                color="light"
-                                onClick={() => {
-                                  startEditOption(o);
-                                  slidingRef?.closeOpened?.();
-                                }}
-                                style={{
-                                  borderRadius: 999,
-                                  paddingInline: 8,
-                                  minHeight: 30,
-                                  '--border-color': 'rgba(148,163,184,0.7)',
-                                  '--color': '#E5E7EB',
-                                  '--background': 'rgba(15,23,42,0.96)',
-                                  '--background-activated': 'rgba(6,10,24,1)',
-                                }}
-                              >
-                                <IonIcon
-                                  icon={createOutline}
-                                  slot="start"
-                                  style={{ fontSize: 16 }}
-                                />
-                                <span
-                                  style={{
-                                    fontSize: 11,
-                                    fontWeight: 600,
-                                    textTransform: 'uppercase',
-                                    letterSpacing: 0.6,
-                                  }}
-                                >
-                                  Edit
-                                </span>
-                              </IonButton>
+                            <IonIcon
+                              icon={checkmarkCircleOutline}
+                              style={{ fontSize: 16 }}
+                            />
+                            Yes ({o.yes})
+                          </button>
 
-                              {/* DELETE */}
-                              <IonButton
-                                size="small"
-                                fill="solid"
-                                color="danger"
-                                onClick={() => {
-                                  slidingRef?.closeOpened?.();
-                                  deleteOption(o.id);
-                                }}
-                                style={{
-                                  borderRadius: 999,
-                                  paddingInline: 8,
-                                  minHeight: 30,
-                                  '--background': 'rgba(127,29,29,0.96)',
-                                  '--background-activated': 'rgba(68,16,16,1)',
-                                  '--color': '#FECACA',
-                                }}
-                              >
-                                <IonIcon
-                                  icon={trashOutline}
-                                  slot="start"
-                                  style={{ fontSize: 16 }}
-                                />
-                                <span
-                                  style={{
-                                    fontSize: 11,
-                                    fontWeight: 700,
-                                    textTransform: 'uppercase',
-                                    letterSpacing: 0.6,
-                                  }}
-                                >
-                                  Delete
-                                </span>
-                              </IonButton>
-                            </div>
-                          </IonItemOption>
-                        </IonItemOptions>
-                      )}
-                    </IonItemSliding>
-                  );
-                })}
-              </div>
-            </>
+                          <button
+                            type="button"
+                            onClick={() => vote(o.id, 'no')}
+                            disabled={saving}
+                            style={{
+                              flex: 1,
+                              padding: '10px 14px',
+                              borderRadius: 10,
+                              border:
+                                o.myVote === 'no'
+                                  ? '2px solid rgba(248, 113, 113, 0.6)'
+                                  : '1px solid rgba(248, 113, 113, 0.3)',
+                              background:
+                                o.myVote === 'no'
+                                  ? 'rgba(248, 113, 113, 0.95)'
+                                  : 'rgba(15, 23, 42, 0.8)',
+                              color:
+                                o.myVote === 'no'
+                                  ? '#000000'
+                                  : 'rgba(248, 113, 113, 0.95)',
+                              fontSize: 13,
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: 6,
+                              transition: 'all 0.2s',
+                            }}
+                          >
+                            <IonIcon
+                              icon={closeCircleOutline}
+                              style={{ fontSize: 16 }}
+                            />
+                            No ({o.no})
+                          </button>
+                        </div>
+
+                        {allYes && (
+                          <button
+                            type="button"
+                            onClick={() => convert(o.id)}
+                            disabled={saving || converting === o.id}
+                            style={{
+                              width: '100%',
+                              marginTop: 12,
+                              padding: '12px 14px',
+                              borderRadius: 10,
+                              border: '1px solid rgba(52, 211, 153, 0.5)',
+                              background: 'rgba(52, 211, 153, 0.95)',
+                              color: '#000000',
+                              fontSize: 14,
+                              fontWeight: 800,
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: 8,
+                            }}
+                          >
+                            {converting === o.id ? (
+                              <IonSpinner
+                                name="crescent"
+                                style={{ width: 16, height: 16 }}
+                              />
+                            ) : (
+                              '✓ Convert to Event'
+                            )}
+                          </button>
+                        )}
+                      </div>
+                    </IonItem>
+
+                    {isAdmin && (
+                      <IonItemOptions
+                        side="end"
+                        style={{
+                          background: 'transparent',
+                          paddingInline: 4,
+                          paddingBlock: 2,
+                        }}
+                      >
+                        <IonItemOption
+                          style={{
+                            '--background': 'transparent',
+                            padding: 0,
+                            margin: 0,
+                          }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                          }}
+                        >
+                          <div
+                            style={{
+                              display: 'flex',
+                              gap: 8,
+                            }}
+                          >
+                            <IonButton
+                              size="small"
+                              fill="solid"
+                              onClick={() => {
+                                startEditOption(o);
+                                slidingRef?.closeOpened?.();
+                              }}
+                              style={
+                                {
+                                  '--background': 'rgba(15, 23, 42, 0.95)',
+                                  '--color': 'rgba(251, 191, 36, 0.95)',
+                                  borderRadius: 10,
+                                } as any
+                              }
+                            >
+                              <IonIcon icon={createOutline} slot="start" />
+                              Edit
+                            </IonButton>
+
+                            <IonButton
+                              size="small"
+                              fill="solid"
+                              onClick={() => {
+                                slidingRef?.closeOpened?.();
+                                deleteOption(o.id);
+                              }}
+                              style={
+                                {
+                                  '--background': 'rgba(127, 29, 29, 0.95)',
+                                  '--color': '#fecaca',
+                                  borderRadius: 10,
+                                } as any
+                              }
+                            >
+                              <IonIcon icon={trashOutline} slot="start" />
+                              Delete
+                            </IonButton>
+                          </div>
+                        </IonItemOption>
+                      </IonItemOptions>
+                    )}
+                  </IonItemSliding>
+                );
+              })}
+            </div>
           )}
 
-          {/* Admin add option (teal create) */}
           {isAdmin && (
             <div style={{ marginTop: 16 }}>
-              {!adding ? (
-                <IonButton
-                  expand="block"
-                  fill="outline"
-                  onClick={() => setAdding(true)}
-                  disabled={saving}
-                  style={{
-                    '--border-color': 'rgba(245,158,11,0.85)',
-                    '--color': 'rgba(245,158,11,0.95)',
-                    '--background-activated': 'rgba(245,158,11,0.85)',
-                    borderRadius: 999,
-                  }}
-                >
-                  <IonIcon icon={addCircleOutline} slot="start" />
-                  Add date option
-                </IonButton>
-              ) : (
-                <div
-                  style={{
-                    borderRadius: 14,
-                    padding: '12px 12px 14px 12px',
-                    marginTop: 4,
-                    border: '1px solid rgba(148,163,184,0.6)',
-                    background:
-                      'linear-gradient(180deg, rgba(15,23,42,0.97), rgba(3,7,18,0.97))',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 8,
-                    overflow: 'hidden',
-                  }}
-                >
-                  <IonText>
-                    <p
-                      style={{
-                        margin: 0,
-                        fontWeight: 600,
-                        color: '#E5E7EB',
-                      }}
-                    >
-                      Add a date option
-                    </p>
-                  </IonText>
-
-                  <DateTimePickerMobile value={newDate} onChange={setNewDate} />
-
-                  <div
-                    style={{
-                      display: 'flex',
-                      flexDirection: 'row',
-                      gap: 8,
-                      marginTop: 4,
-                    }}
-                  >
-                    <IonButton
-                      size="small"
-                      expand="block"
-                      onClick={addOption}
-                      disabled={!newDate || saving}
-                      style={{
-                        '--background': 'rgba(251, 191, 36, 0.95)',
-                        '--background-activated': 'rgba(251, 191, 36, 1)',
-                        '--color': '#451a03',
-                        borderRadius: 999,
-                        boxShadow: '0 0 18px rgba(251, 191, 36, 0.45)',
-                      }}
-                    >
-                      Save
-                    </IonButton>
-
-                    <IonButton
-                      size="small"
-                      expand="block"
-                      fill="outline"
-                      color="medium"
-                      onClick={() => {
-                        setAdding(false);
-                        setNewDate('');
-                      }}
-                      style={{
-                        borderRadius: 999,
-                      }}
-                    >
-                      Cancel
-                    </IonButton>
-                  </div>
-                </div>
-              )}
+              <IonButton
+                expand="block"
+                fill="outline"
+                onClick={() => setShowAddDatePicker(true)}
+                disabled={saving}
+                style={
+                  {
+                    '--border-color': 'rgba(251, 191, 36, 0.5)',
+                    '--color': 'rgba(251, 191, 36, 0.95)',
+                    '--background-activated': 'rgba(251, 191, 36, 0.15)',
+                    borderRadius: 12,
+                  } as any
+                }
+              >
+                <IonIcon icon={addCircleOutline} slot="start" />
+                Add Date Option
+              </IonButton>
             </div>
           )}
         </div>
@@ -1417,87 +1192,56 @@ export default function ProposedGigSheetMobile() {
         >
           <div
             style={{
-              width: '100%',
-              paddingInline: 12,
-              paddingBlock: 6,
+              display: 'flex',
+              alignItems: 'center',
+              padding: '8px 16px',
+              gap: 12,
             }}
           >
-            {/* Top card: back, centered title, proposed pill */}
-            <div
+            <IonButton
+              onClick={() => nav(-1)}
+              fill="clear"
               style={{
-                width: '100%',
-                display: 'flex',
-                alignItems: 'center',
-                padding: '10px 14px',
-                borderRadius: 20,
-                background: 'rgba(14, 15, 16, 0.98)',
-                border: '.5px solid rgba(60, 56, 56, 0.8)',
-                boxShadow: '0 16px 40px rgba(0,0,0,0.55)',
+                minWidth: 0,
+                padding: 6,
               }}
             >
-              <IonButton
-                onClick={() => nav(-1)}
-                fill="clear"
-                style={{
-                  flex: '0 0 auto',
-                  minWidth: 0,
-                  padding: 6,
-                  borderRadius: 999,
-                }}
-              >
-                <IonIcon
-                  icon={chevronBackOutline}
-                  style={{ color: '#F9FAFB', fontSize: 22 }}
-                />
-              </IonButton>
+              <IonIcon
+                icon={chevronBackOutline}
+                style={{ color: '#F9FAFB', fontSize: 24 }}
+              />
+            </IonButton>
 
-              <div
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <span
                 style={{
-                  flex: '1 1 auto',
-                  minWidth: 0,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  pointerEvents: 'none',
-                }}
-              >
-                <span
-                  style={{
-                    fontSize: 18,
-                    fontWeight: 700,
-                    color: '#F9FAFB',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                    maxWidth: '100%',
-                    textAlign: 'center',
-                  }}
-                >
-                  {headerTitle}
-                </span>
-              </div>
-
-              {/* Amber "Proposed" pill */}
-              <div
-                style={{
-                  flex: '0 0 auto',
-                  marginLeft: 10,
-                  padding: '4px 10px',
-                  borderRadius: 999,
-                  border: '1px solid rgba(245, 158, 11, 0.25)',
-                  color: 'rgba(245,158,11,0.97)',
-                  fontSize: 11,
-                  fontWeight: 600,
-                  textTransform: 'uppercase',
-                  letterSpacing: 0.7,
+                  fontSize: 18,
+                  fontWeight: 700,
+                  color: '#F9FAFB',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
                   whiteSpace: 'nowrap',
-                  background:
-                    'radial-gradient(circle at top, rgba(245,158,11,0.18), transparent)',
                 }}
               >
-                Proposed
-              </div>
+                {headerTitle}
+              </span>
+            </div>
+
+            <div
+              style={{
+                padding: '4px 12px',
+                borderRadius: 999,
+                background:
+                  'linear-gradient(135deg, rgba(251, 191, 36, 0.2), rgba(251, 191, 36, 0.1))',
+                border: '1px solid rgba(251, 191, 36, 0.4)',
+                color: 'rgba(251, 191, 36, 0.95)',
+                fontSize: 11,
+                fontWeight: 700,
+                textTransform: 'uppercase',
+                letterSpacing: 0.5,
+              }}
+            >
+              Proposed
             </div>
           </div>
         </IonToolbar>
@@ -1505,17 +1249,42 @@ export default function ProposedGigSheetMobile() {
 
       <IonContent
         fullscreen
-        scrollY={true}
-        forceOverscroll={true}
         style={{
-          '--background':
-            'radial-gradient(circle at top, rgba(76,29,149,0.32), #050509 45%, #020109 100%)',
+          '--background': 'linear-gradient(180deg, #050509 0%, #020109 100%)',
         }}
       >
-        <div style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
-          {renderBody()}
-        </div>
+        {renderBody()}
       </IonContent>
+
+      {/* Add Date Picker */}
+      <EventDateTimePicker
+        open={showAddDatePicker}
+        label="Add Date Option"
+        value={newDate || undefined}
+        onChange={(iso) => {
+          if (iso) {
+            addOption(iso);
+          }
+          setShowAddDatePicker(false);
+        }}
+        onDismiss={() => setShowAddDatePicker(false)}
+      />
+
+      {/* Edit Date Picker */}
+      <EventDateTimePicker
+        open={showEditDatePicker}
+        label="Edit Date Option"
+        value={editingOptionDate || undefined}
+        onChange={(iso) => {
+          saveOptionEdit(iso);
+          setShowEditDatePicker(false);
+        }}
+        onDismiss={() => {
+          setShowEditDatePicker(false);
+          setEditingOptionId(null);
+          setEditingOptionDate(null);
+        }}
+      />
 
       <IonAlert
         isOpen={showConvertAlert}
@@ -1532,199 +1301,21 @@ export default function ProposedGigSheetMobile() {
             nav(-1);
           }
         }}
-        header="Converted!"
-        message="This proposed gig has been converted to an event. Check your Events tab."
+        header="✓ Converted!"
+        message="This proposed gig is now a confirmed event."
         buttons={['OK']}
-        className="custom-dark-alert"
       />
 
-      {/* helper popup explaining voting */}
       <IonModal
-        isOpen={showVotingHelp}
-        onDidDismiss={() => setShowVotingHelp(false)}
-      >
-        <IonContent
-          style={{
-            '--background':
-              'radial-gradient(circle at top,  rgba(34, 15, 42, 0.98), #020617 55%)',
-          }}
-        >
-          <div
-            style={{
-              height: '100%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: 24,
-            }}
-          >
-            <div
-              style={{
-                width: '100%',
-                maxWidth: 360,
-                borderRadius: 18,
-                padding: 18,
-                border: '1px solid rgba(245, 158, 11, 0.75)',
-                boxShadow: '0 18px 60px rgba(0,0,0,0.9)',
-              }}
-            >
-              <IonText>
-                <p
-                  style={{
-                    margin: 0,
-                    fontSize: 17,
-                    fontWeight: 700,
-                    color: '#FBBF24',
-                  }}
-                >
-                  Voting Status &amp; Best Yes
-                </p>
-              </IonText>
-
-              <IonText color="light">
-                <p
-                  style={{
-                    marginTop: 8,
-                    marginBottom: 18,
-                    fontSize: 14,
-                    lineHeight: 1.5,
-                  }}
-                >
-                  The <strong>Voting Status</strong> bar shows how many people
-                  in your band are currently saying <strong>Yes</strong> across
-                  the time options. The percentage is the share of your band
-                  that&apos;s leaning yes, so a higher number means this gig is
-                  closer to being a lock.
-                  <br />
-                  <br />
-                  The option with the most yes votes is your band&apos;s current{' '}
-                  <strong>Best Yes</strong> — the date that works for the most
-                  people at a glance.
-                  <br />
-                  <br />
-                  When every member has said <strong>Yes</strong> to a specific
-                  time, your band admin can convert that option into a confirmed
-                  event in the Events tab.
-                </p>
-              </IonText>
-
-              <IonButton
-                expand="block"
-                onClick={() => setShowVotingHelp(false)}
-                style={{
-                  '--background': 'rgba(15,23,42,0.98)',
-                  '--background-activated': 'rgba(52, 211, 153, 0.95)',
-                  '--border-color': 'rgba(52, 211, 153, 0.95)',
-                  '--color': 'rgba(52, 211, 153, 0.95)',
-                  '--color-activated': '#000000',
-                  borderRadius: 999,
-                }}
-              >
-                Got it
-              </IonButton>
-            </div>
-          </div>
-        </IonContent>
-      </IonModal>
-
-      {/* helper popup explaining time options */}
-      <IonModal
-        isOpen={showTimesHelp}
-        onDidDismiss={() => setShowTimesHelp(false)}
-      >
-        <IonContent
-          style={{
-            '--background':
-              'radial-gradient(circle at top,  rgba(34, 15, 42, 0.98), #020617 55%)',
-          }}
-        >
-          <div
-            style={{
-              height: '100%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: 24,
-            }}
-          >
-            <div
-              style={{
-                width: '100%',
-                maxWidth: 360,
-                borderRadius: 18,
-                padding: 18,
-                border: '1px solid rgba(245, 158, 11, 0.75)',
-                boxShadow: '0 18px 60px rgba(0,0,0,0.9)',
-              }}
-            >
-              <IonText>
-                <p
-                  style={{
-                    margin: 0,
-                    fontSize: 17,
-                    fontWeight: 700,
-                    color: '#FBBF24',
-                  }}
-                >
-                  Time Options &amp; Voting
-                </p>
-              </IonText>
-
-              <IonText color="light">
-                <p
-                  style={{
-                    marginTop: 8,
-                    marginBottom: 18,
-                    fontSize: 14,
-                    lineHeight: 1.5,
-                  }}
-                >
-                  Each row under <strong>Time options</strong> is a possible
-                  date and time for this gig.
-                  <br />
-                  <br />
-                  Tap <strong>Yes</strong> for any dates that work for you, and{' '}
-                  <strong>No</strong> for dates that don&apos;t. You can say{' '}
-                  <strong>Yes</strong> to more than one option if multiple dates
-                  would work for you.
-                  <br />
-                  <br />
-                  As everyone in your band votes, the{' '}
-                  <strong>Voting Status</strong> bar and Best Yes summary help
-                  your admin quickly see which dates are rising to the top
-                  before locking in a final event.
-                </p>
-              </IonText>
-
-              <IonButton
-                expand="block"
-                onClick={() => setShowTimesHelp(false)}
-                style={{
-                  '--background': 'rgba(15,23,42,0.98)',
-                  '--background-activated': 'rgba(45, 212, 191, 0.95)',
-                  '--border-color': 'rgba(45, 212, 191, 0.95)',
-                  '--color': 'rgba(45, 212, 191, 0.95)',
-                  '--color-activated': '#000000',
-                  borderRadius: 999,
-                }}
-              >
-                Got it
-              </IonButton>
-            </div>
-          </div>
-        </IonContent>
-      </IonModal>
-
-      {/* Dark delete popup */}
-      <IonModal
-        style={{
-          '--background':
-            'radial-gradient(circle at top,  rgba(34, 15, 42, 0.98), #020617 55%)',
-        }}
         isOpen={showDeleteConfirm}
         onDidDismiss={() => !deleting && setShowDeleteConfirm(false)}
       >
-        <IonContent>
+        <IonContent
+          style={{
+            '--background':
+              'linear-gradient(135deg, rgba(15, 23, 42, 0.98), rgba(15, 23, 42, 0.95))',
+          }}
+        >
           <div
             style={{
               height: '100%',
@@ -1738,69 +1329,82 @@ export default function ProposedGigSheetMobile() {
               style={{
                 width: '100%',
                 maxWidth: 360,
-                borderRadius: 18,
-                padding: 18,
-                border: '1px solid rgba(248,113,113,0.6)',
-                boxShadow: '0 18px 60px rgba(0,0,0,0.9)',
+                borderRadius: 20,
+                padding: 24,
+                background: 'rgba(15, 23, 42, 0.95)',
+                border: '1px solid rgba(248, 113, 113, 0.4)',
+                boxShadow: '0 20px 50px rgba(0, 0, 0, 0.8)',
               }}
             >
-              <IonText color="danger">
-                <p
-                  style={{
-                    margin: 0,
-                    fontSize: 17,
-                    fontWeight: 700,
-                  }}
-                >
-                  Delete proposed gig?
-                </p>
-              </IonText>
-              <IonText>
-                <p
-                  style={{
-                    marginTop: 8,
-                    marginBottom: 16,
-                    fontSize: 14,
-                    color: '#E5E7EB',
-                  }}
-                >
-                  This will remove the proposal and all its time options. This
-                  can&apos;t be undone.
-                </p>
-              </IonText>
-
-              <div
+              <h3
                 style={{
-                  display: 'flex',
-                  flexDirection: 'row',
-                  gap: 8,
-                  marginTop: 4,
+                  margin: 0,
+                  marginBottom: 12,
+                  fontSize: 20,
+                  fontWeight: 800,
+                  color: 'rgba(248, 113, 113, 0.95)',
                 }}
               >
-                <IonButton
-                  expand="block"
-                  fill="outline"
-                  color="medium"
-                  disabled={deleting}
-                  onClick={() => setShowDeleteConfirm(false)}
-                >
-                  Cancel
-                </IonButton>
-                <IonButton
-                  expand="block"
-                  color="danger"
+                Delete Proposal?
+              </h3>
+              <p
+                style={{
+                  margin: 0,
+                  marginBottom: 20,
+                  fontSize: 15,
+                  color: '#9ca3af',
+                  lineHeight: 1.5,
+                }}
+              >
+                This will remove the proposal and all date options. This action
+                cannot be undone.
+              </p>
+
+              <div
+                style={{ display: 'flex', flexDirection: 'column', gap: 10 }}
+              >
+                <button
+                  type="button"
                   disabled={deleting}
                   onClick={deleteProposal}
+                  style={{
+                    width: '100%',
+                    padding: '14px 16px',
+                    borderRadius: 12,
+                    border: '1px solid rgba(248, 113, 113, 0.5)',
+                    background: 'rgba(248, 113, 113, 0.95)',
+                    color: '#000000',
+                    fontSize: 15,
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
                 >
                   {deleting ? 'Deleting…' : 'Delete'}
-                </IonButton>
+                </button>
+                <button
+                  type="button"
+                  disabled={deleting}
+                  onClick={() => setShowDeleteConfirm(false)}
+                  style={{
+                    width: '100%',
+                    padding: '14px 16px',
+                    borderRadius: 12,
+                    border: '1px solid rgba(148, 163, 184, 0.3)',
+                    background: 'rgba(15, 23, 42, 0.8)',
+                    color: '#9ca3af',
+                    fontSize: 15,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Cancel
+                </button>
               </div>
             </div>
           </div>
         </IonContent>
       </IonModal>
 
-      {/* Edit proposed gig modal */}
       <IonModal
         isOpen={showEditProposal}
         onDidDismiss={() => {
@@ -1810,7 +1414,7 @@ export default function ProposedGigSheetMobile() {
         <IonContent
           style={{
             '--background':
-              'radial-gradient(circle at top,  rgba(34, 15, 42, 0.98), #020617 55%)',
+              'linear-gradient(135deg, rgba(15, 23, 42, 0.98), rgba(15, 23, 42, 0.95))',
           }}
         >
           <div
@@ -1825,84 +1429,81 @@ export default function ProposedGigSheetMobile() {
             <div
               style={{
                 width: '100%',
-                maxWidth: 360,
-                borderRadius: 18,
-                padding: 18,
-                border: '1px solid rgba(245, 158, 11, 0.75)',
-                boxShadow: '0 18px 60px rgba(0,0,0,0.9)',
+                maxWidth: 380,
+                borderRadius: 20,
+                padding: 24,
+                background: 'rgba(15, 23, 42, 0.95)',
+                border: '1px solid rgba(251, 191, 36, 0.4)',
+                boxShadow: '0 20px 50px rgba(0, 0, 0, 0.8)',
               }}
             >
-              <IonText>
-                <p
-                  style={{
-                    margin: 0,
-                    fontSize: 17,
-                    fontWeight: 700,
-                    color: '#FBBF24',
-                  }}
-                >
-                  Edit proposal
-                </p>
-              </IonText>
-
-              <div
+              <h3
                 style={{
-                  marginTop: 14,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 10,
+                  margin: 0,
+                  marginBottom: 20,
+                  fontSize: 20,
+                  fontWeight: 800,
+                  color: 'rgba(251, 191, 36, 0.95)',
                 }}
               >
+                Edit Proposal
+              </h3>
+
+              <div
+                style={{ display: 'flex', flexDirection: 'column', gap: 14 }}
+              >
                 <div>
-                  <IonText color="medium">
-                    <p
-                      style={{
-                        margin: 0,
-                        fontSize: 13,
-                        marginBottom: 4,
-                      }}
-                    >
-                      Title
-                    </p>
-                  </IonText>
+                  <label
+                    style={{
+                      display: 'block',
+                      marginBottom: 6,
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: '#9ca3af',
+                    }}
+                  >
+                    Title
+                  </label>
                   <input
                     value={editTitle}
                     onChange={(e) => setEditTitle(e.target.value)}
-                    placeholder="Proposed gig title"
+                    placeholder="Gig title"
                     style={{
                       width: '100%',
-                      borderRadius: 10,
-                      border: '1px solid rgba(148,163,184,0.8)',
-                      padding: 8,
-                      backgroundColor: '#020617',
-                      color: '#E5E7EB',
+                      borderRadius: 12,
+                      border: '1px solid rgba(251, 191, 36, 0.3)',
+                      padding: 12,
+                      background: 'rgba(15, 23, 42, 0.8)',
+                      color: '#e5e7eb',
+                      fontSize: 14,
                     }}
                   />
                 </div>
 
                 <div>
-                  <IonText color="medium">
-                    <p
-                      style={{
-                        margin: 0,
-                        fontSize: 13,
-                        marginBottom: 4,
-                      }}
-                    >
-                      Location
-                    </p>
-                  </IonText>
+                  <label
+                    style={{
+                      display: 'block',
+                      marginBottom: 6,
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: '#9ca3af',
+                    }}
+                  >
+                    Location
+                  </label>
                   <input
                     value={editVenue}
                     onChange={(e) => setEditVenue(e.target.value)}
-                    placeholder="Venue / location"
+                    placeholder="Venue"
                     style={{
                       width: '100%',
-                      borderRadius: 10,
-                      border: '1px solid rgba(148,163,184,0.8)',
-                      padding: 8,
-                      backgroundColor: '#020617',
-                      color: '#E5E7EB',
+                      borderRadius: 12,
+                      border: '1px solid rgba(251, 191, 36, 0.3)',
+                      padding: 12,
+                      background: 'rgba(15, 23, 42, 0.8)',
+                      color: '#e5e7eb',
+                      fontSize: 14,
                     }}
                   />
                 </div>
@@ -1911,35 +1512,47 @@ export default function ProposedGigSheetMobile() {
               <div
                 style={{
                   display: 'flex',
-                  flexDirection: 'row',
-                  gap: 8,
-                  marginTop: 18,
+                  flexDirection: 'column',
+                  gap: 10,
+                  marginTop: 20,
                 }}
               >
-                <IonButton
-                  expand="block"
-                  fill="outline"
-                  color="medium"
-                  disabled={savingProposal}
-                  onClick={() => setShowEditProposal(false)}
-                >
-                  Cancel
-                </IonButton>
-                <IonButton
-                  expand="block"
+                <button
+                  type="button"
                   disabled={savingProposal}
                   onClick={saveProposalEdits}
                   style={{
-                    '--background': 'rgba(15,23,42,0.98)',
-                    '--background-activated': 'rgba(45,212,191,0.95)',
-                    '--border-color': 'rgba(45,212,191,0.8)',
-                    '--color': 'rgba(45,212,191,0.95)',
-                    '--color-activated': '#000000',
-                    borderRadius: 999,
+                    width: '100%',
+                    padding: '14px 16px',
+                    borderRadius: 12,
+                    border: '1px solid rgba(251, 191, 36, 0.5)',
+                    background: 'rgba(251, 191, 36, 0.95)',
+                    color: '#000000',
+                    fontSize: 15,
+                    fontWeight: 700,
+                    cursor: 'pointer',
                   }}
                 >
-                  {savingProposal ? 'Saving…' : 'Save changes'}
-                </IonButton>
+                  {savingProposal ? 'Saving…' : 'Save Changes'}
+                </button>
+                <button
+                  type="button"
+                  disabled={savingProposal}
+                  onClick={() => setShowEditProposal(false)}
+                  style={{
+                    width: '100%',
+                    padding: '14px 16px',
+                    borderRadius: 12,
+                    border: '1px solid rgba(148, 163, 184, 0.3)',
+                    background: 'rgba(15, 23, 42, 0.8)',
+                    color: '#9ca3af',
+                    fontSize: 15,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Cancel
+                </button>
               </div>
             </div>
           </div>

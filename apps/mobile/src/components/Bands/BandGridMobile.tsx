@@ -28,6 +28,11 @@ export default function BandGridMobile({
   const pressStartRef = useRef<{ x: number; y: number } | null>(null);
   const wasLongPressRef = useRef(false);
 
+  // Switch to 3 columns when 5+ bands, otherwise 2 columns
+  const columns = bands.length >= 5 ? 3 : 2;
+  // Smaller avatars when in 3-column mode
+  const effectiveAvatarSize = bands.length >= 5 ? 64 : avatarSize;
+
   const triggerLongPressHaptic = useCallback(() => {
     if (Capacitor.getPlatform() === 'web') return;
     Haptics.impact({ style: ImpactStyle.Light }).catch(() => {});
@@ -104,7 +109,7 @@ export default function BandGridMobile({
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+          gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
           gap: gapPx,
           alignItems: 'stretch',
         }}
@@ -137,7 +142,7 @@ export default function BandGridMobile({
                 avatar_url={b.avatar_url ?? null}
                 avatarUpdatedAt={b.updated_at ?? null}
                 selected={selectedId === b.id}
-                size={avatarSize}
+                size={effectiveAvatarSize}
                 onClick={() => handleTileClick(b)}
               />
             </div>

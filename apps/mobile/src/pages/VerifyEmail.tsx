@@ -56,8 +56,6 @@ export default function VerifyEmail() {
     }
     setVerifying(true);
     try {
-      // Supabase email OTP
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { data, error } = await supabase.auth.verifyOtp({
         email,
         token,

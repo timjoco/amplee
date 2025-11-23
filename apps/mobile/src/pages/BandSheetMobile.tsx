@@ -20,7 +20,8 @@ import {
   peopleOutline,
 } from 'ionicons/icons';
 import * as React from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import BandLibraryTab from '../components/Bands/BandLibraryTab';
 import BandOverviewMobile from '../components/Bands/BandOverviewMobile';
 import BandProposalsTabMobile from '../components/Bands/BandProposalsTabMobile';
 import BandSettingsSheetMobile from '../components/Bands/BandSheetModal';
@@ -35,11 +36,9 @@ type TabKey = 'overview' | 'events' | 'proposals' | 'roster' | 'library';
 export default function BandSheetMobile() {
   const params = useParams<{ bandId?: string; id?: string }>();
   const navigate = useNavigate();
-
+  const location = useLocation();
   const AVATAR_SIZE = 70;
-
   const bandId = params.bandId ?? params.id ?? null;
-
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [bandName, setBandName] = React.useState<string>('Band');
@@ -49,9 +48,7 @@ export default function BandSheetMobile() {
   >(null);
   const [myRole, setMyRole] = React.useState<MembershipRole>('member');
   const [tab, setTab] = React.useState<TabKey>('overview');
-
   const [showBandSettings, setShowBandSettings] = React.useState(false);
-
   const isAdmin = myRole === 'admin';
 
   const iconColor = (key: TabKey) =>
@@ -62,6 +59,15 @@ export default function BandSheetMobile() {
       navigate('/home', { replace: true });
     }
   }, [bandId, navigate]);
+
+  React.useEffect(() => {
+    const search = new URLSearchParams(location.search);
+    const tabParam = search.get('tab') as TabKey | null;
+
+    if (tabParam && tabParam !== tab) {
+      setTab(tabParam);
+    }
+  }, [location.search, tab]);
 
   React.useEffect(() => {
     if (!bandId) return;
@@ -424,16 +430,12 @@ export default function BandSheetMobile() {
 
             {tab === 'events' && (
               <div style={{ padding: '8px 16px 0' }}>
-                {tab === 'events' && (
-                  <div style={{ padding: '8px 16px 0' }}>
-                    <EventsInboxListMobile
-                      bandId={bandId}
-                      showAvatars
-                      enableCreateForBand
-                      isAdmin={isAdmin}
-                    />
-                  </div>
-                )}
+                <EventsInboxListMobile
+                  bandId={bandId}
+                  showAvatars
+                  enableCreateForBand
+                  isAdmin={isAdmin}
+                />
               </div>
             )}
 
@@ -451,13 +453,7 @@ export default function BandSheetMobile() {
               </div>
             )}
 
-            {tab === 'library' && (
-              <div style={{ padding: 16 }}>
-                <IonText color="medium">
-                  <p>Library coming soon.</p>
-                </IonText>
-              </div>
-            )}
+            {tab === 'library' && <BandLibraryTab bandId={bandId} />}
           </>
         )}
       </IonContent>
