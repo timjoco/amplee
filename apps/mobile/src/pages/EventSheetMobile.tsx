@@ -5,26 +5,28 @@ import {
   IonHeader,
   IonIcon,
   IonPage,
-  IonSegment,
-  IonSegmentButton,
   IonText,
   IonToolbar,
 } from '@ionic/react';
 import {
+  calendarOutline,
   chatbubblesOutline,
+  checkmarkCircle,
   chevronBackOutline,
   chevronForwardOutline,
+  closeCircle,
   documentTextOutline,
+  flashOutline,
   folderOpenOutline,
+  helpCircle,
+  locationOutline,
   musicalNotesOutline,
   peopleOutline,
+  timeOutline,
 } from 'ionicons/icons';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import ChatTabMobile from '../components/Events/ChatTabMobile';
-import EventSetlistTabMobile from '../components/Events/EventSetlistTabMobile';
 import EventSheetModal from '../components/Events/EventSheetModal';
-import RSVPTabMobile from '../components/Events/RSVPTabMobile';
 import { supabase } from '../lib/supabase';
 import { exportEventToCalendar } from '../utils/exportEventToCalendar';
 
@@ -44,18 +46,32 @@ type EventRow = {
   setlist_template_id?: string | null;
 };
 
-type TabKey = 'chat' | 'roll call' | 'setlist' | 'notes' | 'files';
+type AttendanceStats = {
+  going: number;
+  maybe: number;
+  not_going: number;
+  no_response: number;
+  total: number;
+};
 
 export default function EventSheetMobile() {
   const nav = useNavigate();
   const location = useLocation();
   const [event, setEvent] = useState<EventRow | null>(null);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<TabKey>('chat');
   const [isAdmin, setIsAdmin] = useState(false);
   const [showInfoSheet, setShowInfoSheet] = useState(false);
   const [, setMyUserId] = useState<string | null>(null);
   const [savingPublic, setSavingPublic] = useState(false);
+  const [attendanceStats, setAttendanceStats] = useState<AttendanceStats>({
+    going: 0,
+    maybe: 0,
+    not_going: 0,
+    no_response: 0,
+    total: 0,
+  });
+  const [unreadMessages, setUnreadMessages] = useState(0);
+  const [setlistCount, setSetlistCount] = useState(0);
 
   const pageRef = useRef<HTMLElement | null>(null);
   const cameFromSettings = (location.state as any)?.fromSettings;
@@ -78,6 +94,22 @@ export default function EventSheetMobile() {
     } catch {
       return event.starts_at;
     }
+  }, [event]);
+
+  const timeUntilEvent = useMemo(() => {
+    if (!event?.starts_at) return null;
+    const now = new Date();
+    const eventDate = new Date(event.starts_at);
+    const diff = eventDate.getTime() - now.getTime();
+
+    if (diff < 0) return 'Event passed';
+
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+
+    if (days > 0) return `${days}d ${hours}h`;
+    if (hours > 0) return `${hours}h`;
+    return 'Soon!';
   }, [event]);
 
   const handleExportGoogle = useCallback(async () => {
@@ -107,6 +139,7 @@ export default function EventSheetMobile() {
         bg: 'rgba(127, 29, 29, 0.2)',
         border: 'rgba(248, 113, 113, 0.4)',
         color: '#fca5a5',
+        icon: closeCircle,
       };
     }
     if (event.is_booked) {
@@ -115,6 +148,7 @@ export default function EventSheetMobile() {
         bg: 'rgba(52, 211, 153, 0.15)',
         border: 'rgba(52, 211, 153, 0.4)',
         color: '#6ee7b7',
+        icon: checkmarkCircle,
       };
     }
     return {
@@ -122,11 +156,9 @@ export default function EventSheetMobile() {
       bg: 'rgba(251, 191, 36, 0.15)',
       border: 'rgba(251, 191, 36, 0.4)',
       color: '#fde68a',
+      icon: helpCircle,
     };
   }, [event]);
-
-  const eventIconColor = (key: TabKey) =>
-    tab === key ? EVENT_TAB_META[key].accent : 'rgba(148,163,184,0.9)';
 
   const handleTogglePublic = async () => {
     if (!event || !isAdmin || savingPublic) return;
@@ -159,6 +191,7 @@ export default function EventSheetMobile() {
     }
   };
 
+  // Fetch event data
   useEffect(() => {
     let alive = true;
     if (!eventId) return;
@@ -200,6 +233,44 @@ export default function EventSheetMobile() {
     };
   }, [eventId]);
 
+  // Fetch attendance stats
+  useEffect(() => {
+    if (!eventId) return;
+
+    (async () => {
+      const { data } = await supabase
+        .from('event_attendance')
+        .select('status')
+        .eq('event_id', eventId);
+
+      if (data) {
+        const stats = {
+          going: data.filter((a) => a.status === 'going').length,
+          maybe: data.filter((a) => a.status === 'maybe').length,
+          not_going: data.filter((a) => a.status === 'not_going').length,
+          no_response: data.filter((a) => a.status === 'no_response').length,
+          total: data.length,
+        };
+        setAttendanceStats(stats);
+      }
+    })();
+  }, [eventId]);
+
+  // Fetch setlist count
+  useEffect(() => {
+    if (!eventId) return;
+
+    (async () => {
+      const { data } = await supabase
+        .from('event_setlist_songs')
+        .select('id', { count: 'exact', head: true })
+        .eq('event_id', eventId);
+
+      setSetlistCount(data?.length || 0);
+    })();
+  }, [eventId]);
+
+  // Real-time updates
   useEffect(() => {
     if (!eventId) return;
 
@@ -233,6 +304,26 @@ export default function EventSheetMobile() {
                 : null
             );
           }
+
+          // Refresh attendance stats
+          const { data: attendanceData } = await supabase
+            .from('event_attendance')
+            .select('status')
+            .eq('event_id', eventId);
+
+          if (attendanceData) {
+            const stats = {
+              going: attendanceData.filter((a) => a.status === 'going').length,
+              maybe: attendanceData.filter((a) => a.status === 'maybe').length,
+              not_going: attendanceData.filter((a) => a.status === 'not_going')
+                .length,
+              no_response: attendanceData.filter(
+                (a) => a.status === 'no_response'
+              ).length,
+              total: attendanceData.length,
+            };
+            setAttendanceStats(stats);
+          }
         }
       )
       .subscribe();
@@ -242,6 +333,7 @@ export default function EventSheetMobile() {
     };
   }, [eventId]);
 
+  // Check admin status
   useEffect(() => {
     let alive = true;
 
@@ -275,10 +367,14 @@ export default function EventSheetMobile() {
     };
   }, [bandId]);
 
+  const attendancePercentage = useMemo(() => {
+    if (attendanceStats.total === 0) return 0;
+    return Math.round((attendanceStats.going / attendanceStats.total) * 100);
+  }, [attendanceStats]);
+
   return (
     <IonPage ref={pageRef as any}>
       <IonHeader translucent>
-        {/* HEADER TOOLBAR */}
         <IonToolbar
           style={{
             '--background': 'rgba(8,8,12,0.98)',
@@ -289,7 +385,7 @@ export default function EventSheetMobile() {
             style={{
               display: 'flex',
               alignItems: 'center',
-              padding: '8px 16px',
+              padding: '12px 16px',
               gap: 12,
             }}
           >
@@ -322,7 +418,7 @@ export default function EventSheetMobile() {
                 cursor: 'pointer',
               }}
             >
-              <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
                 <div
                   style={{
                     display: 'flex',
@@ -332,12 +428,14 @@ export default function EventSheetMobile() {
                 >
                   <span
                     style={{
-                      fontSize: 18,
-                      fontWeight: 700,
+                      fontSize: 24,
+                      fontWeight: 800,
                       color: '#F9FAFB',
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
                       whiteSpace: 'nowrap',
+                      letterSpacing: '-0.5px',
+                      lineHeight: 1,
                     }}
                   >
                     {event?.title ?? (loading ? 'Loading…' : 'Event')}
@@ -345,215 +443,14 @@ export default function EventSheetMobile() {
                   <IonIcon
                     icon={chevronForwardOutline}
                     style={{
-                      fontSize: 14,
+                      fontSize: 16,
                       color: '#9ca3af',
                       flexShrink: 0,
                     }}
                   />
                 </div>
-
-                {event && (
-                  <div
-                    style={{
-                      fontSize: 13,
-                      color: '#9ca3af',
-                      marginTop: 2,
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                      textAlign: 'left',
-                    }}
-                  >
-                    {(() => {
-                      const rawLoc = event.location?.trim() || 'Venue TBD';
-                      const maxLocLen = 15;
-                      const loc =
-                        rawLoc.length > maxLocLen
-                          ? rawLoc.slice(0, maxLocLen - 1).trimEnd() + '…'
-                          : rawLoc;
-
-                      if (event.starts_at) {
-                        const d = new Date(event.starts_at);
-                        const date = d.toLocaleDateString('en-US', {
-                          month: 'short',
-                          day: 'numeric',
-                        });
-                        const time = d.toLocaleTimeString('en-US', {
-                          hour: 'numeric',
-                          minute: '2-digit',
-                        });
-                        return `${date} • ${time} • ${loc}`;
-                      }
-
-                      return `Date TBD • ${loc}`;
-                    })()}
-                  </div>
-                )}
               </div>
             </button>
-
-            {event && status && (
-              <div
-                style={{
-                  padding: '4px 12px',
-                  borderRadius: 999,
-                  background: status.bg,
-                  border: `1px solid ${status.border}`,
-                  color: status.color,
-                  fontSize: 11,
-                  fontWeight: 700,
-                  textTransform: 'uppercase',
-                  letterSpacing: 0.5,
-                  flexShrink: 0,
-                }}
-              >
-                {status.label}
-              </div>
-            )}
-          </div>
-        </IonToolbar>
-
-        {/* TABS TOOLBAR */}
-        <IonToolbar
-          style={{
-            '--background': 'rgba(8,8,12,0.98)',
-            borderBottom: '0.5px solid rgba(255,255,255,0.06)',
-          }}
-        >
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(5, 1fr)',
-              gridAutoRows: 'auto',
-              rowGap: 0,
-              padding: '0 8px',
-              maxWidth: 480,
-              margin: '0 auto',
-            }}
-          >
-            {/* Row 1: icon row */}
-            <div style={{ gridColumn: '1 / -1' }}>
-              <IonSegment
-                value={tab}
-                onIonChange={(e) => setTab(e.detail.value as TabKey)}
-                className="event-tabs"
-              >
-                <IonSegmentButton
-                  value="chat"
-                  style={{
-                    '--padding-start': '0px',
-                    '--padding-end': '0px',
-                  }}
-                >
-                  <IonIcon
-                    icon={chatbubblesOutline}
-                    style={{
-                      fontSize: 'clamp(18px, 4vw, 22px)',
-                      color: eventIconColor('chat'),
-                    }}
-                  />
-                </IonSegmentButton>
-
-                <IonSegmentButton
-                  value="roll call"
-                  style={{
-                    '--padding-start': '0px',
-                    '--padding-end': '0px',
-                  }}
-                >
-                  <IonIcon
-                    icon={peopleOutline}
-                    style={{
-                      fontSize: 'clamp(18px, 4vw, 22px)',
-                      color: eventIconColor('roll call'),
-                    }}
-                  />
-                </IonSegmentButton>
-
-                <IonSegmentButton
-                  value="setlist"
-                  style={{
-                    '--padding-start': '0px',
-                    '--padding-end': '0px',
-                  }}
-                >
-                  <IonIcon
-                    icon={musicalNotesOutline}
-                    style={{
-                      fontSize: 'clamp(18px, 4vw, 22px)',
-                      color: eventIconColor('setlist'),
-                    }}
-                  />
-                </IonSegmentButton>
-
-                <IonSegmentButton
-                  value="notes"
-                  style={{
-                    '--padding-start': '0px',
-                    '--padding-end': '0px',
-                  }}
-                >
-                  <IonIcon
-                    icon={documentTextOutline}
-                    style={{
-                      fontSize: 'clamp(18px, 4vw, 22px)',
-                      color: eventIconColor('notes'),
-                    }}
-                  />
-                </IonSegmentButton>
-
-                <IonSegmentButton
-                  value="files"
-                  style={{
-                    '--padding-start': '0px',
-                    '--padding-end': '0px',
-                  }}
-                >
-                  <IonIcon
-                    icon={folderOpenOutline}
-                    style={{
-                      fontSize: 'clamp(18px, 4vw, 22px)',
-                      color: eventIconColor('files'),
-                    }}
-                  />
-                </IonSegmentButton>
-              </IonSegment>
-            </div>
-
-            {/* Row 2: labels centered under each tab */}
-            <div
-              style={{
-                gridColumn: '1 / -1',
-                display: 'grid',
-                gridTemplateColumns: 'repeat(5, 1fr)',
-                paddingTop: 2,
-                paddingBottom: 4,
-              }}
-            >
-              {(
-                ['chat', 'roll call', 'setlist', 'notes', 'files'] as TabKey[]
-              ).map((key) => (
-                <div key={key} style={{ textAlign: 'center' }}>
-                  <IonText>
-                    <p
-                      style={{
-                        margin: 0,
-                        fontWeight: 700,
-                        fontSize: 'clamp(11px, 3vw, 13px)',
-                        letterSpacing: 0.4,
-                        textTransform: 'uppercase',
-                        color:
-                          tab === key
-                            ? EVENT_TAB_META[key].accent
-                            : 'transparent',
-                      }}
-                    >
-                      {EVENT_TAB_META[key].label}
-                    </p>
-                  </IonText>
-                </div>
-              ))}
-            </div>
           </div>
         </IonToolbar>
       </IonHeader>
@@ -578,10 +475,9 @@ export default function EventSheetMobile() {
         }}
       />
 
-      {/* MAIN BODY */}
       <IonContent
         fullscreen
-        scrollY={tab !== 'chat'}
+        scrollY={true}
         style={{
           '--background': 'linear-gradient(180deg, #050509 0%, #020109 100%)',
         }}
@@ -615,75 +511,541 @@ export default function EventSheetMobile() {
         )}
 
         {!loading && event && (
-          <>
-            {tab === 'chat' && (
-              <ChatTabMobile eventId={event.id} isAdmin={isAdmin} />
-            )}
-
-            {tab !== 'chat' && (
+          <div
+            style={{
+              padding: '16px',
+              maxWidth: '600px',
+              margin: '0 auto',
+            }}
+          >
+            {/* HERO STATUS CARD */}
+            <div
+              style={{
+                background: 'rgba(255,255,255,0.02)',
+                border: `1px solid ${status?.border}`,
+                borderRadius: '20px',
+                padding: '20px',
+                marginBottom: '16px',
+                position: 'relative',
+                overflow: 'hidden',
+              }}
+            >
+              {/* Glow effect */}
               <div
                 style={{
-                  minHeight: '100%',
+                  position: 'absolute',
+                  top: -100,
+                  right: -100,
+                  width: 200,
+                  height: 200,
+                  background: `radial-gradient(circle, ${status?.color}30 0%, transparent 70%)`,
+                  pointerEvents: 'none',
+                }}
+              />
+
+              <div
+                style={{
                   display: 'flex',
-                  flexDirection: 'column',
-                  overflowY: 'auto',
-                  WebkitOverflowScrolling: 'touch',
+                  alignItems: 'flex-start',
+                  justifyContent: 'space-between',
+                  marginBottom: '16px',
                 }}
               >
-                {tab === 'roll call' && (
-                  <RSVPTabMobile
-                    eventId={event.id}
-                    onLocalBookedChange={(isBooked) => {
-                      setEvent((prev) =>
-                        prev ? { ...prev, is_booked: isBooked } : prev
-                      );
+                <div style={{ flex: 1 }}>
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      marginBottom: '4px',
                     }}
-                  />
-                )}
+                  >
+                    <IonIcon
+                      icon={status?.icon}
+                      style={{
+                        fontSize: 20,
+                        color: status?.color,
+                      }}
+                    />
+                    <span
+                      style={{
+                        fontSize: 14,
+                        fontWeight: 700,
+                        color: status?.color,
+                        textTransform: 'uppercase',
+                        letterSpacing: 0.5,
+                      }}
+                    >
+                      {status?.label}
+                    </span>
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 13,
+                      color: '#9ca3af',
+                    }}
+                  >
+                    {event.type === 'practice' ? 'Practice Session' : 'Show'}
+                  </div>
+                </div>
 
-                {tab === 'setlist' && (
-                  <EventSetlistTabMobile
-                    eventId={event.id}
-                    bandId={event.band_id}
-                    isAdmin={isAdmin}
-                  />
+                {timeUntilEvent && (
+                  <div
+                    style={{
+                      padding: '8px 16px',
+                      borderRadius: '12px',
+                      background: 'rgba(52, 211, 153, 0.1)',
+                      border: '1px solid rgba(52, 211, 153, 0.3)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                    }}
+                  >
+                    <IonIcon
+                      icon={timeOutline}
+                      style={{ fontSize: 16, color: '#34d399' }}
+                    />
+                    <span
+                      style={{
+                        fontSize: 13,
+                        fontWeight: 600,
+                        color: '#34d399',
+                      }}
+                    >
+                      {timeUntilEvent}
+                    </span>
+                  </div>
                 )}
               </div>
-            )}
-          </>
+
+              {/* Event details */}
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '8px',
+                }}
+              >
+                {event.starts_at && (
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                    }}
+                  >
+                    <IonIcon
+                      icon={calendarOutline}
+                      style={{ fontSize: 18, color: '#9ca3af' }}
+                    />
+                    <span style={{ fontSize: 14, color: '#e5e7eb' }}>
+                      {new Date(event.starts_at).toLocaleDateString('en-US', {
+                        weekday: 'long',
+                        month: 'long',
+                        day: 'numeric',
+                        year: 'numeric',
+                      })}
+                      {' • '}
+                      {new Date(event.starts_at).toLocaleTimeString('en-US', {
+                        hour: 'numeric',
+                        minute: '2-digit',
+                      })}
+                    </span>
+                  </div>
+                )}
+
+                {event.location && (
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                    }}
+                  >
+                    <IonIcon
+                      icon={locationOutline}
+                      style={{ fontSize: 18, color: '#9ca3af' }}
+                    />
+                    <span style={{ fontSize: 14, color: '#e5e7eb' }}>
+                      {event.location}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* QUICK STATS ROW */}
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(2, 1fr)',
+                gap: '12px',
+                marginBottom: '16px',
+              }}
+            >
+              {/* Attendance Card */}
+              <div
+                style={{
+                  background: 'rgba(52, 211, 153, 0.05)',
+                  border: '1px solid rgba(52, 211, 153, 0.15)',
+                  borderRadius: '16px',
+                  padding: '16px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                }}
+                onClick={() =>
+                  nav(`/bands/${event.band_id}/events/${event.id}/rollcall`)
+                }
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'rgba(52, 211, 153, 0.08)';
+                  e.currentTarget.style.borderColor = 'rgba(52, 211, 153, 0.3)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'rgba(52, 211, 153, 0.05)';
+                  e.currentTarget.style.borderColor =
+                    'rgba(52, 211, 153, 0.15)';
+                }}
+              >
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    marginBottom: '12px',
+                  }}
+                >
+                  <IonIcon
+                    icon={peopleOutline}
+                    style={{ fontSize: 20, color: '#34d399' }}
+                  />
+                  <span
+                    style={{
+                      fontSize: 11,
+                      color: '#9ca3af',
+                      textTransform: 'uppercase',
+                      letterSpacing: 0.5,
+                      fontWeight: 700,
+                    }}
+                  >
+                    Roll Call
+                  </span>
+                </div>
+                <div
+                  style={{
+                    fontSize: 28,
+                    fontWeight: 700,
+                    color: '#34d399',
+                    lineHeight: 1,
+                    marginBottom: '4px',
+                  }}
+                >
+                  {attendancePercentage}%
+                </div>
+                <div style={{ fontSize: 12, color: '#9ca3af' }}>
+                  {attendanceStats.going} of {attendanceStats.total} going
+                </div>
+              </div>
+
+              {/* Setlist Card */}
+              <div
+                style={{
+                  background: 'rgba(244, 114, 182, 0.05)',
+                  border: '1px solid rgba(244, 114, 182, 0.15)',
+                  borderRadius: '16px',
+                  padding: '16px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                }}
+                onClick={() =>
+                  nav(`/bands/${event.band_id}/events/${event.id}/setlist`)
+                }
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background =
+                    'rgba(244, 114, 182, 0.08)';
+                  e.currentTarget.style.borderColor =
+                    'rgba(244, 114, 182, 0.3)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background =
+                    'rgba(244, 114, 182, 0.05)';
+                  e.currentTarget.style.borderColor =
+                    'rgba(244, 114, 182, 0.15)';
+                }}
+              >
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    marginBottom: '12px',
+                  }}
+                >
+                  <IonIcon
+                    icon={musicalNotesOutline}
+                    style={{ fontSize: 20, color: '#f472b6' }}
+                  />
+                  <span
+                    style={{
+                      fontSize: 11,
+                      color: '#9ca3af',
+                      textTransform: 'uppercase',
+                      letterSpacing: 0.5,
+                      fontWeight: 700,
+                    }}
+                  >
+                    Setlist
+                  </span>
+                </div>
+                <div
+                  style={{
+                    fontSize: 28,
+                    fontWeight: 700,
+                    color: '#f472b6',
+                    lineHeight: 1,
+                    marginBottom: '4px',
+                  }}
+                >
+                  {setlistCount}
+                </div>
+                <div style={{ fontSize: 12, color: '#9ca3af' }}>
+                  {setlistCount === 1 ? 'song' : 'songs'} planned
+                </div>
+              </div>
+            </div>
+
+            {/* MAIN NAVIGATION SECTION */}
+            <div
+              style={{
+                background: 'rgba(255,255,255,0.02)',
+                border: '1px solid rgba(255,255,255,0.06)',
+                borderRadius: '20px',
+                padding: '8px',
+                marginBottom: '16px',
+              }}
+            >
+              {/* Chat - Featured */}
+              <button
+                type="button"
+                onClick={() =>
+                  nav(`/bands/${event.band_id}/events/${event.id}/chat`)
+                }
+                style={{
+                  width: '100%',
+                  background:
+                    'linear-gradient(135deg, rgba(52, 211, 153, 0.15) 0%, rgba(52, 211, 153, 0.05) 100%)',
+                  border: '1px solid rgba(52, 211, 153, 0.3)',
+                  borderRadius: '16px',
+                  padding: '20px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '16px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  textAlign: 'left',
+                  marginBottom: '8px',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'translateX(4px)';
+                  e.currentTarget.style.background =
+                    'linear-gradient(135deg, rgba(52, 211, 153, 0.2) 0%, rgba(52, 211, 153, 0.08) 100%)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'translateX(0)';
+                  e.currentTarget.style.background =
+                    'linear-gradient(135deg, rgba(52, 211, 153, 0.15) 0%, rgba(52, 211, 153, 0.05) 100%)';
+                }}
+              >
+                <div
+                  style={{
+                    width: '52px',
+                    height: '52px',
+                    borderRadius: '14px',
+                    background: 'rgba(52, 211, 153, 0.2)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                    position: 'relative',
+                  }}
+                >
+                  <IonIcon
+                    icon={chatbubblesOutline}
+                    style={{ fontSize: 26, color: '#34d399' }}
+                  />
+                  {unreadMessages > 0 && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        top: -4,
+                        right: -4,
+                        background: '#ef4444',
+                        color: '#fff',
+                        borderRadius: '12px',
+                        padding: '2px 6px',
+                        fontSize: 10,
+                        fontWeight: 700,
+                        minWidth: '20px',
+                        textAlign: 'center',
+                      }}
+                    >
+                      {unreadMessages > 99 ? '99+' : unreadMessages}
+                    </div>
+                  )}
+                </div>
+
+                <div style={{ flex: 1 }}>
+                  <div
+                    style={{
+                      fontSize: 18,
+                      fontWeight: 700,
+                      color: '#F9FAFB',
+                      marginBottom: '4px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                    }}
+                  >
+                    Chat
+                    <IonIcon
+                      icon={flashOutline}
+                      style={{ fontSize: 16, color: '#34d399' }}
+                    />
+                  </div>
+                  <div style={{ fontSize: 13, color: '#9ca3af' }}>
+                    Message your bandmates
+                  </div>
+                </div>
+
+                <IonIcon
+                  icon={chevronForwardOutline}
+                  style={{ fontSize: 20, color: '#9ca3af' }}
+                />
+              </button>
+
+              {/* Other sections - Compact */}
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(2, 1fr)',
+                  gap: '8px',
+                }}
+              >
+                {/* Notes */}
+                <button
+                  type="button"
+                  onClick={() =>
+                    nav(`/bands/${event.band_id}/events/${event.id}/notes`)
+                  }
+                  style={{
+                    background: 'rgba(255,255,255,0.02)',
+                    border: '1px solid rgba(255,255,255,0.06)',
+                    borderRadius: '12px',
+                    padding: '16px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '8px',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
+                    e.currentTarget.style.borderColor =
+                      'rgba(52, 211, 153, 0.3)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'rgba(255,255,255,0.02)';
+                    e.currentTarget.style.borderColor =
+                      'rgba(255,255,255,0.06)';
+                  }}
+                >
+                  <div
+                    style={{
+                      width: '40px',
+                      height: '40px',
+                      borderRadius: '10px',
+                      background: 'rgba(52, 211, 153, 0.1)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <IonIcon
+                      icon={documentTextOutline}
+                      style={{ fontSize: 20, color: '#34d399' }}
+                    />
+                  </div>
+                  <span
+                    style={{
+                      fontSize: 14,
+                      fontWeight: 600,
+                      color: '#e5e7eb',
+                    }}
+                  >
+                    Notes
+                  </span>
+                </button>
+
+                {/* Files */}
+                <button
+                  type="button"
+                  onClick={() =>
+                    nav(`/bands/${event.band_id}/events/${event.id}/files`)
+                  }
+                  style={{
+                    background: 'rgba(255,255,255,0.02)',
+                    border: '1px solid rgba(255,255,255,0.06)',
+                    borderRadius: '12px',
+                    padding: '16px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '8px',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
+                    e.currentTarget.style.borderColor =
+                      'rgba(52, 211, 153, 0.3)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'rgba(255,255,255,0.02)';
+                    e.currentTarget.style.borderColor =
+                      'rgba(255,255,255,0.06)';
+                  }}
+                >
+                  <div
+                    style={{
+                      width: '40px',
+                      height: '40px',
+                      borderRadius: '10px',
+                      background: 'rgba(52, 211, 153, 0.1)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <IonIcon
+                      icon={folderOpenOutline}
+                      style={{ fontSize: 20, color: '#34d399' }}
+                    />
+                  </div>
+                  <span
+                    style={{
+                      fontSize: 14,
+                      fontWeight: 600,
+                      color: '#e5e7eb',
+                    }}
+                  >
+                    Files
+                  </span>
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </IonContent>
     </IonPage>
   );
 }
-
-const EVENT_TAB_META: Record<
-  TabKey,
-  { label: string; accent: string; col: number }
-> = {
-  chat: {
-    label: 'chat',
-    accent: 'rgba(52, 211, 153, 0.95)',
-    col: 1,
-  },
-  'roll call': {
-    label: 'Roll Call',
-    accent: 'rgba(52, 211, 153, 0.95)',
-    col: 2,
-  },
-  setlist: {
-    label: 'Setlist',
-    accent: 'rgba(244, 114, 182, 0.95)',
-    col: 3,
-  },
-  notes: {
-    label: 'Notes',
-    accent: 'rgba(52, 211, 153, 0.95)',
-    col: 4,
-  },
-  files: {
-    label: 'Files',
-    accent: 'rgba(52, 211, 153, 0.95)',
-    col: 5,
-  },
-};

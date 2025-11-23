@@ -320,11 +320,12 @@ export default function EventSetlistTabMobile({
     return (
       <div
         style={{
-          padding: 20,
           display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 12,
+          flexDirection: 'column',
+          height: '100%',
+          padding: '16px 16px 80px 16px',
+          background:
+            'linear-gradient(180deg, rgba(5,5,9,0) 0%, rgba(5,5,9,0.3) 100%)',
         }}
       >
         <IonSpinner name="crescent" style={{ color: '#9ca3af' }} />
@@ -349,12 +350,15 @@ export default function EventSetlistTabMobile({
       {rows.length === 0 ? (
         <div
           style={{
-            padding: '60px 20px',
+            flex: 1,
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
+            justifyContent: 'flex-start',
+            padding: '32px 20px 40px',
             textAlign: 'center',
             gap: 16,
+            boxSizing: 'border-box',
           }}
         >
           <div
