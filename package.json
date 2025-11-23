@@ -15,6 +15,7 @@
     "node": "20.19.5"
   },
   "dependencies": {
-    "babel-plugin-module-resolver": "^5.0.2"
+    "babel-plugin-module-resolver": "^5.0.2",
+    "@amplee/assets": "workspace:*"
   }
 }

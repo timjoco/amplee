@@ -1,0 +1,13 @@
+{
+  "name": "@amplee/assets",
+  "version": "1.0.0",
+  "description": "Shared assets for Amplee apps",
+  "main": "index.js",
+  "type": "module",
+  "exports": {
+    "./logo.png": "./logo.png",
+    "./icons/*": "./icons/*",
+    "./images/*": "./images/*",
+    "./*": "./*"
+  }
+}

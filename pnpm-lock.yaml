@@ -8,12 +8,18 @@ importers:
 
   .:
     dependencies:
+      '@amplee/assets':
+        specifier: workspace:*
+        version: link:packages/assets
       babel-plugin-module-resolver:
         specifier: ^5.0.2
         version: 5.0.2
 
   apps/mobile:
     dependencies:
+      '@amplee/assets':
+        specifier: workspace:*
+        version: link:../../packages/assets
       '@capacitor/app':
         specifier: ^7.1.0
         version: 7.1.0(@capacitor/core@7.4.4)
@@ -108,6 +114,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@amplee/assets':
+        specifier: workspace:*
+        version: link:../../packages/assets
       '@dnd-kit/core':
         specifier: ^6.3.1
         version: 6.3.1(react-dom@19.1.0)(react@19.1.0)
@@ -193,6 +202,8 @@ importers:
       vitest:
         specifier: ^3.2.4
         version: 3.2.4(@types/node@20.19.24)
+
+  packages/assets: {}
 
 packages:
 
