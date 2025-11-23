@@ -11,8 +11,8 @@ import { useEffect, useState } from 'react';
 type EventDateTimePickerProps = {
   open: boolean;
   label?: string;
-  value?: string; // ISO string
-  min?: string; // ISO string
+  value?: string;
+  min?: string;
   onChange: (iso: string | null) => void;
   onDismiss: () => void;
 };
@@ -135,8 +135,8 @@ export default function EventDateTimePicker({
             maxWidth: 420,
             borderRadius: 20,
             background:
-              'linear-gradient(135deg, rgba(15, 23, 42, 0.98), rgba(15, 23, 42, 0.95))',
-            border: '1px solid rgba(52, 211, 153, 0.4)',
+              'linear-gradient(135deg, rgba(17, 24, 39, 0.98), rgba(17, 24, 39, 0.95))',
+            border: '1px solid rgba(139, 92, 246, 0.3)',
             padding: 24,
             boxShadow: '0 20px 50px rgba(0, 0, 0, 0.8)',
           }}
@@ -155,7 +155,11 @@ export default function EventDateTimePicker({
                 margin: 0,
                 fontSize: 20,
                 fontWeight: 800,
-                color: '#f9fafb',
+                background:
+                  'linear-gradient(135deg, rgba(196, 181, 253, 0.95), rgba(167, 139, 250, 0.95))',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text',
                 letterSpacing: -0.5,
               }}
             >
@@ -165,7 +169,7 @@ export default function EventDateTimePicker({
               onClick={onDismiss}
               style={{
                 border: 'none',
-                background: 'rgba(148, 163, 184, 0.2)',
+                background: 'rgba(75, 85, 99, 0.3)',
                 width: 32,
                 height: 32,
                 borderRadius: '50%',
@@ -176,10 +180,10 @@ export default function EventDateTimePicker({
                 transition: 'all 0.2s',
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'rgba(148, 163, 184, 0.3)';
+                e.currentTarget.style.background = 'rgba(75, 85, 99, 0.5)';
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'rgba(148, 163, 184, 0.2)';
+                e.currentTarget.style.background = 'rgba(75, 85, 99, 0.3)';
               }}
             >
               <IonIcon
@@ -195,7 +199,7 @@ export default function EventDateTimePicker({
               style={{
                 fontSize: 12,
                 fontWeight: 700,
-                color: 'rgba(52, 211, 153, 0.95)',
+                color: 'rgba(167, 139, 250, 0.9)',
                 textTransform: 'uppercase',
                 letterSpacing: 0.5,
                 marginBottom: 10,
@@ -213,9 +217,9 @@ export default function EventDateTimePicker({
                     flex: 1,
                     padding: '10px 12px',
                     borderRadius: 10,
-                    border: '1px solid rgba(52, 211, 153, 0.3)',
-                    background: 'rgba(15, 23, 42, 0.8)',
-                    color: 'rgba(52, 211, 153, 0.95)',
+                    border: '1px solid rgba(139, 92, 246, 0.3)',
+                    background: 'rgba(30, 41, 59, 0.8)',
+                    color: 'rgba(196, 181, 253, 0.95)',
                     fontSize: 13,
                     fontWeight: 600,
                     cursor: 'pointer',
@@ -223,14 +227,14 @@ export default function EventDateTimePicker({
                   }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.borderColor =
-                      'rgba(52, 211, 153, 0.5)';
+                      'rgba(139, 92, 246, 0.5)';
                     e.currentTarget.style.background =
-                      'rgba(52, 211, 153, 0.1)';
+                      'rgba(139, 92, 246, 0.15)';
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.borderColor =
-                      'rgba(52, 211, 153, 0.3)';
-                    e.currentTarget.style.background = 'rgba(15, 23, 42, 0.8)';
+                      'rgba(139, 92, 246, 0.3)';
+                    e.currentTarget.style.background = 'rgba(30, 41, 59, 0.8)';
                   }}
                 >
                   {preset.label}
@@ -248,7 +252,7 @@ export default function EventDateTimePicker({
                 gap: 8,
                 fontSize: 12,
                 fontWeight: 700,
-                color: 'rgba(52, 211, 153, 0.95)',
+                color: 'rgba(167, 139, 250, 0.9)',
                 textTransform: 'uppercase',
                 letterSpacing: 0.5,
                 marginBottom: 8,
@@ -266,8 +270,8 @@ export default function EventDateTimePicker({
                 width: '100%',
                 padding: 14,
                 borderRadius: 12,
-                border: '1px solid rgba(52, 211, 153, 0.3)',
-                background: 'rgba(15, 23, 42, 0.8)',
+                border: '1px solid rgba(139, 92, 246, 0.3)',
+                background: 'rgba(30, 41, 59, 0.8)',
                 color: '#e5e7eb',
                 fontSize: 15,
                 fontWeight: 600,
@@ -285,7 +289,7 @@ export default function EventDateTimePicker({
                 gap: 8,
                 fontSize: 12,
                 fontWeight: 700,
-                color: 'rgba(52, 211, 153, 0.95)',
+                color: 'rgba(167, 139, 250, 0.9)',
                 textTransform: 'uppercase',
                 letterSpacing: 0.5,
                 marginBottom: 8,
@@ -302,8 +306,8 @@ export default function EventDateTimePicker({
                 width: '100%',
                 padding: 14,
                 borderRadius: 12,
-                border: '1px solid rgba(52, 211, 153, 0.3)',
-                background: 'rgba(15, 23, 42, 0.8)',
+                border: '1px solid rgba(139, 92, 246, 0.3)',
+                background: 'rgba(30, 41, 59, 0.8)',
                 color: '#e5e7eb',
                 fontSize: 15,
                 fontWeight: 600,
@@ -319,8 +323,8 @@ export default function EventDateTimePicker({
                 padding: 14,
                 borderRadius: 12,
                 background:
-                  'linear-gradient(135deg, rgba(52, 211, 153, 0.15), rgba(52, 211, 153, 0.08))',
-                border: '1px solid rgba(52, 211, 153, 0.3)',
+                  'linear-gradient(135deg, rgba(139, 92, 246, 0.12), rgba(124, 58, 237, 0.08))',
+                border: '1px solid rgba(139, 92, 246, 0.3)',
                 marginBottom: 20,
               }}
             >
@@ -328,7 +332,7 @@ export default function EventDateTimePicker({
                 style={{
                   fontSize: 11,
                   fontWeight: 700,
-                  color: 'rgba(52, 211, 153, 0.8)',
+                  color: 'rgba(167, 139, 250, 0.8)',
                   textTransform: 'uppercase',
                   letterSpacing: 0.5,
                   marginBottom: 6,
@@ -358,9 +362,10 @@ export default function EventDateTimePicker({
                 width: '100%',
                 padding: '14px 16px',
                 borderRadius: 12,
-                border: '1px solid rgba(52, 211, 153, 0.5)',
-                background: 'rgba(52, 211, 153, 0.95)',
-                color: '#000000',
+                border: '1px solid rgba(139, 92, 246, 0.5)',
+                background:
+                  'linear-gradient(135deg, rgba(139, 92, 246, 0.95), rgba(124, 58, 237, 0.95))',
+                color: '#ffffff',
                 fontSize: 15,
                 fontWeight: 800,
                 cursor: dateValue && timeValue ? 'pointer' : 'not-allowed',
@@ -370,6 +375,24 @@ export default function EventDateTimePicker({
                 justifyContent: 'center',
                 gap: 8,
                 transition: 'all 0.2s',
+                boxShadow:
+                  dateValue && timeValue
+                    ? '0 4px 12px rgba(139, 92, 246, 0.3)'
+                    : 'none',
+              }}
+              onMouseEnter={(e) => {
+                if (dateValue && timeValue) {
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                  e.currentTarget.style.boxShadow =
+                    '0 6px 16px rgba(139, 92, 246, 0.4)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (dateValue && timeValue) {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow =
+                    '0 4px 12px rgba(139, 92, 246, 0.3)';
+                }
               }}
             >
               <IonIcon icon={checkmarkOutline} style={{ fontSize: 20 }} />
@@ -386,12 +409,19 @@ export default function EventDateTimePicker({
                     padding: '12px 16px',
                     borderRadius: 12,
                     border: '1px solid rgba(248, 113, 113, 0.4)',
-                    background: 'rgba(15, 23, 42, 0.8)',
+                    background: 'rgba(30, 41, 59, 0.8)',
                     color: 'rgba(248, 113, 113, 0.95)',
                     fontSize: 14,
                     fontWeight: 600,
                     cursor: 'pointer',
                     transition: 'all 0.2s',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background =
+                      'rgba(248, 113, 113, 0.15)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'rgba(30, 41, 59, 0.8)';
                   }}
                 >
                   Clear
@@ -404,13 +434,21 @@ export default function EventDateTimePicker({
                   flex: 1,
                   padding: '12px 16px',
                   borderRadius: 12,
-                  border: '1px solid rgba(148, 163, 184, 0.3)',
-                  background: 'rgba(15, 23, 42, 0.8)',
+                  border: '1px solid rgba(75, 85, 99, 0.5)',
+                  background: 'rgba(30, 41, 59, 0.8)',
                   color: '#9ca3af',
                   fontSize: 14,
                   fontWeight: 600,
                   cursor: 'pointer',
                   transition: 'all 0.2s',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = 'rgba(75, 85, 99, 0.7)';
+                  e.currentTarget.style.color = '#d1d5db';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = 'rgba(75, 85, 99, 0.5)';
+                  e.currentTarget.style.color = '#9ca3af';
                 }}
               >
                 Cancel
