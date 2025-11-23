@@ -31,7 +31,7 @@ export default function BandProposalsTabMobile({ bandId, isAdmin }: Props) {
   const [err, setErr] = useState<string | null>(null);
   const [proposals, setProposals] = useState<ProposalLite[]>([]);
 
-  // --- Long-press haptic / puff state (copied from EventInboxListMobile) --- //
+  // --- Long-press haptic / puff state  --- //
   const longPressTimeoutRef = useRef<number | null>(null);
   const pressStartRef = useRef<{ x: number; y: number } | null>(null);
   const [pressedId, setPressedId] = useState<string | null>(null);
@@ -210,8 +210,8 @@ export default function BandProposalsTabMobile({ bandId, isAdmin }: Props) {
                   style={{
                     ['--background' as any]: 'transparent',
                     ['--background-hover' as any]: 'transparent',
-                    ['--background-activated' as any]: 'transparent', // ⬅️ remove press highlight
-                    ['--ripple-color' as any]: 'transparent', // ⬅️ remove ripple
+                    ['--background-activated' as any]: 'transparent',
+                    ['--ripple-color' as any]: 'transparent',
                     marginInline: -20,
                     paddingInline: 0,
                     paddingBlock: 3,
