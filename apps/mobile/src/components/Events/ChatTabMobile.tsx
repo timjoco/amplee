@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Capacitor, PluginListenerHandle } from '@capacitor/core';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { Keyboard } from '@capacitor/keyboard';
@@ -10,9 +11,13 @@ import {
   IonText,
   IonTextarea,
 } from '@ionic/react';
-import { copyOutline, send as sendIcon, trashOutline } from 'ionicons/icons';
+import { send as sendIcon } from 'ionicons/icons';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../../lib/supabase';
+import { MessageActionSheet } from '../Chat/MessageActionSheet';
+import { MessageBodyWithLinks } from '../Chat/MessageBodyWithLinks';
+import { ReactionBarMobile } from '../Chat/ReactionBar/ReactionBarMobile';
+
 import AvatarImageMobile from '../ui/AvatarImageMobile';
 
 type ProfileLite = {
@@ -53,19 +58,14 @@ export default function ChatTabMobile({
   isAdmin: boolean;
 }) {
   const [messages, setMessages] = useState<ChatMsg[]>([]);
-  const messagesRef = useRef<ChatMsg[]>([]);
   const [loading, setLoading] = useState(true);
   const [input, setInput] = useState('');
   const [myUserId, setMyUserId] = useState<string | null>(null);
-  const userRef = useRef<any | null>(null);
-  const bottomRef = useRef<HTMLDivElement | null>(null);
-  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
-  const profilesById = useRef<Map<string, ProfileLite>>(new Map());
   const [activeMessageId, setActiveMessageId] = useState<string | null>(null);
-  const longPressTimeoutRef = useRef<number | null>(null);
-  const pressStartRef = useRef<{ x: number; y: number } | null>(null);
   const [sheetMessageId, setSheetMessageId] = useState<string | null>(null);
   const [keyboardOffset, setKeyboardOffset] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMoreMessages, setHasMoreMessages] = useState(true);
   const [reactions, setReactions] = useState<
     Record<string, Record<string, number>>
   >({});
@@ -76,24 +76,38 @@ export default function ChatTabMobile({
   const [linkPreviews, setLinkPreviews] = useState<Record<string, LinkPreview>>(
     {}
   );
+
+  const didInitialScrollRef = useRef(false);
+  const userRef = useRef<any | null>(null);
+  const bottomRef = useRef<HTMLDivElement | null>(null);
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const profilesById = useRef<Map<string, ProfileLite>>(new Map());
+  const longPressTimeoutRef = useRef<number | null>(null);
+  const pressStartRef = useRef<{ x: number; y: number } | null>(null);
   const fetchedPreviewsRef = useRef<Set<string>>(new Set());
+
+  const INITIAL_LOAD_COUNT = 50;
+  const MESSAGES_PER_PAGE = 50;
   const MAX_KEYBOARD_SHIFT = 65;
   const MOVE_THRESHOLD_PX = 12;
 
-  useEffect(() => {
-    messagesRef.current = messages;
-  }, [messages]);
+  // Mirror the latest messages into a ref so non-React code (infinite scroll,
+  // realtime subscriptions) can always read current messages without causing re-renders.
+  const messagesRef = useRef<ChatMsg[]>([]);
+  messagesRef.current = messages;
 
+  // Extract all HTTP/HTTPS URLs from a message body so we can decide
+  // whether to generate link previews for that message.
   const extractLinks = useCallback((text: string): string[] => {
     const urlRegex = /(https?:\/\/[^\s]+)/g;
     return text.match(urlRegex) || [];
   }, []);
 
+  // Fetch basic Open Graph metadata for a single URL (title, description, image)
+  // so we can render a lightweight preview card under chat messages.
   const fetchLinkPreview = useCallback(
     async (url: string): Promise<LinkPreview | null> => {
       try {
-        // Simple fetch to get basic metadata
-        // In production, you'd want a backend endpoint for this
         const response = await fetch(url);
         const html = await response.text();
 
@@ -124,6 +138,32 @@ export default function ChatTabMobile({
     []
   );
 
+  // Given a single message, decide if it needs a link preview and fetch it once.
+  // This is called at the "edges" (initial load, pagination, realtime inserts)
+  // instead of in a useEffect over all messages to avoid extra re-renders.
+  const fetchPreviewForMessage = useCallback(
+    async (message: ChatMsg) => {
+      // Guard: only fetch once per message id
+      if (fetchedPreviewsRef.current.has(message.id)) return;
+
+      const links = extractLinks(message.body);
+      if (links.length === 0) return;
+
+      fetchedPreviewsRef.current.add(message.id);
+
+      try {
+        const preview = await fetchLinkPreview(links[0]);
+        if (preview) {
+          setLinkPreviews((prev) => ({ ...prev, [message.id]: preview }));
+        }
+      } catch (error) {
+        console.error('[link preview fetch error]', error);
+      }
+    },
+    [extractLinks, fetchLinkPreview]
+  );
+
+  // Fire a small haptic combo on native to reinforce important interactions.
   const triggerHaptic = useCallback(async () => {
     if (Capacitor.getPlatform() === 'web') return;
     try {
@@ -134,12 +174,14 @@ export default function ChatTabMobile({
     }
   }, []);
 
+  // Check if the user is already near the bottom so we don’t auto-scroll while they’re reading history.
   const isNearBottom = useCallback(() => {
     const el = scrollContainerRef.current;
     if (!el) return true;
     return el.scrollHeight - el.scrollTop - el.clientHeight < 150;
   }, []);
 
+  // Only scroll to the latest message when appropriate (e.g. sending/receiving), not on every render.
   const smartScrollToBottom = useCallback(
     (behavior: ScrollBehavior = 'smooth') => {
       if (isNearBottom()) {
@@ -149,6 +191,7 @@ export default function ChatTabMobile({
     [isNearBottom]
   );
 
+  // Start tracking a press for long-press detection and remember where it began.
   const handlePressStart = useCallback(
     (
       id: string,
@@ -182,6 +225,7 @@ export default function ChatTabMobile({
     [triggerHaptic]
   );
 
+  // Cancel the long-press if the user moves their finger too far (treat as a scroll, not a hold).
   const handlePressMove = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
     if (!pressStartRef.current || longPressTimeoutRef.current == null) return;
     if (e.touches.length !== 1) return;
@@ -197,6 +241,7 @@ export default function ChatTabMobile({
     }
   }, []);
 
+  // Clear any pending long-press timeout once the finger/mouse is lifted.
   const handlePressEnd = useCallback(() => {
     if (longPressTimeoutRef.current != null) {
       window.clearTimeout(longPressTimeoutRef.current);
@@ -205,6 +250,7 @@ export default function ChatTabMobile({
     pressStartRef.current = null;
   }, []);
 
+  // Format message timestamps in a consistent, local “hh:mm am/pm” style.
   const timeFmt = useMemo(
     () =>
       new Intl.DateTimeFormat('en-US', {
@@ -216,8 +262,10 @@ export default function ChatTabMobile({
     []
   );
 
+  // Convenience flag for “is there anything non-whitespace in the composer?”
   const hasInput = input.trim().length > 0;
 
+  // Fetching external data on mount
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -233,6 +281,7 @@ export default function ChatTabMobile({
     };
   }, []);
 
+  //  Subscribing to external system (realtime updates/deletes)
   useEffect(() => {
     const ch = supabase
       .channel(`event:${eventId}`)
@@ -339,6 +388,96 @@ export default function ChatTabMobile({
     setMyReactions((prev) => ({ ...prev, ...mine }));
   }, []);
 
+  // Now stable because messagesRef updates during render
+  const loadMoreMessages = useCallback(async () => {
+    if (loadingMore || !hasMoreMessages || messagesRef.current.length === 0) {
+      return;
+    }
+
+    setLoadingMore(true);
+
+    const oldestMessage = messagesRef.current[0];
+    const oldestTimestamp = oldestMessage.created_at;
+
+    const { data, error } = await supabase
+      .from('event_messages')
+      .select(
+        `
+      id, event_id, user_id, body, created_at,
+      profiles:profiles!event_messages_user_id_fkey (
+        id, display_name, avatar_url, updated_at
+      )
+    `
+      )
+      .eq('event_id', eventId)
+      .lt('created_at', oldestTimestamp)
+      .order('created_at', { ascending: false })
+      .limit(MESSAGES_PER_PAGE);
+
+    if (error) {
+      console.error('[load more error]', error);
+      setLoadingMore(false);
+      return;
+    }
+
+    if (!data || data.length === 0) {
+      setHasMoreMessages(false);
+      setLoadingMore(false);
+      return;
+    }
+
+    (data ?? []).forEach((m: any) => {
+      if (m.profiles?.id) profilesById.current.set(m.profiles.id, m.profiles);
+    });
+
+    const normalized = (data as any[]).map((m) => ({
+      ...m,
+      id: String(m.id),
+      status: 'sent' as const,
+    })) as ChatMsg[];
+
+    const reversed = normalized.reverse();
+
+    setMessages((prev) => [...reversed, ...prev]);
+    setHasMoreMessages(data.length === MESSAGES_PER_PAGE);
+
+    const ids = reversed.map((m) => m.id);
+    if (ids.length) {
+      void loadReactionsFor(ids);
+      // fetch link previews for older messages too
+      reversed.forEach((msg) => {
+        void fetchPreviewForMessage(msg);
+      });
+    }
+
+    setLoadingMore(false);
+  }, [eventId, loadingMore, hasMoreMessages, loadReactionsFor]);
+
+  // ✅ OPTIMIZE: Use ref for callback to prevent listener recreation
+  const handleScrollRef = useRef<(() => void) | null>(null);
+
+  handleScrollRef.current = useCallback(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+
+    if (el.scrollTop < 200) {
+      void loadMoreMessages();
+    }
+  }, [loadMoreMessages]);
+
+  // Now only runs once, uses ref for callback
+  useEffect(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+
+    const scrollHandler = () => handleScrollRef.current?.();
+    el.addEventListener('scroll', scrollHandler);
+    return () => {
+      el.removeEventListener('scroll', scrollHandler);
+    };
+  }, []);
+
+  // Fetching external data on mount
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -347,19 +486,22 @@ export default function ChatTabMobile({
         .from('event_messages')
         .select(
           `
-          id, event_id, user_id, body, created_at,
-          profiles:profiles!event_messages_user_id_fkey (
-            id, display_name, avatar_url, updated_at
-          )
-        `
+        id, event_id, user_id, body, created_at,
+        profiles:profiles!event_messages_user_id_fkey (
+          id, display_name, avatar_url, updated_at
+        )
+      `
         )
         .eq('event_id', eventId)
-        .order('created_at', { ascending: true })
-        .limit(500);
+        .order('created_at', { ascending: false })
+        .limit(INITIAL_LOAD_COUNT);
 
       if (!alive) return;
+
       if (error) {
         console.error('[chat load error]', error);
+        setLoading(false);
+        return;
       }
 
       (data ?? []).forEach((m: any) => {
@@ -372,23 +514,45 @@ export default function ChatTabMobile({
         status: 'sent' as const,
       })) as ChatMsg[];
 
-      setMessages(normalized);
+      const reversed = normalized.reverse();
+
+      setMessages(reversed);
+      setHasMoreMessages((data ?? []).length === INITIAL_LOAD_COUNT);
+
+      didInitialScrollRef.current = false;
+
       setLoading(false);
 
-      const ids = normalized.map((m) => m.id);
-      if (ids.length) void loadReactionsFor(ids);
-
-      setTimeout(
-        () => bottomRef.current?.scrollIntoView({ behavior: 'auto' }),
-        0
-      );
+      const ids = reversed.map((m) => m.id);
+      if (ids.length) {
+        void loadReactionsFor(ids);
+        //  Fetch previews for initial messages
+        reversed.forEach((msg) => {
+          void fetchPreviewForMessage(msg);
+        });
+      }
     })();
 
     return () => {
       alive = false;
     };
-  }, [eventId, loadReactionsFor]);
+  }, [eventId, loadReactionsFor, fetchPreviewForMessage]);
 
+  // DOM manipulation after render
+  useEffect(() => {
+    if (!loading && !didInitialScrollRef.current && messages.length > 0) {
+      didInitialScrollRef.current = true;
+
+      setTimeout(() => {
+        bottomRef.current?.scrollIntoView({
+          behavior: 'auto',
+          block: 'end',
+        });
+      }, 30);
+    }
+  }, [loading, messages.length]);
+
+  //  Subscribing to external system (realtime inserts)
   useEffect(() => {
     const ch = supabase
       .channel(`event:${eventId}:insert`)
@@ -442,6 +606,9 @@ export default function ChatTabMobile({
             return [...prev, enriched];
           });
 
+          // ✅ REFACTOR: Fetch preview for new message here
+          void fetchPreviewForMessage(enriched);
+
           smartScrollToBottom('smooth');
         }
       )
@@ -450,8 +617,9 @@ export default function ChatTabMobile({
     return () => {
       supabase.removeChannel(ch);
     };
-  }, [eventId, smartScrollToBottom]);
+  }, [eventId, smartScrollToBottom, fetchPreviewForMessage]);
 
+  // Subscribing to external system (realtime reactions)
   useEffect(() => {
     const ch = supabase
       .channel(`event:${eventId}:reactions`)
@@ -517,22 +685,7 @@ export default function ChatTabMobile({
     };
   }, [eventId]);
 
-  // ✅ FIXED: Fetch link previews without causing re-renders
-  useEffect(() => {
-    messages.forEach(async (m) => {
-      if (fetchedPreviewsRef.current.has(m.id)) return;
-
-      const links = extractLinks(m.body);
-      if (links.length > 0) {
-        fetchedPreviewsRef.current.add(m.id);
-        const preview = await fetchLinkPreview(links[0]);
-        if (preview) {
-          setLinkPreviews((prev) => ({ ...prev, [m.id]: preview }));
-        }
-      }
-    });
-  }, [messages, extractLinks, fetchLinkPreview]);
-
+  // Platform-specific event subscription
   useEffect(() => {
     if (Capacitor.getPlatform() === 'web') return;
 
@@ -703,6 +856,56 @@ export default function ChatTabMobile({
     !!sheetMsg &&
     (isAdmin || (myUserId != null && sheetMsg.user_id === myUserId));
 
+  const activeMessage = activeMessageId
+    ? messages.find((m) => m.id === activeMessageId) ?? null
+    : null;
+
+  // handlers for Message Action Sheet modal
+  const handleMessageActionClose = useCallback(() => {
+    setActiveMessageId(null);
+  }, []);
+
+  const handleMessageDelete = useCallback(async () => {
+    if (!activeMessageId || !canDelete) return;
+    const id = activeMessageId;
+    setMessages((prev) => prev.filter((m) => m.id !== id));
+    const { error } = await supabase
+      .from('event_messages')
+      .delete()
+      .eq('id', id);
+    if (error) {
+      console.error('[chat delete error]', error);
+    }
+    setActiveMessageId(null);
+  }, [activeMessageId, canDelete]);
+
+  const handleMessageReact = useCallback(
+    (emoji: string) => {
+      if (!activeMessageId) return;
+      void toggleReaction(activeMessageId, emoji);
+    },
+    [activeMessageId, toggleReaction]
+  );
+
+  const handleMessageEdit = useCallback(
+    (messageId: string, newBody: string) => {
+      const id = messageId;
+      setMessages((prev) =>
+        prev.map((m) => (m.id === id ? { ...m, body: newBody } : m))
+      );
+      void (async () => {
+        const { error } = await supabase
+          .from('event_messages')
+          .update({ body: newBody })
+          .eq('id', id);
+        if (error) {
+          console.error('[chat edit error]', error);
+        }
+      })();
+    },
+    []
+  );
+
   return (
     <div
       style={{
@@ -751,13 +954,12 @@ export default function ChatTabMobile({
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
-              justifyContent: 'center',
+              justifyContent: 'flex-start',
               height: '100%',
-              padding: '40px 24px',
+              padding: '32px 24px 40px',
               textAlign: 'center',
             }}
           >
-            {/* Large Chat Icon with Glow Effect */}
             <div
               style={{
                 position: 'relative',
@@ -814,7 +1016,6 @@ export default function ChatTabMobile({
               </svg>
             </div>
 
-            {/* Main Heading */}
             <h2
               style={{
                 fontSize: 24,
@@ -830,7 +1031,6 @@ export default function ChatTabMobile({
               Welcome to the Green Room
             </h2>
 
-            {/* Subheading */}
             <p
               style={{
                 fontSize: 16,
@@ -842,7 +1042,6 @@ export default function ChatTabMobile({
               Your band's private hub for this event
             </p>
 
-            {/* Call to Action */}
             <p
               style={{
                 fontSize: 15,
@@ -853,7 +1052,6 @@ export default function ChatTabMobile({
               Message the band to get started 💬
             </p>
 
-            {/* Decorative Elements */}
             <div
               style={{
                 marginTop: 32,
@@ -891,7 +1089,6 @@ export default function ChatTabMobile({
               />
             </div>
 
-            {/* Add CSS animations */}
             <style>
               {`
                 @keyframes pulse {
@@ -923,6 +1120,18 @@ export default function ChatTabMobile({
               paddingRight: 0,
             }}
           >
+            {loadingMore && (
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'center',
+                  padding: '12px 0',
+                }}
+              >
+                <IonSpinner name="dots" />
+              </div>
+            )}
+
             {(() => {
               let lastDateKey: string | null = null;
 
@@ -1125,57 +1334,16 @@ export default function ChatTabMobile({
       </div>
       {sheetMsg && (
         <MessageActionSheet
-          open={
-            !!activeMessageId &&
-            !!messages.find((m) => m.id === activeMessageId)
-          }
-          message={messages.find((m) => m.id === activeMessageId) ?? null}
+          open={!!activeMessageId}
+          message={activeMessage}
           canEdit={canEdit}
           canDelete={canDelete}
-          onClose={() => setActiveMessageId(null)}
-          onDelete={async () => {
-            if (!activeMessageId || !canDelete) return;
-
-            const id = activeMessageId;
-
-            setMessages((prev) => prev.filter((m) => m.id !== id));
-
-            const { error } = await supabase
-              .from('event_messages')
-              .delete()
-              .eq('id', id);
-
-            if (error) {
-              console.error('[chat delete error]', error);
-            }
-
-            setActiveMessageId(null);
-          }}
-          onReact={(emoji) => {
-            if (!activeMessageId) return;
-            void toggleReaction(activeMessageId, emoji);
-          }}
-          onEdit={(messageId, newBody) => {
-            const id = messageId;
-
-            setMessages((prev) =>
-              prev.map((m) => (m.id === id ? { ...m, body: newBody } : m))
-            );
-
-            void (async () => {
-              const { error } = await supabase
-                .from('event_messages')
-                .update({ body: newBody })
-                .eq('id', id);
-
-              if (error) {
-                console.error('[chat edit error]', error);
-              }
-            })();
-          }}
+          onClose={handleMessageActionClose}
+          onDelete={handleMessageDelete}
+          onReact={handleMessageReact}
+          onEdit={handleMessageEdit}
         />
       )}
-      {/* COMPOSER */}
       <div
         style={{
           borderTop: '1px solid rgba(60, 61, 68, 0.25)',
@@ -1225,7 +1393,6 @@ export default function ChatTabMobile({
             />
           </div>
 
-          {/* Send Button */}
           <button
             type="button"
             onClick={send}
@@ -1258,844 +1425,6 @@ export default function ChatTabMobile({
             <IonIcon icon={sendIcon} style={{ fontSize: 20 }} />
           </button>
         </div>
-      </div>
-    </div>
-  );
-}
-
-function MessageBodyWithLinks({
-  body,
-  preview,
-  status,
-}: {
-  body: string;
-  preview?: LinkPreview;
-  status?: 'sending' | 'sent' | 'failed';
-}) {
-  const urlRegex = /(https?:\/\/[^\s]+)/g;
-  const parts = body.split(urlRegex);
-
-  return (
-    <div>
-      <div
-        style={{
-          fontSize: 16,
-          whiteSpace: 'pre-wrap',
-          wordBreak: 'break-word',
-          color: 'rgba(237,235,255,0.92)',
-          opacity: status === 'failed' ? 0.5 : 1,
-        }}
-      >
-        {parts.map((part, i) => {
-          if (part.match(urlRegex)) {
-            return (
-              <a
-                key={i}
-                href={part}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{
-                  color: '#60A5FA',
-                  textDecoration: 'underline',
-                }}
-                onClick={(e) => e.stopPropagation()}
-              >
-                {part}
-              </a>
-            );
-          }
-          return <span key={i}>{part}</span>;
-        })}
-      </div>
-
-      {preview && (
-        <div
-          onClick={(e) => {
-            e.stopPropagation();
-            window.open(preview.url, '_blank');
-          }}
-          style={{
-            marginTop: 8,
-            borderRadius: 12,
-            border: '1px solid rgba(148,163,184,0.3)',
-            background: 'rgba(15,23,42,0.6)',
-            overflow: 'hidden',
-            cursor: 'pointer',
-            maxWidth: 320,
-          }}
-        >
-          {preview.image && (
-            <img
-              src={preview.image}
-              alt=""
-              style={{
-                width: '100%',
-                height: 160,
-                objectFit: 'cover',
-              }}
-            />
-          )}
-          <div style={{ padding: 10 }}>
-            {preview.title && (
-              <div
-                style={{
-                  fontWeight: 600,
-                  fontSize: 14,
-                  color: '#E5E7EB',
-                  marginBottom: 4,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {preview.title}
-              </div>
-            )}
-            {preview.description && (
-              <div
-                style={{
-                  fontSize: 12,
-                  color: 'rgba(156,163,175,0.9)',
-                  lineHeight: 1.4,
-                  display: '-webkit-box',
-                  WebkitLineClamp: 2,
-                  WebkitBoxOrient: 'vertical',
-                  overflow: 'hidden',
-                }}
-              >
-                {preview.description}
-              </div>
-            )}
-            <div
-              style={{
-                fontSize: 11,
-                color: 'rgba(148,163,184,0.7)',
-                marginTop: 6,
-              }}
-            >
-              {new URL(preview.url).hostname}
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function ReactionBarMobile({
-  reactions,
-  myReactions,
-  onToggle,
-  showAddButton = true,
-}: {
-  reactions: Record<string, number>;
-  myReactions: Record<string, true>;
-  onToggle: (emoji: string) => void;
-  showAddButton?: boolean;
-}) {
-  const [open, setOpen] = useState(false);
-  const [justAdded, setJustAdded] = useState<string | null>(null);
-
-  const entries = Object.entries(reactions).sort((a, b) => b[1] - a[1]);
-  const hasReactions = entries.length > 0;
-
-  const purpleBorder = 'rgba(150,120,255,0.9)';
-  const purpleGlow = 'rgba(150,120,255,0.35)';
-
-  useEffect(() => {
-    if (justAdded) {
-      const timer = setTimeout(() => setJustAdded(null), 300);
-      return () => clearTimeout(timer);
-    }
-  }, [justAdded]);
-
-  const handleToggle = useCallback(
-    (emoji: string) => {
-      setJustAdded(emoji);
-      onToggle(emoji);
-    },
-    [onToggle]
-  );
-
-  return (
-    <div
-      style={{
-        marginTop: hasReactions ? 6 : 0,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 4,
-      }}
-    >
-      <div
-        style={{
-          display: 'flex',
-          flexWrap: 'wrap',
-          gap: 6,
-          alignItems: 'center',
-        }}
-      >
-        {hasReactions &&
-          entries.map(([emoji, count]) => {
-            const mine = !!myReactions[emoji];
-            const isNew = justAdded === emoji;
-
-            return (
-              <button
-                key={emoji}
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleToggle(emoji);
-                }}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 4,
-                  padding: '2px 9px',
-                  borderRadius: 999,
-                  fontSize: 12,
-                  border: mine
-                    ? `1px solid ${purpleBorder}`
-                    : '1px solid rgba(255,255,255,0.25)',
-                  background: mine
-                    ? 'radial-gradient(circle at top left, rgba(180,160,255,0.36), rgba(12,10,24,0.95))'
-                    : 'rgba(20,18,32,0.9)',
-                  boxShadow: mine
-                    ? `0 0 0 1px ${purpleGlow}, 0 0 12px rgba(0,0,0,0.65)`
-                    : '0 0 0 1px rgba(0,0,0,0.4)',
-                  color: '#fff',
-                  cursor: 'pointer',
-                  minHeight: 24,
-                  transform: isNew ? 'scale(1.2)' : 'scale(1)',
-                  transition: 'transform 150ms cubic-bezier(0.4, 0, 0.2, 1)',
-                }}
-                onMouseDown={(e) => {
-                  if (!isNew) e.currentTarget.style.transform = 'scale(0.9)';
-                }}
-                onMouseUp={(e) => {
-                  if (!isNew) e.currentTarget.style.transform = 'scale(1)';
-                }}
-                onTouchStart={(e) => {
-                  if (!isNew) e.currentTarget.style.transform = 'scale(0.9)';
-                }}
-                onTouchEnd={(e) => {
-                  if (!isNew) e.currentTarget.style.transform = 'scale(1)';
-                }}
-              >
-                <span aria-hidden style={{ fontSize: 13 }}>
-                  {emoji}
-                </span>
-                <span
-                  style={{
-                    fontSize: 11,
-                    opacity: 0.9,
-                  }}
-                >
-                  {count}
-                </span>
-              </button>
-            );
-          })}
-
-        {(hasReactions || showAddButton) && (
-          <button
-            type="button"
-            aria-label="Add reaction"
-            onClick={(e) => {
-              e.stopPropagation();
-              setOpen((v) => !v);
-            }}
-            style={{
-              width: 28,
-              height: 28,
-              borderRadius: 999,
-              border: hasReactions
-                ? '1px solid rgba(148,163,184,0.4)'
-                : '1px dashed rgba(255,255,255,0.5)',
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              background: hasReactions
-                ? 'rgba(20,18,32,0.9)'
-                : 'rgba(8,8,12,0.96)',
-              color: '#ffffff',
-              padding: 0,
-              fontSize: hasReactions ? 14 : 16,
-              lineHeight: 1,
-              cursor: 'pointer',
-              transition: 'all 150ms ease',
-              opacity: hasReactions ? 0.4 : 1,
-              filter: hasReactions ? 'grayscale(1)' : 'none',
-            }}
-            onMouseDown={(e) => {
-              e.currentTarget.style.transform = 'scale(0.9)';
-              if (hasReactions) {
-                e.currentTarget.style.opacity = '0.6';
-              }
-            }}
-            onMouseUp={(e) => {
-              e.currentTarget.style.transform = 'scale(1)';
-              if (hasReactions) {
-                e.currentTarget.style.opacity = '0.4';
-              }
-            }}
-            onTouchStart={(e) => {
-              e.currentTarget.style.transform = 'scale(0.9)';
-              if (hasReactions) {
-                e.currentTarget.style.opacity = '0.6';
-              }
-            }}
-            onTouchEnd={(e) => {
-              e.currentTarget.style.transform = 'scale(1)';
-              if (hasReactions) {
-                e.currentTarget.style.opacity = '0.4';
-              }
-            }}
-          >
-            {hasReactions ? '😊' : '+'}
-          </button>
-        )}
-      </div>
-
-      {open && (
-        <EmojiGridMobile
-          emojis={[
-            '👍',
-            '❤️',
-            '😂',
-            '👀',
-            '🔥',
-            '🎉',
-            '🙏',
-            '👏',
-            '😮',
-            '😢',
-            '😡',
-            '💯',
-            '🤘',
-            '🎶',
-            '⭐️',
-          ]}
-          onPick={(emoji) => {
-            handleToggle(emoji);
-            setOpen(false);
-          }}
-        />
-      )}
-    </div>
-  );
-}
-
-function EmojiGridMobile({
-  emojis,
-  onPick,
-}: {
-  emojis: string[];
-  onPick: (emoji: string) => void;
-}) {
-  return (
-    <div
-      style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(8, 1.75rem)',
-        gap: 4,
-        padding: 6,
-        borderRadius: 10,
-        background: 'rgba(8,8,12,0.98)',
-        border: '1px solid rgba(255,255,255,0.12)',
-        maxWidth: 280,
-      }}
-    >
-      {emojis.map((e) => (
-        <button
-          key={e}
-          type="button"
-          aria-label={`React with ${e}`}
-          onClick={() => onPick(e)}
-          style={{
-            fontSize: 18,
-            lineHeight: 1,
-            textAlign: 'center',
-            padding: 2,
-            borderRadius: 4,
-            border: 'none',
-            background: 'transparent',
-            color: '#fff',
-            cursor: 'pointer',
-          }}
-        >
-          {e}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function MessageActionSheet({
-  open,
-  message,
-  canEdit,
-  canDelete,
-  onClose,
-  onDelete,
-  onReact,
-  onEdit,
-}: {
-  open: boolean;
-  message: ChatMsg | null;
-  canEdit: boolean;
-  canDelete: boolean;
-  onClose: () => void;
-  onDelete: () => void;
-  onReact: (emoji: string) => void;
-  onEdit: (messageId: string, newBody: string) => void;
-}) {
-  const [dragStartY, setDragStartY] = useState<number | null>(null);
-  const [offset, setOffset] = useState(0);
-  const [confirmingDelete, setConfirmingDelete] = useState(false);
-
-  const [isEditing, setIsEditing] = useState(false);
-  const [draft, setDraft] = useState('');
-
-  const neon = 'rgba(168,85,247,0.9)';
-  const darkCard = 'rgba(10,10,20,0.96)';
-
-  useEffect(() => {
-    if (!message) return;
-    setDraft(message.body ?? '');
-    setIsEditing(false);
-    setConfirmingDelete(false);
-    setOffset(0);
-  }, [message]);
-
-  if (!open || !message) return null;
-
-  const { id, profiles, body } = message;
-  const displayName = profiles?.display_name || 'Member';
-
-  const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
-    if (e.touches.length !== 1) return;
-    setDragStartY(e.touches[0].clientY);
-  };
-
-  const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
-    if (dragStartY == null || e.touches.length !== 1) return;
-    const y = e.touches[0].clientY;
-    const delta = y - dragStartY;
-    if (delta > 0) setOffset(Math.min(delta, 160));
-  };
-
-  const handleTouchEnd = () => {
-    if (offset > 60) {
-      handleClose();
-    }
-    setDragStartY(null);
-    setOffset(0);
-  };
-
-  const handleClose = () => {
-    setConfirmingDelete(false);
-    setIsEditing(false);
-    onClose();
-  };
-
-  const triggerLightHaptic = () => {
-    if (Capacitor.getPlatform() === 'web') return;
-    Haptics.impact({ style: ImpactStyle.Light }).catch(() => {});
-  };
-
-  const handleCopy = async () => {
-    const text = (body ?? '').toString();
-    const { clipboard } = navigator as Navigator & { clipboard?: Clipboard };
-
-    if (clipboard?.writeText) {
-      await clipboard.writeText(text);
-    } else {
-      const ta = document.createElement('textarea');
-      ta.value = text;
-      ta.style.position = 'fixed';
-      ta.style.left = '-9999px';
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand('copy');
-      document.body.removeChild(ta);
-    }
-
-    triggerLightHaptic();
-    handleClose();
-  };
-
-  const handleStartEdit = () => {
-    if (!canEdit) return;
-    setIsEditing(true);
-  };
-
-  const handleCancelEdit = () => {
-    setDraft(body ?? '');
-    setIsEditing(false);
-  };
-
-  const handleSaveEdit = () => {
-    const trimmed = draft.trim();
-    if (!trimmed || trimmed === body) {
-      setIsEditing(false);
-      return;
-    }
-    triggerLightHaptic();
-    onEdit(id, trimmed);
-    handleClose();
-  };
-
-  return (
-    <div
-      onClick={handleClose}
-      style={{
-        position: 'absolute',
-        inset: 0,
-        background: 'rgba(0,0,0,0.45)',
-        zIndex: 40,
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'flex-end',
-      }}
-    >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-        onTouchCancel={handleTouchEnd}
-        style={{
-          width: '100%',
-          background: '#050509',
-          transform: `translateY(${offset}px)`,
-          transition: dragStartY == null ? 'transform 160ms ease-out' : 'none',
-          borderTopLeftRadius: 20,
-          borderTopRightRadius: 20,
-          padding: '12px 16px 24px',
-        }}
-      >
-        <div
-          style={{
-            width: 36,
-            height: 4,
-            borderRadius: 999,
-            background: 'rgba(180,180,200,0.35)',
-            margin: '0 auto 14px',
-          }}
-        />
-
-        <div
-          style={{
-            marginBottom: 16,
-            padding: '10px 12px',
-            borderRadius: 14,
-            background: darkCard,
-            border: '1px solid rgba(148,163,184,0.45)',
-          }}
-        >
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'baseline',
-              justifyContent: 'space-between',
-              gap: 8,
-              marginBottom: 6,
-            }}
-          >
-            <div
-              style={{
-                fontSize: 11,
-                color: 'rgba(156,163,175,0.95)',
-              }}
-            >
-              {displayName}
-            </div>
-
-            {canEdit && !isEditing && (
-              <button
-                type="button"
-                onClick={handleStartEdit}
-                style={{
-                  borderRadius: 999,
-                  border: '1px solid rgba(148,163,184,0.7)',
-                  background: 'rgba(15,23,42,0.95)',
-                  color: '#E5E7EB',
-                  fontSize: 11,
-                  fontWeight: 600,
-                  padding: '4px 10px',
-                  textTransform: 'uppercase',
-                  letterSpacing: 0.08,
-                  cursor: 'pointer',
-                }}
-              >
-                Edit
-              </button>
-            )}
-          </div>
-
-          {!isEditing || !canEdit ? (
-            <div
-              style={{
-                fontSize: 14,
-                color: '#EDE9FE',
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-              }}
-            >
-              {body}
-            </div>
-          ) : (
-            <>
-              <textarea
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                rows={4}
-                autoFocus
-                style={{
-                  width: '100%',
-                  borderRadius: 10,
-                  border: '1px solid rgba(148,163,184,0.8)',
-                  background: 'rgba(15,23,42,0.98)',
-                  color: '#E5E7EB',
-                  fontSize: 14,
-                  padding: 8,
-                  resize: 'none',
-                  outline: 'none',
-                }}
-              />
-              <div
-                style={{
-                  display: 'flex',
-                  gap: 8,
-                  marginTop: 8,
-                  justifyContent: 'flex-end',
-                }}
-              >
-                <button
-                  type="button"
-                  onClick={handleCancelEdit}
-                  style={{
-                    padding: '6px 12px',
-                    borderRadius: 999,
-                    border: '1px solid rgba(148,163,184,0.8)',
-                    background: 'rgba(15,23,42,0.95)',
-                    color: 'rgba(209,213,219,0.96)',
-                    fontSize: 12,
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                  }}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSaveEdit}
-                  style={{
-                    padding: '6px 14px',
-                    borderRadius: 999,
-                    border: '1px solid rgba(216,180,254,0.9)',
-                    background:
-                      'linear-gradient(135deg, rgba(147,51,234,0.96), rgba(107,58,157,0.98))',
-                    color: '#F9FAFB',
-                    fontSize: 12,
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                  }}
-                >
-                  Save changes
-                </button>
-              </div>
-            </>
-          )}
-        </div>
-
-        <div
-          style={{
-            display: 'flex',
-            flexWrap: 'wrap',
-            gap: 10,
-            marginBottom: 18,
-          }}
-        >
-          {[
-            '👍',
-            '❤️',
-            '😂',
-            '👀',
-            '🔥',
-            '🎉',
-            '🙏',
-            '👏',
-            '😮',
-            '😢',
-            '😡',
-            '💯',
-            '🤘',
-            '⭐️',
-          ].map((emoji) => (
-            <div
-              key={emoji}
-              style={{
-                padding: 4,
-                borderRadius: 12,
-                background: darkCard,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                minWidth: 40,
-                minHeight: 40,
-              }}
-            >
-              <button
-                type="button"
-                onClick={() => {
-                  triggerLightHaptic();
-                  onReact(emoji);
-                  handleClose();
-                }}
-                style={{
-                  width: 32,
-                  height: 32,
-                  borderRadius: 10,
-                  border: 'none',
-                  background: '#050509',
-                  color: '#fff',
-                  fontSize: 20,
-                  lineHeight: 1,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  padding: 0,
-                }}
-              >
-                {emoji}
-              </button>
-            </div>
-          ))}
-        </div>
-
-        {!confirmingDelete ? (
-          <>
-            <div
-              onClick={handleCopy}
-              style={{
-                borderRadius: 14,
-                background: darkCard,
-                padding: '10px 14px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 10,
-                cursor: 'pointer',
-                marginBottom: 8,
-              }}
-            >
-              <IonIcon
-                icon={copyOutline}
-                style={{ fontSize: 20, opacity: 0.9, color: '#E5E7EB' }}
-              />
-              <span
-                style={{
-                  color: '#E5E7EB',
-                  fontWeight: 600,
-                  fontSize: 15,
-                }}
-              >
-                Copy message
-              </span>
-            </div>
-
-            {canDelete && (
-              <div
-                onClick={() => setConfirmingDelete(true)}
-                style={{
-                  borderRadius: 14,
-                  background: darkCard,
-                  padding: '8px 12px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 10,
-                  cursor: 'pointer',
-                }}
-              >
-                <IonIcon
-                  icon={trashOutline}
-                  color="danger"
-                  style={{ fontSize: 20, opacity: 0.9 }}
-                />
-                <span
-                  style={{
-                    color: '#EF4444',
-                    fontWeight: 700,
-                    fontSize: 15,
-                  }}
-                >
-                  Delete message
-                </span>
-              </div>
-            )}
-          </>
-        ) : (
-          <div
-            style={{
-              background: darkCard,
-              borderRadius: 14,
-              padding: '12px',
-              border: `1px solid ${neon}`,
-              marginTop: 8,
-            }}
-          >
-            <p
-              style={{
-                color: '#FECACA',
-                margin: 0,
-                marginBottom: 10,
-                fontSize: 14,
-              }}
-            >
-              Delete this message for everyone?
-            </p>
-
-            <div style={{ display: 'flex', gap: 10 }}>
-              <button
-                type="button"
-                onClick={() => setConfirmingDelete(false)}
-                style={{
-                  flex: 1,
-                  padding: '10px',
-                  borderRadius: 12,
-                  border: `1px solid ${neon}`,
-                  background: darkCard,
-                  color: '#E5E7EB',
-                  fontSize: 14,
-                  fontWeight: 500,
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  onDelete();
-                  handleClose();
-                }}
-                style={{
-                  flex: 1,
-                  padding: '10px',
-                  borderRadius: 12,
-                  border: '1px solid rgba(248,113,113,0.9)',
-                  background: 'rgba(70,10,20,0.9)',
-                  color: '#FECACA',
-                  fontSize: 14,
-                  fontWeight: 600,
-                }}
-              >
-                Delete
-              </button>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
