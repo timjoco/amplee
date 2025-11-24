@@ -1,3 +1,4 @@
+// app.tsx
 import { useEffect } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 
@@ -29,6 +30,12 @@ import ProposedGigSheetMobile from './pages/ProposedGigSheetMobile';
 import SetlistTemplateEditorMobile from './pages/SetlistTemplateEditorMobile';
 import VerifyEmail from './pages/VerifyEmail';
 import GlobalCreateHost from './shared/GlobalCreateHost';
+
+// ⬇️ NEW band sub-page imports
+import BandEventsPage from './pages/Bands/BandEventsPage';
+import BandLibraryPage from './pages/Bands/BandLibraryPage';
+import BandProposalsPage from './pages/Bands/BandProposalsPage';
+import BandRosterPage from './pages/Bands/BandRosterPage';
 
 export default function App() {
   const { loading, session } = useSession();
@@ -86,15 +93,13 @@ export default function App() {
     };
   }, []);
 
-  /* NOW SAFE TO DO EARLY RETURNS */
   if (loading) return null;
 
-  /* HIDE NAV ON EVENT SHEET */
+  /* HIDE NAV ON EVENT SHEET + event subpages */
   const hideChrome =
     /^\/bands\/[^/]+\/events\/[^/]+(\/.*)?$/.test(pathname) ||
     /^\/event\/[^/]+(\/.*)?$/.test(pathname);
 
-  /* ROUTES */
   return (
     <>
       <Routes>
@@ -112,22 +117,32 @@ export default function App() {
           </>
         ) : (
           <>
-            {/* authed */}
+            {/* authed home */}
             <Route path="/home" element={<Home />} />
 
-            {/* band sheets */}
+            {/* band sheets (supporting both :id and :bandId for backwards links) */}
             <Route path="/bands/:id" element={<BandSheetMobile />} />
             <Route path="/bands/:bandId" element={<BandSheetMobile />} />
-            <Route
-              path="/bands/:bandId/songs"
-              element={<BandSongsRouteMobile />}
-            />
 
+            {/* band-level subpages */}
+            <Route path="/bands/:bandId/events" element={<BandEventsPage />} />
+            <Route
+              path="/bands/:bandId/proposals"
+              element={<BandProposalsPage />}
+            />
+            <Route
+              path="/bands/:bandId/library"
+              element={<BandLibraryPage />}
+            />
+            <Route path="/bands/:bandId/roster" element={<BandRosterPage />} />
+
+            {/* band-level settings */}
             <Route
               path="/bands/:bandId/settings"
               element={<BandSettingsMobile />}
             />
 
+            {/* single proposal sheet */}
             <Route
               path="/bands/:bandId/proposals/:proposalId"
               element={<ProposedGigSheetMobile />}
@@ -136,14 +151,15 @@ export default function App() {
             {/* Band Invites sheet */}
             <Route path="/invite" element={<InviteBandMobile />} />
 
-            {/* event sheet */}
-            {/* event "hub" – you can either keep this overview page or redirect */}
+            {/* --- EVENT ROUTES --- */}
+
+            {/* event hub sheet */}
             <Route
               path="/bands/:bandId/events/:eventId"
               element={<EventSheetMobile />}
             />
 
-            {/* event detail sections as standalone pages */}
+            {/* event sections */}
             <Route
               path="/bands/:bandId/events/:eventId/rollcall"
               element={<EventRollCallPageMobile />}
@@ -164,12 +180,12 @@ export default function App() {
               path="/bands/:bandId/events/:eventId/files"
               element={<EventFilesPageMobile />}
             />
-
             <Route
               path="/bands/:bandId/events/:eventId/settings"
               element={<EventSettingsMobile />}
             />
 
+            {/* band-wide setlists */}
             <Route
               path="/bands/:bandId/setlists"
               element={<BandSetlistPageMobile />}
@@ -179,11 +195,7 @@ export default function App() {
               element={<SetlistTemplateEditorMobile />}
             />
 
-            {/* band sheets */}
-            <Route path="/bands/:id" element={<BandSheetMobile />} />
-            <Route path="/bands/:bandId" element={<BandSheetMobile />} />
-
-            {/* song library + song sheet */}
+            {/* song library + song sheets */}
             <Route
               path="/bands/:bandId/songs"
               element={<BandSongsRouteMobile />}
