@@ -838,6 +838,11 @@ export default function EventSheetMobile() {
                   textAlign: 'left',
                   transform:
                     pressedButton === 'rollcall' ? 'scale(0.97)' : 'scale(1)',
+                  // 🟢 make height behavior match
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  minHeight: 130,
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.background = 'rgba(52, 211, 153, 0.08)';

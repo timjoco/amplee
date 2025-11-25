@@ -566,192 +566,359 @@ export default function BandSheetMobile() {
               </button>
             )}
 
-            {/* Grid of Action Cards */}
-            {/* Grid of Action Cards */}
             <div
               style={{
                 display: 'grid',
                 gridTemplateColumns: 'repeat(2, 1fr)',
-                gap: 12,
-                marginBottom: nextEvent ? 16 : 0,
+                gap: '12px',
+                marginBottom: '16px',
               }}
             >
-              {/* Events Card with count */}
-              <button
-                type="button"
-                onClick={() =>
-                  handleButtonPress('events', () =>
-                    navigate(`/bands/${bandId}/events`)
-                  )
-                }
-                style={{
-                  background:
-                    'linear-gradient(135deg, rgba(30, 41, 59, 0.4) 0%, rgba(15, 23, 42, 0.3) 100%)',
-                  border: '1px solid rgba(71, 85, 105, 0.3)',
-                  borderRadius: 20,
-                  padding: '16px 14px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 10,
-                  cursor: 'pointer',
-                  textAlign: 'left',
-                  minHeight: 130,
-                  position: 'relative',
-                  transform:
-                    pressedButton === 'events' ? 'scale(0.97)' : 'scale(1)',
-                  transition:
-                    'transform 120ms ease-out, box-shadow 120ms ease-out',
-                }}
-              >
-                <IonIcon
-                  icon={chevronForwardOutline}
+              {/* EVENTS CARD */}
+              {eventsCount > 0 ? (
+                <button
+                  type="button"
+                  onClick={() =>
+                    handleButtonPress('events', () =>
+                      navigate(`/bands/${bandId}/events`)
+                    )
+                  }
                   style={{
-                    position: 'absolute',
-                    top: 16,
-                    right: 14,
-                    fontSize: 18,
-                    color: 'rgba(148, 163, 184, 0.6)',
-                    opacity: 0.7,
-                  }}
-                />
-
-                {/* icon + title inline (EventSheet style) */}
-                <div
-                  style={{
+                    background:
+                      'linear-gradient(135deg, rgba(30, 41, 59, 0.4) 0%, rgba(15, 23, 42, 0.3) 100%)',
+                    border: '1px solid rgba(71, 85, 105, 0.3)',
+                    borderRadius: 16,
+                    padding: '12px 14px',
                     display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    marginBottom: 6,
+                    flexDirection: 'column',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    position: 'relative',
+                    transform:
+                      pressedButton === 'proposals'
+                        ? 'scale(0.97)'
+                        : 'scale(1)',
+                    transition:
+                      'transform 120ms ease-out, box-shadow 120ms ease-out',
+                    minHeight: 120,
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      marginBottom: 6,
+                    }}
+                  >
+                    <IonIcon
+                      icon={chevronForwardOutline}
+                      style={{
+                        position: 'absolute',
+                        top: 12,
+                        right: 12,
+                        fontSize: 18,
+                        color: 'rgba(148, 163, 184, 0.6)',
+                        opacity: 0.7,
+                      }}
+                    />
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        marginBottom: 6,
+                      }}
+                    >
+                      <IonIcon
+                        icon={calendarOutline}
+                        style={{ fontSize: 20, color: '#34d399' }}
+                      />
+                      <span
+                        style={{
+                          fontSize: 11,
+                          color: '#9ca3af',
+                          textTransform: 'uppercase',
+                          letterSpacing: 0.5,
+                          fontWeight: 700,
+                        }}
+                      >
+                        Events
+                      </span>
+                    </div>
+                  </div>
+
+                  <div style={{ marginTop: 6 }}>
+                    <div
+                      style={{
+                        fontSize: 28,
+                        fontWeight: 700,
+                        color: '#34d399',
+                        lineHeight: 1,
+                        marginBottom: 2,
+                      }}
+                    >
+                      {eventsCount}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 12,
+                        color: '#9ca3af',
+                      }}
+                    >
+                      {eventsCount === 1 ? 'event' : 'events'}
+                    </div>
+                  </div>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() =>
+                    handleButtonPress('events', () =>
+                      navigate(`/bands/${bandId}/events`)
+                    )
+                  }
+                  style={{
+                    background:
+                      'linear-gradient(135deg, rgba(30, 41, 59, 0.4) 0%, rgba(15, 23, 42, 0.3) 100%)',
+                    border: '1px solid rgba(71, 85, 105, 0.3)',
+                    borderRadius: 20,
+                    padding: '16px 14px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 10,
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    minHeight: 130,
+                    position: 'relative',
+                    transform:
+                      pressedButton === 'events' ? 'scale(0.97)' : 'scale(1)',
+                    transition:
+                      'transform 120ms ease-out, box-shadow 120ms ease-out',
                   }}
                 >
                   <IonIcon
-                    icon={calendarOutline}
-                    style={{ fontSize: 20, color: '#34d399' }}
-                  />
-                  <span
+                    icon={chevronForwardOutline}
                     style={{
-                      fontSize: 11,
-                      color: '#9ca3af',
-                      textTransform: 'uppercase',
-                      letterSpacing: 0.5,
-                      fontWeight: 700,
+                      position: 'absolute',
+                      top: 16,
+                      right: 16,
+                      fontSize: 18,
+                      color: 'rgba(148, 163, 184, 0.6)',
+                      opacity: 0.7,
                     }}
-                  >
-                    Events
-                  </span>
-                </div>
-
-                <div style={{ marginTop: 8 }}>
+                  />
                   <div
                     style={{
-                      fontSize: 28,
-                      fontWeight: 700,
-                      color: '#34d399',
-                      lineHeight: 1,
-                      marginBottom: 4,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      marginBottom: '12px',
                     }}
                   >
-                    {eventsCount}
+                    <IonIcon
+                      icon={calendarOutline}
+                      style={{ fontSize: 20, color: '#34d399' }}
+                    />
+                    <span
+                      style={{
+                        fontSize: 11,
+                        color: '#9ca3af',
+                        textTransform: 'uppercase',
+                        letterSpacing: 0.5,
+                        fontWeight: 700,
+                      }}
+                    >
+                      Events
+                    </span>
                   </div>
+
+                  {/* Description */}
                   <div
                     style={{
                       fontSize: 12,
-                      color: '#9ca3af',
+                      color: 'rgba(203, 213, 225, 0.8)',
+                      opacity: 0.9,
                     }}
                   >
-                    {eventsCount === 1 ? 'event upcoming' : 'events upcoming'}
+                    All shows & practices
                   </div>
-                </div>
-              </button>
+                </button>
+              )}
 
-              {/* Proposals Card with count */}
-              <button
-                type="button"
-                onClick={() =>
-                  handleButtonPress('proposals', () =>
-                    navigate(`/bands/${bandId}/proposals`)
-                  )
-                }
-                style={{
-                  background:
-                    'linear-gradient(135deg, rgba(30, 41, 59, 0.4) 0%, rgba(15, 23, 42, 0.3) 100%)',
-                  border: '1px solid rgba(71, 85, 105, 0.3)',
-                  borderRadius: 20,
-                  padding: '16px 14px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 10,
-                  cursor: 'pointer',
-                  textAlign: 'left',
-                  minHeight: 130,
-                  position: 'relative',
-                  transform:
-                    pressedButton === 'proposals' ? 'scale(0.97)' : 'scale(1)',
-                  transition:
-                    'transform 120ms ease-out, box-shadow 120ms ease-out',
-                }}
-              >
-                <IonIcon
-                  icon={chevronForwardOutline}
+              {/* PROPOSALS CARD */}
+              {proposalsCount > 0 ? (
+                <button
+                  type="button"
+                  onClick={() =>
+                    handleButtonPress('proposals', () =>
+                      navigate(`/bands/${bandId}/proposals`)
+                    )
+                  }
                   style={{
-                    position: 'absolute',
-                    top: 16,
-                    right: 14,
-                    fontSize: 18,
-                    color: 'rgba(148, 163, 184, 0.6)',
-                    opacity: 0.7,
-                  }}
-                />
-
-                {/* icon + title inline */}
-                <div
-                  style={{
+                    background:
+                      'linear-gradient(135deg, rgba(30, 41, 59, 0.4) 0%, rgba(15, 23, 42, 0.3) 100%)',
+                    border: '1px solid rgba(71, 85, 105, 0.3)',
+                    borderRadius: 16,
+                    padding: '12px 14px',
                     display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    marginBottom: 6,
+                    flexDirection: 'column',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    position: 'relative',
+                    transform:
+                      pressedButton === 'proposals'
+                        ? 'scale(0.97)'
+                        : 'scale(1)',
+                    transition:
+                      'transform 120ms ease-out, box-shadow 120ms ease-out',
+                    minHeight: 120,
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      marginBottom: 6,
+                    }}
+                  >
+                    <IonIcon
+                      icon={chevronForwardOutline}
+                      style={{
+                        position: 'absolute',
+                        top: 12,
+                        right: 12,
+                        fontSize: 18,
+                        color: 'rgba(148, 163, 184, 0.6)',
+                        opacity: 0.7,
+                      }}
+                    />
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        marginBottom: 6,
+                      }}
+                    >
+                      <IonIcon
+                        icon={clipboardOutline}
+                        style={{ fontSize: 20, color: '#f59e0b' }}
+                      />
+                      <span
+                        style={{
+                          fontSize: 11,
+                          color: '#9ca3af',
+                          textTransform: 'uppercase',
+                          letterSpacing: 0.5,
+                          fontWeight: 700,
+                        }}
+                      >
+                        Proposals
+                      </span>
+                    </div>
+                  </div>
+
+                  <div style={{ marginTop: 6 }}>
+                    <div
+                      style={{
+                        fontSize: 28,
+                        fontWeight: 700,
+                        color: '#f59e0b',
+                        lineHeight: 1,
+                        marginBottom: 2,
+                      }}
+                    >
+                      {proposalsCount}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 12,
+                        color: '#9ca3af',
+                      }}
+                    >
+                      {proposalsCount === 1 ? 'proposal' : 'proposals'}
+                    </div>
+                  </div>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() =>
+                    handleButtonPress('proposals', () =>
+                      navigate(`/bands/${bandId}/proposals`)
+                    )
+                  }
+                  style={{
+                    background:
+                      'linear-gradient(135deg, rgba(30, 41, 59, 0.4) 0%, rgba(15, 23, 42, 0.3) 100%)',
+                    border: '1px solid rgba(71, 85, 105, 0.3)',
+                    borderRadius: 20,
+                    padding: '16px 14px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 10,
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    minHeight: 130,
+                    position: 'relative',
+                    transform:
+                      pressedButton === 'proposals'
+                        ? 'scale(0.97)'
+                        : 'scale(1)',
+                    transition:
+                      'transform 120ms ease-out, box-shadow 120ms ease-out',
                   }}
                 >
                   <IonIcon
-                    icon={clipboardOutline}
-                    style={{ fontSize: 20, color: '#f59e0b' }}
-                  />
-                  <span
+                    icon={chevronForwardOutline}
                     style={{
-                      fontSize: 11,
-                      color: '#9ca3af',
-                      textTransform: 'uppercase',
-                      letterSpacing: 0.5,
-                      fontWeight: 700,
+                      position: 'absolute',
+                      top: 16,
+                      right: 16,
+                      fontSize: 18,
+                      color: 'rgba(148, 163, 184, 0.6)',
+                      opacity: 0.7,
                     }}
-                  >
-                    Proposals
-                  </span>
-                </div>
-
-                <div style={{ marginTop: 8 }}>
+                  />
                   <div
                     style={{
-                      fontSize: 28,
-                      fontWeight: 700,
-                      color: '#f59e0b',
-                      lineHeight: 1,
-                      marginBottom: 4,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      marginBottom: '12px',
                     }}
                   >
-                    {proposalsCount}
+                    <IonIcon
+                      icon={clipboardOutline}
+                      style={{ fontSize: 20, color: '#f59e0b' }}
+                    />
+                    <span
+                      style={{
+                        fontSize: 11,
+                        color: '#9ca3af',
+                        textTransform: 'uppercase',
+                        letterSpacing: 0.5,
+                        fontWeight: 700,
+                      }}
+                    >
+                      Proposals
+                    </span>
                   </div>
+
+                  {/* Description */}
                   <div
                     style={{
                       fontSize: 12,
-                      color: '#9ca3af',
+                      color: 'rgba(203, 213, 225, 0.8)',
+                      opacity: 0.9,
                     }}
                   >
-                    {proposalsCount === 1 ? 'proposal' : 'proposals'}
+                    Vote on gigs
                   </div>
-                </div>
-              </button>
-
+                </button>
+              )}
               {/* Library Card */}
               <button
                 type="button"
@@ -790,8 +957,6 @@ export default function BandSheetMobile() {
                     opacity: 0.7,
                   }}
                 />
-
-                {/* icon + title inline (Notes/Files style) */}
                 <div
                   style={{
                     display: 'flex',
@@ -824,7 +989,7 @@ export default function BandSheetMobile() {
                     opacity: 0.9,
                   }}
                 >
-                  Setlists & repertoire
+                  Songs &amp; Setlists
                 </div>
               </button>
 
