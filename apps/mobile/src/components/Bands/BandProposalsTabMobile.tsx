@@ -1,15 +1,14 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Capacitor } from '@capacitor/core';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
+import { IonIcon, IonItem, IonList, IonSpinner, IonText } from '@ionic/react';
 import {
-  IonButton,
-  IonIcon,
-  IonItem,
-  IonList,
-  IonSpinner,
-  IonText,
-} from '@ionic/react';
-import { addOutline, chevronForwardOutline } from 'ionicons/icons';
+  addOutline,
+  checkmarkCircleOutline,
+  chevronForwardOutline,
+  clipboardOutline,
+  timeOutline,
+} from 'ionicons/icons';
 import * as React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -22,6 +21,9 @@ type ProposalLite = {
   title: string | null;
   venue: string | null;
   created_at: string;
+  optionsCount: number;
+  totalVotes: number;
+  userHasVoted: boolean;
 };
 
 export default function BandProposalsTabMobile({ bandId, isAdmin }: Props) {
@@ -30,6 +32,7 @@ export default function BandProposalsTabMobile({ bandId, isAdmin }: Props) {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [proposals, setProposals] = useState<ProposalLite[]>([]);
+  const [myId, setMyId] = useState<string | null>(null);
 
   // --- Long-press haptic / puff state  --- //
   const longPressTimeoutRef = useRef<number | null>(null);
@@ -111,14 +114,66 @@ export default function BandProposalsTabMobile({ bandId, isAdmin }: Props) {
     try {
       setErr(null);
       setLoading(true);
+
+      // Get current user
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      const uid = user?.id ?? null;
+      setMyId(uid);
+
+      // Fetch proposals with options and votes
       const { data, error } = await supabase
         .from('gig_proposals')
-        .select('id, title, venue, created_at')
+        .select(
+          `
+          id, 
+          title, 
+          venue, 
+          created_at,
+          gig_proposal_options!gig_proposal_options_proposal_id_fkey (
+            id,
+            gig_proposal_votes!gig_proposal_votes_option_id_fkey (
+              user_id
+            )
+          )
+        `
+        )
         .eq('band_id', bandId)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setProposals(data ?? []);
+
+      // Process the data to calculate stats
+      const processed: ProposalLite[] = (data ?? []).map((p: any) => {
+        const options = p.gig_proposal_options ?? [];
+        const optionsCount = options.length;
+
+        // Count total votes and check if user voted
+        let totalVotes = 0;
+        let userHasVoted = false;
+
+        options.forEach((opt: any) => {
+          const votes = opt.gig_proposal_votes ?? [];
+          totalVotes += votes.length;
+
+          if (uid && votes.some((v: any) => v.user_id === uid)) {
+            userHasVoted = true;
+          }
+        });
+
+        return {
+          id: p.id,
+          title: p.title,
+          venue: p.venue,
+          created_at: p.created_at,
+          optionsCount,
+          totalVotes,
+          userHasVoted,
+        };
+      });
+
+      setProposals(processed);
     } catch (e: any) {
       console.error(e);
       setErr(e.message ?? 'Failed to load proposals');
@@ -133,19 +188,74 @@ export default function BandProposalsTabMobile({ bandId, isAdmin }: Props) {
 
   function EmptyListMessage({ children }: { children: React.ReactNode }) {
     return (
-      <div style={{ padding: 16 }}>
-        <IonText color="medium">
-          <p style={{ margin: 0 }}>{children}</p>
-        </IonText>
+      <div
+        style={{
+          padding: '16px',
+          maxWidth: '600px',
+          margin: '0 auto',
+        }}
+      >
+        <div
+          style={{
+            background: 'transparent',
+            border: '1px solid rgba(245, 158, 11, 0.2)',
+            borderRadius: '20px',
+            padding: '32px 24px',
+            textAlign: 'center',
+            marginTop: '24px',
+          }}
+        >
+          <div
+            style={{
+              width: 64,
+              height: 64,
+              borderRadius: '16px',
+              background: 'rgba(245, 158, 11, 0.1)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 20px',
+              border: '1px solid rgba(245, 158, 11, 0.2)',
+            }}
+          >
+            <IonIcon
+              icon={clipboardOutline}
+              style={{ fontSize: 32, color: 'rgba(251, 191, 36, 0.9)' }}
+            />
+          </div>
+          <IonText color="light">
+            <h2
+              style={{
+                margin: '0 0 8px',
+                fontSize: 18,
+                fontWeight: 700,
+                color: 'rgba(241, 245, 249, 0.95)',
+                letterSpacing: '-0.01em',
+              }}
+            >
+              No Proposals Yet
+            </h2>
+            <p
+              style={{
+                margin: 0,
+                color: 'rgba(148, 163, 184, 0.9)',
+                fontSize: 14,
+                lineHeight: 1.5,
+              }}
+            >
+              {children}
+            </p>
+          </IonText>
+        </div>
       </div>
     );
   }
 
   return (
-    <div style={{ paddingBottom: 16, paddingTop: 5, paddingInline: 12 }}>
+    <div style={{ paddingBottom: 16, paddingTop: 8, paddingInline: 4 }}>
       {err && (
         <div style={{ padding: 16 }}>
-          <IonText color="danger">
+          <IonText style={{ color: 'rgba(248, 113, 113, 0.95)', fontSize: 14 }}>
             <p style={{ margin: 0 }}>{err}</p>
           </IonText>
         </div>
@@ -159,13 +269,12 @@ export default function BandProposalsTabMobile({ bandId, isAdmin }: Props) {
             justifyContent: 'center',
           }}
         >
-          <IonSpinner />
+          <IonSpinner style={{ '--color': 'rgba(251, 191, 36, 0.8)' } as any} />
         </div>
       ) : proposals.length === 0 ? (
         <EmptyListMessage>
-          No proposed gigs yet.{' '}
           {isAdmin
-            ? 'Create one to let your band vote on possible dates.'
+            ? 'Create your first proposal to let your band vote on possible gig dates and venues.'
             : 'Your band admin can propose gigs for everyone to vote on.'}
         </EmptyListMessage>
       ) : (
@@ -179,7 +288,7 @@ export default function BandProposalsTabMobile({ bandId, isAdmin }: Props) {
               background: 'transparent',
               display: 'flex',
               flexDirection: 'column',
-              rowGap: 4,
+              rowGap: 8,
             }}
           >
             {proposals.map((p) => {
@@ -192,13 +301,33 @@ export default function BandProposalsTabMobile({ bandId, isAdmin }: Props) {
               });
 
               const venueText = p.venue?.trim();
-              const subtitle = venueText
-                ? venueText
-                : isAdmin
-                ? 'Tap to add time options'
-                : 'Open to vote on times';
 
               const isPressed = pressedId === p.id;
+
+              // Determine subtitle based on state
+              let subtitle = '';
+              let subtitleIcon = null;
+              let subtitleColor = 'rgba(203, 213, 225, 0.85)';
+
+              if (p.optionsCount === 0) {
+                subtitle = isAdmin
+                  ? 'Tap to add date options'
+                  : 'No dates added yet';
+                subtitleIcon = timeOutline;
+                subtitleColor = 'rgba(251, 191, 36, 0.75)';
+              } else if (!p.userHasVoted) {
+                subtitle = `${p.optionsCount} ${
+                  p.optionsCount === 1 ? 'date' : 'dates'
+                } • Tap to vote`;
+                subtitleIcon = timeOutline;
+                subtitleColor = 'rgba(251, 191, 36, 0.85)';
+              } else {
+                subtitle = `${p.optionsCount} ${
+                  p.optionsCount === 1 ? 'date' : 'dates'
+                } • You voted`;
+                subtitleIcon = checkmarkCircleOutline;
+                subtitleColor = 'rgba(52, 211, 153, 0.85)';
+              }
 
               return (
                 <IonItem
@@ -212,9 +341,8 @@ export default function BandProposalsTabMobile({ bandId, isAdmin }: Props) {
                     ['--background-hover' as any]: 'transparent',
                     ['--background-activated' as any]: 'transparent',
                     ['--ripple-color' as any]: 'transparent',
-                    marginInline: -20,
                     paddingInline: 0,
-                    paddingBlock: 3,
+                    paddingBlock: 0,
                   }}
                 >
                   <div
@@ -226,24 +354,21 @@ export default function BandProposalsTabMobile({ bandId, isAdmin }: Props) {
                     onMouseUp={handlePressEnd}
                     onMouseLeave={handlePressEnd}
                     style={{
-                      borderRadius: 20,
-                      paddingInline: 20,
-                      paddingBlock: 12,
-                      minHeight: 85,
+                      borderRadius: 16,
+                      paddingInline: 16,
+                      paddingBlock: 14,
                       width: '100%',
                       display: 'grid',
                       gridTemplateColumns: '1fr auto auto',
                       alignItems: 'center',
-                      columnGap: 10,
-                      background:
-                        'linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02))',
-                      boxShadow: isPressed
-                        ? '0 10px 24px rgba(0,0,0,.32)'
-                        : '0 18px 40px rgba(0,0,0,0.9)',
-                      // 🔽 this is the important part – match library “shrink”
-                      transform: isPressed ? 'scale(0.97)' : 'scale(1)',
-                      transition:
-                        'transform 120ms ease-out, box-shadow 120ms ease-out, background 120ms ease-out',
+                      columnGap: 12,
+                      background: 'transparent',
+                      border: p.userHasVoted
+                        ? '1px solid rgba(52, 211, 153, 0.2)'
+                        : '1px solid rgba(71, 85, 105, 0.2)',
+                      transform: isPressed ? 'scale(0.99)' : 'scale(1)',
+                      opacity: isPressed ? 0.7 : 1,
+                      transition: 'all 120ms ease-out',
                     }}
                   >
                     {/* Text column */}
@@ -252,46 +377,76 @@ export default function BandProposalsTabMobile({ bandId, isAdmin }: Props) {
                         display: 'flex',
                         flexDirection: 'column',
                         minWidth: 0,
+                        gap: 6,
                       }}
                     >
                       <span
                         style={{
-                          fontWeight: 800,
-                          fontSize: 16,
-                          letterSpacing: 0.2,
+                          fontWeight: 700,
+                          fontSize: 15.5,
+                          letterSpacing: '-0.01em',
                           whiteSpace: 'nowrap',
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
-                          color: '#E5E7EB',
+                          color: 'rgba(241, 245, 249, 0.95)',
                         }}
                         title={title}
                       >
                         {title}
                       </span>
 
-                      <span
+                      {venueText && (
+                        <span
+                          style={{
+                            fontSize: 12.5,
+                            color: 'rgba(148, 163, 184, 0.8)',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            lineHeight: 1.3,
+                          }}
+                          title={venueText}
+                        >
+                          {venueText}
+                        </span>
+                      )}
+
+                      {/* Status line with icon */}
+                      <div
                         style={{
-                          marginTop: 8,
-                          fontSize: 13,
-                          opacity: 0.85,
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          color: 'rgba(226,232,240,0.9)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 5,
+                          fontSize: 12.5,
+                          color: subtitleColor,
+                          fontWeight: 600,
                         }}
-                        title={subtitle}
                       >
-                        {subtitle}
-                      </span>
+                        {subtitleIcon && (
+                          <IonIcon
+                            icon={subtitleIcon}
+                            style={{ fontSize: 14 }}
+                          />
+                        )}
+                        <span
+                          style={{
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                          }}
+                        >
+                          {subtitle}
+                        </span>
+                      </div>
 
                       <span
                         style={{
-                          marginTop: 4,
-                          fontSize: 11.5,
-                          color: '#6B7280',
+                          fontSize: 11,
+                          color: 'rgba(148, 163, 184, 0.7)',
                           whiteSpace: 'nowrap',
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
+                          fontWeight: 500,
                         }}
                       >
                         Created {createdLabel}
@@ -305,20 +460,20 @@ export default function BandProposalsTabMobile({ bandId, isAdmin }: Props) {
                         flexDirection: 'column',
                         alignItems: 'flex-end',
                         justifyContent: 'center',
-                        marginLeft: 6,
                       }}
                     >
                       <span
                         style={{
-                          fontSize: 11,
-                          padding: '3px 7px',
-                          borderRadius: 999,
-                          border: '1px solid rgba(245, 158, 11, 0.75)',
-                          color: 'rgba(245, 158, 11, 0.95)',
+                          fontSize: 10.5,
+                          fontWeight: 700,
+                          padding: '4px 10px',
+                          borderRadius: 8,
+                          border: '1px solid rgba(251, 191, 36, 0.3)',
+                          color: 'rgba(251, 191, 36, 0.95)',
                           textTransform: 'uppercase',
-                          letterSpacing: 0.7,
+                          letterSpacing: 0.5,
                           whiteSpace: 'nowrap',
-                          background: 'rgba(24, 20, 11, 0.9)',
+                          background: 'rgba(245, 158, 11, 0.1)',
                         }}
                       >
                         Proposed
@@ -331,12 +486,14 @@ export default function BandProposalsTabMobile({ bandId, isAdmin }: Props) {
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'flex-end',
-                        paddingLeft: 4,
                       }}
                     >
                       <IonIcon
                         icon={chevronForwardOutline}
-                        style={{ fontSize: 18, opacity: 0.6 }}
+                        style={{
+                          fontSize: 18,
+                          color: 'rgba(148, 163, 184, 0.6)',
+                        }}
                       />
                     </div>
                   </div>
@@ -351,13 +508,13 @@ export default function BandProposalsTabMobile({ bandId, isAdmin }: Props) {
         <div
           style={{
             padding: 16,
+            paddingTop: proposals.length === 0 ? 24 : 16,
             display: 'flex',
             justifyContent: 'center',
           }}
         >
-          <IonButton
-            fill="outline"
-            size="small"
+          <button
+            type="button"
             onClick={() => {
               window.dispatchEvent(
                 new CustomEvent('amplee:global-create', {
@@ -368,19 +525,34 @@ export default function BandProposalsTabMobile({ bandId, isAdmin }: Props) {
                 })
               );
             }}
-            style={
-              {
-                '--color': 'rgba(245, 158, 11, 0.95)',
-                '--border-color': 'rgba(245, 158, 11, 0.95)',
-                '--background-activated': 'rgba(245, 158, 11, 0.95)',
-                '--border-color-activated': 'rgba(245, 158, 11, 0.95)',
-                '--color-activated': '#000000',
-              } as React.CSSProperties
-            }
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '12px 20px',
+              borderRadius: 12,
+              border: '1px solid rgba(251, 191, 36, 0.25)',
+              background: 'rgba(245, 158, 11, 0.1)',
+              color: 'rgba(251, 191, 36, 0.95)',
+              fontSize: 14.5,
+              fontWeight: 700,
+              cursor: 'pointer',
+              transition: 'all 150ms cubic-bezier(0.4, 0, 0.2, 1)',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'rgba(245, 158, 11, 0.15)';
+              e.currentTarget.style.borderColor = 'rgba(251, 191, 36, 0.4)';
+              e.currentTarget.style.transform = 'translateY(-1px)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'rgba(245, 158, 11, 0.1)';
+              e.currentTarget.style.borderColor = 'rgba(251, 191, 36, 0.25)';
+              e.currentTarget.style.transform = 'translateY(0)';
+            }}
           >
-            <IonIcon icon={addOutline} slot="start" />
+            <IonIcon icon={addOutline} style={{ fontSize: 18 }} />
             Propose new gig
-          </IonButton>
+          </button>
         </div>
       )}
     </div>

@@ -174,6 +174,8 @@ export default function ProposedGigSheetMobile() {
         }
       );
 
+      const sortedOptions = sortOptionsByDate(options);
+
       // lookup "proposed by"
       if (data.created_by) {
         const { data: profile } = await supabase
@@ -200,7 +202,7 @@ export default function ProposedGigSheetMobile() {
         venue: data.venue,
         created_at: data.created_at,
         created_by: data.created_by ?? null,
-        options,
+        options: sortedOptions,
       });
     } catch (e: any) {
       console.error(e);
@@ -288,24 +290,28 @@ export default function ProposedGigSheetMobile() {
 
       setNewDate(null);
 
-      // Append new option locally with 0 votes
       if (inserted) {
-        setProposal((prev) =>
-          prev
-            ? {
-                ...prev,
-                options: [
-                  ...prev.options,
-                  {
-                    id: inserted.id,
-                    starts_at: inserted.starts_at,
-                    yes: 0,
-                    no: 0,
-                  },
-                ],
-              }
-            : prev
-        );
+        setProposal((prev) => {
+          if (!prev) return prev;
+
+          const updatedOptions = [
+            ...prev.options,
+            {
+              id: inserted.id,
+              starts_at: inserted.starts_at,
+              yes: 0,
+              no: 0,
+            },
+          ];
+
+          // Sort options by date
+          const sortedOptions = sortOptionsByDate(updatedOptions);
+
+          return {
+            ...prev,
+            options: sortedOptions, // ← Use sorted options
+          };
+        });
       }
     } catch (e: any) {
       console.error(e);
@@ -419,6 +425,14 @@ export default function ProposedGigSheetMobile() {
     setShowEditProposal(true);
   }
 
+  function sortOptionsByDate(options: Option[]): Option[] {
+    return [...options].sort((a, b) => {
+      const dateA = new Date(a.starts_at).getTime();
+      const dateB = new Date(b.starts_at).getTime();
+      return dateA - dateB; // Ascending order (earliest first)
+    });
+  }
+
   async function saveProposalEdits() {
     if (!proposal || !bandId) return;
 
@@ -480,16 +494,22 @@ export default function ProposedGigSheetMobile() {
       if (updErr) throw updErr;
 
       // update local state instead of refetching
-      setProposal((prev) =>
-        prev
-          ? {
-              ...prev,
-              options: prev.options.map((o) =>
-                o.id === editingOptionId ? { ...o, starts_at: iso } : o
-              ),
-            }
-          : prev
-      );
+
+      setProposal((prev) => {
+        if (!prev) return prev;
+
+        const updatedOptions = prev.options.map((o) =>
+          o.id === editingOptionId ? { ...o, starts_at: iso } : o
+        );
+
+        // Sort options by date after updating
+        const sortedOptions = sortOptionsByDate(updatedOptions);
+
+        return {
+          ...prev,
+          options: sortedOptions, // ← Use sorted options
+        };
+      });
 
       setEditingOptionId(null);
       setEditingOptionDate(null);
@@ -1302,6 +1322,7 @@ export default function ProposedGigSheetMobile() {
           }
         }}
         header="✓ Converted!"
+        cssClass="custom-dark-alert delete-event-alert"
         message="This proposed gig is now a confirmed event."
         buttons={['OK']}
       />
