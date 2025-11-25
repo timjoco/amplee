@@ -1,5 +1,6 @@
 import {
   IonButton,
+  IonButtons,
   IonContent,
   IonHeader,
   IonIcon,
@@ -10,6 +11,7 @@ import {
   IonSpinner,
   IonText,
   IonTitle,
+  IonToast,
   IonToolbar,
 } from '@ionic/react';
 import {
@@ -51,6 +53,7 @@ export default function InviteBandMobile() {
   const [sendingInvites, setSendingInvites] = React.useState(false);
   const [inviteLink, setInviteLink] = React.useState<string | null>(null);
   const [copied, setCopied] = React.useState(false);
+  const [showSentToast, setShowSentToast] = React.useState(false);
 
   // ---------- LOAD BAND + ROLE ----------
   React.useEffect(() => {
@@ -134,7 +137,6 @@ export default function InviteBandMobile() {
 
   // ---------- GENERATE INVITE LINK ----------
   async function generateInviteLink() {
-    // Use amplee.app domain instead of localhost
     const domain = 'https://amplee.app';
     const link = `${domain}/invite?band=${bandId}`;
     setInviteLink(link);
@@ -205,6 +207,7 @@ export default function InviteBandMobile() {
       }
 
       setEmails([]);
+      setShowSentToast(true);
     } catch (e: any) {
       console.error('[InviteBandMobile] sendEmailInvites error', e);
       setErr(e?.message || 'Failed to send email invites.');
@@ -253,60 +256,52 @@ export default function InviteBandMobile() {
 
   return (
     <IonPage>
-      <IonHeader
-        translucent
-        style={{
-          '--background': 'rgba(8,8,12,0.98)',
-        }}
-      >
+      <IonHeader translucent>
         <IonToolbar
           style={{
-            '--background': 'transparent',
-            '--padding-start': '8px',
+            '--background': 'rgba(8,8,12,0.98)',
+            borderBottom: '0.5px solid rgba(255,255,255,0.06)',
           }}
         >
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 12,
-              padding: '8px 0',
-            }}
-          >
-            <button
-              type="button"
+          <IonButtons slot="start">
+            <IonButton
+              fill="clear"
               onClick={() => nav(-1)}
-              style={{
-                background: 'transparent',
-                border: 'none',
-                padding: 8,
-                display: 'flex',
-                alignItems: 'center',
-                cursor: 'pointer',
-              }}
+              style={{ minWidth: 0, paddingInline: 4 }}
             >
               <IonIcon
                 icon={chevronBackOutline}
-                style={{ fontSize: 20, color: '#8049afff', marginRight: 4 }}
+                style={{ fontSize: 22, color: '#F9FAFB' }}
               />
-            </button>
-            <div style={{ flex: 1 }}>
-              <IonText
-                style={{ color: '#e8e4ecff', fontSize: 18, fontWeight: 700 }}
-              >
-                Invite Friends
-              </IonText>
-              <IonText
-                style={{
-                  color: 'rgba(196,181,253,0.9)',
-                  fontSize: 13,
-                  display: 'block',
-                  marginTop: 2,
-                }}
-              >
-                to {bandName}
-              </IonText>
-            </div>
+            </IonButton>
+          </IonButtons>
+
+          <div
+            style={{
+              paddingInline: 12,
+              paddingBlock: 8,
+            }}
+          >
+            <h1
+              style={{
+                margin: 0,
+                fontSize: 24,
+                fontWeight: 800,
+                color: '#F9FAFB',
+                letterSpacing: '-0.5px',
+              }}
+            >
+              Invite Band Members
+            </h1>
+            <p
+              style={{
+                margin: '4px 0 0',
+                fontSize: 13,
+                color: '#9ca3af',
+              }}
+            >
+              Share a link or send direct invites to {bandName}
+            </p>
           </div>
         </IonToolbar>
       </IonHeader>
@@ -314,67 +309,98 @@ export default function InviteBandMobile() {
       <IonContent
         fullscreen
         style={{
-          '--background':
-            'radial-gradient(circle at top, rgba(8,47,73,0.45), #050509 45%, #020109 100%)',
+          '--background': 'linear-gradient(180deg, #050509 0%, #020109 100%)',
         }}
       >
         {loading ? (
           <div
             style={{
-              paddingTop: 80,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              gap: 16,
+              height: '100%',
+              display: 'grid',
+              placeItems: 'center',
             }}
           >
-            <IonSpinner name="crescent" style={{ color: '#8049afff' }} />
-            <IonText style={{ color: 'rgba(196,181,253,0.9)' }}>
-              <p style={{ margin: 0 }}>Loading band…</p>
-            </IonText>
+            <IonSpinner name="dots" style={{ color: '#a855f7' }} />
           </div>
         ) : err ? (
           <div
             style={{
-              padding: 20,
-              margin: 16,
-              background: 'rgba(242,63,67,0.1)',
-              border: '1px solid rgba(242,63,67,0.3)',
-              borderRadius: 18,
+              height: '100%',
+              display: 'grid',
+              placeItems: 'center',
+              padding: 16,
             }}
           >
-            <IonText style={{ color: '#f23f42' }}>
-              <p style={{ margin: 0 }}>{err}</p>
-            </IonText>
+            <div
+              style={{
+                background: 'rgba(239,68,68,0.08)',
+                border: '1px solid rgba(239,68,68,0.4)',
+                borderRadius: 20,
+                padding: 20,
+                maxWidth: 360,
+              }}
+            >
+              <IonText>
+                <p
+                  style={{
+                    margin: 0,
+                    color: '#fecaca',
+                    fontSize: 14,
+                  }}
+                >
+                  {err}
+                </p>
+              </IonText>
+            </div>
           </div>
         ) : !isAdmin ? (
           <div
             style={{
-              padding: 20,
-              margin: 16,
-              background: 'rgba(250,166,26,0.1)',
-              border: '1px solid rgba(250,166,26,0.3)',
-              borderRadius: 18,
+              height: '100%',
+              display: 'grid',
+              placeItems: 'center',
+              padding: 16,
             }}
           >
-            <IonText style={{ color: '#faa61a' }}>
-              <p style={{ margin: 0 }}>
-                Only band admins can send invites for {bandName}.
-              </p>
-            </IonText>
-          </div>
-        ) : (
-          <div style={{ padding: 16 }}>
-            {/* Invite Link Card */}
             <div
               style={{
-                borderRadius: 18,
-                background:
-                  'linear-gradient(145deg, #08070d, #050509 55%, #0b0614)',
-                border: '1px solid rgba(88,28,135,0.7)',
-                padding: 16,
-                marginBottom: 16,
-                boxShadow: '0 22px 45px rgba(0,0,0,0.9)',
+                background: 'rgba(250,204,21,0.08)',
+                border: '1px solid rgba(250,204,21,0.4)',
+                borderRadius: 20,
+                padding: 20,
+                maxWidth: 360,
+              }}
+            >
+              <IonText>
+                <p
+                  style={{
+                    margin: 0,
+                    color: '#facc15',
+                    fontSize: 14,
+                  }}
+                >
+                  Only band admins can send invites for {bandName}.
+                </p>
+              </IonText>
+            </div>
+          </div>
+        ) : (
+          <div
+            style={{
+              padding: 16,
+              paddingBottom: 24,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 16,
+            }}
+          >
+            {/* INVITE LINK CARD */}
+            <div
+              style={{
+                background: 'rgba(255,255,255,0.02)',
+                border: '1px solid rgba(168,85,247,0.3)',
+                borderRadius: 20,
+                padding: 20,
               }}
             >
               <div
@@ -382,57 +408,60 @@ export default function InviteBandMobile() {
                   display: 'flex',
                   alignItems: 'center',
                   gap: 8,
-                  marginBottom: 12,
+                  marginBottom: 8,
                 }}
               >
                 <IonIcon
                   icon={personAddOutline}
-                  style={{ fontSize: 20, color: '#a78bfa' }}
+                  style={{ fontSize: 20, color: '#a855f7' }}
                 />
-                <IonText
+                <p
                   style={{
-                    color: 'rgba(237,233,254,0.96)',
-                    fontSize: 15,
+                    margin: 0,
+                    fontSize: 12,
                     fontWeight: 700,
+                    letterSpacing: 0.5,
+                    textTransform: 'uppercase',
+                    color: '#e5e7eb',
                   }}
                 >
-                  Share Invite Link
-                </IonText>
+                  Share invite link
+                </p>
               </div>
-              <IonText
+              <p
                 style={{
-                  color: 'rgba(196,181,253,0.9)',
+                  margin: '0 0 12px',
                   fontSize: 13,
-                  display: 'block',
-                  marginBottom: 12,
+                  color: '#9ca3af',
                 }}
               >
-                Send a link for friends to join directly
-              </IonText>
+                Send a link for friends to join {bandName} directly.
+              </p>
+
               <div
                 style={{
                   background: 'rgba(15,23,42,0.96)',
-                  borderRadius: 10,
-                  padding: 12,
+                  borderRadius: 12,
+                  padding: 10,
+                  marginBottom: 12,
+                  border: '1px solid rgba(148,163,184,0.35)',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: 8,
-                  marginBottom: 12,
                 }}
               >
-                <IonText
+                <span
                   style={{
                     color: '#a78bfa',
                     fontSize: 13,
-                    flex: 1,
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
                     whiteSpace: 'nowrap',
                   }}
                 >
-                  {inviteLink || 'Generating...'}
-                </IonText>
+                  {inviteLink || 'Generating link…'}
+                </span>
               </div>
+
               <IonButton
                 expand="block"
                 onClick={copyInviteLink}
@@ -441,9 +470,6 @@ export default function InviteBandMobile() {
                   '--background': copied
                     ? 'rgba(34,197,94,0.9)'
                     : 'linear-gradient(135deg, rgba(147,51,234,1), rgba(88,28,135,1))',
-                  '--background-hover': copied
-                    ? 'rgba(22,163,74,0.9)'
-                    : 'linear-gradient(135deg, rgba(147,51,234,0.9), rgba(88,28,135,0.9))',
                   '--border-radius': '14px',
                   height: 48,
                   fontWeight: 700,
@@ -454,54 +480,55 @@ export default function InviteBandMobile() {
                   icon={copied ? checkmarkOutline : copyOutline}
                   slot="start"
                 />
-                {copied ? 'Copied!' : 'Copy Link'}
+                {copied ? 'Copied!' : 'Copy link'}
               </IonButton>
             </div>
 
-            {/* Divider */}
+            {/* DIVIDER */}
             <div
               style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: 12,
-                margin: '24px 0',
+                marginBlock: 8,
               }}
             >
               <div
                 style={{
                   flex: 1,
                   height: 1,
-                  background: 'rgba(88,28,135,0.5)',
+                  background: 'rgba(148,163,184,0.3)',
                 }}
               />
-              <IonText
+              <span
                 style={{
-                  color: 'rgba(196,181,253,0.9)',
-                  fontSize: 12,
+                  fontSize: 11,
                   fontWeight: 600,
+                  letterSpacing: 0.5,
+                  color: '#6b7280',
                 }}
               >
                 OR SEND DIRECTLY
-              </IonText>
+              </span>
               <div
                 style={{
                   flex: 1,
                   height: 1,
-                  background: 'rgba(88,28,135,0.5)',
+                  background: 'rgba(148,163,184,0.3)',
                 }}
               />
             </div>
 
-            {/* Mode Selector */}
+            {/* MODE SELECTOR */}
             <IonSegment
               value={mode}
               onIonChange={(e) => setMode(e.detail.value as InviteMode)}
               style={{
-                '--background':
-                  'linear-gradient(145deg, #08070d, #050509 55%, #0b0614)',
-                marginBottom: 16,
+                '--background': 'rgba(15,23,42,0.9)',
+                marginTop: 4,
+                marginBottom: 8,
                 borderRadius: 12,
-                border: '1px solid rgba(88,28,135,0.5)',
+                border: '1px solid rgba(148,163,184,0.35)',
               }}
             >
               <IonSegmentButton value="email">
@@ -510,7 +537,7 @@ export default function InviteBandMobile() {
                     display: 'flex',
                     alignItems: 'center',
                     gap: 6,
-                    padding: '8px 0',
+                    padding: '6px 0',
                   }}
                 >
                   <IonIcon icon={mailOutline} style={{ fontSize: 18 }} />
@@ -523,7 +550,7 @@ export default function InviteBandMobile() {
                     display: 'flex',
                     alignItems: 'center',
                     gap: 6,
-                    padding: '8px 0',
+                    padding: '6px 0',
                   }}
                 >
                   <IonIcon icon={chatbubbleOutline} style={{ fontSize: 18 }} />
@@ -532,35 +559,34 @@ export default function InviteBandMobile() {
               </IonSegmentButton>
             </IonSegment>
 
-            {/* Input Card */}
+            {/* INPUT CARD */}
             <div
               style={{
-                borderRadius: 18,
-                background:
-                  'linear-gradient(145deg, #08070d, #050509 55%, #0b0614)',
-                border: '1px solid rgba(88,28,135,0.7)',
-                padding: 16,
-                boxShadow: '0 22px 45px rgba(0,0,0,0.9)',
+                background: 'rgba(255,255,255,0.02)',
+                border: '1px solid rgba(168,85,247,0.3)',
+                borderRadius: 20,
+                padding: 20,
               }}
             >
               {mode === 'email' ? (
                 <>
-                  <IonText
+                  <p
                     style={{
-                      color: 'rgba(196,181,253,0.9)',
+                      margin: '0 0 8px',
                       fontSize: 13,
-                      display: 'block',
-                      marginBottom: 8,
+                      color: '#9ca3af',
                     }}
                   >
-                    Enter email addresses to send invites
-                  </IonText>
+                    Enter email addresses to send invites.
+                  </p>
+
                   <div
                     style={{
                       background: 'rgba(15,23,42,0.96)',
                       borderRadius: 10,
                       padding: '4px 12px',
                       marginBottom: 12,
+                      border: '1px solid rgba(148,163,184,0.35)',
                     }}
                   >
                     <IonInput
@@ -575,11 +601,12 @@ export default function InviteBandMobile() {
                         }
                       }}
                       style={{
-                        '--color': '#e8e4ecff',
+                        '--color': '#e5e7eb',
                         '--placeholder-color': 'rgba(156,163,175,0.7)',
                       }}
                     />
                   </div>
+
                   <IonButton
                     expand="block"
                     fill="outline"
@@ -594,10 +621,9 @@ export default function InviteBandMobile() {
                       fontWeight: 600,
                     }}
                   >
-                    Add Email
+                    Add email
                   </IonButton>
 
-                  {/* Email chips */}
                   {emails.length > 0 && (
                     <div
                       style={{
@@ -618,7 +644,7 @@ export default function InviteBandMobile() {
                             padding: '6px 12px',
                             fontSize: 13,
                             background: 'rgba(147,51,234,0.2)',
-                            color: '#e8e4ecff',
+                            color: '#e5e7eb',
                             display: 'flex',
                             alignItems: 'center',
                             gap: 6,
@@ -632,7 +658,6 @@ export default function InviteBandMobile() {
                     </div>
                   )}
 
-                  {/* Send button */}
                   <IonButton
                     expand="block"
                     onClick={sendEmailInvites}
@@ -640,8 +665,6 @@ export default function InviteBandMobile() {
                     style={{
                       '--background':
                         'linear-gradient(135deg, rgba(147,51,234,1), rgba(88,28,135,1))',
-                      '--background-hover':
-                        'linear-gradient(135deg, rgba(147,51,234,0.9), rgba(88,28,135,0.9))',
                       '--border-radius': '14px',
                       height: 48,
                       fontWeight: 700,
@@ -650,25 +673,24 @@ export default function InviteBandMobile() {
                     }}
                   >
                     {sendingInvites
-                      ? 'Sending...'
-                      : `Send ${emails.length} Email${
+                      ? 'Sending…'
+                      : `Send ${emails.length} invite${
                           emails.length !== 1 ? 's' : ''
                         }`}
                   </IonButton>
                 </>
               ) : (
                 <>
-                  <IonText
+                  <p
                     style={{
-                      color: 'rgba(196,181,253,0.9)',
+                      margin: '0 0 12px',
                       fontSize: 13,
-                      display: 'block',
-                      marginBottom: 12,
+                      color: '#9ca3af',
                     }}
                   >
                     Opens your native texting app with the invite link
-                    pre-filled
-                  </IonText>
+                    pre-filled.
+                  </p>
 
                   <IonButton
                     expand="block"
@@ -677,8 +699,6 @@ export default function InviteBandMobile() {
                     style={{
                       '--background':
                         'linear-gradient(135deg, rgba(147,51,234,1), rgba(88,28,135,1))',
-                      '--background-hover':
-                        'linear-gradient(135deg, rgba(147,51,234,0.9), rgba(88,28,135,0.9))',
                       '--border-radius': '14px',
                       height: 48,
                       fontWeight: 700,
@@ -686,7 +706,7 @@ export default function InviteBandMobile() {
                     }}
                   >
                     <IonIcon icon={chatbubbleOutline} slot="start" />
-                    Open Messages App
+                    Open Messages app
                   </IonButton>
                 </>
               )}
@@ -694,6 +714,21 @@ export default function InviteBandMobile() {
           </div>
         )}
       </IonContent>
+
+      {/* Invites sent toast */}
+      <IonToast
+        isOpen={showSentToast}
+        onDidDismiss={() => setShowSentToast(false)}
+        message="Invites sent successfully."
+        duration={2000}
+        position="bottom"
+        style={
+          {
+            '--background': 'rgba(5,46,22,0.96)',
+            '--color': '#BBF7D0',
+          } as any
+        }
+      />
     </IonPage>
   );
 }
