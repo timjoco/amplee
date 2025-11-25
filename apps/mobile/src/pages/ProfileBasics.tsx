@@ -10,7 +10,7 @@ import {
   IonList,
   IonPage,
   IonText,
-  IonTitle,
+  IonToast,
   IonToolbar,
 } from '@ionic/react';
 import { chevronBackOutline } from 'ionicons/icons';
@@ -73,6 +73,7 @@ function LocationAutocomplete({
   const [suggestions, setSuggestions] = React.useState<string[]>([]);
   const [loading, setLoading] = React.useState(false);
   const [open, setOpen] = React.useState(false);
+
   const debounceRef = React.useRef<number | null>(null);
 
   React.useEffect(() => {
@@ -136,8 +137,8 @@ function LocationAutocomplete({
             right: 0,
             top: '100%',
             marginTop: 4,
-            borderRadius: 10,
-            background: 'rgba(5,6,14,0.98)',
+            borderRadius: 12,
+            background: 'rgba(8,8,12,0.98)',
             border: '1px solid rgba(255,255,255,0.12)',
             boxShadow: '0 12px 28px rgba(0,0,0,0.6)',
             zIndex: 50,
@@ -153,12 +154,19 @@ function LocationAutocomplete({
               style={{
                 width: '100%',
                 textAlign: 'left',
-                padding: '8px 12px',
+                padding: '12px 16px',
                 background: 'transparent',
                 border: 'none',
-                color: '#fff',
+                color: '#e5e7eb',
                 fontSize: 14,
                 cursor: 'pointer',
+                transition: 'background 0.15s ease',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'transparent';
               }}
             >
               {s}
@@ -167,9 +175,9 @@ function LocationAutocomplete({
           {loading && (
             <div
               style={{
-                padding: '6px 12px',
+                padding: '8px 16px',
                 fontSize: 12,
-                opacity: 0.8,
+                color: '#9ca3af',
               }}
             >
               Searching…
@@ -195,6 +203,7 @@ export default function ProfileBasics() {
   const [lastName, setLastName] = React.useState('');
   const [location, setLocation] = React.useState('');
   const [authUser, setAuthUser] = React.useState<any | null>(null);
+  const [toastMessage, setToastMessage] = React.useState<string | null>(null);
 
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
 
@@ -311,6 +320,8 @@ export default function ProfileBasics() {
       if (updateErr) throw updateErr;
 
       setSuccess('Profile updated');
+      setToastMessage('Profile updated');
+
       setProfile((prev) =>
         prev
           ? {
@@ -409,42 +420,73 @@ export default function ProfileBasics() {
             borderBottom: '0.5px solid rgba(255,255,255,0.06)',
           }}
         >
-          <button
-            type="button"
-            onClick={() => nav(-1)}
+          <div
             style={{
-              background: 'transparent',
-              border: 'none',
-              padding: 8,
               display: 'flex',
               alignItems: 'center',
-              cursor: 'pointer',
+              padding: '16px',
+              gap: 12,
             }}
           >
-            <IonIcon
-              icon={chevronBackOutline}
-              style={{ fontSize: 20, color: '#ffffffff', marginRight: 4 }}
-            />
-            <IonTitle style={{ color: '#e8e4ecff' }}>Profile settings</IonTitle>
-          </button>
+            <IonButton
+              onClick={() => nav(-1)}
+              fill="clear"
+              style={{
+                minWidth: 0,
+                padding: 6,
+                margin: 0,
+                flexShrink: 0,
+              }}
+            >
+              <IonIcon
+                icon={chevronBackOutline}
+                style={{ color: '#9ca3af', fontSize: 22 }}
+              />
+            </IonButton>
+
+            <div style={{ flex: 1 }}>
+              <h1
+                style={{
+                  fontSize: 20,
+                  fontWeight: 800,
+                  color: '#F9FAFB',
+                  margin: 0,
+                  letterSpacing: '-0.8px',
+                  lineHeight: 1.15,
+                }}
+              >
+                Edit Profile
+              </h1>
+              <div
+                style={{
+                  fontSize: 13,
+                  color: '#9ca3af',
+                  marginTop: 4,
+                }}
+              >
+                Update your information
+              </div>
+            </div>
+          </div>
         </IonToolbar>
       </IonHeader>
 
       <IonContent
         fullscreen
+        scrollY={true}
         style={{
-          '--background': '#000000ff',
+          '--background': 'linear-gradient(180deg, #050509 0%, #020109 100%)',
         }}
       >
         {loading && (
           <div
             style={{
-              padding: 24,
-              display: 'flex',
-              justifyContent: 'center',
+              display: 'grid',
+              placeItems: 'center',
+              height: '100%',
             }}
           >
-            <IonText color="light">
+            <IonText color="medium">
               <p>Loading…</p>
             </IonText>
           </div>
@@ -454,343 +496,377 @@ export default function ProfileBasics() {
           <div
             style={{
               padding: 16,
+              maxWidth: '600px',
+              margin: '0 auto',
             }}
           >
-            <IonText color="danger">
-              <p>{error}</p>
-            </IonText>
+            <div
+              style={{
+                background: 'rgba(239, 68, 68, 0.1)',
+                border: '1px solid rgba(239, 68, 68, 0.3)',
+                borderRadius: '12px',
+                padding: '16px',
+              }}
+            >
+              <IonText color="danger">
+                <p style={{ margin: 0, fontSize: 14 }}>{error}</p>
+              </IonText>
+            </div>
           </div>
         )}
 
         {!loading && profile && (
           <div
             style={{
-              padding: 16,
-              paddingBottom: 24,
-              color: '#E5E7EB',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 16,
+              padding: '16px',
+              maxWidth: '600px',
+              margin: '0 auto',
             }}
           >
-            {/* Profile card (mirrors band profile card style) */}
+            {/* Avatar Section */}
             <div
               style={{
-                borderRadius: 18,
-                background:
-                  'linear-gradient(145deg, #08070d, #050509 55%, #0b0614)',
-                border: '1px solid rgba(88,28,135,0.55)',
-                padding: 14,
-                boxShadow: '0 22px 45px rgba(0,0,0,0.9)',
+                background: 'rgba(255,255,255,0.02)',
+                border: '1px solid rgba(255,255,255,0.06)',
+                borderRadius: '20px',
+                padding: '32px 24px',
+                textAlign: 'center',
+                marginBottom: '16px',
               }}
             >
-              <div style={{ marginBottom: 6 }}>
-                <p
-                  style={{
-                    margin: 0,
-                    fontSize: 13,
-                    fontWeight: 700,
-                    letterSpacing: 0.04,
-                    textTransform: 'uppercase',
-                    color: 'rgba(237,233,254,0.96)',
-                  }}
-                >
-                  Your profile
-                </p>
-                <p
-                  style={{
-                    margin: '4px 0 0',
-                    fontSize: 12,
-                    color: 'rgba(196,181,253,0.9)',
-                  }}
-                >
-                  Update your name, photo, and location.
-                </p>
-              </div>
-
               <div
                 style={{
-                  marginTop: 10,
-                  paddingTop: 12,
-                  borderTop: '1px solid rgba(148,163,184,0.35)',
                   display: 'flex',
-                  flexDirection: 'column',
-                  gap: 14,
+                  justifyContent: 'center',
+                  marginBottom: '20px',
                 }}
               >
-                {/* Avatar + change button */}
-                <div
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    gap: 12,
-                  }}
-                >
-                  <AvatarImageMobile
-                    name={computedDisplayName}
-                    bucket={AVATAR_BUCKET}
-                    avatarPath={profile.avatar_url ?? undefined}
-                    size={96}
-                  />
-
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    style={{ display: 'none' }}
-                    onChange={onFileChange}
-                  />
-
-                  <IonButton
-                    size="small"
-                    onClick={onPickFile}
-                    disabled={uploadingAvatar}
-                    style={
-                      {
-                        '--border-radius': '999px',
-                        '--background': 'rgba(88,28,135,0.95)',
-                        '--background-activated': 'rgba(76,29,149,1)',
-                        '--color': '#F9FAFB',
-                      } as any
-                    }
-                  >
-                    <LuPencil size={15} style={{ marginRight: 6 }} />
-                    {uploadingAvatar ? 'Uploading…' : 'Change photo'}
-                  </IonButton>
-                </div>
-
-                <IonText
-                  color="medium"
-                  style={{
-                    display: 'block',
-                    textAlign: 'center',
-                    paddingBottom: 6,
-                    paddingTop: 2,
-                  }}
-                >
-                  <p
-                    style={{
-                      marginTop: 0,
-                      marginBottom: 0,
-                      fontSize: 13,
-                      lineHeight: '18px',
-                      color: 'rgba(209,213,219,0.9)',
-                    }}
-                  >
-                    This is how you appear across Amplee.
-                  </p>
-                </IonText>
-
-                {/* Fields */}
-                <IonList
-                  lines="none"
-                  style={{
-                    marginTop: 4,
-                    background: 'transparent',
-                  }}
-                >
-                  {/* Display name */}
-                  <IonItem
-                    lines="none"
-                    style={{
-                      '--background': 'rgba(14,15,23,0.98)',
-                      '--border-radius': '14px',
-                      '--padding-start': '12px',
-                      '--inner-padding-end': '12px',
-                      marginBottom: 8,
-                    }}
-                  >
-                    <div style={{ width: '100%' }}>
-                      <IonLabel
-                        position="stacked"
-                        style={{
-                          fontSize: 12,
-                          textTransform: 'uppercase',
-                          letterSpacing: 0.6,
-                          color: 'rgba(255,255,255,0.6)',
-                          marginBottom: 4,
-                        }}
-                      >
-                        Display name
-                      </IonLabel>
-                      <IonInput
-                        value={displayName}
-                        placeholder="How you appear to your band"
-                        onIonChange={(e) =>
-                          setDisplayName(e.detail.value ?? '')
-                        }
-                        style={{
-                          fontSize: 16,
-                          '--placeholder-color':
-                            'rgba(255,255,255,0.35)' as any,
-                        }}
-                      />
-                    </div>
-                  </IonItem>
-
-                  {/* First name */}
-                  <IonItem
-                    lines="none"
-                    style={{
-                      '--background': 'rgba(14,15,23,0.98)',
-                      '--border-radius': '14px',
-                      '--padding-start': '12px',
-                      '--inner-padding-end': '12px',
-                      marginBottom: 8,
-                    }}
-                  >
-                    <div style={{ width: '100%' }}>
-                      <IonLabel
-                        position="stacked"
-                        style={{
-                          fontSize: 12,
-                          textTransform: 'uppercase',
-                          letterSpacing: 0.6,
-                          color: 'rgba(255,255,255,0.6)',
-                          marginBottom: 4,
-                        }}
-                      >
-                        First name
-                      </IonLabel>
-                      <IonInput
-                        value={firstName}
-                        placeholder="First name"
-                        onIonChange={(e) => setFirstName(e.detail.value ?? '')}
-                        style={{
-                          fontSize: 16,
-                          '--placeholder-color':
-                            'rgba(255,255,255,0.35)' as any,
-                        }}
-                      />
-                    </div>
-                  </IonItem>
-
-                  {/* Last name */}
-                  <IonItem
-                    lines="none"
-                    style={{
-                      '--background': 'rgba(14,15,23,0.98)',
-                      '--border-radius': '14px',
-                      '--padding-start': '12px',
-                      '--inner-padding-end': '12px',
-                      marginBottom: 8,
-                    }}
-                  >
-                    <div style={{ width: '100%' }}>
-                      <IonLabel
-                        position="stacked"
-                        style={{
-                          fontSize: 12,
-                          textTransform: 'uppercase',
-                          letterSpacing: 0.6,
-                          color: 'rgba(255,255,255,0.6)',
-                          marginBottom: 4,
-                        }}
-                      >
-                        Last name
-                      </IonLabel>
-                      <IonInput
-                        value={lastName}
-                        placeholder="Last name"
-                        onIonChange={(e) => setLastName(e.detail.value ?? '')}
-                        style={{
-                          fontSize: 16,
-                          '--placeholder-color':
-                            'rgba(255,255,255,0.35)' as any,
-                        }}
-                      />
-                    </div>
-                  </IonItem>
-
-                  {/* Location */}
-                  <IonItem
-                    lines="none"
-                    style={{
-                      '--background': 'rgba(14,15,23,0.98)',
-                      '--border-radius': '14px',
-                      '--padding-start': '12px',
-                      '--inner-padding-end': '12px',
-                    }}
-                  >
-                    <div style={{ width: '100%' }}>
-                      <IonLabel
-                        position="stacked"
-                        style={{
-                          fontSize: 12,
-                          textTransform: 'uppercase',
-                          letterSpacing: 0.6,
-                          color: 'rgba(255,255,255,0.6)',
-                          marginBottom: 4,
-                        }}
-                      >
-                        Location
-                      </IonLabel>
-                      <LocationAutocomplete
-                        value={location}
-                        onChange={setLocation}
-                        editable={true}
-                      />
-                    </div>
-                  </IonItem>
-                </IonList>
-
-                {success && (
-                  <IonText color="success">
-                    <p
-                      style={{
-                        marginTop: 10,
-                        fontSize: 12,
-                      }}
-                    >
-                      {success}
-                    </p>
-                  </IonText>
-                )}
-
-                {error && (
-                  <IonText color="danger">
-                    <p
-                      style={{
-                        marginTop: 10,
-                        fontSize: 12,
-                      }}
-                    >
-                      {error}
-                    </p>
-                  </IonText>
-                )}
-
-                {/* Save changes */}
-                <div
-                  style={{
-                    marginTop: 12,
-                  }}
-                >
-                  <IonButton
-                    expand="block"
-                    disabled={savingProfile}
-                    onClick={() => {
-                      if (!savingProfile) onSaveProfile();
-                    }}
-                    style={
-                      {
-                        '--border-radius': '999px',
-                        '--background': 'rgba(88,28,135,0.98)',
-                        '--background-activated': 'rgba(76,29,149,1)',
-                        '--background-hover': 'rgba(109,40,217,1)',
-                        '--color': '#F9FAFB',
-                      } as any
-                    }
-                  >
-                    {savingProfile ? 'Saving…' : 'Save changes'}
-                  </IonButton>
-                </div>
+                <AvatarImageMobile
+                  name={computedDisplayName}
+                  bucket={AVATAR_BUCKET}
+                  avatarPath={profile.avatar_url ?? undefined}
+                  size={120}
+                />
               </div>
+
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                style={{ display: 'none' }}
+                onChange={onFileChange}
+              />
+
+              <button
+                type="button"
+                onClick={onPickFile}
+                disabled={uploadingAvatar}
+                style={{
+                  marginTop: '20px',
+                  padding: '10px 24px',
+                  borderRadius: '12px',
+                  background: 'rgba(155, 135, 245, 0.15)',
+                  border: '1px solid rgba(155, 135, 245, 0.3)',
+                  color: '#9b87f5',
+                  fontSize: 14,
+                  fontWeight: 600,
+                  cursor: uploadingAvatar ? 'default' : 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  transition: 'all 0.2s ease',
+                  opacity: uploadingAvatar ? 0.5 : 1,
+                }}
+                onMouseEnter={(e) => {
+                  if (!uploadingAvatar) {
+                    e.currentTarget.style.background =
+                      'rgba(155, 135, 245, 0.2)';
+                    e.currentTarget.style.borderColor =
+                      'rgba(155, 135, 245, 0.5)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background =
+                    'rgba(155, 135, 245, 0.15)';
+                  e.currentTarget.style.borderColor =
+                    'rgba(155, 135, 245, 0.3)';
+                }}
+              >
+                <LuPencil size={16} />
+                {uploadingAvatar ? 'Uploading…' : 'Change photo'}
+              </button>
+
+              <p
+                style={{
+                  marginTop: '16px',
+                  marginBottom: 0,
+                  fontSize: 13,
+                  color: '#9ca3af',
+                  lineHeight: 1.5,
+                }}
+              >
+                This is how you appear across Amplee
+              </p>
+            </div>
+
+            {/* Form Fields */}
+            <div
+              style={{
+                background: 'rgba(255,255,255,0.02)',
+                border: '1px solid rgba(255,255,255,0.06)',
+                borderRadius: '20px',
+                padding: '24px',
+              }}
+            >
+              <IonList
+                lines="none"
+                style={{
+                  background: 'transparent',
+                }}
+              >
+                {/* Display name */}
+                <div style={{ marginBottom: 20 }}>
+                  <IonLabel
+                    style={{
+                      fontSize: 12,
+                      textTransform: 'uppercase',
+                      letterSpacing: 0.6,
+                      color: '#9ca3af',
+                      fontWeight: 600,
+                      marginBottom: 8,
+                      display: 'block',
+                    }}
+                  >
+                    Display name
+                  </IonLabel>
+                  <IonItem
+                    lines="none"
+                    style={{
+                      '--background': 'rgba(255,255,255,0.04)',
+                      '--border-radius': '12px',
+                      '--padding-start': '16px',
+                      '--inner-padding-end': '16px',
+                      '--min-height': '52px',
+                    }}
+                  >
+                    <IonInput
+                      value={displayName}
+                      placeholder="How you appear to your band"
+                      onIonChange={(e) => setDisplayName(e.detail.value ?? '')}
+                      style={{
+                        fontSize: 16,
+                        '--placeholder-color': 'rgba(156,163,175,0.5)' as any,
+                        '--color': '#e5e7eb',
+                      }}
+                    />
+                  </IonItem>
+                </div>
+
+                {/* First name */}
+                <div style={{ marginBottom: 20 }}>
+                  <IonLabel
+                    style={{
+                      fontSize: 12,
+                      textTransform: 'uppercase',
+                      letterSpacing: 0.6,
+                      color: '#9ca3af',
+                      fontWeight: 600,
+                      marginBottom: 8,
+                      display: 'block',
+                    }}
+                  >
+                    First name
+                  </IonLabel>
+                  <IonItem
+                    lines="none"
+                    style={{
+                      '--background': 'rgba(255,255,255,0.04)',
+                      '--border-radius': '12px',
+                      '--padding-start': '16px',
+                      '--inner-padding-end': '16px',
+                      '--min-height': '52px',
+                    }}
+                  >
+                    <IonInput
+                      value={firstName}
+                      placeholder="First name"
+                      onIonChange={(e) => setFirstName(e.detail.value ?? '')}
+                      style={{
+                        fontSize: 16,
+                        '--placeholder-color': 'rgba(156,163,175,0.5)' as any,
+                        '--color': '#e5e7eb',
+                      }}
+                    />
+                  </IonItem>
+                </div>
+
+                {/* Last name */}
+                <div style={{ marginBottom: 20 }}>
+                  <IonLabel
+                    style={{
+                      fontSize: 12,
+                      textTransform: 'uppercase',
+                      letterSpacing: 0.6,
+                      color: '#9ca3af',
+                      fontWeight: 600,
+                      marginBottom: 8,
+                      display: 'block',
+                    }}
+                  >
+                    Last name
+                  </IonLabel>
+                  <IonItem
+                    lines="none"
+                    style={{
+                      '--background': 'rgba(255,255,255,0.04)',
+                      '--border-radius': '12px',
+                      '--padding-start': '16px',
+                      '--inner-padding-end': '16px',
+                      '--min-height': '52px',
+                    }}
+                  >
+                    <IonInput
+                      value={lastName}
+                      placeholder="Last name"
+                      onIonChange={(e) => setLastName(e.detail.value ?? '')}
+                      style={{
+                        fontSize: 16,
+                        '--placeholder-color': 'rgba(156,163,175,0.5)' as any,
+                        '--color': '#e5e7eb',
+                      }}
+                    />
+                  </IonItem>
+                </div>
+
+                {/* Location */}
+                <div>
+                  <IonLabel
+                    style={{
+                      fontSize: 12,
+                      textTransform: 'uppercase',
+                      letterSpacing: 0.6,
+                      color: '#9ca3af',
+                      fontWeight: 600,
+                      marginBottom: 8,
+                      display: 'block',
+                    }}
+                  >
+                    Location
+                  </IonLabel>
+                  <IonItem
+                    lines="none"
+                    style={{
+                      '--background': 'rgba(255,255,255,0.04)',
+                      '--border-radius': '12px',
+                      '--padding-start': '16px',
+                      '--inner-padding-end': '16px',
+                      '--min-height': '52px',
+                    }}
+                  >
+                    <LocationAutocomplete
+                      value={location}
+                      onChange={setLocation}
+                      editable={true}
+                    />
+                  </IonItem>
+                </div>
+              </IonList>
+
+              {success && (
+                <div
+                  style={{
+                    marginTop: 16,
+                    padding: '12px 16px',
+                    borderRadius: '12px',
+                    background: 'rgba(155, 135, 245, 0.1)',
+                    border: '1px solid rgba(155, 135, 245, 0.3)',
+                  }}
+                >
+                  <IonText style={{ color: '#9b87f5' }}>
+                    <p style={{ margin: 0, fontSize: 14 }}>{success}</p>
+                  </IonText>
+                </div>
+              )}
+
+              {error && (
+                <div
+                  style={{
+                    marginTop: 16,
+                    padding: '12px 16px',
+                    borderRadius: '12px',
+                    background: 'rgba(239, 68, 68, 0.1)',
+                    border: '1px solid rgba(239, 68, 68, 0.3)',
+                  }}
+                >
+                  <IonText color="danger">
+                    <p style={{ margin: 0, fontSize: 14 }}>{error}</p>
+                  </IonText>
+                </div>
+              )}
+
+              {/* Save button */}
+              <button
+                type="button"
+                disabled={savingProfile}
+                onClick={() => {
+                  if (!savingProfile) onSaveProfile();
+                }}
+                style={{
+                  width: '100%',
+                  marginTop: 24,
+                  padding: '14px',
+                  borderRadius: '12px',
+                  background: 'rgba(155, 135, 245, 0.15)',
+                  border: '1px solid rgba(155, 135, 245, 0.3)',
+                  color: '#9b87f5',
+                  fontSize: 16,
+                  fontWeight: 700,
+                  cursor: savingProfile ? 'default' : 'pointer',
+                  transition: 'all 0.2s ease',
+                  opacity: savingProfile ? 0.5 : 1,
+                }}
+                onMouseEnter={(e) => {
+                  if (!savingProfile) {
+                    e.currentTarget.style.background =
+                      'rgba(155, 135, 245, 0.2)';
+                    e.currentTarget.style.borderColor =
+                      'rgba(155, 135, 245, 0.5)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background =
+                    'rgba(155, 135, 245, 0.15)';
+                  e.currentTarget.style.borderColor =
+                    'rgba(155, 135, 245, 0.3)';
+                }}
+              >
+                {savingProfile ? 'Saving…' : 'Save changes'}
+              </button>
             </div>
           </div>
         )}
       </IonContent>
+
+      <IonToast
+        isOpen={toastMessage !== null}
+        message={toastMessage ?? ''}
+        duration={2200}
+        mode="ios"
+        position="bottom"
+        onDidDismiss={() => setToastMessage(null)}
+        style={{
+          '--background': 'rgba(34, 197, 94, 0.95)', // Amplee event green
+          '--color': '#ECFDF5',
+          '--border-radius': '999px',
+          '--box-shadow': '0 18px 40px rgba(0,0,0,0.7)',
+          '--padding-start': '16px',
+          '--padding-end': '16px',
+          '--min-width': '220px',
+          textAlign: 'center',
+          fontWeight: 600,
+          fontSize: 14,
+        }}
+      />
     </IonPage>
   );
 }

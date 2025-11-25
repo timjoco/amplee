@@ -1,19 +1,16 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import {
   IonAlert,
+  IonButton,
   IonContent,
   IonHeader,
   IonIcon,
-  IonItem,
-  IonLabel,
-  IonList,
   IonPage,
   IonSpinner,
   IonText,
-  IonTitle,
   IonToolbar,
 } from '@ionic/react';
-import { logOutOutline } from 'ionicons/icons';
+import { chevronBackOutline, logOutOutline } from 'ionicons/icons';
 import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
 import AvatarImageMobile from '../components/ui/AvatarImageMobile';
@@ -143,11 +140,63 @@ export default function Profile() {
     <IonPage>
       <IonHeader>
         <IonToolbar>
-          <IonTitle>Profile</IonTitle>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              padding: '16px',
+              gap: 12,
+            }}
+          >
+            <IonButton
+              onClick={() => nav(-1)}
+              fill="clear"
+              style={{
+                minWidth: 0,
+                padding: 6,
+                margin: 0,
+                flexShrink: 0,
+              }}
+            >
+              <IonIcon
+                icon={chevronBackOutline}
+                style={{ color: '#9ca3af', fontSize: 22 }}
+              />
+            </IonButton>
+
+            <div style={{ flex: 1 }}>
+              <h1
+                style={{
+                  fontSize: 20,
+                  fontWeight: 800,
+                  color: '#F9FAFB',
+                  margin: 0,
+                  letterSpacing: '-0.8px',
+                  lineHeight: 1.15,
+                }}
+              >
+                Profile
+              </h1>
+              <div
+                style={{
+                  fontSize: 13,
+                  color: '#9ca3af',
+                  marginTop: 4,
+                }}
+              >
+                Manage your account settings
+              </div>
+            </div>
+          </div>
         </IonToolbar>
       </IonHeader>
 
-      <IonContent fullscreen className="ion-padding">
+      <IonContent
+        fullscreen
+        style={{
+          '--background': 'linear-gradient(180deg, #050509 0%, #020109 100%)',
+        }}
+      >
         {loading && (
           <div
             style={{
@@ -156,7 +205,7 @@ export default function Profile() {
               height: '100%',
             }}
           >
-            <IonSpinner />
+            <IonSpinner style={{ '--color': '#34d399' }} />
           </div>
         )}
 
@@ -167,107 +216,230 @@ export default function Profile() {
               placeItems: 'center',
               gap: 8,
               height: '100%',
+              padding: '0 24px',
             }}
           >
-            <IonText color="danger">
-              <p>{error}</p>
+            <IonText>
+              <p
+                style={{
+                  color: '#ef4444',
+                  fontSize: 14,
+                  textAlign: 'center',
+                }}
+              >
+                {error}
+              </p>
             </IonText>
           </div>
         )}
 
         {!loading && !error && profile && (
-          <>
-            {/* Top avatar + basics */}
+          <div
+            style={{
+              maxWidth: 600,
+              margin: '0 auto',
+              padding: '0 16px 32px',
+            }}
+          >
+            {/* Header */}
+
+            {/* Avatar Card */}
             <div
               style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: 12,
-                marginBottom: 24,
+                background: 'rgba(255,255,255,0.02)',
+                border: '1px solid rgba(255,255,255,0.06)',
+                borderRadius: 16,
+                padding: 24,
+                marginBottom: 16,
               }}
             >
-              <AvatarImageMobile
-                name={displayName}
-                bucket={AVATAR_BUCKET}
-                avatarPath={profile.avatar_url ?? undefined}
-                size={96}
-              />
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: 16,
+                }}
+              >
+                <div style={{ position: 'relative' }}>
+                  {/* Glow effect behind avatar */}
+                  <div
+                    style={{
+                      position: 'absolute',
+                      inset: -12,
+                      background:
+                        'radial-gradient(circle, rgba(52, 211, 153, 0.1) 0%, transparent 70%)',
+                      filter: 'blur(16px)',
+                      borderRadius: '50%',
+                    }}
+                  />
+                  <AvatarImageMobile
+                    name={displayName}
+                    bucket={AVATAR_BUCKET}
+                    avatarPath={profile.avatar_url ?? undefined}
+                    size={120}
+                  />
+                </div>
 
-              <div style={{ textAlign: 'center' }}>
-                <IonText>
+                <div style={{ textAlign: 'center' }}>
                   <h2
                     style={{
                       margin: 0,
-                      fontSize: 20,
+                      fontSize: 24,
                       fontWeight: 700,
+                      color: '#f9fafb',
+                      lineHeight: 1.2,
                     }}
                   >
                     {displayName}
                   </h2>
-                </IonText>
-                <IonText color="medium">
                   <p
                     style={{
-                      margin: '4px 0 0',
+                      margin: '6px 0 0',
                       fontSize: 14,
+                      color: '#9ca3af',
                     }}
                   >
                     {location}
                   </p>
-                </IonText>
+                </div>
               </div>
             </div>
 
-            {/* Edit profile */}
-            <IonList inset>
-              <IonItem button detail onClick={() => nav('/profile/basics')}>
-                <IonLabel>
-                  <h2>Edit profile</h2>
-                  <p>Photo, name & location</p>
-                </IonLabel>
-              </IonItem>
-            </IonList>
+            {/* Edit Profile Card */}
+            <div
+              onClick={() => nav('/profile/basics')}
+              style={{
+                background: 'rgba(255,255,255,0.02)',
+                border: '1px solid rgba(255,255,255,0.06)',
+                borderRadius: 16,
+                padding: '20px 24px',
+                marginBottom: 16,
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
+                e.currentTarget.style.borderColor = 'rgba(52,211,153,0.3)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'rgba(255,255,255,0.02)';
+                e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)';
+              }}
+            >
+              <div>
+                <h3
+                  style={{
+                    margin: 0,
+                    fontSize: 16,
+                    fontWeight: 600,
+                    color: '#f9fafb',
+                    lineHeight: 1.3,
+                  }}
+                >
+                  Edit profile
+                </h3>
+                <p
+                  style={{
+                    margin: '4px 0 0',
+                    fontSize: 13,
+                    color: '#9ca3af',
+                  }}
+                >
+                  Photo, name & location
+                </p>
+              </div>
+              <IonIcon
+                icon={chevronBackOutline}
+                style={{
+                  fontSize: 20,
+                  color: '#6b7280',
+                  transform: 'rotate(180deg)',
+                }}
+              />
+            </div>
 
-            {/* Account info */}
-            <IonList inset>
-              <IonItem lines="none">
-                <IonLabel>
-                  <h2>Account</h2>
-                  <IonText color="medium">
-                    <p style={{ margin: '4px 0 0', fontSize: 13 }}>
-                      Email: {email ?? 'Add your email'}
-                    </p>
-                    <p style={{ margin: '2px 0 0', fontSize: 13 }}>
-                      Name: {fullName}
-                    </p>
-                  </IonText>
-                </IonLabel>
-              </IonItem>
-            </IonList>
-
-            {/* Log out button */}
-            <IonList inset>
-              <IonItem
-                button
-                detail={false}
-                lines="none"
-                onClick={() => setLogoutAlertOpen(true)}
+            {/* Account Info Card */}
+            <div
+              style={{
+                background: 'rgba(255,255,255,0.02)',
+                border: '1px solid rgba(255,255,255,0.06)',
+                borderRadius: 16,
+                padding: '20px 24px',
+                marginBottom: 16,
+              }}
+            >
+              <h3
+                style={{
+                  margin: '0 0 12px',
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: '#9ca3af',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                }}
               >
-                <IonLabel>
-                  <IonText color="danger">
-                    <strong>Log out</strong>
-                  </IonText>
-                </IonLabel>
-                <IonIcon
-                  icon={logOutOutline}
-                  slot="end"
-                  color="danger"
-                  style={{ fontSize: 20, opacity: 0.9 }}
-                />
-              </IonItem>
-            </IonList>
-          </>
+                Account
+              </h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div>
+                  <span style={{ fontSize: 13, color: '#6b7280' }}>
+                    Email:{' '}
+                  </span>
+                  <span style={{ fontSize: 13, color: '#e5e7eb' }}>
+                    {email ?? 'Add your email'}
+                  </span>
+                </div>
+                <div>
+                  <span style={{ fontSize: 13, color: '#6b7280' }}>Name: </span>
+                  <span style={{ fontSize: 13, color: '#e5e7eb' }}>
+                    {fullName}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Log Out Button Card */}
+            <div
+              onClick={() => setLogoutAlertOpen(true)}
+              style={{
+                background: 'rgba(239,68,68,0.05)',
+                border: '1px solid rgba(239,68,68,0.2)',
+                borderRadius: 16,
+                padding: '20px 24px',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'rgba(239,68,68,0.1)';
+                e.currentTarget.style.borderColor = 'rgba(239,68,68,0.4)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'rgba(239,68,68,0.05)';
+                e.currentTarget.style.borderColor = 'rgba(239,68,68,0.2)';
+              }}
+            >
+              <span
+                style={{
+                  fontSize: 16,
+                  fontWeight: 600,
+                  color: '#ef4444',
+                }}
+              >
+                Log out
+              </span>
+              <IonIcon
+                icon={logOutOutline}
+                style={{ fontSize: 20, color: '#ef4444', opacity: 0.9 }}
+              />
+            </div>
+          </div>
         )}
 
         {/* Confirm logout dialog */}
@@ -276,6 +448,7 @@ export default function Profile() {
           onDidDismiss={() => setLogoutAlertOpen(false)}
           header="Confirm logout"
           message="Are you sure you want to log out?"
+          cssClass="custom-dark-alert"
           buttons={[
             {
               text: 'Cancel',
