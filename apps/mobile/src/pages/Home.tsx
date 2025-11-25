@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import logo from '@amplee/assets/logo.png';
 import {
   IonContent,
   IonHeader,
@@ -6,11 +7,9 @@ import {
   IonPage,
   IonRefresher,
   IonRefresherContent,
-  IonText,
-  IonTitle,
   IonToolbar,
 } from '@ionic/react';
-import { musicalNotesOutline } from 'ionicons/icons';
+import { addCircleOutline } from 'ionicons/icons';
 import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
 import BandGridMobile from '../components/Bands/BandGridMobile';
@@ -19,12 +18,54 @@ import { getBandsCache, setBandsCache } from '../lib/cache/bandCache';
 import { supabase } from '../lib/supabase';
 import type { BandWithRole } from '../types/bands';
 
+interface Orb {
+  id: number;
+  size: number;
+  x: number;
+  y: number;
+  duration: number;
+  delay: number;
+  opacity: number;
+  color: string;
+}
+
 export default function Home() {
   const nav = useNavigate();
 
   const initial = getBandsCache();
   const [bands, setBands] = React.useState<BandWithRole[]>(initial.bands);
   const [refreshing, setRefreshing] = React.useState(false);
+  const [orbs, setOrbs] = React.useState<Orb[]>([]);
+
+  const isEmpty = bands.length === 0;
+
+  // Generate cosmic orbs for empty state
+  React.useEffect(() => {
+    if (!isEmpty) {
+      setOrbs([]);
+      return;
+    }
+
+    const colors = [
+      'rgba(147, 51, 234, 0.25)',
+      'rgba(124, 58, 237, 0.3)',
+      'rgba(168, 85, 247, 0.25)',
+      'rgba(192, 132, 252, 0.2)',
+      'rgba(52, 211, 153, 0.2)',
+    ];
+
+    const generatedOrbs = Array.from({ length: 6 }, (_, i) => ({
+      id: i,
+      size: Math.random() * 200 + 120,
+      x: Math.random() * 100,
+      y: Math.random() * 100,
+      duration: Math.random() * 30 + 25,
+      delay: Math.random() * -20,
+      opacity: Math.random() * 0.3 + 0.15,
+      color: colors[i % colors.length],
+    }));
+    setOrbs(generatedOrbs);
+  }, [isEmpty]);
 
   const loadBands = React.useCallback(async () => {
     setRefreshing(true);
@@ -72,6 +113,7 @@ export default function Home() {
     let alive = true;
 
     (async () => {
+      if (!alive) return;
       await loadBands();
     })();
 
@@ -85,9 +127,17 @@ export default function Home() {
     event.detail.complete();
   };
 
+  const handleCreateFirstBand = () => {
+    // Trigger global create for band if your shell listens to this event
+    window.dispatchEvent(
+      new CustomEvent('amplee:global-create', {
+        detail: { kind: 'band' },
+      })
+    );
+  };
+
   return (
     <IonPage>
-      {/* Frosted glass header with blur */}
       <IonHeader
         className="ion-no-border"
         style={{
@@ -98,35 +148,24 @@ export default function Home() {
       >
         <IonToolbar
           style={{
-            '--background': 'rgba(5, 5, 9, 0.7)',
+            '--background': isEmpty
+              ? 'rgba(15, 7, 32, 0.7)'
+              : 'rgba(5, 5, 9, 0.7)',
             '--border-width': '0',
             paddingTop: 'env(safe-area-inset-top)',
             backdropFilter: 'blur(20px) saturate(180%)',
             WebkitBackdropFilter: 'blur(20px) saturate(180%)',
-            borderBottom: '1px solid rgba(139, 92, 246, 0.1)',
           }}
-        >
-          <IonTitle
-            style={{
-              fontSize: 28,
-              fontWeight: 800,
-              letterSpacing: -0.5,
-              background: 'linear-gradient(135deg, #A78BFA 0%, #818CF8 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              backgroundClip: 'text',
-            }}
-          >
-            amplee
-          </IonTitle>
-        </IonToolbar>
+        ></IonToolbar>
       </IonHeader>
 
       <IonContent
         fullscreen
         scrollY={true}
         style={{
-          ['--background' as any]: '#050509',
+          ['--background' as any]: isEmpty
+            ? 'linear-gradient(to bottom, #0f0720, #1a0a2e, #050509)'
+            : '#050509',
           ['--padding-top' as any]: '0px',
           ['--padding-start' as any]: '0px',
           ['--padding-end' as any]: '0px',
@@ -138,63 +177,280 @@ export default function Home() {
           <IonRefresherContent />
         </IonRefresher>
 
+        {/* Cosmic Background for Empty State */}
+        {isEmpty && (
+          <>
+            {/* Animated Orbs */}
+            {orbs.map((orb) => (
+              <div
+                key={orb.id}
+                style={{
+                  position: 'absolute',
+                  width: `${orb.size}px`,
+                  height: `${orb.size}px`,
+                  left: `${orb.x}%`,
+                  top: `${orb.y}%`,
+                  background: `radial-gradient(circle, ${orb.color}, transparent)`,
+                  borderRadius: '50%',
+                  filter: 'blur(70px)',
+                  opacity: orb.opacity,
+                  animation: `ampFloat ${orb.duration}s infinite ease-in-out ${orb.delay}s`,
+                  pointerEvents: 'none',
+                  zIndex: 0,
+                }}
+              />
+            ))}
+
+            {/* Twinkling Stars */}
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                zIndex: 0,
+                pointerEvents: 'none',
+              }}
+            >
+              {Array.from({ length: 30 }).map((_, i) => (
+                <div
+                  key={i}
+                  style={{
+                    position: 'absolute',
+                    width: `${Math.random() * 2.5 + 1}px`,
+                    height: `${Math.random() * 2.5 + 1}px`,
+                    left: `${Math.random() * 100}%`,
+                    top: `${Math.random() * 100}%`,
+                    background: '#fff',
+                    borderRadius: '50%',
+                    animation: `ampTwinkle ${
+                      Math.random() * 3 + 2
+                    }s infinite ease-in-out ${Math.random() * 3}s`,
+                    opacity: Math.random() * 0.6 + 0.3,
+                  }}
+                />
+              ))}
+            </div>
+          </>
+        )}
+
         <div
           style={{
             maxWidth: 960,
             margin: '0 auto',
-            padding: '12px 16px 24px',
+            padding: isEmpty ? '40px 16px 24px' : '12px 16px 24px',
+            position: 'relative',
+            zIndex: 1,
           }}
         >
-          {/* Bands Section */}
-          <div
-            style={{
-              marginBottom: 36,
-            }}
-          >
+          {/* Empty State - Cosmic Welcome */}
+          {isEmpty && !refreshing && (
             <div
               style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 10,
-                marginBottom: 14,
-                paddingLeft: 4,
+                textAlign: 'center',
+                paddingTop: 40,
+                paddingBottom: 60,
+                animation: 'ampFadeInUp 0.8s ease-out forwards',
+              }}
+            >
+              {/* Logo card (same style as Login) */}
+              <div
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: 96,
+                  height: 96,
+                  borderRadius: 24,
+                  marginBottom: 28,
+                  boxShadow: '0 12px 40px rgba(147, 51, 234, 0.4)',
+                  background: 'rgba(137, 35, 232, 0.15)',
+                  backdropFilter: 'blur(20px)',
+                  border: '2px solid rgba(147, 51, 234, 0.3)',
+                  animation: 'ampScaleIn 0.6s ease-out forwards',
+                  position: 'relative',
+                  transition: 'transform 0.3s ease',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'scale(1.05)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'scale(1)';
+                }}
+              >
+                <img
+                  src={logo}
+                  alt="Amplee"
+                  style={{
+                    width: 64,
+                    height: 64,
+                    objectFit: 'contain',
+                    filter: 'drop-shadow(0 4px 12px rgba(147, 51, 234, 0.5))',
+                  }}
+                />
+              </div>
+
+              <h1
+                style={{
+                  margin: '0 0 16px',
+                  fontSize: 36,
+                  fontWeight: 800,
+                  letterSpacing: '-0.02em',
+                  lineHeight: 1.2,
+                  animation: 'ampFadeInUp 0.8s ease-out 0.1s forwards',
+                  opacity: 0,
+                }}
+              >
+                <div style={{ color: '#ffffff', marginBottom: 4 }}>
+                  WELCOME TO
+                </div>
+                <div
+                  style={{
+                    background:
+                      'linear-gradient(135deg, #c084fc 0%, #9333ea 50%, #7c3aed 100%)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    backgroundClip: 'text',
+                  }}
+                >
+                  AMPLEE
+                </div>
+              </h1>
+
+              <p
+                style={{
+                  margin: '0 auto 36px',
+                  fontSize: 17,
+                  color: 'rgba(255, 255, 255, 0.7)',
+                  fontWeight: 500,
+                  maxWidth: 380,
+                  lineHeight: 1.6,
+                  animation: 'ampFadeInUp 0.8s ease-out 0.2s forwards',
+                  opacity: 0,
+                }}
+              >
+                Your journey starts here. Create your first band to connect,
+                collaborate, and amplify your music together.
+              </p>
+
+              <div
+                style={{
+                  maxWidth: 420,
+                  margin: '0 auto',
+                  background: 'rgba(15, 7, 32, 0.6)',
+                  backdropFilter: 'blur(30px)',
+                  border: '1px solid rgba(147, 51, 234, 0.25)',
+                  borderRadius: 24,
+                  padding: '32px 28px',
+                  boxShadow:
+                    '0 20px 60px rgba(0, 0, 0, 0.4), 0 0 80px rgba(147, 51, 234, 0.08)',
+                  animation: 'ampFadeInUp 0.8s ease-out 0.3s forwards',
+                  opacity: 0,
+                }}
+              >
+                {/* CTA Button */}
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 10,
+                    padding: '16px 24px',
+                    background:
+                      'linear-gradient(135deg, #9333ea 0%, #7c3aed 100%)',
+                    borderRadius: 16,
+                    color: '#fff',
+                    fontSize: 16,
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    boxShadow: '0 6px 20px rgba(147, 51, 234, 0.4)',
+                    transition: 'all 0.2s ease',
+                  }}
+                  onMouseDown={(e) => {
+                    e.currentTarget.style.transform = 'scale(0.98)';
+                  }}
+                  onMouseUp={(e) => {
+                    e.currentTarget.style.transform = 'scale(1)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'scale(1)';
+                  }}
+                  onClick={handleCreateFirstBand}
+                >
+                  <IonIcon icon={addCircleOutline} style={{ fontSize: 24 }} />
+                  <span>Create Your First Band</span>
+                </div>
+
+                <p
+                  style={{
+                    margin: '20px 0 0',
+                    fontSize: 13,
+                    color: 'rgba(255, 255, 255, 0.5)',
+                    lineHeight: 1.5,
+                  }}
+                >
+                  Or tap the{' '}
+                  <span
+                    style={{
+                      fontWeight: 700,
+                      color: 'rgba(255, 255, 255, 0.8)',
+                    }}
+                  >
+                    +
+                  </span>{' '}
+                  button in the bottom bar to get started.
+                </p>
+              </div>
+
+              {/* Bottom Indicator */}
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'center',
+                  marginTop: 48,
+                  animation: 'ampFadeIn 1s ease-out 0.5s forwards',
+                  opacity: 0,
+                }}
+              >
+                <div
+                  style={{
+                    height: 4,
+                    width: 100,
+                    background: 'rgba(255, 255, 255, 0.15)',
+                    borderRadius: 2,
+                  }}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Regular Content - Bands Section (when there ARE bands) */}
+          {!isEmpty && (
+            <div
+              style={{
+                marginBottom: 36,
               }}
             >
               <div
                 style={{
-                  width: 32,
-                  height: 32,
-                  borderRadius: 10,
-                  background:
-                    'linear-gradient(135deg, rgba(139, 92, 246, 0.2) 0%, rgba(99, 102, 241, 0.15) 100%)',
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'center',
-                  border: '1px solid rgba(139, 92, 246, 0.3)',
+                  gap: 10,
+                  marginBottom: 14,
+                  paddingLeft: 4,
                 }}
               >
-                <IonIcon
-                  icon={musicalNotesOutline}
+                <h2
                   style={{
-                    fontSize: 18,
-                    color: '#A78BFA',
+                    margin: 0,
+                    fontWeight: 700,
+                    fontSize: 20,
+                    letterSpacing: -0.3,
+                    color: '#E5E7EB',
                   }}
-                />
+                >
+                  Bands
+                </h2>
               </div>
-              <h2
-                style={{
-                  margin: 0,
-                  fontWeight: 700,
-                  fontSize: 20,
-                  letterSpacing: -0.3,
-                  color: '#E5E7EB',
-                }}
-              >
-                Bands
-              </h2>
-            </div>
 
-            {bands.length > 0 ? (
               <div
                 style={{
                   paddingLeft: 4,
@@ -208,143 +464,106 @@ export default function Home() {
                   avatarSize={88}
                 />
               </div>
-            ) : (
-              !refreshing && (
-                <div
-                  style={{
-                    background: 'rgba(17, 24, 39, 0.4)',
-                    borderRadius: 16,
-                    padding: '32px 20px',
-                    border: '1px dashed rgba(139, 92, 246, 0.3)',
-                    textAlign: 'center',
-                  }}
-                >
-                  <div
-                    style={{
-                      width: 48,
-                      height: 48,
-                      borderRadius: 12,
-                      background:
-                        'linear-gradient(135deg, rgba(139, 92, 246, 0.15) 0%, rgba(99, 102, 241, 0.1) 100%)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      margin: '0 auto 12px',
-                      border: '1px solid rgba(139, 92, 246, 0.2)',
-                    }}
-                  >
-                    <IonIcon
-                      icon={musicalNotesOutline}
-                      style={{
-                        fontSize: 24,
-                        color: '#A78BFA',
-                        opacity: 0.7,
-                      }}
-                    />
-                  </div>
-                  <IonText>
-                    <p
-                      style={{
-                        margin: '0 0 6px',
-                        fontSize: 15,
-                        fontWeight: 600,
-                        color: 'rgba(229, 231, 235, 0.9)',
-                      }}
-                    >
-                      No bands yet
-                    </p>
-                    <p
-                      style={{
-                        margin: 0,
-                        fontSize: 13,
-                        color: 'rgba(156, 163, 175, 0.8)',
-                      }}
-                    >
-                      Join or create a band to get started
-                    </p>
-                  </IonText>
-                </div>
-              )
-            )}
-          </div>
+            </div>
+          )}
 
-          {/* Event Chats Section */}
-          <div>
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 10,
-                marginBottom: 14,
-                paddingLeft: 4,
-              }}
-            >
+          {/* Event Chats Section - Only show if there are bands */}
+          {!isEmpty && (
+            <div>
               <div
                 style={{
-                  width: 32,
-                  height: 32,
-                  borderRadius: 10,
-                  background:
-                    'linear-gradient(135deg, rgba(52, 211, 153, 0.2) 0%, rgba(16, 185, 129, 0.15) 100%)',
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'center',
-                  border: '1px solid rgba(52, 211, 153, 0.3)',
+                  gap: 10,
+                  marginBottom: 14,
+                  paddingLeft: 4,
                 }}
               >
-                {/* Green Chat Icon SVG */}
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                  <path
-                    d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 13.8214 2.48697 15.5291 3.33782 17L2.5 21.5L7 20.6622C8.47087 21.513 10.1786 22 12 22Z"
-                    stroke="url(#chat-gradient-header)"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                  <path
-                    d="M8 12H8.01M12 12H12.01M16 12H16.01"
-                    stroke="url(#chat-gradient-header)"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                  <defs>
-                    <linearGradient
-                      id="chat-gradient-header"
-                      x1="2"
-                      y1="2"
-                      x2="22"
-                      y2="22"
-                      gradientUnits="userSpaceOnUse"
-                    >
-                      <stop stopColor="#34D399" />
-                      <stop offset="1" stopColor="#10B981" />
-                    </linearGradient>
-                  </defs>
-                </svg>
+                <h2
+                  style={{
+                    margin: 0,
+                    fontWeight: 700,
+                    fontSize: 20,
+                    letterSpacing: -0.3,
+                    color: '#E5E7EB',
+                  }}
+                >
+                  Event Chats
+                </h2>
               </div>
-              <h2
+
+              <div
                 style={{
-                  margin: 0,
-                  fontWeight: 700,
-                  fontSize: 20,
-                  letterSpacing: -0.3,
-                  color: '#E5E7EB',
+                  marginLeft: 4,
                 }}
               >
-                Event Chats
-              </h2>
+                {/* 
+                  EventInboxListMobile now handles its own empty state.
+                  No enableCreateForBand prop = no create button in empty state.
+                */}
+                <EventInboxListMobile showAvatars onLoaded={() => {}} />
+              </div>
             </div>
-
-            <div
-              style={{
-                marginLeft: 4,
-              }}
-            >
-              <EventInboxListMobile showAvatars onLoaded={() => {}} />
-            </div>
-          </div>
+          )}
         </div>
+
+        {/* Animations */}
+        <style>{`
+          @keyframes ampFloat {
+            0%, 100% {
+              transform: translate(0, 0) scale(1);
+            }
+            25% {
+              transform: translate(40px, -40px) scale(1.1);
+            }
+            50% {
+              transform: translate(-30px, 30px) scale(0.9);
+            }
+            75% {
+              transform: translate(50px, 15px) scale(1.05);
+            }
+          }
+
+          @keyframes ampTwinkle {
+            0%, 100% {
+              opacity: 0.3;
+            }
+            50% {
+              opacity: 1;
+            }
+          }
+
+          @keyframes ampScaleIn {
+            from {
+              opacity: 0;
+              transform: scale(0.85);
+            }
+            to {
+              opacity: 1;
+              transform: scale(1);
+            }
+          }
+
+          @keyframes ampFadeIn {
+            from {
+              opacity: 0;
+            }
+            to {
+              opacity: 1;
+            }
+          }
+
+          @keyframes ampFadeInUp {
+            from {
+              opacity: 0;
+              transform: translateY(30px);
+            }
+            to {
+              opacity: 1;
+              transform: translateY(0);
+            }
+          }
+        `}</style>
       </IonContent>
     </IonPage>
   );
