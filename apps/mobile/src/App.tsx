@@ -120,11 +120,10 @@ export default function App() {
             {/* authed home */}
             <Route path="/home" element={<Home />} />
 
-            {/* band sheets (supporting both :id and :bandId for backwards links) */}
+            {/* BAND ROUTES*/}
             <Route path="/bands/:id" element={<BandSheetMobile />} />
             <Route path="/bands/:bandId" element={<BandSheetMobile />} />
-
-            {/* band-level subpages */}
+            <Route path="/invite" element={<InviteBandMobile />} />
             <Route path="/bands/:bandId/events" element={<BandEventsPage />} />
             <Route
               path="/bands/:bandId/proposals"
@@ -135,21 +134,31 @@ export default function App() {
               element={<BandLibraryPage />}
             />
             <Route path="/bands/:bandId/roster" element={<BandRosterPage />} />
-
-            {/* band-level settings */}
             <Route
               path="/bands/:bandId/settings"
               element={<BandSettingsMobile />}
             />
-
-            {/* single proposal sheet */}
             <Route
               path="/bands/:bandId/proposals/:proposalId"
               element={<ProposedGigSheetMobile />}
             />
 
-            {/* Band Invites sheet */}
-            <Route path="/invite" element={<InviteBandMobile />} />
+            <Route
+              path="/bands/:bandId/setlists"
+              element={<BandSetlistPageMobile />}
+            />
+            <Route
+              path="/bands/:bandId/setlists/:setlistId"
+              element={<SetlistTemplateEditorMobile />}
+            />
+            <Route
+              path="/bands/:bandId/songs"
+              element={<BandSongsRouteMobile />}
+            />
+            <Route
+              path="/bands/:bandId/songs/:songId"
+              element={<BandSongSheetRouteMobile />}
+            />
 
             {/* --- EVENT ROUTES --- */}
 
@@ -158,8 +167,6 @@ export default function App() {
               path="/bands/:bandId/events/:eventId"
               element={<EventSheetMobile />}
             />
-
-            {/* event sections */}
             <Route
               path="/bands/:bandId/events/:eventId/rollcall"
               element={<EventRollCallPageMobile />}
@@ -183,26 +190,6 @@ export default function App() {
             <Route
               path="/bands/:bandId/events/:eventId/settings"
               element={<EventSettingsMobile />}
-            />
-
-            {/* band-wide setlists */}
-            <Route
-              path="/bands/:bandId/setlists"
-              element={<BandSetlistPageMobile />}
-            />
-            <Route
-              path="/bands/:bandId/setlists/:setlistId"
-              element={<SetlistTemplateEditorMobile />}
-            />
-
-            {/* song library + song sheets */}
-            <Route
-              path="/bands/:bandId/songs"
-              element={<BandSongsRouteMobile />}
-            />
-            <Route
-              path="/bands/:bandId/songs/:songId"
-              element={<BandSongSheetRouteMobile />}
             />
 
             {/* profile routes */}
