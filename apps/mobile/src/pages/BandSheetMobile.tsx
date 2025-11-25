@@ -1,11 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { Capacitor } from '@capacitor/core';
+import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import {
   IonContent,
   IonHeader,
   IonIcon,
   IonPage,
-  IonSegment,
-  IonSegmentButton,
   IonSpinner,
   IonText,
   IonTitle,
@@ -15,30 +15,23 @@ import {
   calendarOutline,
   chevronForwardOutline,
   clipboardOutline,
-  gridOutline,
   musicalNotesOutline,
   peopleOutline,
+  timeOutline,
 } from 'ionicons/icons';
 import * as React from 'react';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import BandLibraryTab from '../components/Bands/BandLibraryTab';
-import BandOverviewMobile from '../components/Bands/BandOverviewMobile';
-import BandProposalsTabMobile from '../components/Bands/BandProposalsTabMobile';
+import { useNavigate, useParams } from 'react-router-dom';
 import BandSettingsSheetMobile from '../components/Bands/BandSheetModal';
-import EventsInboxListMobile from '../components/Events/EventsInboxListMobile';
 import AvatarImageMobile from '../components/ui/AvatarImageMobile';
 import { supabase } from '../lib/supabase';
 
 type MembershipRole = 'admin' | 'member';
 
-type TabKey = 'overview' | 'events' | 'proposals' | 'roster' | 'library';
-
 export default function BandSheetMobile() {
   const params = useParams<{ bandId?: string; id?: string }>();
   const navigate = useNavigate();
-  const location = useLocation();
-  const AVATAR_SIZE = 70;
   const bandId = params.bandId ?? params.id ?? null;
+
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [bandName, setBandName] = React.useState<string>('Band');
@@ -47,27 +40,65 @@ export default function BandSheetMobile() {
     string | null
   >(null);
   const [myRole, setMyRole] = React.useState<MembershipRole>('member');
-  const [tab, setTab] = React.useState<TabKey>('overview');
   const [showBandSettings, setShowBandSettings] = React.useState(false);
-  const isAdmin = myRole === 'admin';
+  const [nextEvent, setNextEvent] = React.useState<{
+    id: string;
+    title: string;
+    starts_at: string;
+    location: string | null;
+    type: string | null;
+  } | null>(null);
 
-  const iconColor = (key: TabKey) =>
-    tab === key ? TAB_META[key].accent : 'rgba(148,163,184,0.9)';
+  const [pressedButton, setPressedButton] = React.useState<string | null>(null);
+
+  // NEW: counts for events + proposals
+  const [eventsCount, setEventsCount] = React.useState(0);
+  const [proposalsCount, setProposalsCount] = React.useState(0);
+
+  const triggerHaptic = React.useCallback(async () => {
+    if (Capacitor.getPlatform() === 'web') return;
+    try {
+      await Haptics.impact({ style: ImpactStyle.Medium });
+    } catch (e) {
+      console.warn('[haptic error]', e);
+    }
+  }, []);
+
+  const handleButtonPress = React.useCallback(
+    (buttonId: string, action: () => void) => {
+      setPressedButton(buttonId);
+      triggerHaptic();
+      setTimeout(() => {
+        setPressedButton(null);
+        action();
+      }, 120);
+    },
+    [triggerHaptic]
+  );
+
+  const timeUntilNextEvent = React.useMemo(() => {
+    if (!nextEvent?.starts_at) return null;
+    const now = new Date();
+    const eventDate = new Date(nextEvent.starts_at);
+    const diff = eventDate.getTime() - now.getTime();
+
+    if (diff < 0) return null;
+
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+
+    if (days > 0) return `${days}d ${hours}h`;
+    if (hours > 0) return `${hours}h ${minutes}m`;
+    if (minutes > 0) return `${minutes}m`;
+    return 'Soon!';
+  }, [nextEvent]);
 
   React.useEffect(() => {
     if (!bandId) {
       navigate('/home', { replace: true });
     }
   }, [bandId, navigate]);
-
-  React.useEffect(() => {
-    const search = new URLSearchParams(location.search);
-    const tabParam = search.get('tab') as TabKey | null;
-
-    if (tabParam && tabParam !== tab) {
-      setTab(tabParam);
-    }
-  }, [location.search, tab]);
 
   React.useEffect(() => {
     if (!bandId) return;
@@ -118,6 +149,56 @@ export default function BandSheetMobile() {
         setBandName(band.name);
         setBandAvatarUrl(band.avatar_url ?? null);
         setBandAvatarUpdatedAt(band.updated_at ?? null);
+
+        // Fetch next upcoming event
+        const { data: events } = await supabase
+          .from('events')
+          .select('id, title, starts_at, location, type')
+          .eq('band_id', bandId)
+          .gte('starts_at', new Date().toISOString())
+          .order('starts_at', { ascending: true })
+          .limit(1);
+
+        if (!alive) return;
+
+        if (events && events.length > 0) {
+          setNextEvent(events[0]);
+        } else {
+          setNextEvent(null);
+        }
+
+        // total events count (all shows/practices for this band)
+        const { count: eventsCountExact, error: eventsCountErr } =
+          await supabase
+            .from('events')
+            .select('id', { head: true, count: 'exact' })
+            .eq('band_id', bandId);
+
+        if (!alive) return;
+
+        if (eventsCountErr) {
+          console.error('[BandSheetMobile] events count error', eventsCountErr);
+        } else {
+          setEventsCount(eventsCountExact ?? 0);
+        }
+
+        // proposals count for this band
+        const { count: proposalsCountExact, error: proposalsCountErr } =
+          await supabase
+            .from('gig_proposals')
+            .select('id', { head: true, count: 'exact' })
+            .eq('band_id', bandId);
+
+        if (!alive) return;
+
+        if (proposalsCountErr) {
+          console.error(
+            '[BandSheetMobile] proposals count error',
+            proposalsCountErr
+          );
+        } else {
+          setProposalsCount(proposalsCountExact ?? 0);
+        }
       } catch (e: any) {
         console.error('BandSheetMobile load error', e);
         setError(e?.message || 'Failed to load band.');
@@ -132,18 +213,58 @@ export default function BandSheetMobile() {
   }, [bandId]);
 
   React.useEffect(() => {
-    const handler = (e: Event) => {
-      const ce = e as CustomEvent<{ tab?: TabKey }>;
-      if (ce.detail?.tab) {
-        setTab(ce.detail.tab);
-      }
-    };
+    if (!bandId) return;
 
-    window.addEventListener('amplee:band-tab', handler as EventListener);
+    const channel = supabase
+      .channel(`band:${bandId}:events`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'events',
+          filter: `band_id=eq.${bandId}`,
+        },
+        async () => {
+          const { data: events } = await supabase
+            .from('events')
+            .select('id, title, starts_at, location, type')
+            .eq('band_id', bandId)
+            .gte('starts_at', new Date().toISOString())
+            .order('starts_at', { ascending: true })
+            .limit(1);
+
+          if (events && events.length > 0) {
+            setNextEvent(events[0]);
+          } else {
+            setNextEvent(null);
+          }
+
+          // OPTIONAL: also refresh counts on realtime change
+          const { count: eventsCountExact } = await supabase
+            .from('events')
+            .select('id', { head: true, count: 'exact' })
+            .eq('band_id', bandId);
+          setEventsCount(eventsCountExact ?? 0);
+        }
+      )
+      .subscribe();
+
     return () => {
-      window.removeEventListener('amplee:band-tab', handler as EventListener);
+      supabase.removeChannel(channel);
     };
-  }, []);
+  }, [bandId]);
+
+  // Update time until event every minute
+  React.useEffect(() => {
+    if (!nextEvent) return;
+
+    const interval = setInterval(() => {
+      setNextEvent((prev) => (prev ? { ...prev } : null));
+    }, 60000);
+
+    return () => clearInterval(interval);
+  }, [nextEvent]);
 
   if (!bandId) {
     return (
@@ -169,245 +290,101 @@ export default function BandSheetMobile() {
             borderBottom: '0.5px solid rgba(255,255,255,0.06)',
           }}
         >
-          <div
+          <button
+            type="button"
+            onClick={() => setShowBandSettings(true)}
             style={{
               width: '100%',
-              paddingInline: 21,
-              paddingBlock: 6,
+              background: 'transparent',
+              border: 'none',
+              padding: '14px 18px 18px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 16,
+              cursor: 'pointer',
             }}
           >
-            <button
-              type="button"
-              onClick={() => {
-                setShowBandSettings(true);
-              }}
+            {/* BIG BAND AVATAR */}
+            <AvatarImageMobile
+              name={bandName}
+              bucket="band-avatars"
+              avatarPath={bandAvatarUrl || undefined}
+              updatedAt={bandAvatarUpdatedAt || undefined}
+              size={80}
+            />
+
+            {/* BAND NAME */}
+            <div
               style={{
-                width: '100%',
-                display: 'flex',
-                alignItems: 'center',
-                padding: '10px 14px',
-                borderRadius: 20,
-                background: 'rgba(14, 15, 16, 0.98)',
-                border: '.5px solid #41235eff',
-                boxShadow: '0 16px 40px rgba(0,0,0,0.55)',
-                outline: 'none',
-                cursor: 'pointer',
+                flex: 1,
+                minWidth: 0,
+                textAlign: 'left',
               }}
             >
               <div
                 style={{
-                  flex: '0 0 auto',
-                  marginRight: 10,
-                }}
-              >
-                <AvatarImageMobile
-                  name={bandName}
-                  bucket="band-avatars"
-                  avatarPath={bandAvatarUrl || undefined}
-                  updatedAt={bandAvatarUpdatedAt || undefined}
-                  size={AVATAR_SIZE}
-                />
-              </div>
-
-              <div
-                style={{
-                  flex: '1 1 auto',
                   display: 'flex',
-                  justifyContent: 'center',
-                  pointerEvents: 'none',
+                  alignItems: 'center',
+                  gap: 8,
                 }}
               >
-                <div
+                <span
                   style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 6,
-                    maxWidth: '100%',
+                    fontSize: 26,
+                    fontWeight: 800,
+                    color: '#F9FAFB',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    letterSpacing: '-0.6px',
+                    lineHeight: 1.1,
                   }}
                 >
-                  <span
-                    style={{
-                      fontSize: 24,
-                      fontWeight: 700,
-                      color: '#F9FAFB',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                      maxWidth: '100%',
-                    }}
-                  >
-                    {bandName}
-                  </span>
-                  <IonIcon
-                    icon={chevronForwardOutline}
-                    style={{ fontSize: 20, color: '#ffffffff', flexShrink: 0 }}
-                  />
-                </div>
+                  {bandName || 'Band'}
+                </span>
               </div>
-
-              <div
+              <p
                 style={{
-                  flex: '0 0 auto',
-                  width: AVATAR_SIZE,
-                  marginLeft: 10,
-                  visibility: 'hidden',
+                  margin: '4px 0 0',
+                  fontSize: 13,
+                  color: '#9ca3af',
                 }}
-              />
-            </button>
-
-            {/* Band settings modal */}
-            <BandSettingsSheetMobile
-              isOpen={showBandSettings}
-              onDismiss={() => setShowBandSettings(false)}
-              bandId={bandId as string}
-              bandName={bandName}
-              avatarPath={bandAvatarUrl || undefined}
-              isAdmin={myRole === 'admin'}
-            />
-          </div>
-        </IonToolbar>
-
-        <IonToolbar
-          style={{
-            '--background': 'rgba(8,8,12,0.98)',
-            borderBottom: '0.5px solid rgba(255,255,255,0.06)',
-          }}
-        >
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(5, 1fr)',
-              gridAutoRows: 'auto',
-              rowGap: 4,
-              padding: '0 8px',
-              maxWidth: 520,
-              margin: '0 auto',
-            }}
-          >
-            {/* Row 1: segment spans all 5 columns */}
-            <div style={{ gridColumn: '1 / -1' }}>
-              <IonSegment
-                value={tab}
-                onIonChange={(e) => setTab(e.detail.value as TabKey)}
-                className="event-tabs"
               >
-                <IonSegmentButton
-                  value="overview"
-                  style={{
-                    '--padding-start': '0px',
-                    '--padding-end': '0px',
-                  }}
-                >
-                  <IonIcon
-                    icon={gridOutline}
-                    style={{
-                      fontSize: 'clamp(18px, 4vw, 22px)',
-                      color: iconColor('overview'),
-                    }}
-                  />
-                </IonSegmentButton>
-
-                <IonSegmentButton
-                  value="events"
-                  style={{
-                    '--padding-start': '0px',
-                    '--padding-end': '0px',
-                  }}
-                >
-                  <IonIcon
-                    icon={calendarOutline}
-                    style={{
-                      fontSize: 'clamp(18px, 4vw, 22px)',
-                      color: iconColor('events'),
-                    }}
-                  />
-                </IonSegmentButton>
-
-                <IonSegmentButton
-                  value="proposals"
-                  style={{
-                    '--padding-start': '0px',
-                    '--padding-end': '0px',
-                  }}
-                >
-                  <IonIcon
-                    icon={clipboardOutline}
-                    style={{
-                      fontSize: 'clamp(18px, 4vw, 22px)',
-                      color: iconColor('proposals'),
-                    }}
-                  />
-                </IonSegmentButton>
-
-                <IonSegmentButton
-                  value="roster"
-                  style={{
-                    '--padding-start': '0px',
-                    '--padding-end': '0px',
-                  }}
-                >
-                  <IonIcon
-                    icon={peopleOutline}
-                    style={{
-                      fontSize: 'clamp(18px, 4vw, 22px)',
-                      color: iconColor('roster'),
-                    }}
-                  />
-                </IonSegmentButton>
-
-                <IonSegmentButton
-                  value="library"
-                  style={{
-                    '--padding-start': '0px',
-                    '--padding-end': '0px',
-                  }}
-                >
-                  <IonIcon
-                    icon={musicalNotesOutline}
-                    style={{
-                      fontSize: 'clamp(18px, 4vw, 22px)',
-                      color: iconColor('library'),
-                    }}
-                  />
-                </IonSegmentButton>
-              </IonSegment>
+                Band
+              </p>
             </div>
 
-            {/* Row 2: header sits in the column for the active tab */}
-            {(() => {
-              const meta = TAB_META[tab] ?? TAB_META.overview;
-              return (
-                <div
-                  style={{
-                    gridColumn: meta.col,
-                    textAlign: 'center',
-                    paddingTop: 8,
-                    paddingBottom: 6,
-                  }}
-                >
-                  <IonText color="light">
-                    <p
-                      style={{
-                        margin: 0,
-                        fontWeight: 700,
-                        fontSize: 'clamp(11px, 3vw, 13px)',
-                        letterSpacing: 0.4,
-                        textTransform: 'uppercase',
-                        color: meta.accent,
-                      }}
-                    >
-                      {meta.label}
-                    </p>
-                  </IonText>
-                </div>
-              );
-            })()}
-          </div>
+            {/* SMALL FORWARD CHEVRON */}
+            <IonIcon
+              icon={chevronForwardOutline}
+              style={{
+                fontSize: 20,
+                color: '#9ca3af',
+                flexShrink: 0,
+                marginLeft: 4,
+              }}
+            />
+          </button>
         </IonToolbar>
+
+        {/* Settings Modal */}
+        <BandSettingsSheetMobile
+          isOpen={showBandSettings}
+          onDismiss={() => setShowBandSettings(false)}
+          bandId={bandId as string}
+          bandName={bandName}
+          avatarPath={bandAvatarUrl || undefined}
+          isAdmin={myRole === 'admin'}
+        />
       </IonHeader>
 
-      <IonContent fullscreen>
+      <IonContent
+        fullscreen
+        scrollY={true}
+        style={{
+          '--background': 'linear-gradient(180deg, #050509 0%, #020109 100%)',
+        }}
+      >
         {loading ? (
           <div
             style={{
@@ -425,67 +402,511 @@ export default function BandSheetMobile() {
             </IonText>
           </div>
         ) : (
-          <>
-            {tab === 'overview' && <BandOverviewMobile bandId={bandId} />}
-
-            {tab === 'events' && (
-              <div style={{ padding: '8px 16px 0' }}>
-                <EventsInboxListMobile
-                  bandId={bandId}
-                  showAvatars
-                  enableCreateForBand
-                  isAdmin={isAdmin}
+          <div
+            style={{
+              padding: '20px 16px 40px',
+              maxWidth: '600px',
+              margin: '0 auto',
+            }}
+          >
+            {/* Next Event Hero Card (if exists) */}
+            {nextEvent && (
+              <button
+                type="button"
+                onClick={() =>
+                  handleButtonPress('nextEvent', () =>
+                    navigate(`/bands/${bandId}/events/${nextEvent.id}`)
+                  )
+                }
+                style={{
+                  width: '100%',
+                  background:
+                    'linear-gradient(135deg, rgba(30, 41, 59, 0.4) 0%, rgba(15, 23, 42, 0.3) 100%)',
+                  border: '1px solid rgba(71, 85, 105, 0.3)',
+                  borderRadius: 24,
+                  padding: '20px',
+                  marginBottom: 24,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 16,
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+                  position: 'relative',
+                  transform:
+                    pressedButton === 'nextEvent' ? 'scale(0.97)' : 'scale(1)',
+                  transition:
+                    'transform 120ms ease-out, box-shadow 120ms ease-out',
+                }}
+              >
+                {/* Chevron in top right */}
+                <IonIcon
+                  icon={chevronForwardOutline}
+                  style={{
+                    position: 'absolute',
+                    top: 20,
+                    right: 20,
+                    fontSize: 24,
+                    color: 'rgba(148, 163, 184, 0.6)',
+                    opacity: 0.7,
+                  }}
                 />
-              </div>
+
+                {/* Header with time badge */}
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    paddingRight: 32,
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 48,
+                      height: 48,
+                      borderRadius: 14,
+                      background: 'rgba(52, 211, 153, 0.15)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      border: '1px solid rgba(52, 211, 153, 0.3)',
+                    }}
+                  >
+                    <IonIcon
+                      icon={calendarOutline}
+                      style={{ fontSize: 26, color: '#34d399' }}
+                    />
+                  </div>
+                  <div>
+                    <div
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 700,
+                        color: '#BBF7D0',
+                        textTransform: 'uppercase',
+                        letterSpacing: 0.8,
+                        marginBottom: 2,
+                      }}
+                    >
+                      Next Event
+                    </div>
+                    {timeUntilNextEvent && (
+                      <div
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 4,
+                          padding: '4px 10px',
+                          borderRadius: 999,
+                          background: 'rgba(15, 118, 110, 0.4)',
+                        }}
+                      >
+                        <IonIcon
+                          icon={timeOutline}
+                          style={{ fontSize: 12, color: '#A7F3D0' }}
+                        />
+                        <span
+                          style={{
+                            fontSize: 12,
+                            fontWeight: 700,
+                            color: '#ECFDF5',
+                          }}
+                        >
+                          {timeUntilNextEvent}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Event details */}
+                <div>
+                  <div
+                    style={{
+                      fontSize: 20,
+                      fontWeight: 800,
+                      color: '#F9FAFB',
+                      marginBottom: 8,
+                      letterSpacing: '-0.3px',
+                    }}
+                  >
+                    {nextEvent.title}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 14,
+                      color: '#E5E7EB',
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    {new Date(nextEvent.starts_at).toLocaleDateString('en-US', {
+                      weekday: 'long',
+                      month: 'long',
+                      day: 'numeric',
+                    })}
+                    {' • '}
+                    {new Date(nextEvent.starts_at).toLocaleTimeString('en-US', {
+                      hour: 'numeric',
+                      minute: '2-digit',
+                    })}
+                  </div>
+                  {nextEvent.location && (
+                    <div
+                      style={{
+                        fontSize: 13,
+                        color: 'rgba(203, 213, 225, 0.9)',
+                        marginTop: 4,
+                      }}
+                    >
+                      📍 {nextEvent.location}
+                    </div>
+                  )}
+                </div>
+              </button>
             )}
 
-            {tab === 'proposals' && (
-              <div style={{ padding: '8px 16px 0' }}>
-                <BandProposalsTabMobile bandId={bandId} isAdmin={isAdmin} />
-              </div>
-            )}
+            {/* Grid of Action Cards */}
+            {/* Grid of Action Cards */}
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(2, 1fr)',
+                gap: 12,
+                marginBottom: nextEvent ? 16 : 0,
+              }}
+            >
+              {/* Events Card with count */}
+              <button
+                type="button"
+                onClick={() =>
+                  handleButtonPress('events', () =>
+                    navigate(`/bands/${bandId}/events`)
+                  )
+                }
+                style={{
+                  background:
+                    'linear-gradient(135deg, rgba(30, 41, 59, 0.4) 0%, rgba(15, 23, 42, 0.3) 100%)',
+                  border: '1px solid rgba(71, 85, 105, 0.3)',
+                  borderRadius: 20,
+                  padding: '16px 14px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 10,
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  minHeight: 130,
+                  position: 'relative',
+                  transform:
+                    pressedButton === 'events' ? 'scale(0.97)' : 'scale(1)',
+                  transition:
+                    'transform 120ms ease-out, box-shadow 120ms ease-out',
+                }}
+              >
+                <IonIcon
+                  icon={chevronForwardOutline}
+                  style={{
+                    position: 'absolute',
+                    top: 16,
+                    right: 14,
+                    fontSize: 18,
+                    color: 'rgba(148, 163, 184, 0.6)',
+                    opacity: 0.7,
+                  }}
+                />
 
-            {tab === 'roster' && (
-              <div style={{ padding: 16 }}>
-                <IonText color="medium">
-                  <p>Roster view coming to mobile.</p>
-                </IonText>
-              </div>
-            )}
+                {/* icon + title inline (EventSheet style) */}
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    marginBottom: 6,
+                  }}
+                >
+                  <IonIcon
+                    icon={calendarOutline}
+                    style={{ fontSize: 20, color: '#34d399' }}
+                  />
+                  <span
+                    style={{
+                      fontSize: 11,
+                      color: '#9ca3af',
+                      textTransform: 'uppercase',
+                      letterSpacing: 0.5,
+                      fontWeight: 700,
+                    }}
+                  >
+                    Events
+                  </span>
+                </div>
 
-            {tab === 'library' && <BandLibraryTab bandId={bandId} />}
-          </>
+                <div style={{ marginTop: 8 }}>
+                  <div
+                    style={{
+                      fontSize: 28,
+                      fontWeight: 700,
+                      color: '#34d399',
+                      lineHeight: 1,
+                      marginBottom: 4,
+                    }}
+                  >
+                    {eventsCount}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 12,
+                      color: '#9ca3af',
+                    }}
+                  >
+                    {eventsCount === 1 ? 'event upcoming' : 'events upcoming'}
+                  </div>
+                </div>
+              </button>
+
+              {/* Proposals Card with count */}
+              <button
+                type="button"
+                onClick={() =>
+                  handleButtonPress('proposals', () =>
+                    navigate(`/bands/${bandId}/proposals`)
+                  )
+                }
+                style={{
+                  background:
+                    'linear-gradient(135deg, rgba(30, 41, 59, 0.4) 0%, rgba(15, 23, 42, 0.3) 100%)',
+                  border: '1px solid rgba(71, 85, 105, 0.3)',
+                  borderRadius: 20,
+                  padding: '16px 14px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 10,
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  minHeight: 130,
+                  position: 'relative',
+                  transform:
+                    pressedButton === 'proposals' ? 'scale(0.97)' : 'scale(1)',
+                  transition:
+                    'transform 120ms ease-out, box-shadow 120ms ease-out',
+                }}
+              >
+                <IonIcon
+                  icon={chevronForwardOutline}
+                  style={{
+                    position: 'absolute',
+                    top: 16,
+                    right: 14,
+                    fontSize: 18,
+                    color: 'rgba(148, 163, 184, 0.6)',
+                    opacity: 0.7,
+                  }}
+                />
+
+                {/* icon + title inline */}
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    marginBottom: 6,
+                  }}
+                >
+                  <IonIcon
+                    icon={clipboardOutline}
+                    style={{ fontSize: 20, color: '#f59e0b' }}
+                  />
+                  <span
+                    style={{
+                      fontSize: 11,
+                      color: '#9ca3af',
+                      textTransform: 'uppercase',
+                      letterSpacing: 0.5,
+                      fontWeight: 700,
+                    }}
+                  >
+                    Proposals
+                  </span>
+                </div>
+
+                <div style={{ marginTop: 8 }}>
+                  <div
+                    style={{
+                      fontSize: 28,
+                      fontWeight: 700,
+                      color: '#f59e0b',
+                      lineHeight: 1,
+                      marginBottom: 4,
+                    }}
+                  >
+                    {proposalsCount}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 12,
+                      color: '#9ca3af',
+                    }}
+                  >
+                    {proposalsCount === 1 ? 'proposal' : 'proposals'}
+                  </div>
+                </div>
+              </button>
+
+              {/* Library Card */}
+              <button
+                type="button"
+                onClick={() =>
+                  handleButtonPress('library', () =>
+                    navigate(`/bands/${bandId}/library`)
+                  )
+                }
+                style={{
+                  background:
+                    'linear-gradient(135deg, rgba(30, 41, 59, 0.4) 0%, rgba(15, 23, 42, 0.3) 100%)',
+                  border: '1px solid rgba(71, 85, 105, 0.3)',
+                  borderRadius: 20,
+                  padding: '16px 14px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 10,
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  minHeight: 130,
+                  position: 'relative',
+                  transform:
+                    pressedButton === 'library' ? 'scale(0.97)' : 'scale(1)',
+                  transition:
+                    'transform 120ms ease-out, box-shadow 120ms ease-out',
+                }}
+              >
+                <IonIcon
+                  icon={chevronForwardOutline}
+                  style={{
+                    position: 'absolute',
+                    top: 16,
+                    right: 14,
+                    fontSize: 18,
+                    color: 'rgba(148, 163, 184, 0.6)',
+                    opacity: 0.7,
+                  }}
+                />
+
+                {/* icon + title inline (Notes/Files style) */}
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    marginBottom: 8,
+                  }}
+                >
+                  <IonIcon
+                    icon={musicalNotesOutline}
+                    style={{ fontSize: 20, color: '#f472b6' }}
+                  />
+                  <span
+                    style={{
+                      fontSize: 11,
+                      color: '#9ca3af',
+                      textTransform: 'uppercase',
+                      letterSpacing: 0.5,
+                      fontWeight: 700,
+                    }}
+                  >
+                    Library
+                  </span>
+                </div>
+
+                <div
+                  style={{
+                    fontSize: 12,
+                    color: 'rgba(203, 213, 225, 0.8)',
+                    opacity: 0.9,
+                  }}
+                >
+                  Setlists & repertoire
+                </div>
+              </button>
+
+              {/* Roster Card */}
+              <button
+                type="button"
+                onClick={() =>
+                  handleButtonPress('roster', () =>
+                    navigate(`/bands/${bandId}/roster`)
+                  )
+                }
+                style={{
+                  background:
+                    'linear-gradient(135deg, rgba(30, 41, 59, 0.4) 0%, rgba(15, 23, 42, 0.3) 100%)',
+                  border: '1px solid rgba(71, 85, 105, 0.3)',
+                  borderRadius: 20,
+                  padding: '16px 14px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 10,
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  minHeight: 130,
+                  position: 'relative',
+                  transform:
+                    pressedButton === 'roster' ? 'scale(0.97)' : 'scale(1)',
+                  transition:
+                    'transform 120ms ease-out, box-shadow 120ms ease-out',
+                }}
+              >
+                <IonIcon
+                  icon={chevronForwardOutline}
+                  style={{
+                    position: 'absolute',
+                    top: 16,
+                    right: 14,
+                    fontSize: 18,
+                    color: 'rgba(148, 163, 184, 0.6)',
+                    opacity: 0.7,
+                  }}
+                />
+
+                {/* icon + title inline */}
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    marginBottom: 8,
+                  }}
+                >
+                  <IonIcon
+                    icon={peopleOutline}
+                    style={{ fontSize: 20, color: '#38bdf8' }}
+                  />
+                  <span
+                    style={{
+                      fontSize: 11,
+                      color: '#9ca3af',
+                      textTransform: 'uppercase',
+                      letterSpacing: 0.5,
+                      fontWeight: 700,
+                    }}
+                  >
+                    Roster
+                  </span>
+                </div>
+
+                <div
+                  style={{
+                    fontSize: 12,
+                    color: 'rgba(203, 213, 225, 0.8)',
+                    opacity: 0.9,
+                  }}
+                >
+                  Coming soon
+                </div>
+              </button>
+            </div>
+          </div>
         )}
       </IonContent>
     </IonPage>
   );
 }
-
-const TAB_META: Record<string, { label: string; accent: string; col: number }> =
-  {
-    overview: {
-      label: 'Overview',
-      accent: 'rgba(139, 92, 246, 0.96)',
-      col: 1,
-    },
-    events: {
-      label: 'Events',
-      accent: 'rgba(52, 211, 153, 0.95)',
-      col: 2,
-    },
-    proposals: {
-      label: 'Proposals',
-      accent: 'rgba(245, 158, 11, 0.95)',
-      col: 3,
-    },
-    roster: {
-      label: 'Roster',
-      accent: 'rgba(56, 189, 248, 0.96)',
-      col: 4,
-    },
-    library: {
-      label: 'Library',
-      accent: 'rgba(244, 114, 182, 0.95)',
-      col: 5,
-    },
-  };

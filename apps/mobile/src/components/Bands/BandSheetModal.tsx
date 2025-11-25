@@ -175,16 +175,22 @@ export default function BandSheetModal({
       handleBehavior="cycle"
       className="event-info-sheet"
     >
-      <IonContent>
+      <IonContent
+        style={{
+          '--background': 'linear-gradient(180deg, #050509 0%, #020109 100%)',
+        }}
+      >
         <div
           style={{
             position: 'relative',
             padding: 16,
             paddingBottom: 24,
             height: '100%',
-            color: '#E5E7EB',
+            color: '#e5e7eb',
             display: 'flex',
             flexDirection: 'column',
+            maxWidth: 600,
+            margin: '0 auto',
           }}
         >
           {/* Grabber */}
@@ -193,42 +199,40 @@ export default function BandSheetModal({
               width: 40,
               height: 4,
               borderRadius: 999,
-              margin: '4px auto 12px',
+              margin: '4px auto 16px',
               background: 'rgba(168,85,247,0.85)',
             }}
           />
 
-          {/* Header row: avatar + name + gear */}
+          {/* Header row: name + gear */}
           <div
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: 10,
-              marginBottom: 12,
+              gap: 12,
+              marginBottom: 20,
             }}
           >
             <div style={{ flex: 1, minWidth: 0 }}>
               <h2
                 style={{
                   margin: 0,
-                  fontSize: 18,
+                  fontSize: 24,
                   fontWeight: 800,
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  color: '#F5F3FF',
+                  color: '#f9fafb',
+                  lineHeight: 1.2,
                 }}
               >
                 {bandName || 'Band'}
               </h2>
               <p
                 style={{
-                  margin: '2px 0 0',
-                  fontSize: 12,
-                  color: 'rgba(196,181,253,0.9)',
+                  margin: '4px 0 0',
+                  fontSize: 14,
+                  color: '#9ca3af',
                 }}
               >
-                Members, stats, and quick actions.
+                Members, stats, and quick actions
               </p>
             </div>
 
@@ -239,20 +243,29 @@ export default function BandSheetModal({
                 nav(`/bands/${bandId}/settings`);
               }}
               style={{
-                width: 30,
-                height: 30,
+                width: 36,
+                height: 36,
                 borderRadius: 999,
-                border: '1px solid rgba(148,163,184,0.8)',
-                backgroundColor: 'rgba(15,23,42,0.95)',
+                border: '1px solid rgba(168,85,247,0.3)',
+                backgroundColor: 'rgba(168,85,247,0.1)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 cursor: 'pointer',
+                transition: 'all 0.2s ease',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = 'rgba(168,85,247,0.15)';
+                e.currentTarget.style.borderColor = 'rgba(168,85,247,0.5)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'rgba(168,85,247,0.1)';
+                e.currentTarget.style.borderColor = 'rgba(168,85,247,0.3)';
               }}
             >
               <IonIcon
                 icon={settingsOutline}
-                style={{ fontSize: 16, color: '#E5E7EB' }}
+                style={{ fontSize: 18, color: '#a78bfa' }}
               />
             </button>
           </div>
@@ -261,27 +274,25 @@ export default function BandSheetModal({
           {isAdmin && (
             <div
               style={{
-                borderRadius: 18,
-                background:
-                  'linear-gradient(145deg, #08070d, #050509 55%, #0b0614)',
-                border: '1px solid rgba(88,28,135,0.7)',
-                padding: 14,
+                background: 'rgba(255,255,255,0.02)',
+                border: '1px solid rgba(168,85,247,0.3)',
+                borderRadius: 16,
+                padding: 16,
                 marginBottom: 16,
-                boxShadow: '0 22px 45px rgba(0,0,0,0.9)',
               }}
             >
-              <div style={{ marginBottom: 10 }}>
+              <div style={{ marginBottom: 12 }}>
                 <p
                   style={{
                     margin: 0,
-                    fontSize: 13,
-                    fontWeight: 700,
-                    letterSpacing: 0.04,
+                    fontSize: 12,
+                    fontWeight: 600,
+                    letterSpacing: 0.5,
                     textTransform: 'uppercase',
-                    color: 'rgba(237,233,254,0.96)',
+                    color: '#9ca3af',
                   }}
                 >
-                  Invite band members
+                  Invite members
                 </p>
               </div>
 
@@ -296,18 +307,24 @@ export default function BandSheetModal({
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  padding: '14px 18px',
-                  borderRadius: 14,
+                  padding: '14px 16px',
+                  borderRadius: 12,
                   border: 'none',
                   background:
-                    'linear-gradient(135deg, rgba(88,28,135,1), rgba(88,28,135,1))',
-                  color: '#e8e4ecff',
-                  fontSize: 16,
+                    'linear-gradient(135deg, rgba(88,28,135,0.95), rgba(88,28,135,0.85))',
+                  color: '#f5f3ff',
+                  fontSize: 15,
                   fontWeight: 700,
-                  letterSpacing: 0.03,
-                  boxShadow: '0 10px 20px rgba(0,0,0,0.5)',
                   cursor: 'pointer',
                   transition: 'all 0.2s ease',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background =
+                    'linear-gradient(135deg, rgba(88,28,135,1), rgba(88,28,135,0.95))';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background =
+                    'linear-gradient(135deg, rgba(88,28,135,0.95), rgba(88,28,135,0.85))';
                 }}
               >
                 <div
@@ -320,11 +337,11 @@ export default function BandSheetModal({
                 >
                   <span
                     style={{
-                      width: 36,
-                      height: 36,
+                      width: 32,
+                      height: 32,
                       borderRadius: '50%',
-                      background: 'rgba(15,23,42,0.96)',
-                      border: '1px solid rgba(168,85,247,0.5)',
+                      background: 'rgba(255,255,255,0.1)',
+                      border: '1px solid rgba(168,85,247,0.4)',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
@@ -333,7 +350,7 @@ export default function BandSheetModal({
                   >
                     <IonIcon
                       icon={personAddOutline}
-                      style={{ fontSize: 20, color: '#a78bfa' }}
+                      style={{ fontSize: 18, color: '#e9d5ff' }}
                     />
                   </span>
                   <span
@@ -341,7 +358,6 @@ export default function BandSheetModal({
                       whiteSpace: 'nowrap',
                       textOverflow: 'ellipsis',
                       overflow: 'hidden',
-                      fontSize: 16,
                     }}
                   >
                     Invite band members
@@ -349,7 +365,7 @@ export default function BandSheetModal({
                 </div>
                 <IonIcon
                   icon={chevronForwardOutline}
-                  style={{ fontSize: 20, color: '#e8e4ecff', flexShrink: 0 }}
+                  style={{ fontSize: 18, color: '#f5f3ff', flexShrink: 0 }}
                 />
               </button>
             </div>
@@ -362,28 +378,27 @@ export default function BandSheetModal({
               paddingRight: 2,
               display: 'flex',
               flexDirection: 'column',
-              gap: 12,
+              gap: 16,
             }}
           >
+            {/* Members Card */}
             <div
               style={{
-                borderRadius: 18,
-                background:
-                  'linear-gradient(145deg, #08070d, #050509 55%, #0b0614)',
-                border: '1px solid rgba(88,28,135,0.7)',
-                padding: 14,
-                boxShadow: '0 22px 45px rgba(0,0,0,0.9)',
+                background: 'rgba(255,255,255,0.02)',
+                border: '1px solid rgba(168,85,247,0.3)',
+                borderRadius: 16,
+                padding: 16,
               }}
             >
-              <div style={{ marginBottom: 8 }}>
+              <div style={{ marginBottom: 12 }}>
                 <p
                   style={{
                     margin: 0,
-                    fontSize: 13,
-                    fontWeight: 700,
-                    letterSpacing: 0.04,
+                    fontSize: 12,
+                    fontWeight: 600,
+                    letterSpacing: 0.5,
                     textTransform: 'uppercase',
-                    color: 'rgba(237,233,254,0.96)',
+                    color: '#9ca3af',
                   }}
                 >
                   Band members
@@ -391,11 +406,11 @@ export default function BandSheetModal({
                 <p
                   style={{
                     margin: '4px 0 0',
-                    fontSize: 12,
-                    color: 'rgba(196,181,253,0.9)',
+                    fontSize: 13,
+                    color: '#6b7280',
                   }}
                 >
-                  Who’s in the band and their roles.
+                  Who's in the band and their roles
                 </p>
               </div>
 
@@ -403,8 +418,8 @@ export default function BandSheetModal({
                 <p
                   style={{
                     margin: 0,
-                    fontSize: 13,
-                    color: 'rgba(196,181,253,0.8)',
+                    fontSize: 14,
+                    color: '#9ca3af',
                   }}
                 >
                   Loading members…
@@ -413,8 +428,8 @@ export default function BandSheetModal({
                 <p
                   style={{
                     margin: 0,
-                    fontSize: 13,
-                    color: 'rgba(156,163,175,0.9)',
+                    fontSize: 14,
+                    color: '#6b7280',
                   }}
                 >
                   No members found.
@@ -437,6 +452,8 @@ export default function BandSheetModal({
                           {
                             '--background': 'transparent',
                             paddingInline: 0,
+                            '--padding-start': '0',
+                            '--inner-padding-end': '0',
                           } as any
                         }
                       >
@@ -445,7 +462,7 @@ export default function BandSheetModal({
                           bucket="profile-avatars"
                           avatarPath={m.avatar_path ?? undefined}
                           updatedAt={m.avatar_updated_at ?? undefined}
-                          size={32}
+                          size={36}
                         />
                         <IonLabel className="ion-margin-start">
                           <h3
@@ -453,14 +470,15 @@ export default function BandSheetModal({
                               fontWeight: 600,
                               fontSize: 15,
                               marginBottom: 2,
+                              color: '#f9fafb',
                             }}
                           >
                             {m.name}
                           </h3>
                           <p
                             style={{
-                              fontSize: 12,
-                              color: m.role === 'admin' ? '#FBBF24' : '#9CA3AF',
+                              fontSize: 13,
+                              color: m.role === 'admin' ? '#fbbf24' : '#9ca3af',
                             }}
                           >
                             {role}
@@ -475,9 +493,9 @@ export default function BandSheetModal({
               {membersError && (
                 <p
                   style={{
-                    marginTop: 6,
-                    fontSize: 12,
-                    color: '#FCA5A5',
+                    marginTop: 8,
+                    fontSize: 13,
+                    color: '#fca5a5',
                   }}
                 >
                   {membersError}
@@ -485,25 +503,24 @@ export default function BandSheetModal({
               )}
             </div>
 
+            {/* Stats Card */}
             <div
               style={{
-                borderRadius: 18,
-                background:
-                  'linear-gradient(145deg, #08070d, #050509 55%, #0b0614)',
-                border: '1px solid rgba(88,28,135,0.7)',
-                padding: 14,
-                boxShadow: '0 22px 45px rgba(0,0,0,0.9)',
+                background: 'rgba(255,255,255,0.02)',
+                border: '1px solid rgba(168,85,247,0.3)',
+                borderRadius: 16,
+                padding: 16,
               }}
             >
-              <div style={{ marginBottom: 8 }}>
+              <div style={{ marginBottom: 12 }}>
                 <p
                   style={{
                     margin: 0,
-                    fontSize: 13,
-                    fontWeight: 700,
-                    letterSpacing: 0.04,
+                    fontSize: 12,
+                    fontWeight: 600,
+                    letterSpacing: 0.5,
                     textTransform: 'uppercase',
-                    color: 'rgba(237,233,254,0.96)',
+                    color: '#9ca3af',
                   }}
                 >
                   Band summary
@@ -511,11 +528,11 @@ export default function BandSheetModal({
                 <p
                   style={{
                     margin: '4px 0 0',
-                    fontSize: 12,
-                    color: 'rgba(196,181,253,0.9)',
+                    fontSize: 13,
+                    color: '#6b7280',
                   }}
                 >
-                  High-level stats for this band.
+                  High-level stats for this band
                 </p>
               </div>
 
@@ -524,7 +541,7 @@ export default function BandSheetModal({
                   display: 'flex',
                   justifyContent: 'space-around',
                   textAlign: 'center',
-                  marginTop: 4,
+                  marginTop: 8,
                 }}
               >
                 <StatBlock label="Members" value={memberCount} emoji="👥" />
@@ -537,16 +554,16 @@ export default function BandSheetModal({
               </div>
             </div>
 
-            <IonText color="medium">
+            <IonText>
               <p
                 style={{
-                  marginTop: 4,
-                  fontSize: 11,
+                  marginTop: 8,
+                  fontSize: 12,
                   textAlign: 'center',
-                  color: '#9CA3AF',
+                  color: '#6b7280',
                 }}
               >
-                Need deeper controls? Tap the gear to open band settings.
+                Need deeper controls? Tap the gear to open band settings
               </p>
             </IonText>
           </div>
@@ -570,13 +587,13 @@ function StatBlock({
 
   return (
     <div>
-      <div style={{ fontSize: 22, marginBottom: 4 }}>{emoji}</div>
+      <div style={{ fontSize: 24, marginBottom: 6 }}>{emoji}</div>
       <div
         style={{
-          fontSize: 16,
+          fontSize: 18,
           fontWeight: 700,
-          marginBottom: 2,
-          color: '#F9FAFB',
+          marginBottom: 4,
+          color: '#f9fafb',
         }}
       >
         {display}
@@ -584,7 +601,7 @@ function StatBlock({
       <div
         style={{
           fontSize: 12,
-          color: '#9CA3AF',
+          color: '#9ca3af',
         }}
       >
         {label}

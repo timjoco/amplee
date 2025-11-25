@@ -2,6 +2,7 @@
 import {
   IonAlert,
   IonButton,
+  IonButtons,
   IonContent,
   IonHeader,
   IonIcon,
@@ -9,8 +10,8 @@ import {
   IonLabel,
   IonList,
   IonPage,
+  IonSpinner,
   IonText,
-  IonTitle,
   IonToast,
   IonToolbar,
 } from '@ionic/react';
@@ -259,47 +260,83 @@ export default function BandSettingsMobile() {
             borderBottom: '0.5px solid rgba(255,255,255,0.06)',
           }}
         >
-          <button
-            type="button"
-            onClick={() => nav(-1)}
+          <IonButtons slot="start">
+            <IonButton
+              fill="clear"
+              onClick={() => nav(-1)}
+              style={{ minWidth: 0, paddingInline: 4 }}
+            >
+              <IonIcon
+                icon={chevronBackOutline}
+                style={{ color: '#F9FAFB', fontSize: 22 }}
+              />
+            </IonButton>
+          </IonButtons>
+
+          <div
             style={{
-              background: 'transparent',
-              border: 'none',
-              padding: 8,
-              display: 'flex',
-              alignItems: 'center',
-              cursor: 'pointer',
+              paddingInline: 12,
+              paddingBlock: 8,
             }}
           >
-            <IonIcon
-              icon={chevronBackOutline}
-              style={{ fontSize: 20, color: '#ffffffff', marginRight: 4 }}
-            />
-            <IonTitle style={{ color: '#e8e4ecff' }}>Band settings</IonTitle>
-          </button>
+            <h1
+              style={{
+                margin: 0,
+                fontSize: 24,
+                fontWeight: 800,
+                color: '#F9FAFB',
+                letterSpacing: '-0.5px',
+              }}
+            >
+              Band settings
+            </h1>
+            <p
+              style={{
+                margin: '4px 0 0',
+                fontSize: 13,
+                color: '#9ca3af',
+              }}
+            >
+              Manage band profile and members
+            </p>
+          </div>
         </IonToolbar>
       </IonHeader>
 
-      <IonContent fullscreen>
-        {loading ? (
+      <IonContent
+        fullscreen
+        style={{
+          '--background': 'linear-gradient(180deg, #050509 0%, #020109 100%)',
+        }}
+      >
+        {loading && (
           <div
             style={{
-              padding: 24,
-              display: 'flex',
-              justifyContent: 'center',
+              height: '100%',
+              display: 'grid',
+              placeItems: 'center',
             }}
           >
-            <IonText color="light">
-              <p>Loading…</p>
-            </IonText>
+            <IonSpinner name="dots" style={{ color: '#a855f7' }} />
           </div>
-        ) : error ? (
-          <div style={{ padding: 16 }}>
+        )}
+
+        {!loading && error && (
+          <div
+            style={{
+              height: '100%',
+              display: 'grid',
+              placeItems: 'center',
+              padding: 16,
+            }}
+          >
             <IonText color="danger">
               <p>{error}</p>
             </IonText>
           </div>
-        ) : (
+        )}
+
+        {!loading && !error && (
           <div
             style={{
               padding: 16,
@@ -310,28 +347,74 @@ export default function BandSettingsMobile() {
               gap: 16,
             }}
           >
-            {isAdmin ? (
-              <>
-                {/* Band profile */}
-                <div
+            {/* BAND HEADER SNAPSHOT (name + avatar) */}
+            <div
+              style={{
+                background: 'rgba(255,255,255,0.02)',
+                border: '1px solid rgba(148,163,184,0.18)',
+                borderRadius: 20,
+                padding: 16,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12,
+              }}
+            >
+              <AvatarImageMobile
+                name={bandName}
+                bucket="band-avatars"
+                avatarPath={bandAvatarPath || undefined}
+                updatedAt={undefined}
+                size={40}
+              />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p
                   style={{
-                    borderRadius: 18,
-                    background:
-                      'linear-gradient(145deg, #08070d, #050509 55%, #0b0614)',
-                    border: '1px solid rgba(88,28,135,0.7)',
-                    padding: 14,
-                    boxShadow: '0 22px 45px rgba(0,0,0,0.9)',
+                    margin: 0,
+                    fontSize: 12,
+                    textTransform: 'uppercase',
+                    letterSpacing: 0.5,
+                    color: '#6b7280',
+                    fontWeight: 600,
                   }}
                 >
-                  <div style={{ marginBottom: 6 }}>
+                  Band
+                </p>
+                <p
+                  style={{
+                    margin: '2px 0 0',
+                    fontSize: 18,
+                    fontWeight: 700,
+                    color: '#F9FAFB',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                >
+                  {bandName}
+                </p>
+              </div>
+            </div>
+
+            {isAdmin ? (
+              <>
+                {/* Band profile card */}
+                <div
+                  style={{
+                    background: 'rgba(255,255,255,0.02)',
+                    border: '1px solid rgba(168,85,247,0.3)',
+                    borderRadius: 20,
+                    padding: 20,
+                  }}
+                >
+                  <div style={{ marginBottom: 10 }}>
                     <p
                       style={{
                         margin: 0,
-                        fontSize: 13,
+                        fontSize: 12,
                         fontWeight: 700,
-                        letterSpacing: 0.04,
+                        letterSpacing: 0.5,
                         textTransform: 'uppercase',
-                        color: 'rgba(237,233,254,0.96)',
+                        color: '#a855f7',
                       }}
                     >
                       Band profile
@@ -339,22 +422,22 @@ export default function BandSettingsMobile() {
                     <p
                       style={{
                         margin: '4px 0 0',
-                        fontSize: 12,
-                        color: 'rgba(196,181,253,0.9)',
+                        fontSize: 13,
+                        color: '#9ca3af',
                       }}
                     >
-                      Change the band name and avatar.
+                      Update the band name and avatar.
                     </p>
                   </div>
 
                   <div
                     style={{
                       marginTop: 8,
-                      paddingTop: 10,
-                      borderTop: '1px solid rgba(148,163,184,0.35)',
                       display: 'flex',
                       flexDirection: 'column',
-                      gap: 10,
+                      gap: 12,
+                      borderTop: '1px solid rgba(148,163,184,0.18)',
+                      paddingTop: 12,
                     }}
                   >
                     <BandBasicsCardMobile
@@ -369,26 +452,24 @@ export default function BandSettingsMobile() {
                   </div>
                 </div>
 
-                {/* Manage roles */}
+                {/* Manage roles card */}
                 <div
                   style={{
-                    borderRadius: 18,
-                    background:
-                      'linear-gradient(145deg, #08070d, #050509 55%, #0b0614)',
-                    border: '1px solid rgba(88,28,135,0.7)',
-                    padding: 14,
-                    boxShadow: '0 22px 45px rgba(0,0,0,0.9)',
+                    background: 'rgba(255,255,255,0.02)',
+                    border: '1px solid rgba(148,163,184,0.18)',
+                    borderRadius: 20,
+                    padding: 20,
                   }}
                 >
-                  <div style={{ marginBottom: 6 }}>
+                  <div style={{ marginBottom: 8 }}>
                     <p
                       style={{
                         margin: 0,
-                        fontSize: 13,
+                        fontSize: 12,
                         fontWeight: 700,
-                        letterSpacing: 0.04,
+                        letterSpacing: 0.5,
                         textTransform: 'uppercase',
-                        color: 'rgba(237,233,254,0.96)',
+                        color: '#e5e7eb',
                       }}
                     >
                       Manage roles
@@ -396,8 +477,8 @@ export default function BandSettingsMobile() {
                     <p
                       style={{
                         margin: '4px 0 0',
-                        fontSize: 12,
-                        color: 'rgba(196,181,253,0.9)',
+                        fontSize: 13,
+                        color: '#9ca3af',
                       }}
                     >
                       Promote or demote band members.
@@ -518,35 +599,35 @@ export default function BandSettingsMobile() {
                   </IonList>
                 </div>
 
-                {/* Danger Zone */}
+                {/* Danger Zone (admin) */}
                 <div
                   style={{
-                    borderRadius: 18,
-                    background:
-                      'linear-gradient(145deg, #08070d, #050509 55%, #0b0614)',
-                    border: '1px solid rgba(220,38,38,0.7)',
-                    padding: 14,
+                    background: 'rgba(255,255,255,0.02)',
+                    border: '1px solid rgba(248, 113, 113, 0.3)',
+                    borderRadius: 20,
+                    padding: 20,
                   }}
                 >
                   <div
                     style={{
-                      marginBottom: 8,
                       display: 'flex',
                       alignItems: 'center',
+                      gap: 8,
+                      marginBottom: 8,
                     }}
                   >
                     <IonIcon
                       icon={warningOutline}
-                      style={{ marginRight: 8, color: '#FCA5A5' }}
+                      style={{ fontSize: 20, color: '#fca5a5' }}
                     />
                     <p
                       style={{
                         margin: 0,
-                        fontSize: 13,
+                        fontSize: 12,
                         fontWeight: 700,
-                        letterSpacing: 0.04,
+                        letterSpacing: 0.5,
                         textTransform: 'uppercase',
-                        color: 'rgba(254,226,226,0.96)',
+                        color: '#fca5a5',
                       }}
                     >
                       Danger Zone
@@ -554,55 +635,68 @@ export default function BandSettingsMobile() {
                   </div>
                   <p
                     style={{
-                      margin: '0 0 12px',
+                      margin: '0 0 20px',
                       fontSize: 13,
-                      color: 'rgba(254,202,202,0.9)',
+                      color: '#9ca3af',
                     }}
                   >
-                    Delete this band for everyone. This is permanent.
+                    Delete this band for everyone. This cannot be undone.
                   </p>
 
-                  <IonButton
-                    expand="block"
-                    color="danger"
-                    disabled={busyDanger}
+                  <button
+                    type="button"
                     onClick={() => setShowDeleteAlert(true)}
-                    style={{ '--border-radius': '999px' } as any}
+                    disabled={busyDanger}
+                    style={{
+                      width: '100%',
+                      padding: '12px 16px',
+                      borderRadius: 12,
+                      border: '1px solid rgba(248, 113, 113, 0.5)',
+                      background: 'rgba(248, 113, 113, 0.05)',
+                      color: '#fca5a5',
+                      fontSize: 14,
+                      fontWeight: 600,
+                      cursor: busyDanger ? 'not-allowed' : 'pointer',
+                      transition: 'all 0.2s ease',
+                      WebkitTapHighlightColor: 'transparent',
+                      touchAction: 'manipulation',
+                      opacity: busyDanger ? 0.6 : 1,
+                    }}
                   >
                     {busyDanger ? 'Working…' : 'Delete band'}
-                  </IonButton>
+                  </button>
                 </div>
               </>
             ) : (
-              /* Member-only: leave band */
+              // Member-only: leave band card
               <div
                 style={{
-                  borderRadius: 18,
-                  background:
-                    'linear-gradient(145deg, #08070d, #050509 55%, #0b0614)',
-                  border: '1px solid rgba(220,38,38,0.7)',
-                  padding: 14,
+                  background: 'rgba(255,255,255,0.02)',
+                  border: '1px solid rgba(248, 113, 113, 0.3)',
+                  borderRadius: 20,
+                  padding: 20,
                 }}
               >
                 <div
                   style={{
-                    marginBottom: 8,
                     display: 'flex',
                     alignItems: 'center',
+                    gap: 8,
+                    marginBottom: 8,
                   }}
                 >
                   <IonIcon
                     icon={warningOutline}
-                    style={{ marginRight: 8, color: '#FCA5A5' }}
+                    style={{ fontSize: 20, color: '#fca5a5' }}
                   />
                   <p
                     style={{
                       margin: 0,
-                      fontSize: 13,
+                      fontSize: 12,
                       fontWeight: 700,
-                      letterSpacing: 0.04,
+                      letterSpacing: 0.5,
                       textTransform: 'uppercase',
-                      color: 'rgba(254,226,226,0.96)',
+                      color: '#fca5a5',
                     }}
                   >
                     Leave band
@@ -610,9 +704,9 @@ export default function BandSettingsMobile() {
                 </div>
                 <p
                   style={{
-                    margin: '0 0 12px',
+                    margin: '0 0 20px',
                     fontSize: 13,
-                    color: 'rgba(254,202,202,0.9)',
+                    color: '#9ca3af',
                   }}
                 >
                   You’ll lose access to this band’s events and setlists.
@@ -654,7 +748,7 @@ export default function BandSettingsMobile() {
         )}
       </IonContent>
 
-      {/* Alerts */}
+      {/* Leave band alert */}
       <IonAlert
         isOpen={showLeaveAlert}
         onDidDismiss={() => setShowLeaveAlert(false)}
@@ -680,12 +774,13 @@ export default function BandSettingsMobile() {
             role: 'destructive',
             handler: () => {
               setShowLeaveAlert(false);
-              handleLeaveBand();
+              void handleLeaveBand();
             },
           },
         ]}
       />
 
+      {/* Delete band alert */}
       <IonAlert
         isOpen={showDeleteAlert}
         onDidDismiss={() => setShowDeleteAlert(false)}
@@ -727,6 +822,7 @@ export default function BandSettingsMobile() {
         ]}
       />
 
+      {/* Success delete toast */}
       <IonToast
         isOpen={showDeleteToast}
         message="Band successfully deleted."
