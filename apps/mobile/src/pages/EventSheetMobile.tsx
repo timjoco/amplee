@@ -1,4 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { Capacitor } from '@capacitor/core';
+import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import {
   IonButton,
   IonContent,
@@ -47,39 +49,60 @@ type EventRow = {
 };
 
 type AttendanceStats = {
-  going: number;
-  maybe: number;
-  not_going: number;
-  no_response: number;
+  accepted: number;
   total: number;
 };
 
 export default function EventSheetMobile() {
   const nav = useNavigate();
-  const location = useLocation();
+  const routerLocation = useLocation();
+
   const [event, setEvent] = useState<EventRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [showInfoSheet, setShowInfoSheet] = useState(false);
-  const [, setMyUserId] = useState<string | null>(null);
   const [savingPublic, setSavingPublic] = useState(false);
+
   const [attendanceStats, setAttendanceStats] = useState<AttendanceStats>({
-    going: 0,
-    maybe: 0,
-    not_going: 0,
-    no_response: 0,
+    accepted: 0,
     total: 0,
   });
+
   const [unreadMessages, setUnreadMessages] = useState(0);
   const [setlistCount, setSetlistCount] = useState(0);
 
+  const [pressedButton, setPressedButton] = useState<string | null>(null);
+
   const pageRef = useRef<HTMLElement | null>(null);
-  const cameFromSettings = (location.state as any)?.fromSettings;
+
+  const cameFromSettings = (routerLocation.state as any)?.fromSettings;
   const hasStart = !!event?.starts_at;
+
   const { bandId, eventId } = useParams<{
     bandId: string;
     eventId: string;
   }>();
+
+  const triggerHaptic = useCallback(async () => {
+    if (Capacitor.getPlatform() === 'web') return;
+    try {
+      await Haptics.impact({ style: ImpactStyle.Medium });
+    } catch (e) {
+      console.warn('[haptic error]', e);
+    }
+  }, []);
+
+  const handleButtonPress = useCallback(
+    (buttonId: string, action: () => void) => {
+      setPressedButton(buttonId);
+      triggerHaptic();
+      setTimeout(() => {
+        setPressedButton(null);
+        action();
+      }, 120);
+    },
+    [triggerHaptic]
+  );
 
   const startsAtLabel = useMemo(() => {
     if (!event || !event.starts_at) return '';
@@ -233,25 +256,26 @@ export default function EventSheetMobile() {
     };
   }, [eventId]);
 
-  // Fetch attendance stats
+  // Fetch attendance stats (accepted / total)
   useEffect(() => {
     if (!eventId) return;
 
     (async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('event_attendance')
         .select('status')
         .eq('event_id', eventId);
 
+      if (error) {
+        console.error('[event attendance stats] error', error.message);
+        return;
+      }
+
       if (data) {
-        const stats = {
-          going: data.filter((a) => a.status === 'going').length,
-          maybe: data.filter((a) => a.status === 'maybe').length,
-          not_going: data.filter((a) => a.status === 'not_going').length,
-          no_response: data.filter((a) => a.status === 'no_response').length,
-          total: data.length,
-        };
-        setAttendanceStats(stats);
+        const accepted = data.filter((a) => a.status === 'accepted').length;
+        const total = data.length;
+
+        setAttendanceStats({ accepted, total });
       }
     })();
   }, [eventId]);
@@ -261,16 +285,21 @@ export default function EventSheetMobile() {
     if (!eventId) return;
 
     (async () => {
-      const { data } = await supabase
-        .from('event_setlist_songs')
+      const { count, error } = await supabase
+        .from('event_setlist_items')
         .select('id', { count: 'exact', head: true })
         .eq('event_id', eventId);
 
-      setSetlistCount(data?.length || 0);
+      if (error) {
+        console.error('[event setlist count] error', error.message);
+        return;
+      }
+
+      setSetlistCount(count ?? 0);
     })();
   }, [eventId]);
 
-  // Real-time updates
+  // Real-time updates for booked/cancelled + attendance stats
   useEffect(() => {
     if (!eventId) return;
 
@@ -285,7 +314,8 @@ export default function EventSheetMobile() {
           filter: `event_id=eq.${eventId}`,
         },
         async () => {
-          const { data } = await supabase
+          // Refresh event booked/cancelled
+          const { data, error } = await supabase
             .from('events_with_my_attendance')
             .select(
               'id, band_id, title, type, starts_at, location, is_booked, is_cancelled'
@@ -293,7 +323,7 @@ export default function EventSheetMobile() {
             .eq('id', eventId)
             .maybeSingle();
 
-          if (data) {
+          if (!error && data) {
             setEvent((prev) =>
               prev
                 ? {
@@ -301,28 +331,30 @@ export default function EventSheetMobile() {
                     is_booked: Boolean(data.is_booked),
                     is_cancelled: Boolean(data.is_cancelled),
                   }
-                : null
+                : prev
             );
           }
 
           // Refresh attendance stats
-          const { data: attendanceData } = await supabase
+          const { data: attendanceData, error: attErr } = await supabase
             .from('event_attendance')
             .select('status')
             .eq('event_id', eventId);
 
+          if (attErr) {
+            console.error(
+              '[event attendance stats realtime] error',
+              attErr.message
+            );
+            return;
+          }
+
           if (attendanceData) {
-            const stats = {
-              going: attendanceData.filter((a) => a.status === 'going').length,
-              maybe: attendanceData.filter((a) => a.status === 'maybe').length,
-              not_going: attendanceData.filter((a) => a.status === 'not_going')
-                .length,
-              no_response: attendanceData.filter(
-                (a) => a.status === 'no_response'
-              ).length,
-              total: attendanceData.length,
-            };
-            setAttendanceStats(stats);
+            const accepted = attendanceData.filter(
+              (a) => a.status === 'accepted'
+            ).length;
+            const total = attendanceData.length;
+            setAttendanceStats({ accepted, total });
           }
         }
       )
@@ -342,8 +374,6 @@ export default function EventSheetMobile() {
         data: { user },
       } = await supabase.auth.getUser();
       if (!alive || !user) return;
-
-      setMyUserId(user.id);
 
       if (!bandId) return;
 
@@ -369,7 +399,7 @@ export default function EventSheetMobile() {
 
   const attendancePercentage = useMemo(() => {
     if (attendanceStats.total === 0) return 0;
-    return Math.round((attendanceStats.going / attendanceStats.total) * 100);
+    return Math.round((attendanceStats.accepted / attendanceStats.total) * 100);
   }, [attendanceStats]);
 
   return (
@@ -418,6 +448,7 @@ export default function EventSheetMobile() {
                 cursor: 'pointer',
               }}
             >
+              {/* Title + subtitle */}
               <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
                 <div
                   style={{
@@ -440,16 +471,27 @@ export default function EventSheetMobile() {
                   >
                     {event?.title ?? (loading ? 'Loading…' : 'Event')}
                   </span>
-                  <IonIcon
-                    icon={chevronForwardOutline}
-                    style={{
-                      fontSize: 16,
-                      color: '#9ca3af',
-                      flexShrink: 0,
-                    }}
-                  />
                 </div>
+                <p
+                  style={{
+                    margin: '4px 0 0',
+                    fontSize: 13,
+                    color: '#9ca3af',
+                  }}
+                >
+                  Event
+                </p>
               </div>
+
+              {/* Chevron on the right */}
+              <IonIcon
+                icon={chevronForwardOutline}
+                style={{
+                  fontSize: 18,
+                  color: '#9ca3af',
+                  flexShrink: 0,
+                }}
+              />
             </button>
           </div>
         </IonToolbar>
@@ -518,11 +560,12 @@ export default function EventSheetMobile() {
               margin: '0 auto',
             }}
           >
-            {/* HERO STATUS CARD */}
+            {/* 1) EVENT DETAILS BLOCK */}
             <div
               style={{
-                background: 'rgba(255,255,255,0.02)',
-                border: `1px solid ${status?.border}`,
+                background:
+                  'linear-gradient(135deg, rgba(30, 41, 59, 0.4) 0%, rgba(15, 23, 42, 0.3) 100%)',
+                border: '1px solid rgba(71, 85, 105, 0.3)',
                 borderRadius: '20px',
                 padding: '20px',
                 marginBottom: '16px',
@@ -530,19 +573,6 @@ export default function EventSheetMobile() {
                 overflow: 'hidden',
               }}
             >
-              {/* Glow effect */}
-              <div
-                style={{
-                  position: 'absolute',
-                  top: -100,
-                  right: -100,
-                  width: 200,
-                  height: 200,
-                  background: `radial-gradient(circle, ${status?.color}30 0%, transparent 70%)`,
-                  pointerEvents: 'none',
-                }}
-              />
-
               <div
                 style={{
                   display: 'flex',
@@ -582,7 +612,7 @@ export default function EventSheetMobile() {
                   <div
                     style={{
                       fontSize: 13,
-                      color: '#9ca3af',
+                      color: 'rgba(148, 163, 184, 0.8)',
                     }}
                   >
                     {event.type === 'practice' ? 'Practice Session' : 'Show'}
@@ -594,7 +624,7 @@ export default function EventSheetMobile() {
                     style={{
                       padding: '8px 16px',
                       borderRadius: '12px',
-                      background: 'rgba(52, 211, 153, 0.1)',
+                      background: 'rgba(52, 211, 153, 0.15)',
                       border: '1px solid rgba(52, 211, 153, 0.3)',
                       display: 'flex',
                       alignItems: 'center',
@@ -636,7 +666,10 @@ export default function EventSheetMobile() {
                   >
                     <IonIcon
                       icon={calendarOutline}
-                      style={{ fontSize: 18, color: '#9ca3af' }}
+                      style={{
+                        fontSize: 18,
+                        color: 'rgba(148, 163, 184, 0.8)',
+                      }}
                     />
                     <span style={{ fontSize: 14, color: '#e5e7eb' }}>
                       {new Date(event.starts_at).toLocaleDateString('en-US', {
@@ -664,7 +697,10 @@ export default function EventSheetMobile() {
                   >
                     <IonIcon
                       icon={locationOutline}
-                      style={{ fontSize: 18, color: '#9ca3af' }}
+                      style={{
+                        fontSize: 18,
+                        color: 'rgba(148, 163, 184, 0.8)',
+                      }}
                     />
                     <span style={{ fontSize: 14, color: '#e5e7eb' }}>
                       {event.location}
@@ -674,7 +710,106 @@ export default function EventSheetMobile() {
               </div>
             </div>
 
-            {/* QUICK STATS ROW */}
+            {/* 2) CHAT TAB / CTA */}
+            <button
+              type="button"
+              onClick={() =>
+                handleButtonPress('chat', () =>
+                  nav(`/bands/${event.band_id}/events/${event.id}/chat`)
+                )
+              }
+              style={{
+                width: '100%',
+                background:
+                  'linear-gradient(135deg, rgba(52, 211, 153, 0.15) 0%, rgba(52, 211, 153, 0.05) 100%)',
+                border: '1px solid rgba(52, 211, 153, 0.3)',
+                borderRadius: '18px',
+                padding: '16px 18px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 14,
+                cursor: 'pointer',
+                transition: 'all 120ms ease-out',
+                textAlign: 'left',
+                marginBottom: '16px',
+                position: 'relative',
+                transform:
+                  pressedButton === 'chat' ? 'scale(0.97)' : 'scale(1)',
+              }}
+            >
+              <IonIcon
+                icon={chevronForwardOutline}
+                style={{
+                  position: 'absolute',
+                  top: 16,
+                  right: 16,
+                  fontSize: 20,
+                  color: 'rgba(148, 163, 184, 0.7)',
+                }}
+              />
+              <div
+                style={{
+                  width: 52,
+                  height: 52,
+                  borderRadius: 16,
+                  background: 'rgba(52, 211, 153, 0.2)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                  position: 'relative',
+                }}
+              >
+                <IonIcon
+                  icon={chatbubblesOutline}
+                  style={{ fontSize: 26, color: '#34d399' }}
+                />
+                {unreadMessages > 0 && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: -4,
+                      right: -4,
+                      background: '#ef4444',
+                      color: '#fff',
+                      borderRadius: '12px',
+                      padding: '2px 6px',
+                      fontSize: 10,
+                      fontWeight: 700,
+                      minWidth: 20,
+                      textAlign: 'center',
+                    }}
+                  >
+                    {unreadMessages > 99 ? '99+' : unreadMessages}
+                  </div>
+                )}
+              </div>
+
+              <div style={{ flex: 1, paddingRight: 24 }}>
+                <div
+                  style={{
+                    fontSize: 17,
+                    fontWeight: 700,
+                    color: '#F9FAFB',
+                    marginBottom: 4,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                  }}
+                >
+                  Chat
+                  <IonIcon
+                    icon={flashOutline}
+                    style={{ fontSize: 16, color: '#34d399' }}
+                  />
+                </div>
+                <div style={{ fontSize: 13, color: '#9ca3af' }}>
+                  Message your bandmates for this event
+                </div>
+              </div>
+            </button>
+
+            {/* 3) 2×2 GRID: ROLL CALL, SETLIST, NOTES, FILES */}
             <div
               style={{
                 display: 'grid',
@@ -683,19 +818,27 @@ export default function EventSheetMobile() {
                 marginBottom: '16px',
               }}
             >
-              {/* Attendance Card */}
-              <div
+              {/* Roll Call */}
+              <button
+                type="button"
+                onClick={() =>
+                  handleButtonPress('rollcall', () =>
+                    nav(`/bands/${event.band_id}/events/${event.id}/rollcall`)
+                  )
+                }
                 style={{
                   background: 'rgba(52, 211, 153, 0.05)',
                   border: '1px solid rgba(52, 211, 153, 0.15)',
                   borderRadius: '16px',
                   padding: '16px',
                   cursor: 'pointer',
-                  transition: 'all 0.2s ease',
+                  transition:
+                    'transform 120ms ease-out, background 120ms ease-out, border-color 120ms ease-out',
+                  position: 'relative',
+                  textAlign: 'left',
+                  transform:
+                    pressedButton === 'rollcall' ? 'scale(0.97)' : 'scale(1)',
                 }}
-                onClick={() =>
-                  nav(`/bands/${event.band_id}/events/${event.id}/rollcall`)
-                }
                 onMouseEnter={(e) => {
                   e.currentTarget.style.background = 'rgba(52, 211, 153, 0.08)';
                   e.currentTarget.style.borderColor = 'rgba(52, 211, 153, 0.3)';
@@ -706,11 +849,22 @@ export default function EventSheetMobile() {
                     'rgba(52, 211, 153, 0.15)';
                 }}
               >
+                <IonIcon
+                  icon={chevronForwardOutline}
+                  style={{
+                    position: 'absolute',
+                    top: 16,
+                    right: 16,
+                    fontSize: 18,
+                    color: 'rgba(148, 163, 184, 0.6)',
+                    opacity: 0.7,
+                  }}
+                />
                 <div
                   style={{
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'space-between',
+                    gap: '8px',
                     marginBottom: '12px',
                   }}
                 >
@@ -730,6 +884,7 @@ export default function EventSheetMobile() {
                     Roll Call
                   </span>
                 </div>
+
                 <div
                   style={{
                     fontSize: 28,
@@ -742,23 +897,33 @@ export default function EventSheetMobile() {
                   {attendancePercentage}%
                 </div>
                 <div style={{ fontSize: 12, color: '#9ca3af' }}>
-                  {attendanceStats.going} of {attendanceStats.total} going
+                  {attendanceStats.total === 0
+                    ? 'No responses yet'
+                    : `${attendanceStats.accepted} of ${attendanceStats.total} in`}
                 </div>
-              </div>
+              </button>
 
-              {/* Setlist Card */}
-              <div
+              {/* Setlist */}
+              <button
+                type="button"
+                onClick={() =>
+                  handleButtonPress('setlist', () =>
+                    nav(`/bands/${event.band_id}/events/${event.id}/setlist`)
+                  )
+                }
                 style={{
                   background: 'rgba(244, 114, 182, 0.05)',
                   border: '1px solid rgba(244, 114, 182, 0.15)',
                   borderRadius: '16px',
                   padding: '16px',
                   cursor: 'pointer',
-                  transition: 'all 0.2s ease',
+                  transition:
+                    'transform 120ms ease-out, background 120ms ease-out, border-color 120ms ease-out',
+                  position: 'relative',
+                  textAlign: 'left',
+                  transform:
+                    pressedButton === 'setlist' ? 'scale(0.97)' : 'scale(1)',
                 }}
-                onClick={() =>
-                  nav(`/bands/${event.band_id}/events/${event.id}/setlist`)
-                }
                 onMouseEnter={(e) => {
                   e.currentTarget.style.background =
                     'rgba(244, 114, 182, 0.08)';
@@ -772,11 +937,22 @@ export default function EventSheetMobile() {
                     'rgba(244, 114, 182, 0.15)';
                 }}
               >
+                <IonIcon
+                  icon={chevronForwardOutline}
+                  style={{
+                    position: 'absolute',
+                    top: 16,
+                    right: 16,
+                    fontSize: 18,
+                    color: 'rgba(148, 163, 184, 0.6)',
+                    opacity: 0.7,
+                  }}
+                />
                 <div
                   style={{
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'space-between',
+                    gap: '8px',
                     marginBottom: '12px',
                   }}
                 >
@@ -810,238 +986,163 @@ export default function EventSheetMobile() {
                 <div style={{ fontSize: 12, color: '#9ca3af' }}>
                   {setlistCount === 1 ? 'song' : 'songs'} planned
                 </div>
-              </div>
-            </div>
+              </button>
 
-            {/* MAIN NAVIGATION SECTION */}
-            <div
-              style={{
-                background: 'rgba(255,255,255,0.02)',
-                border: '1px solid rgba(255,255,255,0.06)',
-                borderRadius: '20px',
-                padding: '8px',
-                marginBottom: '16px',
-              }}
-            >
-              {/* Chat - Featured */}
+              {/* Notes */}
               <button
                 type="button"
                 onClick={() =>
-                  nav(`/bands/${event.band_id}/events/${event.id}/chat`)
+                  handleButtonPress('notes', () =>
+                    nav(`/bands/${event.band_id}/events/${event.id}/notes`)
+                  )
                 }
                 style={{
-                  width: '100%',
-                  background:
-                    'linear-gradient(135deg, rgba(52, 211, 153, 0.15) 0%, rgba(52, 211, 153, 0.05) 100%)',
-                  border: '1px solid rgba(52, 211, 153, 0.3)',
+                  background: 'rgba(52, 211, 153, 0.05)',
+                  border: '1px solid rgba(52, 211, 153, 0.15)',
                   borderRadius: '16px',
-                  padding: '20px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '16px',
+                  padding: '16px',
                   cursor: 'pointer',
-                  transition: 'all 0.2s ease',
+                  transition:
+                    'transform 120ms ease-out, background 120ms ease-out, border-color 120ms ease-out',
+                  position: 'relative',
                   textAlign: 'left',
-                  marginBottom: '8px',
+                  transform:
+                    pressedButton === 'notes' ? 'scale(0.97)' : 'scale(1)',
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = 'translateX(4px)';
-                  e.currentTarget.style.background =
-                    'linear-gradient(135deg, rgba(52, 211, 153, 0.2) 0%, rgba(52, 211, 153, 0.08) 100%)';
+                  e.currentTarget.style.background = 'rgba(52, 211, 153, 0.08)';
+                  e.currentTarget.style.borderColor = 'rgba(52, 211, 153, 0.3)';
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = 'translateX(0)';
-                  e.currentTarget.style.background =
-                    'linear-gradient(135deg, rgba(52, 211, 153, 0.15) 0%, rgba(52, 211, 153, 0.05) 100%)';
+                  e.currentTarget.style.background = 'rgba(52, 211, 153, 0.05)';
+                  e.currentTarget.style.borderColor =
+                    'rgba(52, 211, 153, 0.15)';
                 }}
               >
+                <IonIcon
+                  icon={chevronForwardOutline}
+                  style={{
+                    position: 'absolute',
+                    top: 16,
+                    right: 16,
+                    fontSize: 18,
+                    color: 'rgba(148, 163, 184, 0.6)',
+                    opacity: 0.7,
+                  }}
+                />
                 <div
                   style={{
-                    width: '52px',
-                    height: '52px',
-                    borderRadius: '14px',
-                    background: 'rgba(52, 211, 153, 0.2)',
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'center',
-                    flexShrink: 0,
-                    position: 'relative',
+                    gap: '8px',
+                    marginBottom: '12px',
                   }}
                 >
                   <IonIcon
-                    icon={chatbubblesOutline}
-                    style={{ fontSize: 26, color: '#34d399' }}
+                    icon={documentTextOutline}
+                    style={{ fontSize: 20, color: '#34d399' }}
                   />
-                  {unreadMessages > 0 && (
-                    <div
-                      style={{
-                        position: 'absolute',
-                        top: -4,
-                        right: -4,
-                        background: '#ef4444',
-                        color: '#fff',
-                        borderRadius: '12px',
-                        padding: '2px 6px',
-                        fontSize: 10,
-                        fontWeight: 700,
-                        minWidth: '20px',
-                        textAlign: 'center',
-                      }}
-                    >
-                      {unreadMessages > 99 ? '99+' : unreadMessages}
-                    </div>
-                  )}
-                </div>
-
-                <div style={{ flex: 1 }}>
-                  <div
-                    style={{
-                      fontSize: 18,
-                      fontWeight: 700,
-                      color: '#F9FAFB',
-                      marginBottom: '4px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                    }}
-                  >
-                    Chat
-                    <IonIcon
-                      icon={flashOutline}
-                      style={{ fontSize: 16, color: '#34d399' }}
-                    />
-                  </div>
-                  <div style={{ fontSize: 13, color: '#9ca3af' }}>
-                    Message your bandmates
-                  </div>
-                </div>
-
-                <IonIcon
-                  icon={chevronForwardOutline}
-                  style={{ fontSize: 20, color: '#9ca3af' }}
-                />
-              </button>
-
-              {/* Other sections - Compact */}
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(2, 1fr)',
-                  gap: '8px',
-                }}
-              >
-                {/* Notes */}
-                <button
-                  type="button"
-                  onClick={() =>
-                    nav(`/bands/${event.band_id}/events/${event.id}/notes`)
-                  }
-                  style={{
-                    background: 'rgba(255,255,255,0.02)',
-                    border: '1px solid rgba(255,255,255,0.06)',
-                    borderRadius: '12px',
-                    padding: '16px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    gap: '8px',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
-                    e.currentTarget.style.borderColor =
-                      'rgba(52, 211, 153, 0.3)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = 'rgba(255,255,255,0.02)';
-                    e.currentTarget.style.borderColor =
-                      'rgba(255,255,255,0.06)';
-                  }}
-                >
-                  <div
-                    style={{
-                      width: '40px',
-                      height: '40px',
-                      borderRadius: '10px',
-                      background: 'rgba(52, 211, 153, 0.1)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    <IonIcon
-                      icon={documentTextOutline}
-                      style={{ fontSize: 20, color: '#34d399' }}
-                    />
-                  </div>
                   <span
                     style={{
-                      fontSize: 14,
-                      fontWeight: 600,
-                      color: '#e5e7eb',
+                      fontSize: 11,
+                      color: '#9ca3af',
+                      textTransform: 'uppercase',
+                      letterSpacing: 0.5,
+                      fontWeight: 700,
                     }}
                   >
                     Notes
                   </span>
-                </button>
-
-                {/* Files */}
-                <button
-                  type="button"
-                  onClick={() =>
-                    nav(`/bands/${event.band_id}/events/${event.id}/files`)
-                  }
+                </div>
+                <div
                   style={{
-                    background: 'rgba(255,255,255,0.02)',
-                    border: '1px solid rgba(255,255,255,0.06)',
-                    borderRadius: '12px',
-                    padding: '16px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    gap: '8px',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
-                    e.currentTarget.style.borderColor =
-                      'rgba(52, 211, 153, 0.3)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = 'rgba(255,255,255,0.02)';
-                    e.currentTarget.style.borderColor =
-                      'rgba(255,255,255,0.06)';
+                    fontSize: 14,
+                    fontWeight: 600,
+                    color: '#e5e7eb',
+                    lineHeight: 1.4,
                   }}
                 >
-                  <div
-                    style={{
-                      width: '40px',
-                      height: '40px',
-                      borderRadius: '10px',
-                      background: 'rgba(52, 211, 153, 0.1)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    <IonIcon
-                      icon={folderOpenOutline}
-                      style={{ fontSize: 20, color: '#34d399' }}
-                    />
-                  </div>
+                  Your notes
+                </div>
+              </button>
+
+              {/* Files */}
+              <button
+                type="button"
+                onClick={() =>
+                  handleButtonPress('files', () =>
+                    nav(`/bands/${event.band_id}/events/${event.id}/files`)
+                  )
+                }
+                style={{
+                  background: 'rgba(52, 211, 153, 0.05)',
+                  border: '1px solid rgba(52, 211, 153, 0.15)',
+                  borderRadius: '16px',
+                  padding: '16px',
+                  cursor: 'pointer',
+                  transition:
+                    'transform 120ms ease-out, background 120ms ease-out, border-color 120ms ease-out',
+                  position: 'relative',
+                  textAlign: 'left',
+                  transform:
+                    pressedButton === 'files' ? 'scale(0.97)' : 'scale(1)',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'rgba(52, 211, 153, 0.08)';
+                  e.currentTarget.style.borderColor = 'rgba(52, 211, 153, 0.3)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'rgba(52, 211, 153, 0.05)';
+                  e.currentTarget.style.borderColor =
+                    'rgba(52, 211, 153, 0.15)';
+                }}
+              >
+                <IonIcon
+                  icon={chevronForwardOutline}
+                  style={{
+                    position: 'absolute',
+                    top: 16,
+                    right: 16,
+                    fontSize: 18,
+                    color: 'rgba(148, 163, 184, 0.6)',
+                    opacity: 0.7,
+                  }}
+                />
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    marginBottom: '12px',
+                  }}
+                >
+                  <IonIcon
+                    icon={folderOpenOutline}
+                    style={{ fontSize: 20, color: '#34d399' }}
+                  />
                   <span
                     style={{
-                      fontSize: 14,
-                      fontWeight: 600,
-                      color: '#e5e7eb',
+                      fontSize: 11,
+                      color: '#9ca3af',
+                      textTransform: 'uppercase',
+                      letterSpacing: 0.5,
+                      fontWeight: 700,
                     }}
                   >
                     Files
                   </span>
-                </button>
-              </div>
+                </div>
+                <div
+                  style={{
+                    fontSize: 14,
+                    fontWeight: 600,
+                    color: '#e5e7eb',
+                    lineHeight: 1.4,
+                  }}
+                >
+                  Your files
+                </div>
+              </button>
             </div>
           </div>
         )}

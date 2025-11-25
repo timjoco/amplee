@@ -8,6 +8,7 @@ import {
   IonToolbar,
 } from '@ionic/react';
 import { chevronBackOutline, musicalNotesOutline } from 'ionicons/icons';
+import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import EventSetlistTabMobile from '../components/Events/EventSetlistTabMobile';
 import { useEventShell } from '../hooks/useEventShell';
@@ -16,20 +17,28 @@ type RouteParams = {
   eventId: string;
 };
 
+type SetlistSummary = {
+  songCount: number;
+};
+
 export default function EventSetlistPageMobile() {
   const nav = useNavigate();
   const { eventId } = useParams<RouteParams>();
   const { event, isAdmin, loading } = useEventShell(eventId);
 
+  const [summary, setSummary] = useState<SetlistSummary | null>(null);
+
   const title = event?.title ?? 'Setlist';
   const bandId = event?.band_id ?? '';
 
+  const songCountLabel =
+    summary && summary.songCount > 0
+      ? `${summary.songCount} ${summary.songCount === 1 ? 'song' : 'songs'}`
+      : 'No songs yet';
+
   return (
     <IonPage>
-      <IonHeader
-        className="ion-no-border"
-        style={{ position: 'sticky', top: 0, zIndex: 10 }}
-      >
+      <IonHeader className="ion-no-border">
         <IonToolbar
           style={{
             '--background': 'rgba(5, 5, 9, 0.95)',
@@ -52,17 +61,25 @@ export default function EventSetlistPageMobile() {
                 flex: '0 0 auto',
                 background: 'transparent',
                 border: 'none',
-                padding: 6,
+                padding: '8px',
+                margin: '-4px',
                 borderRadius: 999,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 cursor: 'pointer',
+                minWidth: '44px',
+                minHeight: '44px',
+                WebkitTapHighlightColor: 'transparent',
               }}
             >
               <IonIcon
                 icon={chevronBackOutline}
-                style={{ color: '#F9FAFB', fontSize: 24 }}
+                style={{
+                  color: '#F9FAFB',
+                  fontSize: 24,
+                  pointerEvents: 'none',
+                }}
               />
             </button>
 
@@ -112,19 +129,23 @@ export default function EventSetlistPageMobile() {
                 >
                   {title}
                 </p>
+                <p
+                  style={{
+                    margin: 0,
+                    marginTop: 2,
+                    fontSize: 11,
+                    color: '#6b7280',
+                  }}
+                >
+                  {songCountLabel}
+                </p>
               </IonText>
             </div>
           </div>
         </IonToolbar>
       </IonHeader>
 
-      <IonContent
-        fullscreen
-        scrollY={true}
-        style={{
-          ['--background' as any]: '#050509',
-        }}
-      >
+      <IonContent fullscreen scrollY={true}>
         {loading || !eventId || !bandId ? (
           <div
             style={{
@@ -142,6 +163,7 @@ export default function EventSetlistPageMobile() {
             eventId={eventId}
             bandId={bandId}
             isAdmin={isAdmin}
+            onSummaryChange={(next) => setSummary(next)}
           />
         )}
       </IonContent>

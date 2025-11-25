@@ -1049,7 +1049,7 @@ export default function ChatTabMobile({
                 fontWeight: 500,
               }}
             >
-              Message the band to get started 💬
+              Message the band to get started
             </p>
 
             <div

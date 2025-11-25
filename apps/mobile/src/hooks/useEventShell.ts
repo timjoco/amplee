@@ -1,4 +1,3 @@
-// Small helper hook you can reuse in each page file
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 

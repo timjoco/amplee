@@ -8,12 +8,21 @@ import {
 import * as React from 'react';
 import { useAttendance, type AttStatus } from '../../hooks/useAttendance';
 
+type AttendanceSummary = {
+  accepted: number;
+  total: number;
+  mine: AttStatus | null;
+  hydrated: boolean;
+};
+
 export default function RSVPTabMobile({
   eventId,
   onLocalBookedChange,
+  onAttendanceSummaryChange,
 }: {
   eventId: string;
   onLocalBookedChange?: (isBooked: boolean) => void;
+  onAttendanceSummaryChange?: (summary: AttendanceSummary) => void;
 }) {
   const {
     mine,
@@ -107,6 +116,23 @@ export default function RSVPTabMobile({
   // Calculate attendance percentage
   const attendancePercentage =
     counts.total > 0 ? Math.round((counts.accepted / counts.total) * 100) : 0;
+
+  React.useEffect(() => {
+    if (!onAttendanceSummaryChange) return;
+
+    onAttendanceSummaryChange({
+      accepted: counts.accepted,
+      total: counts.total,
+      mine,
+      hydrated,
+    });
+  }, [
+    counts.accepted,
+    counts.total,
+    mine,
+    hydrated,
+    onAttendanceSummaryChange,
+  ]);
 
   return (
     <>

@@ -1,5 +1,4 @@
 import {
-  IonButton,
   IonContent,
   IonIcon,
   IonItem,
@@ -56,7 +55,11 @@ export default function EventSheetModal({
       handleBehavior="cycle"
       className="event-info-sheet"
     >
-      <IonContent>
+      <IonContent
+        style={{
+          '--background': 'linear-gradient(180deg, #050509 0%, #020109 100%)',
+        }}
+      >
         <div
           style={{
             position: 'relative',
@@ -75,7 +78,7 @@ export default function EventSheetModal({
               height: 4,
               borderRadius: 999,
               margin: '4px auto 12px',
-              background: 'rgba(52,211,153,0.75)',
+              background: 'rgba(52,211,153,0.6)',
             }}
           />
 
@@ -87,41 +90,42 @@ export default function EventSheetModal({
                 placeItems: 'center',
               }}
             >
-              <IonSpinner name="dots" />
+              <IonSpinner name="dots" style={{ color: '#34d399' }} />
             </div>
           ) : (
             <>
-              {/* Header row: title + subtitle + gear (mirrors band sheet modal) */}
+              {/* Header row */}
               <div
                 style={{
                   display: 'flex',
                   alignItems: 'center',
                   gap: 10,
-                  marginBottom: 12,
+                  marginBottom: 16,
                 }}
               >
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <h2
                     style={{
                       margin: 0,
-                      fontSize: 18,
+                      fontSize: 24,
                       fontWeight: 800,
                       whiteSpace: 'nowrap',
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
-                      color: '#F5F3FF',
+                      color: '#F9FAFB',
+                      letterSpacing: '-0.5px',
                     }}
                   >
                     {event.title || 'Event'}
                   </h2>
                   <p
                     style={{
-                      margin: '2px 0 0',
-                      fontSize: 12,
-                      color: 'rgba(125, 205, 166, 0.9)',
+                      margin: '4px 0 0',
+                      fontSize: 13,
+                      color: '#9ca3af',
                     }}
                   >
-                    Details, visibility, and quick actions.
+                    Event details and quick actions
                   </p>
                 </div>
 
@@ -130,20 +134,27 @@ export default function EventSheetModal({
                     type="button"
                     onClick={onGotoSettings}
                     style={{
-                      width: 30,
-                      height: 30,
-                      borderRadius: 999,
-                      border: '1px solid rgba(148,163,184,0.8)',
-                      backgroundColor: 'rgba(15,23,42,0.95)',
+                      width: 36,
+                      height: 36,
+                      borderRadius: 12,
+                      border: '1px solid rgba(148,163,184,0.3)',
+                      backgroundColor: 'rgba(255,255,255,0.03)',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                       cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      WebkitTapHighlightColor: 'transparent',
+                      touchAction: 'manipulation',
                     }}
                   >
                     <IonIcon
                       icon={settingsOutline}
-                      style={{ fontSize: 16, color: '#E5E7EB' }}
+                      style={{
+                        fontSize: 18,
+                        color: '#e5e7eb',
+                        pointerEvents: 'none',
+                      }}
                     />
                   </button>
                 )}
@@ -159,23 +170,22 @@ export default function EventSheetModal({
                 {/* EVENT OVERVIEW CARD */}
                 <div
                   style={{
-                    borderRadius: 18,
-                    border: '1px solid rgba(52,211,153,0.40)',
-                    padding: 14,
+                    background: 'rgba(255,255,255,0.02)',
+                    border: '1px solid rgba(52,211,153,0.2)',
+                    borderRadius: 20,
+                    padding: 20,
                     marginBottom: 16,
-                    boxShadow: '0 22px 45px rgba(0,0,0,0.9)',
-                    position: 'relative',
                   }}
                 >
-                  <div style={{ marginBottom: 10 }}>
+                  <div style={{ marginBottom: 16 }}>
                     <p
                       style={{
                         margin: 0,
-                        fontSize: 13,
+                        fontSize: 12,
                         fontWeight: 700,
-                        letterSpacing: 0.04,
+                        letterSpacing: 0.5,
                         textTransform: 'uppercase',
-                        color: 'rgba(209,250,229,0.96)',
+                        color: '#34d399',
                       }}
                     >
                       Event overview
@@ -184,20 +194,18 @@ export default function EventSheetModal({
                       style={{
                         margin: '4px 0 0',
                         fontSize: 13,
-                        color: 'rgba(148,163,184,0.9)',
+                        color: '#9ca3af',
                       }}
                     >
-                      Basic info about this event.
+                      Basic info about this event
                     </p>
                   </div>
 
                   <div
                     style={{
-                      marginTop: 4,
-                      paddingLeft: 6,
                       display: 'flex',
                       flexDirection: 'column',
-                      gap: 10,
+                      gap: 12,
                     }}
                   >
                     {/* When */}
@@ -205,10 +213,11 @@ export default function EventSheetModal({
                       <p
                         style={{
                           margin: 0,
-                          fontSize: 12,
+                          fontSize: 11,
                           textTransform: 'uppercase',
-                          letterSpacing: 0.08,
-                          color: 'rgba(167,243,208,0.9)',
+                          letterSpacing: 0.5,
+                          color: '#6b7280',
+                          fontWeight: 600,
                         }}
                       >
                         When
@@ -218,7 +227,7 @@ export default function EventSheetModal({
                           margin: '4px 0 0',
                           fontSize: 14,
                           fontWeight: 500,
-                          color: '#ECFDF5',
+                          color: '#e5e7eb',
                         }}
                       >
                         {startsAtLabel || 'TBD'}
@@ -230,10 +239,11 @@ export default function EventSheetModal({
                       <p
                         style={{
                           margin: 0,
-                          fontSize: 12,
+                          fontSize: 11,
                           textTransform: 'uppercase',
-                          letterSpacing: 0.08,
-                          color: 'rgba(167,243,208,0.9)',
+                          letterSpacing: 0.5,
+                          color: '#6b7280',
+                          fontWeight: 600,
                         }}
                       >
                         Where
@@ -243,7 +253,7 @@ export default function EventSheetModal({
                           margin: '4px 0 0',
                           fontSize: 14,
                           fontWeight: 500,
-                          color: '#ECFDF5',
+                          color: '#e5e7eb',
                         }}
                       >
                         {event.location || 'TBD'}
@@ -255,10 +265,11 @@ export default function EventSheetModal({
                       <p
                         style={{
                           margin: 0,
-                          fontSize: 12,
+                          fontSize: 11,
                           textTransform: 'uppercase',
-                          letterSpacing: 0.08,
-                          color: 'rgba(167,243,208,0.9)',
+                          letterSpacing: 0.5,
+                          color: '#6b7280',
+                          fontWeight: 600,
                         }}
                       >
                         Type
@@ -268,7 +279,7 @@ export default function EventSheetModal({
                           margin: '4px 0 0',
                           fontSize: 14,
                           fontWeight: 500,
-                          color: '#ECFDF5',
+                          color: '#e5e7eb',
                         }}
                       >
                         {event.type === 'practice' ? 'Practice' : 'Show'}
@@ -277,52 +288,52 @@ export default function EventSheetModal({
                   </div>
 
                   {/* Add to Google Calendar */}
-                  <div
-                    style={{
-                      marginTop: 14,
-                      marginBottom: 16,
-                      paddingLeft: 6,
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: 8,
-                    }}
-                  >
-                    <IonButton
+                  <div style={{ marginTop: 20 }}>
+                    <button
                       type="button"
                       onClick={onExportGoogle}
                       disabled={!hasStart}
                       style={{
-                        '--background': 'rgba(15,23,42,0.98)',
-                        '--background-activated': 'rgba(45,212,191,0.95)',
-                        '--border-color': 'rgba(45,212,191,0.8)',
-                        '--color': 'rgba(45,212,191,0.95)',
-                        '--color-activated': '#000000',
-                        borderRadius: 999,
+                        width: '100%',
+                        padding: '12px 16px',
+                        borderRadius: 12,
+                        border: '1px solid rgba(52, 211, 153, 0.3)',
+                        background: hasStart
+                          ? 'rgba(52, 211, 153, 0.05)'
+                          : 'rgba(255,255,255,0.02)',
+                        color: hasStart ? '#34d399' : '#6b7280',
+                        fontSize: 14,
+                        fontWeight: 600,
+                        cursor: hasStart ? 'pointer' : 'not-allowed',
+                        transition: 'all 0.2s ease',
+                        WebkitTapHighlightColor: 'transparent',
+                        touchAction: 'manipulation',
                       }}
                     >
                       Add to Google Calendar
-                    </IonButton>
+                    </button>
                   </div>
                 </div>
 
                 {/* LINEUP CARD */}
                 <div
                   style={{
-                    borderRadius: 18,
-                    border: '1px solid rgba(52,211,153,0.32)',
-                    padding: 14,
+                    background: 'rgba(255,255,255,0.02)',
+                    border: '1px solid rgba(148,163,184,0.15)',
+                    borderRadius: 20,
+                    padding: 20,
                     marginBottom: 16,
                   }}
                 >
-                  <div style={{ marginBottom: 10 }}>
+                  <div style={{ marginBottom: 16 }}>
                     <p
                       style={{
                         margin: 0,
-                        fontSize: 13,
+                        fontSize: 12,
                         fontWeight: 700,
-                        letterSpacing: 0.04,
+                        letterSpacing: 0.5,
                         textTransform: 'uppercase',
-                        color: 'rgba(209,250,229,0.96)',
+                        color: '#e5e7eb',
                       }}
                     >
                       Lineup
@@ -331,10 +342,10 @@ export default function EventSheetModal({
                       style={{
                         margin: '4px 0 0',
                         fontSize: 13,
-                        color: 'rgba(148,163,184,0.9)',
+                        color: '#9ca3af',
                       }}
                     >
-                      See the lineup for this event and their RSVP.
+                      See who's in and who's out
                     </p>
                   </div>
 
@@ -437,7 +448,6 @@ function RosterPanelMobile({
         ])
       );
 
-      // keep original band member order
       const ordered: BaseMember[] = ids
         .map((id) => byId.get(id)!)
         .filter(Boolean);
@@ -507,7 +517,6 @@ function RosterPanelMobile({
     void loadBaseMembers();
   }, [loadBaseMembers]);
 
-  // Once baseMembers are ready, load attendance once
   useEffect(() => {
     if (baseMembers) {
       void loadAttendance();
@@ -533,11 +542,9 @@ function RosterPanelMobile({
           const userId = row.user_id as string;
 
           setRows((prev) => {
-            // make sure we have something to update
             if (!prev || prev.length === 0) return prev;
 
             if (payload.eventType === 'DELETE') {
-              // fallback to "pending" when attendance row is deleted
               return prev.map((r) =>
                 r.user_id === userId
                   ? {
@@ -562,7 +569,6 @@ function RosterPanelMobile({
       )
       .subscribe();
 
-    // Profile realtime: patch baseMembers + rows instead of re-querying
     const chProf = supabase
       .channel(`band:${bandId}:profile-roster`)
       .on(
@@ -581,7 +587,6 @@ function RosterPanelMobile({
           const avatar_url = (p.avatar_url ?? null) as string | null;
           const updated_at = (p.updated_at ?? null) as string | null;
 
-          // update baseMembers
           setBaseMembers((prev) => {
             if (!prev) return prev;
             return prev.map((b) =>
@@ -589,7 +594,6 @@ function RosterPanelMobile({
             );
           });
 
-          // update visible rows
           setRows((prev) =>
             prev.map((r) =>
               r.user_id === userId ? { ...r, name, avatar_url, updated_at } : r
@@ -608,22 +612,22 @@ function RosterPanelMobile({
   const statusStyle = (s: RosterStatus) => {
     if (s === 'accepted') {
       return {
-        bg: 'rgba(34,197,94,0.18)',
-        border: 'rgba(34,197,94,0.65)',
-        color: '#BBF7D0',
+        bg: 'rgba(52, 211, 153, 0.1)',
+        border: 'rgba(52, 211, 153, 0.3)',
+        color: '#6ee7b7',
       };
     }
     if (s === 'declined') {
       return {
-        bg: 'rgba(248,113,113,0.18)',
-        border: 'rgba(248,113,113,0.7)',
-        color: '#FCA5A5',
+        bg: 'rgba(248, 113, 113, 0.1)',
+        border: 'rgba(248, 113, 113, 0.3)',
+        color: '#fca5a5',
       };
     }
     return {
-      bg: 'rgba(251,191,36,0.18)',
-      border: 'rgba(251,191,36,0.7)',
-      color: '#FDE68A',
+      bg: 'rgba(251, 191, 36, 0.1)',
+      border: 'rgba(251, 191, 36, 0.3)',
+      color: '#fde68a',
     };
   };
 
@@ -639,9 +643,11 @@ function RosterPanelMobile({
           gap: 8,
         }}
       >
-        <IonSpinner name="dots" />
+        <IonSpinner name="dots" style={{ color: '#34d399' }} />
         <IonText color="medium">
-          <p style={{ margin: 0, fontSize: 13 }}>Loading roster…</p>
+          <p style={{ margin: 0, fontSize: 13, color: '#9ca3af' }}>
+            Loading roster…
+          </p>
         </IonText>
       </div>
     );
@@ -650,7 +656,9 @@ function RosterPanelMobile({
   if (!loading && rows.length === 0) {
     return (
       <IonText color="medium">
-        <p style={{ margin: 0, fontSize: 13 }}>No members found.</p>
+        <p style={{ margin: 0, fontSize: 13, color: '#9ca3af' }}>
+          No members found.
+        </p>
       </IonText>
     );
   }
@@ -666,8 +674,8 @@ function RosterPanelMobile({
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: 8,
-                paddingBlock: 6,
+                gap: 12,
+                paddingBlock: 8,
               }}
             >
               <AvatarImageMobile
@@ -675,7 +683,7 @@ function RosterPanelMobile({
                 bucket="profile-avatars"
                 avatarPath={r.avatar_url || undefined}
                 updatedAt={r.updated_at || undefined}
-                size={32}
+                size={36}
               />
 
               <div
@@ -689,6 +697,7 @@ function RosterPanelMobile({
                     display: 'block',
                     fontSize: 14,
                     fontWeight: 600,
+                    color: '#e5e7eb',
                     whiteSpace: 'nowrap',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
@@ -698,24 +707,24 @@ function RosterPanelMobile({
                 </span>
               </div>
 
-              {/* STATUS PILL (Only blue when sub is requested) */}
+              {/* STATUS PILL */}
               <span
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  paddingInline: 8,
-                  paddingBlock: 2,
-                  borderRadius: 999,
+                  paddingInline: 10,
+                  paddingBlock: 4,
+                  borderRadius: 8,
                   fontSize: 11,
                   fontWeight: 600,
                   textTransform: 'capitalize',
                   whiteSpace: 'nowrap',
                   ...(r.needs_sub
                     ? {
-                        background: 'rgba(37,99,235,0.18)',
-                        border: '1px solid rgba(59,130,246,0.85)',
-                        color: '#BFDBFE',
+                        background: 'rgba(59, 130, 246, 0.1)',
+                        border: '1px solid rgba(59, 130, 246, 0.3)',
+                        color: '#93c5fd',
                       }
                     : {
                         background: st.bg,
@@ -734,8 +743,7 @@ function RosterPanelMobile({
                 style={{
                   height: 1,
                   marginInline: 4,
-                  opacity: 0.14,
-                  backgroundColor: 'rgba(148,163,184,0.6)',
+                  backgroundColor: 'rgba(148,163,184,0.1)',
                 }}
               />
             )}

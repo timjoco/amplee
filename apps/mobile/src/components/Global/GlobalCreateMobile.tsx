@@ -629,18 +629,21 @@ export default function GlobalCreateMobile({
                 handlePressEnd={handlePressEnd}
               />
 
-              <MenuCard
-                id="newEvent"
-                title="New Event"
-                description="Schedule a show or rehearsal."
-                icon={calendarOutline}
-                className="gc-card-event"
-                pressedId={pressedId}
-                onCardClick={() => setStep('newEvent')}
-                handlePressStart={handlePressStart}
-                handlePressMove={handlePressMove}
-                handlePressEnd={handlePressEnd}
-              />
+              {/* Only show Event if user has at least one band */}
+              {bands.length > 0 && (
+                <MenuCard
+                  id="newEvent"
+                  title="New Event"
+                  description="Schedule a show or rehearsal."
+                  icon={calendarOutline}
+                  className="gc-card-event"
+                  pressedId={pressedId}
+                  onCardClick={() => setStep('newEvent')}
+                  handlePressStart={handlePressStart}
+                  handlePressMove={handlePressMove}
+                  handlePressEnd={handlePressEnd}
+                />
+              )}
 
               {bands.length > 0 && (
                 <MenuCard

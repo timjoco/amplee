@@ -42,12 +42,14 @@ type EventSetlistTabMobileProps = {
   eventId: string;
   bandId: string;
   isAdmin: boolean;
+  onSummaryChange?: (summary: { songCount: number }) => void;
 };
 
 export default function EventSetlistTabMobile({
   eventId,
   bandId,
   isAdmin,
+  onSummaryChange,
 }: EventSetlistTabMobileProps) {
   const navigate = useNavigate();
 
@@ -66,7 +68,12 @@ export default function EventSetlistTabMobile({
   // songs for this band (to resolve song_id by title if needed)
   const [songs, setSongs] = useState<Song[]>([]);
 
-  console.log('[EventSetlistTabMobile] bandId prop:', bandId);
+  // 🔹 Push summary up only when song count changes (ignore callback identity)
+  useEffect(() => {
+    if (!onSummaryChange) return;
+    onSummaryChange({ songCount: rows.length });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows.length]);
 
   // ---- Load event setlist ----
   useEffect(() => {
@@ -181,10 +188,8 @@ export default function EventSetlistTabMobile({
       return;
     }
 
-    console.log('[EventSetlistTabMobile] loading templates for bandId', bandId);
-
     if (templates.length > 0) {
-      setTemplatesOpen(true); // always open, no toggle
+      setTemplatesOpen(true);
       return;
     }
 
@@ -195,8 +200,6 @@ export default function EventSetlistTabMobile({
         .select('id,name')
         .eq('band_id', bandId)
         .order('created_at', { ascending: false });
-
-      console.log('[EventSetlistTabMobile] templates result', { data, error });
 
       if (error) {
         console.error('[EventSetlistTabMobile] load templates error', error);
@@ -215,10 +218,6 @@ export default function EventSetlistTabMobile({
   const applyTemplate = useCallback(
     async (templateId: string) => {
       if (!eventId || !templateId || applyingTemplate) return;
-      console.log('[EventSetlistTabMobile] applying template', {
-        templateId,
-        eventId,
-      });
       setApplyingTemplate(true);
 
       try {
@@ -227,11 +226,6 @@ export default function EventSetlistTabMobile({
           .select('*')
           .eq('template_id', templateId)
           .order('order_index', { ascending: true });
-
-        console.log('[EventSetlistTabMobile] template items result', {
-          tItems,
-          tErr,
-        });
 
         if (tErr) {
           console.error(
@@ -272,11 +266,6 @@ export default function EventSetlistTabMobile({
           .select('*')
           .order('order_index', { ascending: true });
 
-        console.log('[EventSetlistTabMobile] inserted event_setlist_items', {
-          newRows,
-          insErr,
-        });
-
         if (insErr) {
           console.error(
             '[EventSetlistTabMobile] apply template insert error',
@@ -285,6 +274,7 @@ export default function EventSetlistTabMobile({
           return;
         }
 
+        // Persist the template on the event so it survives navigation
         const { error: updateErr } = await supabase
           .from('events')
           .update({ setlist_template_id: templateId })
@@ -324,8 +314,6 @@ export default function EventSetlistTabMobile({
           flexDirection: 'column',
           height: '100%',
           padding: '16px 16px 80px 16px',
-          background:
-            'linear-gradient(180deg, rgba(5,5,9,0) 0%, rgba(5,5,9,0.3) 100%)',
         }}
       >
         <IonSpinner name="crescent" style={{ color: '#9ca3af' }} />
@@ -342,8 +330,6 @@ export default function EventSetlistTabMobile({
     <div
       style={{
         padding: '16px 16px 80px 16px',
-        background:
-          'linear-gradient(180deg, rgba(5,5,9,0) 0%, rgba(5,5,9,0.3) 100%)',
       }}
     >
       {/* Setlist content */}
@@ -405,7 +391,6 @@ export default function EventSetlistTabMobile({
               : 'Your band admin will add songs for this event.'}
           </p>
 
-          {/*/ this portion will render LOAD SETLIST (if band has songs) or Go to library (no songs) */}
           {isAdmin && (
             <>
               {hasBandSongs ? (
@@ -438,7 +423,6 @@ export default function EventSetlistTabMobile({
                     : 'Load setlist'}
                 </IonButton>
               ) : (
-                // If no songs in the band yet → push them to Library
                 <button
                   type="button"
                   onClick={() => {
@@ -462,9 +446,14 @@ export default function EventSetlistTabMobile({
                     display: 'flex',
                     alignItems: 'center',
                     gap: 8,
+                    WebkitTapHighlightColor: 'transparent',
+                    touchAction: 'manipulation',
                   }}
                 >
-                  <IonIcon icon={gridOutline} style={{ fontSize: 18 }} />
+                  <IonIcon
+                    icon={gridOutline}
+                    style={{ fontSize: 18, pointerEvents: 'none' }}
+                  />
                   Go to Library
                 </button>
               )}
@@ -511,6 +500,8 @@ export default function EventSetlistTabMobile({
                   padding: 0,
                   cursor: activeTemplateId ? 'pointer' : 'default',
                   textAlign: 'left',
+                  WebkitTapHighlightColor: 'transparent',
+                  touchAction: 'manipulation',
                 }}
               >
                 <IonIcon
@@ -519,6 +510,7 @@ export default function EventSetlistTabMobile({
                     fontSize: 18,
                     color: '#9ca3af',
                     flexShrink: 0,
+                    pointerEvents: 'none',
                   }}
                 />
                 <span
@@ -529,6 +521,7 @@ export default function EventSetlistTabMobile({
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
                     whiteSpace: 'nowrap',
+                    pointerEvents: 'none',
                   }}
                 >
                   {headerSetlistName}
@@ -540,6 +533,7 @@ export default function EventSetlistTabMobile({
                       fontSize: 16,
                       color: 'rgba(244, 114, 182, 0.8)',
                       flexShrink: 0,
+                      pointerEvents: 'none',
                     }}
                   />
                 )}
@@ -627,7 +621,7 @@ export default function EventSetlistTabMobile({
         </>
       )}
 
-      {/* ⬇️ Template picker rendered for BOTH cases */}
+      {/* Template picker modal */}
       {isAdmin && (
         <IonModal
           isOpen={templatesOpen}
@@ -803,6 +797,8 @@ export default function EventSetlistTabMobile({
                           gap: 10,
                           cursor: 'pointer',
                           transition: 'all 0.18s ease',
+                          WebkitTapHighlightColor: 'transparent',
+                          touchAction: 'manipulation',
                         }}
                       >
                         <span
@@ -813,6 +809,7 @@ export default function EventSetlistTabMobile({
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
                             whiteSpace: 'nowrap',
+                            pointerEvents: 'none',
                           }}
                         >
                           {t.name}
@@ -823,6 +820,7 @@ export default function EventSetlistTabMobile({
                             fontSize: 18,
                             color: 'rgba(244, 114, 182, 0.85)',
                             flexShrink: 0,
+                            pointerEvents: 'none',
                           }}
                         />
                       </button>
@@ -852,6 +850,8 @@ export default function EventSetlistTabMobile({
                       fontSize: 14,
                       fontWeight: 600,
                       cursor: 'pointer',
+                      WebkitTapHighlightColor: 'transparent',
+                      touchAction: 'manipulation',
                     }}
                   >
                     Close
@@ -864,193 +864,201 @@ export default function EventSetlistTabMobile({
       )}
     </div>
   );
+}
 
-  /* ------------------ Simple Row Card (no drag & drop) ------------------ */
+/* ------------------ Simple Row Card (now as button) ------------------ */
 
-  type RowCardProps = {
-    row: SetlistRow;
-    index: number;
-    bandId: string;
-    navigate: ReturnType<typeof useNavigate>;
-    songIdByTitle: Map<string, string>;
+type RowCardProps = {
+  row: SetlistRow;
+  index: number;
+  bandId: string;
+  navigate: ReturnType<typeof useNavigate>;
+  songIdByTitle: Map<string, string>;
+};
+
+function SetlistRowCard({
+  row,
+  index,
+  bandId,
+  navigate,
+  songIdByTitle,
+}: RowCardProps) {
+  const hasMetadata = row.musical_key || row.bpm;
+
+  const resolvedSongId =
+    row.song_id ?? songIdByTitle.get(row.title.trim().toLowerCase()) ?? null;
+
+  const isClickable = !!resolvedSongId;
+
+  const handleClick = () => {
+    if (!resolvedSongId) return;
+    navigate(`/bands/${bandId}/songs/${resolvedSongId}`);
   };
 
-  function SetlistRowCard({
-    row,
-    index,
-    bandId,
-    navigate,
-    songIdByTitle,
-  }: RowCardProps) {
-    const hasMetadata = row.musical_key || row.bpm;
-
-    const resolvedSongId =
-      row.song_id ?? songIdByTitle.get(row.title.trim().toLowerCase()) ?? null;
-
-    const isClickable = !!resolvedSongId;
-
-    const handleClick = () => {
-      if (!resolvedSongId) return;
-      navigate(`/bands/${bandId}/songs/${resolvedSongId}`);
-    };
-
-    return (
+  return (
+    <button
+      type="button"
+      onClick={isClickable ? handleClick : undefined}
+      disabled={!isClickable}
+      style={{
+        width: '100%',
+        position: 'relative',
+        background:
+          'linear-gradient(135deg, rgba(15, 23, 42, 0.8), rgba(15, 23, 42, 0.6))',
+        border: '1px solid rgba(148, 163, 184, 0.2)',
+        borderRadius: 16,
+        padding: '14px 14px 14px 18px',
+        cursor: isClickable ? 'pointer' : 'default',
+        transition: 'all 0.15s ease',
+        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.4)',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 14,
+        textAlign: 'left',
+        WebkitTapHighlightColor: 'transparent',
+        touchAction: 'manipulation',
+      }}
+    >
+      {/* Position badge */}
       <div
-        onClick={isClickable ? handleClick : undefined}
         style={{
-          position: 'relative',
+          minWidth: 32,
+          height: 32,
+          borderRadius: 10,
           background:
-            'linear-gradient(135deg, rgba(15, 23, 42, 0.8), rgba(15, 23, 42, 0.6))',
-          border: '1px solid rgba(148, 163, 184, 0.2)',
-          borderRadius: 16,
-          padding: '14px 14px 14px 18px',
-          cursor: isClickable ? 'pointer' : 'default',
-          transition: 'all 0.15s ease',
-          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.4)',
+            'linear-gradient(135deg, rgba(244, 114, 182, 0.2), rgba(244, 114, 182, 0.1))',
+          border: '1px solid rgba(244, 114, 182, 0.4)',
           display: 'flex',
           alignItems: 'center',
-          gap: 14,
+          justifyContent: 'center',
+          fontSize: 15,
+          fontWeight: 800,
+          color: 'rgba(244, 114, 182, 0.95)',
+          pointerEvents: 'none',
         }}
       >
-        {/* Position badge */}
+        {index + 1}
+      </div>
+
+      {/* Song info */}
+      <div style={{ flex: 1, minWidth: 0, pointerEvents: 'none' }}>
         <div
           style={{
-            minWidth: 32,
-            height: 32,
-            borderRadius: 10,
-            background:
-              'linear-gradient(135deg, rgba(244, 114, 182, 0.2), rgba(244, 114, 182, 0.1))',
-            border: '1px solid rgba(244, 114, 182, 0.4)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: 15,
-            fontWeight: 800,
-            color: 'rgba(244, 114, 182, 0.95)',
+            fontSize: 16,
+            fontWeight: 700,
+            color: '#e5e7eb',
+            marginBottom: hasMetadata ? 6 : 0,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            letterSpacing: 0.2,
           }}
+          title={row.title}
         >
-          {index + 1}
+          {row.title}
         </div>
 
-        {/* Song info */}
-        <div style={{ flex: 1, minWidth: 0 }}>
+        {hasMetadata && (
           <div
             style={{
-              fontSize: 16,
-              fontWeight: 700,
-              color: '#e5e7eb',
-              marginBottom: hasMetadata ? 6 : 0,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 12,
+              fontSize: 13,
+              color: '#9ca3af',
+            }}
+          >
+            {row.musical_key && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 4,
+                  padding: '3px 8px',
+                  background: 'rgba(148, 163, 184, 0.1)',
+                  borderRadius: 6,
+                  border: '1px solid rgba(148, 163, 184, 0.25)',
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 600,
+                    color: '#9ca3af',
+                  }}
+                >
+                  🎵
+                </span>
+                <span
+                  style={{
+                    fontFamily: '"Space Mono", monospace',
+                    fontSize: 12,
+                    fontWeight: 700,
+                    color: '#9ca3af',
+                  }}
+                >
+                  {row.musical_key}
+                </span>
+              </div>
+            )}
+
+            {row.bpm && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 4,
+                  padding: '3px 8px',
+                  background: 'rgba(148, 163, 184, 0.1)',
+                  borderRadius: 6,
+                  border: '1px solid rgba(148, 163, 184, 0.25)',
+                }}
+              >
+                <span style={{ fontSize: 11 }}>⏱️</span>
+                <span
+                  style={{
+                    fontFamily: '"Space Mono", monospace',
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: '#9ca3af',
+                  }}
+                >
+                  {row.bpm}
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {row.notes && (
+          <div
+            style={{
+              marginTop: 6,
+              fontSize: 12,
+              color: '#6b7280',
+              fontStyle: 'italic',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
-              letterSpacing: 0.2,
             }}
-            title={row.title}
           >
-            {row.title}
+            {row.notes}
           </div>
-
-          {hasMetadata && (
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 12,
-                fontSize: 13,
-                color: '#9ca3af',
-              }}
-            >
-              {row.musical_key && (
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 4,
-                    padding: '3px 8px',
-                    background: 'rgba(148, 163, 184, 0.1)',
-                    borderRadius: 6,
-                    border: '1px solid rgba(148, 163, 184, 0.25)',
-                  }}
-                >
-                  <span
-                    style={{
-                      fontSize: 11,
-                      fontWeight: 600,
-                      color: '#9ca3af',
-                    }}
-                  >
-                    🎵
-                  </span>
-                  <span
-                    style={{
-                      fontFamily: '"Space Mono", monospace',
-                      fontSize: 12,
-                      fontWeight: 700,
-                      color: '#9ca3af',
-                    }}
-                  >
-                    {row.musical_key}
-                  </span>
-                </div>
-              )}
-
-              {row.bpm && (
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 4,
-                    padding: '3px 8px',
-                    background: 'rgba(148, 163, 184, 0.1)',
-                    borderRadius: 6,
-                    border: '1px solid rgba(148, 163, 184, 0.25)',
-                  }}
-                >
-                  <span style={{ fontSize: 11 }}>⏱️</span>
-                  <span
-                    style={{
-                      fontFamily: '"Space Mono", monospace',
-                      fontSize: 12,
-                      fontWeight: 600,
-                      color: '#9ca3af',
-                    }}
-                  >
-                    {row.bpm}
-                  </span>
-                </div>
-              )}
-            </div>
-          )}
-
-          {row.notes && (
-            <div
-              style={{
-                marginTop: 6,
-                fontSize: 12,
-                color: '#6b7280',
-                fontStyle: 'italic',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {row.notes}
-            </div>
-          )}
-        </div>
-
-        {/* Chevron to song sheet */}
-        {isClickable && (
-          <IonIcon
-            icon={chevronForwardOutline}
-            style={{
-              fontSize: 22,
-              color: 'rgba(244, 114, 182, 0.8)',
-              flexShrink: 0,
-            }}
-          />
         )}
       </div>
-    );
-  }
+
+      {/* Chevron to song sheet */}
+      {isClickable && (
+        <IonIcon
+          icon={chevronForwardOutline}
+          style={{
+            fontSize: 22,
+            color: 'rgba(244, 114, 182, 0.8)',
+            flexShrink: 0,
+            pointerEvents: 'none',
+          }}
+        />
+      )}
+    </button>
+  );
 }

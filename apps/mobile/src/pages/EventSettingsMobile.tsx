@@ -240,11 +240,11 @@ export default function EventSettingsMobile() {
 
       setShowDeleteToast(true);
     } catch (e: any) {
-      setError(e?.message || 'Failed to delete band.');
+      setError(e?.message || 'Failed to delete event.');
     } finally {
       setBusyDanger(false);
     }
-  }, [event, isAdmin, busyDanger, nav, bandId]);
+  }, [event, isAdmin, busyDanger]);
 
   return (
     <IonPage>
@@ -252,6 +252,7 @@ export default function EventSettingsMobile() {
         <IonToolbar
           style={{
             '--background': 'rgba(8,8,12,0.98)',
+            borderBottom: '0.5px solid rgba(255,255,255,0.06)',
           }}
         >
           <IonButtons slot="start">
@@ -284,27 +285,33 @@ export default function EventSettingsMobile() {
             <h1
               style={{
                 margin: 0,
-                fontSize: 18,
-                fontWeight: 700,
+                fontSize: 24,
+                fontWeight: 800,
                 color: '#F9FAFB',
+                letterSpacing: '-0.5px',
               }}
             >
               Event settings
             </h1>
             <p
               style={{
-                margin: '2px 0 0',
-                fontSize: 12,
-                color: 'rgba(148,163,184,0.95)',
+                margin: '4px 0 0',
+                fontSize: 13,
+                color: '#9ca3af',
               }}
             >
-              Update details and public listing.
+              Update details and public listing
             </p>
           </div>
         </IonToolbar>
       </IonHeader>
 
-      <IonContent fullscreen>
+      <IonContent
+        fullscreen
+        style={{
+          '--background': 'linear-gradient(180deg, #050509 0%, #020109 100%)',
+        }}
+      >
         {loading && (
           <div
             style={{
@@ -313,7 +320,7 @@ export default function EventSettingsMobile() {
               placeItems: 'center',
             }}
           >
-            <IonSpinner name="dots" />
+            <IonSpinner name="dots" style={{ color: '#34d399' }} />
           </div>
         )}
 
@@ -325,8 +332,8 @@ export default function EventSettingsMobile() {
               placeItems: 'center',
             }}
           >
-            <IonText color="medium">
-              <p>Event not found.</p>
+            <IonText>
+              <p style={{ color: '#9ca3af' }}>Event not found.</p>
             </IonText>
           </div>
         )}
@@ -361,33 +368,33 @@ export default function EventSettingsMobile() {
               <>
                 <div
                   style={{
-                    borderRadius: 18,
-                    background:
-                      'linear-gradient(145deg, #08070d, #050509 55%, #0b0614)',
-                    border: '1px solid rgba(220,38,38,0.55)',
-                    padding: 14,
+                    background: 'rgba(255,255,255,0.02)',
+                    border: '1px solid rgba(248, 113, 113, 0.3)',
+                    borderRadius: 20,
+                    padding: 20,
                     marginTop: 16,
                   }}
                 >
                   <div
                     style={{
-                      marginBottom: 8,
                       display: 'flex',
                       alignItems: 'center',
+                      gap: 8,
+                      marginBottom: 8,
                     }}
                   >
                     <IonIcon
                       icon={warningOutline}
-                      style={{ marginRight: 8, color: '#FCA5A5' }}
+                      style={{ fontSize: 20, color: '#fca5a5' }}
                     />
                     <p
                       style={{
                         margin: 0,
-                        fontSize: 13,
+                        fontSize: 12,
                         fontWeight: 700,
-                        letterSpacing: 0.04,
+                        letterSpacing: 0.5,
                         textTransform: 'uppercase',
-                        color: 'rgba(254,226,226,0.96)',
+                        color: '#fca5a5',
                       }}
                     >
                       Danger Zone
@@ -395,23 +402,36 @@ export default function EventSettingsMobile() {
                   </div>
                   <p
                     style={{
-                      margin: '0 0 30px',
+                      margin: '0 0 20px',
                       fontSize: 13,
-                      color: 'rgba(254,202,202,0.9)',
+                      color: '#9ca3af',
                     }}
                   >
                     Delete this event for everyone. This cannot be undone.
                   </p>
 
-                  <IonButton
-                    expand="block"
-                    color="danger"
-                    disabled={busyDanger}
+                  <button
+                    type="button"
                     onClick={() => setShowDeleteAlert(true)}
-                    style={{ '--border-radius': '999px' } as any}
+                    disabled={busyDanger}
+                    style={{
+                      width: '100%',
+                      padding: '12px 16px',
+                      borderRadius: 12,
+                      border: '1px solid rgba(248, 113, 113, 0.5)',
+                      background: 'rgba(248, 113, 113, 0.05)',
+                      color: '#fca5a5',
+                      fontSize: 14,
+                      fontWeight: 600,
+                      cursor: busyDanger ? 'not-allowed' : 'pointer',
+                      transition: 'all 0.2s ease',
+                      WebkitTapHighlightColor: 'transparent',
+                      touchAction: 'manipulation',
+                      opacity: busyDanger ? 0.6 : 1,
+                    }}
                   >
                     {busyDanger ? 'Working…' : 'Delete event'}
-                  </IonButton>
+                  </button>
                 </div>
 
                 <IonAlert
@@ -547,27 +567,27 @@ function EventDetailsCard({
       timeStyle: 'short',
     });
   }
+
   return (
     <div
       style={{
-        borderRadius: 18,
-        background: 'linear-gradient(145deg, #08070d, #050509 55%, #0b0614)',
-        border: '1px solid rgba(52, 211, 153, 0.55)',
-        padding: 14,
-        boxShadow: '0 22px 45px rgba(0,0,0,0.9)',
+        background: 'rgba(255,255,255,0.02)',
+        border: '1px solid rgba(52, 211, 153, 0.2)',
+        borderRadius: 20,
+        padding: 20,
         marginBottom: 16,
       }}
     >
       {/* Header */}
-      <div style={{ marginBottom: 6 }}>
+      <div style={{ marginBottom: 16 }}>
         <p
           style={{
             margin: 0,
-            fontSize: 13,
+            fontSize: 12,
             fontWeight: 700,
-            letterSpacing: 0.04,
+            letterSpacing: 0.5,
             textTransform: 'uppercase',
-            color: 'rgba(237,233,254,0.96)',
+            color: '#34d399',
           }}
         >
           Event details
@@ -575,23 +595,20 @@ function EventDetailsCard({
         <p
           style={{
             margin: '4px 0 0',
-            fontSize: 12,
-            color: 'rgba(125, 205, 166, 0.9)',
+            fontSize: 13,
+            color: '#9ca3af',
           }}
         >
-          Edit the core info for this event.
+          Edit the core info for this event
         </p>
       </div>
 
       {/* Body */}
       <div
         style={{
-          marginTop: 8,
-          paddingTop: 10,
-          borderTop: '1px solid rgba(148,163,184,0.35)',
           display: 'flex',
           flexDirection: 'column',
-          gap: 10,
+          gap: 14,
         }}
       >
         {/* Title */}
@@ -599,11 +616,12 @@ function EventDetailsCard({
           <p
             style={{
               margin: 0,
-              fontSize: 12,
+              fontSize: 11,
               textTransform: 'uppercase',
-              letterSpacing: 0.08,
-              color: 'rgba(167,243,208,0.9)',
-              marginBottom: 4,
+              letterSpacing: 0.5,
+              color: '#6b7280',
+              fontWeight: 600,
+              marginBottom: 6,
             }}
           >
             Title
@@ -614,12 +632,13 @@ function EventDetailsCard({
             placeholder="Event title"
             style={{
               width: '100%',
-              borderRadius: 10,
-              border: '1px solid rgba(148,163,184,0.8)',
-              padding: 8,
-              backgroundColor: '#020617',
-              color: '#E5E7EB',
+              borderRadius: 12,
+              border: '1px solid rgba(148,163,184,0.3)',
+              padding: '10px 12px',
+              backgroundColor: 'rgba(255,255,255,0.03)',
+              color: '#e5e7eb',
               fontSize: 14,
+              transition: 'all 0.2s ease',
             }}
           />
         </div>
@@ -629,11 +648,12 @@ function EventDetailsCard({
           <p
             style={{
               margin: 0,
-              fontSize: 12,
+              fontSize: 11,
               textTransform: 'uppercase',
-              letterSpacing: 0.08,
-              color: 'rgba(167,243,208,0.9)',
-              marginBottom: 4,
+              letterSpacing: 0.5,
+              color: '#6b7280',
+              fontWeight: 600,
+              marginBottom: 6,
             }}
           >
             Location
@@ -644,12 +664,13 @@ function EventDetailsCard({
             placeholder="Venue / location"
             style={{
               width: '100%',
-              borderRadius: 10,
-              border: '1px solid rgba(148,163,184,0.8)',
-              padding: 8,
-              backgroundColor: '#020617',
-              color: '#E5E7EB',
+              borderRadius: 12,
+              border: '1px solid rgba(148,163,184,0.3)',
+              padding: '10px 12px',
+              backgroundColor: 'rgba(255,255,255,0.03)',
+              color: '#e5e7eb',
               fontSize: 14,
+              transition: 'all 0.2s ease',
             }}
           />
         </div>
@@ -659,11 +680,12 @@ function EventDetailsCard({
           <p
             style={{
               margin: 0,
-              fontSize: 12,
+              fontSize: 11,
               textTransform: 'uppercase',
-              letterSpacing: 0.08,
-              color: 'rgba(167,243,208,0.9)',
-              marginBottom: 4,
+              letterSpacing: 0.5,
+              color: '#6b7280',
+              fontWeight: 600,
+              marginBottom: 6,
             }}
           >
             Type
@@ -673,13 +695,14 @@ function EventDetailsCard({
             onChange={(e) => setEditType(e.target.value as EventType)}
             style={{
               width: '100%',
-              borderRadius: 10,
-              border: '1px solid rgba(148,163,184,0.8)',
-              padding: 8,
-              backgroundColor: '#020617',
-              color: '#E5E7EB',
+              borderRadius: 12,
+              border: '1px solid rgba(148,163,184,0.3)',
+              padding: '10px 12px',
+              backgroundColor: 'rgba(255,255,255,0.03)',
+              color: '#e5e7eb',
               fontSize: 14,
               appearance: 'none',
+              transition: 'all 0.2s ease',
             }}
           >
             {EVENT_TYPE_OPTIONS.map((opt) => (
@@ -695,11 +718,12 @@ function EventDetailsCard({
           <p
             style={{
               margin: 0,
-              fontSize: 12,
+              fontSize: 11,
               textTransform: 'uppercase',
-              letterSpacing: 0.08,
-              color: 'rgba(167,243,208,0.9)',
-              marginBottom: 4,
+              letterSpacing: 0.5,
+              color: '#6b7280',
+              fontWeight: 600,
+              marginBottom: 6,
             }}
           >
             Start
@@ -709,13 +733,17 @@ function EventDetailsCard({
             onClick={() => setShowStartPicker(true)}
             style={{
               width: '100%',
-              borderRadius: 10,
-              border: '1px solid rgba(148,163,184,0.8)',
-              padding: 8,
-              backgroundColor: '#020617',
-              color: '#E5E7EB',
+              borderRadius: 12,
+              border: '1px solid rgba(148,163,184,0.3)',
+              padding: '10px 12px',
+              backgroundColor: 'rgba(255,255,255,0.03)',
+              color: '#e5e7eb',
               fontSize: 14,
               textAlign: 'left',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+              WebkitTapHighlightColor: 'transparent',
+              touchAction: 'manipulation',
             }}
           >
             {formatDateTimeLabelFromLocal(editStart)}
@@ -727,11 +755,12 @@ function EventDetailsCard({
           <p
             style={{
               margin: 0,
-              fontSize: 12,
+              fontSize: 11,
               textTransform: 'uppercase',
-              letterSpacing: 0.08,
-              color: 'rgba(167,243,208,0.9)',
-              marginBottom: 4,
+              letterSpacing: 0.5,
+              color: '#6b7280',
+              fontWeight: 600,
+              marginBottom: 6,
             }}
           >
             End (optional)
@@ -741,13 +770,17 @@ function EventDetailsCard({
             onClick={() => setShowEndPicker(true)}
             style={{
               width: '100%',
-              borderRadius: 10,
-              border: '1px solid rgba(148,163,184,0.8)',
-              padding: 8,
-              backgroundColor: '#020617',
-              color: '#E5E7EB',
+              borderRadius: 12,
+              border: '1px solid rgba(148,163,184,0.3)',
+              padding: '10px 12px',
+              backgroundColor: 'rgba(255,255,255,0.03)',
+              color: '#e5e7eb',
               fontSize: 14,
               textAlign: 'left',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+              WebkitTapHighlightColor: 'transparent',
+              touchAction: 'manipulation',
             }}
           >
             {editEnd
@@ -791,20 +824,19 @@ function EventDetailsCard({
           onClick={onSave}
           disabled={savingEvent}
           style={{
-            marginTop: 4,
-            borderRadius: 999,
-            paddingBlock: 8,
-            paddingInline: 12,
-            border: '1px solid rgba(52,211,153,0.95)',
-            background: 'transparent',
+            width: '100%',
+            padding: '12px 16px',
+            borderRadius: 12,
+            border: '1px solid rgba(52, 211, 153, 0.3)',
+            background: 'rgba(52, 211, 153, 0.05)',
+            color: '#34d399',
             fontSize: 14,
             fontWeight: 600,
-            color: 'rgba(209,250,229,0.96)',
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            alignSelf: 'flex-start',
-            opacity: savingEvent ? 0.7 : 1,
+            cursor: savingEvent ? 'not-allowed' : 'pointer',
+            transition: 'all 0.2s ease',
+            WebkitTapHighlightColor: 'transparent',
+            touchAction: 'manipulation',
+            opacity: savingEvent ? 0.6 : 1,
           }}
         >
           {savingEvent ? 'Saving…' : 'Save changes'}
@@ -814,9 +846,9 @@ function EventDetailsCard({
         {isAdmin && (
           <div
             style={{
-              marginTop: 6,
-              paddingTop: 10,
-              borderTop: '1px solid rgba(148,163,184,0.35)',
+              marginTop: 8,
+              paddingTop: 16,
+              borderTop: '1px solid rgba(148,163,184,0.15)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
@@ -827,16 +859,17 @@ function EventDetailsCard({
               style={{
                 display: 'flex',
                 flexDirection: 'column',
-                gap: 2,
+                gap: 4,
               }}
             >
               <p
                 style={{
                   margin: 0,
-                  fontSize: 12,
+                  fontSize: 11,
                   textTransform: 'uppercase',
-                  letterSpacing: 0.08,
-                  color: 'rgba(167,243,208,0.9)',
+                  letterSpacing: 0.5,
+                  color: '#6b7280',
+                  fontWeight: 600,
                 }}
               >
                 Public listing
@@ -844,17 +877,17 @@ function EventDetailsCard({
               <p
                 style={{
                   margin: 0,
-                  fontSize: 12,
-                  color: 'rgba(148,163,184,0.9)',
+                  fontSize: 13,
+                  color: '#9ca3af',
                 }}
               >
-                Show this event on your public Amplee band page.
+                Show this event on your public Amplee band page
               </p>
             </div>
 
             <IonToggle
               checked={!!event?.is_public}
-              color="warning"
+              color="success"
               disabled={savingPublic}
               onIonChange={onTogglePublic}
               style={{ transform: 'scale(0.9)' }}
