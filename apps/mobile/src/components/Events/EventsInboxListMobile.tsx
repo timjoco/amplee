@@ -1,23 +1,11 @@
 /* eslint-disable @next/next/no-img-element */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import {
-  IonAvatar,
-  IonButton,
-  IonIcon,
-  IonItem,
-  IonList,
-  IonSpinner,
-  IonText,
-} from '@ionic/react';
-import {
-  addOutline,
-  chatbubbleOutline,
-  chevronForwardOutline,
-} from 'ionicons/icons';
+import { IonAvatar, IonIcon, IonSpinner, IonText } from '@ionic/react';
+import { addOutline, chatbubbleOutline } from 'ionicons/icons';
 
 import { Capacitor } from '@capacitor/core';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   EventRow,
@@ -31,7 +19,6 @@ import {
   upsertLastMsg,
 } from '../../lib/cache/eventInboxCache';
 import { supabase } from '../../lib/supabase';
-import EventStatusChip from './EventStatusChip';
 
 type LastMsg = { event_id: string; body: string; created_at: string };
 
@@ -64,17 +51,16 @@ export default function EventInboxListMobile({
     initial.lastMsgs
   );
   const [loading, setLoading] = useState(bandId ? true : needsEventRefresh());
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
 
   const eventIdsRef = useRef<string[]>(initial.events.map((e) => e.id));
   const lastMsgsRef = useRef<Record<string, LastMsg | undefined>>(
     initial.lastMsgs
   );
 
-  // long-press tracking (for haptic + visual puff)
+  const [pressedId, setPressedId] = useState<string | null>(null);
   const longPressTimeoutRef = useRef<number | null>(null);
   const pressStartRef = useRef<{ x: number; y: number } | null>(null);
-
-  const [pressedId, setPressedId] = useState<string | null>(null);
   const MOVE_THRESHOLD = 12;
 
   const canCreateEvent = Boolean(enableCreateForBand && bandId && isAdmin);
@@ -92,22 +78,37 @@ export default function EventInboxListMobile({
     lastMsgsRef.current = lastMsgs;
   }, [lastMsgs]);
 
-  const timeFmt = useMemo(
-    () =>
-      new Intl.DateTimeFormat(undefined, {
+  const getRelativeTime = useCallback((dateStr: string | null) => {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffMs = date.getTime() - now.getTime();
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffDays === 0) {
+      return date.toLocaleTimeString(undefined, {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+      });
+    } else if (diffDays === 1) {
+      return 'Tomorrow';
+    } else if (diffDays === -1) {
+      return 'Yesterday';
+    } else if (diffDays > 1 && diffDays <= 7) {
+      return date.toLocaleDateString(undefined, { weekday: 'short' });
+    } else {
+      return date.toLocaleDateString(undefined, {
         month: 'short',
         day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      }),
-    []
-  );
+      });
+    }
+  }, []);
 
   const refreshEvents = useCallback(async () => {
     const { data: auth } = await supabase.auth.getUser();
     const userId = auth?.user?.id ?? null;
     if (!userId) {
-      // No user: clear local + cached rows so we don't flash old data
       setRows([]);
       setLastMsgs({});
       if (!bandId) {
@@ -130,7 +131,6 @@ export default function EventInboxListMobile({
     }
 
     if (bandIds.length === 0) {
-      // No bands: clear events + cache
       setRows([]);
       setLastMsgs({});
       if (!bandId) {
@@ -283,29 +283,22 @@ export default function EventInboxListMobile({
     if (!bandId) return;
     window.dispatchEvent(
       new CustomEvent('amplee:global-create', {
-        detail: {
-          kind: 'event',
-          bandId,
-        },
+        detail: { kind: 'event', bandId },
       })
     );
   };
 
-  // --- Long-press haptic --- //
   const handlePressStart = useCallback(
     (
       id: string,
-      e:
-        | React.TouchEvent<HTMLDivElement>
-        | React.MouseEvent<HTMLDivElement, MouseEvent>
+      e: React.TouchEvent<HTMLDivElement> | React.MouseEvent<HTMLDivElement>
     ) => {
       if (longPressTimeoutRef.current != null) {
         window.clearTimeout(longPressTimeoutRef.current);
       }
 
-      let clientX = 0;
-      let clientY = 0;
-
+      let clientX = 0,
+        clientY = 0;
       if ('touches' in e && e.touches.length > 0) {
         clientX = e.touches[0].clientX;
         clientY = e.touches[0].clientY;
@@ -315,7 +308,6 @@ export default function EventInboxListMobile({
       }
 
       pressStartRef.current = { x: clientX, y: clientY };
-
       longPressTimeoutRef.current = window.setTimeout(() => {
         setPressedId(id);
         void triggerHaptic();
@@ -330,10 +322,10 @@ export default function EventInboxListMobile({
 
     const { x, y } = pressStartRef.current;
     const t = e.touches[0];
-    const dx = t.clientX - x;
-    const dy = t.clientY - y;
-
-    if (Math.abs(dx) > MOVE_THRESHOLD || Math.abs(dy) > MOVE_THRESHOLD) {
+    if (
+      Math.abs(t.clientX - x) > MOVE_THRESHOLD ||
+      Math.abs(t.clientY - y) > MOVE_THRESHOLD
+    ) {
       window.clearTimeout(longPressTimeoutRef.current);
       longPressTimeoutRef.current = null;
     }
@@ -345,13 +337,11 @@ export default function EventInboxListMobile({
       longPressTimeoutRef.current = null;
     }
     pressStartRef.current = null;
-
     if (pressedId != null) {
       setTimeout(() => setPressedId(null), 130);
     }
   }, [pressedId]);
 
-  // --- Avatar initials --- //
   const renderAvatarInitials = (name?: string | null) => {
     const initials =
       name
@@ -368,9 +358,10 @@ export default function EventInboxListMobile({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          fontWeight: 700,
-          fontSize: 15,
-          color: 'rgba(226, 232, 240, 0.9)',
+          fontWeight: 600,
+          fontSize: 14,
+          color: 'rgba(148, 163, 184, 0.9)',
+          background: 'rgba(30, 41, 59, 0.8)',
         }}
       >
         {initials}
@@ -378,18 +369,15 @@ export default function EventInboxListMobile({
     );
   };
 
-  // --- role guards / loading --- //
   if (loading && rows.length === 0) {
-    if (suppressEmptyState) {
-      return null;
-    }
+    if (suppressEmptyState) return null;
     return (
       <div
         style={{
           display: 'flex',
           alignItems: 'center',
           gap: 10,
-          padding: '20px 0',
+          padding: '20px 16px',
         }}
       >
         <IonSpinner
@@ -405,527 +393,273 @@ export default function EventInboxListMobile({
 
   if (!suppressEmptyState && rows.length === 0 && !loading) {
     const subtitle = enableCreateForBand
-      ? 'Create your first show or practice to start a chat.'
-      : 'Event chats will show up here once your band has shows or practices.';
-
-    const openGlobalCreateForBand = () => {
-      if (bandId) {
-        window.dispatchEvent(
-          new CustomEvent('amplee:global-create', {
-            detail: {
-              kind: 'event',
-              bandId,
-            },
-          })
-        );
-      }
-    };
+      ? 'Create your first show or practice to get started.'
+      : 'Events will appear here once your band schedules them.';
 
     return (
-      <div
-        style={{
-          padding: '16px',
-          maxWidth: '600px',
-          margin: '0 auto',
-        }}
-      >
+      <div style={{ padding: '24px 16px', maxWidth: 480, margin: '0 auto' }}>
         <div
           style={{
-            background: 'transparent',
-            border: '1px solid rgba(52, 211, 153, 0.2)',
-            borderRadius: '20px',
+            background: 'rgba(30, 41, 59, 0.4)',
+            borderRadius: 12,
             padding: '32px 24px',
             textAlign: 'center',
-            marginTop: '24px',
           }}
         >
           <div
             style={{
-              width: 64,
-              height: 64,
-              borderRadius: '16px',
+              width: 48,
+              height: 48,
+              borderRadius: 12,
               background: 'rgba(52, 211, 153, 0.1)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              margin: '0 auto 20px',
-              border: '1px solid rgba(52, 211, 153, 0.2)',
+              margin: '0 auto 16px',
             }}
           >
             <IonIcon
               icon={chatbubbleOutline}
-              style={{ fontSize: 32, color: 'rgba(52, 211, 153, 0.9)' }}
+              style={{ fontSize: 24, color: 'rgba(52, 211, 153, 0.8)' }}
             />
           </div>
-          <IonText color="light">
-            <h2
-              style={{
-                margin: '0 0 8px',
-                fontSize: 18,
-                fontWeight: 700,
-                color: 'rgba(241, 245, 249, 0.95)',
-                letterSpacing: '-0.01em',
-              }}
-            >
-              No Event Chats Yet
-            </h2>
-            <p
-              style={{
-                margin: 0,
-                color: 'rgba(148, 163, 184, 0.9)',
-                fontSize: 14,
-                lineHeight: 1.5,
-              }}
-            >
-              {subtitle}
-            </p>
-          </IonText>
-
-          {/* ONLY show button if enableCreateForBand AND isAdmin */}
-          {enableCreateForBand && isAdmin && (
-            <div
-              style={{
-                marginTop: 20,
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 8,
-              }}
-            >
-              <button
-                type="button"
-                onClick={openGlobalCreateForBand}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 8,
-                  padding: '12px 20px',
-                  borderRadius: 12,
-                  border: '1px solid rgba(52, 211, 153, 0.25)',
-                  background: 'rgba(52, 211, 153, 0.1)',
-                  color: 'rgba(52, 211, 153, 0.95)',
-                  fontSize: 14.5,
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  transition: 'all 150ms cubic-bezier(0.4, 0, 0.2, 1)',
-                  width: '100%',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'rgba(52, 211, 153, 0.15)';
-                  e.currentTarget.style.borderColor = 'rgba(52, 211, 153, 0.4)';
-                  e.currentTarget.style.transform = 'translateY(-1px)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'rgba(52, 211, 153, 0.1)';
-                  e.currentTarget.style.borderColor =
-                    'rgba(52, 211, 153, 0.25)';
-                  e.currentTarget.style.transform = 'translateY(0)';
-                }}
-              >
-                <IonIcon icon={addOutline} style={{ fontSize: 18 }} />
-                Create an event
-              </button>
-
-              <p
-                style={{
-                  margin: 0,
-                  fontSize: 12,
-                  color: 'rgba(148, 163, 184, 0.75)',
-                }}
-              >
-                Or tap the Global Create{' '}
-                <span
-                  style={{ fontWeight: 700, color: 'rgba(52, 211, 153, 0.9)' }}
-                >
-                  +
-                </span>{' '}
-                in the bottom bar.
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  // --- Render list --- //
-  return (
-    <div
-      style={{
-        paddingTop: 0,
-        paddingBottom: 12,
-        marginInline: -12,
-      }}
-    >
-      <IonList
-        style={{
-          margin: 0,
-          padding: 0,
-          background: 'transparent',
-          display: 'flex',
-          flexDirection: 'column',
-        }}
-      >
-        {rows.map((e) => {
-          const when = e.starts_at ? timeFmt.format(new Date(e.starts_at)) : '';
-          const lm = lastMsgs[e.id];
-          const preview =
-            lm?.body ??
-            (e.location ? `Location: ${e.location}` : `${e.type} scheduled`);
-          const band = e.bands;
-          const isPressed = pressedId === e.id;
-
-          const avatarSrc = band?.id ? getAvatarSigned(band.id) : undefined;
-          if (!avatarSrc && band?.id && band.avatar_url) {
-            void (async () => {
-              const url = await getAvatar(band.id, band.avatar_url!);
-              if (url) setRows((r) => [...r]);
-            })();
-          } else if (avatarSrc === undefined && band?.avatar_url) {
-            setAvatarPath(band.id, band.avatar_url);
-          }
-
-          return (
-            <IonItem
-              key={e.id}
-              detail={false}
-              onClick={() => openEvent(e.band_id, e.id)}
-              lines="none"
-              style={{
-                ['--background' as any]: 'transparent',
-                ['--background-hover' as any]: 'transparent',
-                ['--background-activated' as any]: 'transparent',
-                ['--ripple-color' as any]: 'transparent',
-                paddingInline: 0,
-                paddingBlock: 0,
-              }}
-            >
-              <div
-                onTouchStart={(ev) => handlePressStart(e.id, ev)}
-                onTouchMove={handlePressMove}
-                onTouchEnd={handlePressEnd}
-                onTouchCancel={handlePressEnd}
-                onMouseDown={(ev) => handlePressStart(e.id, ev)}
-                onMouseUp={handlePressEnd}
-                onMouseLeave={handlePressEnd}
-                style={{
-                  paddingInline: 0,
-                  paddingBlock: 0,
-                  width: '100%',
-                  display: 'grid',
-                  gridTemplateColumns: showAvatars ? '64px 1fr' : '1fr',
-                  alignItems: 'center',
-                  columnGap: 0,
-                  background: 'transparent',
-                  transform: isPressed ? 'scale(0.99)' : 'scale(1)',
-                  opacity: isPressed ? 0.7 : 1,
-                  transition: 'all 120ms ease-out',
-                }}
-              >
-                {showAvatars && (
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'flex-start',
-                      justifyContent: 'flex-start',
-                      paddingTop: 12,
-                      paddingBottom: 12,
-                      paddingLeft: 4,
-                    }}
-                  >
-                    <IonAvatar
-                      style={{
-                        width: 52,
-                        height: 52,
-                        background: 'rgba(15, 23, 42, 0.6)',
-                        border: '1px solid rgba(71, 85, 105, 0.2)',
-                        flexShrink: 0,
-                        overflow: 'hidden',
-                      }}
-                    >
-                      {avatarSrc ? (
-                        <img
-                          src={avatarSrc}
-                          alt={band?.name || 'Band'}
-                          style={{
-                            width: '100%',
-                            height: '100%',
-                            objectFit: 'cover',
-                          }}
-                        />
-                      ) : (
-                        renderAvatarInitials(band?.name)
-                      )}
-                    </IonAvatar>
-                  </div>
-                )}
-
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: '1fr auto',
-                    alignItems: 'center',
-                    columnGap: 14,
-                    paddingInline: showAvatars ? '0 16px' : '16px',
-                    paddingBlock: 12,
-                    borderBottom: '0.5px solid rgba(71, 85, 105, 0.55)',
-                  }}
-                >
-                  <div
-                    style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      minWidth: 0,
-                      gap: 4,
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'baseline',
-                        justifyContent: 'space-between',
-                        gap: 8,
-                      }}
-                    >
-                      <span
-                        style={{
-                          fontWeight: 600,
-                          fontSize: 17,
-                          letterSpacing: '-0.02em',
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          color: 'rgba(248, 250, 252, 0.95)',
-                        }}
-                        title={e.title || 'Event'}
-                      >
-                        {e.title || 'Event'}
-                      </span>
-                    </div>
-
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 8,
-                      }}
-                    >
-                      <span
-                        style={{
-                          fontSize: 15,
-                          color: 'rgba(148, 163, 184, 0.95)',
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          lineHeight: 1.4,
-                          flex: 1,
-                        }}
-                        title={preview}
-                      >
-                        {preview}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div
-                    style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'flex-end',
-                      justifyContent: 'flex-start',
-                      gap: 8,
-                    }}
-                  >
-                    {!!when && (
-                      <span
-                        style={{
-                          fontSize: 14,
-                          color: 'rgba(148, 163, 184, 0.75)',
-                          whiteSpace: 'nowrap',
-                          fontWeight: 400,
-                        }}
-                      >
-                        {when}
-                      </span>
-                    )}
-                    <div
-                      style={{ display: 'flex', alignItems: 'center', gap: 6 }}
-                    >
-                      <EventStatusChip
-                        isBooked={e.is_booked}
-                        isCancelled={e.is_cancelled}
-                        size="md"
-                      />
-                      <IonIcon
-                        icon={chevronForwardOutline}
-                        style={{
-                          fontSize: 16,
-                          color: 'rgba(100, 116, 139, 0.5)',
-                        }}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </IonItem>
-          );
-        })}
-      </IonList>
-
-      {canCreateEvent && rows.length > 0 && (
-        <div
-          style={{
-            marginTop: 16,
-            display: 'flex',
-            justifyContent: 'center',
-          }}
-        >
-          <IonButton
-            fill="clear"
-            size="small"
-            onClick={openGlobalCreateForBand}
+          <h3
             style={{
-              '--color': 'rgba(52, 211, 153, 0.9)',
-              '--padding-start': '16px',
-              '--padding-end': '16px',
-              '--border-radius': '10px',
-              fontWeight: 700,
-              fontSize: 13.5,
-            }}
-          >
-            <IonIcon icon={addOutline} slot="start" />
-            Create new event
-          </IonButton>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// Empty state component for EventInboxListMobile
-// Replace your existing empty state with this:
-
-function EmptyEventState({
-  canCreateEvent,
-  openGlobalCreateForBand,
-  isForBand,
-}: {
-  canCreateEvent: boolean;
-  openGlobalCreateForBand: () => void;
-  isForBand: boolean;
-}) {
-  const subtitle = isForBand
-    ? 'Create your first show or practice to start a chat.'
-    : 'Event chats will show up here once your band has shows or practices.';
-
-  return (
-    <div
-      style={{
-        padding: '16px',
-        maxWidth: '600px',
-        margin: '0 auto',
-      }}
-    >
-      <div
-        style={{
-          background: 'transparent',
-          border: '1px solid rgba(52, 211, 153, 0.2)',
-          borderRadius: '20px',
-          padding: '32px 24px',
-          textAlign: 'center',
-          marginTop: '24px',
-        }}
-      >
-        <div
-          style={{
-            width: 64,
-            height: 64,
-            borderRadius: '16px',
-            background: 'rgba(52, 211, 153, 0.1)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            margin: '0 auto 20px',
-            border: '1px solid rgba(52, 211, 153, 0.2)',
-          }}
-        >
-          <IonIcon
-            icon={chatbubbleOutline}
-            style={{ fontSize: 32, color: 'rgba(52, 211, 153, 0.9)' }}
-          />
-        </div>
-        <IonText color="light">
-          <h2
-            style={{
-              margin: '0 0 8px',
-              fontSize: 18,
-              fontWeight: 700,
+              margin: '0 0 6px',
+              fontSize: 16,
+              fontWeight: 600,
               color: 'rgba(241, 245, 249, 0.95)',
-              letterSpacing: '-0.01em',
             }}
           >
-            No Event Chats Yet
-          </h2>
+            No events yet
+          </h3>
           <p
             style={{
               margin: 0,
-              color: 'rgba(148, 163, 184, 0.9)',
+              color: 'rgba(148, 163, 184, 0.8)',
               fontSize: 14,
               lineHeight: 1.5,
             }}
           >
             {subtitle}
           </p>
-        </IonText>
 
-        {canCreateEvent && (
-          <div
-            style={{
-              marginTop: 20,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 8,
-            }}
-          >
-            <IonButton
-              expand="block"
-              size="default"
+          {enableCreateForBand && isAdmin && (
+            <button
+              type="button"
               onClick={openGlobalCreateForBand}
               style={{
-                '--color': '#0a0a0a',
-                '--background':
-                  'linear-gradient(135deg, rgba(52,211,153,0.95), rgba(16,185,129,0.95))',
-                '--background-hover':
-                  'linear-gradient(135deg, rgba(52,211,153,1), rgba(16,185,129,1))',
-                '--border-radius': '12px',
-                '--padding-top': '12px',
-                '--padding-bottom': '12px',
-                fontWeight: 700,
-                fontSize: 14.5,
-                letterSpacing: '0.02em',
+                marginTop: 20,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '10px 16px',
+                borderRadius: 8,
+                border: 'none',
+                background: 'rgba(52, 211, 153, 0.15)',
+                color: 'rgba(52, 211, 153, 0.95)',
+                fontSize: 14,
+                fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'background 150ms ease',
               }}
             >
-              Create an event
-            </IonButton>
-
-            <p
-              style={{
-                margin: 0,
-                fontSize: 12,
-                color: 'rgba(148, 163, 184, 0.75)',
-              }}
-            >
-              Or tap the Global Create{' '}
-              <span
-                style={{ fontWeight: 700, color: 'rgba(52, 211, 153, 0.9)' }}
-              >
-                +
-              </span>{' '}
-              in the bottom bar.
-            </p>
-          </div>
-        )}
+              <IonIcon icon={addOutline} style={{ fontSize: 18 }} />
+              Create event
+            </button>
+          )}
+        </div>
       </div>
+    );
+  }
+
+  return (
+    <div style={{ paddingBlock: 4 }}>
+      {rows.map((e) => {
+        const when = getRelativeTime(e.starts_at);
+        const lm = lastMsgs[e.id];
+        const preview =
+          lm?.body ||
+          e.location ||
+          `${e.type === 'show' ? 'Show' : 'Practice'}`;
+        const band = e.bands;
+        const isPressed = pressedId === e.id;
+        const isHovered = hoveredId === e.id;
+
+        const avatarSrc = band?.id ? getAvatarSigned(band.id) : undefined;
+        if (!avatarSrc && band?.id && band.avatar_url) {
+          void (async () => {
+            const url = await getAvatar(band.id, band.avatar_url!);
+            if (url) setRows((r) => [...r]);
+          })();
+        }
+
+        return (
+          <div
+            key={e.id}
+            onClick={() => openEvent(e.band_id, e.id)}
+            onMouseEnter={() => setHoveredId(e.id)}
+            onMouseLeave={() => setHoveredId(null)}
+            onTouchStart={(ev) => handlePressStart(e.id, ev)}
+            onTouchMove={handlePressMove}
+            onTouchEnd={handlePressEnd}
+            onTouchCancel={handlePressEnd}
+            onMouseDown={(ev) => handlePressStart(e.id, ev)}
+            onMouseUp={handlePressEnd}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 12,
+              padding: '10px 12px',
+              marginInline: 4,
+              borderRadius: 8,
+              cursor: 'pointer',
+              background: isPressed
+                ? 'rgba(52, 211, 153, 0.1)'
+                : isHovered
+                ? 'rgba(255, 255, 255, 0.03)'
+                : 'transparent',
+              transform: isPressed ? 'scale(0.98)' : 'scale(1)',
+              transition: 'all 100ms ease-out',
+            }}
+          >
+            {/* Avatar */}
+            {showAvatars && (
+              <IonAvatar
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 12,
+                  overflow: 'hidden',
+                  flexShrink: 0,
+                }}
+              >
+                {avatarSrc ? (
+                  <img
+                    src={avatarSrc}
+                    alt={band?.name || 'Band'}
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'cover',
+                    }}
+                  />
+                ) : (
+                  renderAvatarInitials(band?.name)
+                )}
+              </IonAvatar>
+            )}
+
+            <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  marginBottom: 2,
+                }}
+              >
+                <span
+                  style={{
+                    fontWeight: 600,
+                    fontSize: 15,
+                    color: 'rgba(241, 245, 249, 0.95)',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    letterSpacing: '-0.01em',
+                  }}
+                >
+                  {e.title || 'Event'}
+                </span>
+                <span
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 500,
+                    padding: '2px 6px',
+                    borderRadius: 4,
+                    background:
+                      e.type === 'show'
+                        ? 'rgba(168, 85, 247, 0.15)'
+                        : 'rgba(59, 130, 246, 0.15)',
+                    color:
+                      e.type === 'show'
+                        ? 'rgba(192, 132, 252, 0.9)'
+                        : 'rgba(96, 165, 250, 0.9)',
+                    whiteSpace: 'nowrap',
+                    flexShrink: 0,
+                    textTransform: 'capitalize',
+                  }}
+                >
+                  {e.type}
+                </span>
+                <span style={{ flex: 1 }} />
+                {when && (
+                  <span
+                    style={{
+                      fontSize: 12,
+                      color: 'rgba(148, 163, 184, 0.6)',
+                      whiteSpace: 'nowrap',
+                      flexShrink: 0,
+                    }}
+                  >
+                    {when}
+                  </span>
+                )}
+              </div>
+
+              {/* Preview text */}
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: 13,
+                  color: 'rgba(148, 163, 184, 0.7)',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  lineHeight: 1.4,
+                }}
+              >
+                {preview}
+              </p>
+            </div>
+          </div>
+        );
+      })}
+
+      {canCreateEvent && rows.length > 0 && (
+        <div style={{ padding: '12px 16px' }}>
+          <button
+            type="button"
+            onClick={openGlobalCreateForBand}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: '8px 12px',
+              borderRadius: 6,
+              border: 'none',
+              background: 'transparent',
+              color: 'rgba(148, 163, 184, 0.7)',
+              fontSize: 13,
+              fontWeight: 500,
+              cursor: 'pointer',
+              transition: 'all 150ms ease',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.03)';
+              e.currentTarget.style.color = 'rgba(52, 211, 153, 0.9)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'transparent';
+              e.currentTarget.style.color = 'rgba(148, 163, 184, 0.7)';
+            }}
+          >
+            <IonIcon icon={addOutline} style={{ fontSize: 16 }} />
+            Add event
+          </button>
+        </div>
+      )}
     </div>
   );
 }

@@ -54,7 +54,7 @@ export function useAttendance(eventId: string) {
       setCounts(cached.counts);
       setNeedsSub(cached.needsSub);
       setSubReason(cached.subReason);
-      setHydrated(true); // 👈 avoid flash, we have a real value
+      setHydrated(true);
       return;
     }
 
@@ -108,7 +108,7 @@ export function useAttendance(eventId: string) {
       subReason: nextSubReason,
     });
 
-    setHydrated(true); // 👈 done with first load
+    setHydrated(true);
   }, [eventId]);
 
   useEffect(() => {

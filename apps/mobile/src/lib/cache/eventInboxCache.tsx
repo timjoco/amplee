@@ -25,7 +25,7 @@ type CacheShape = {
 };
 
 const STORAGE_KEY = 'amplee:eventInbox:v1';
-export const EVENTS_TTL_MS = 2 * 60 * 1000; // 2 minutes: tweak as you like
+export const EVENTS_TTL_MS = 2 * 60 * 1000;
 let cache: CacheShape = { events: [], lastMsgs: {}, avatars: {}, updatedAt: 0 };
 
 // ---- storage helpers ----
@@ -43,7 +43,6 @@ function saveStorage() {
   } catch {}
 }
 
-// ---- public API ----
 export function getCache(): CacheShape {
   if (cache.updatedAt === 0) loadStorage();
   return cache;

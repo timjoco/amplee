@@ -2,32 +2,22 @@
 import { Capacitor } from '@capacitor/core';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import {
-  IonButton,
-  IonButtons,
   IonContent,
   IonHeader,
   IonIcon,
-  IonInput,
-  IonItem,
-  IonLabel,
-  IonList,
   IonModal,
-  IonSelect,
-  IonSelectOption,
-  IonSpinner,
-  IonTitle,
-  IonToast,
   IonToolbar,
 } from '@ionic/react';
 import {
   calendarOutline,
+  chevronBackOutline,
   chevronForwardOutline,
   clipboardOutline,
-  close as closeIcon,
+  closeOutline,
   gridOutline,
   musicalNotesOutline,
 } from 'ionicons/icons';
-import React from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   useNewBandForm,
@@ -48,6 +38,17 @@ export type GlobalCreateMobileProps = {
 
 type Step = 'menu' | 'newBand' | 'newEvent' | 'newSong' | 'newProposal';
 
+interface Orb {
+  id: number;
+  size: number;
+  x: number;
+  y: number;
+  duration: number;
+  delay: number;
+  opacity: number;
+  color: string;
+}
+
 const mergeLocalBands = (a: BandLite[], b: BandLite[]) => {
   const map = new Map<string, BandLite>();
   [...a, ...b].forEach((x) =>
@@ -66,212 +67,6 @@ const mapBands = (rows: any[] | null | undefined): BandLite[] =>
       avatar_url: b.avatar_url ?? null,
     }));
 
-// ---------- Small Reusable Pieces ----------
-
-type MenuCardProps = {
-  id: Step;
-  title: string;
-  description: string;
-  icon: string;
-  className: string;
-  pressedId: string | null;
-  onCardClick: () => void;
-  handlePressStart: (
-    id: string,
-    e:
-      | React.TouchEvent<HTMLDivElement>
-      | React.MouseEvent<HTMLDivElement, MouseEvent>
-  ) => void;
-  handlePressMove: (e: React.TouchEvent<HTMLDivElement>) => void;
-  handlePressEnd: () => void;
-};
-
-function MenuCard({
-  id,
-  title,
-  description,
-  icon,
-  className,
-  pressedId,
-  onCardClick,
-  handlePressStart,
-  handlePressMove,
-  handlePressEnd,
-}: MenuCardProps) {
-  const isPressed = pressedId === id;
-
-  return (
-    <IonItem
-      button
-      detail={false}
-      lines="none"
-      onClick={onCardClick}
-      style={{
-        ['--background' as any]: 'transparent',
-        ['--background-hover' as any]: 'transparent',
-        ['--background-activated' as any]: 'transparent',
-        ['--ripple-color' as any]: 'transparent',
-        marginInline: -8,
-        paddingInline: 0,
-        paddingBlock: 3,
-      }}
-      className={className}
-    >
-      <div
-        onTouchStart={(ev) => handlePressStart(id, ev)}
-        onTouchMove={handlePressMove}
-        onTouchEnd={handlePressEnd}
-        onTouchCancel={handlePressEnd}
-        onMouseDown={(ev) => handlePressStart(id, ev)}
-        onMouseUp={handlePressEnd}
-        onMouseLeave={handlePressEnd}
-        style={{
-          borderRadius: 20,
-          paddingInline: 20,
-          paddingBlock: 12,
-          minHeight: 85,
-          width: '100%',
-          display: 'grid',
-          gridTemplateColumns: '1fr auto auto',
-          alignItems: 'center',
-          columnGap: 10,
-          background:
-            'linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02))',
-          boxShadow: isPressed
-            ? '0 10px 24px rgba(0,0,0,.32)'
-            : '0 18px 40px rgba(0,0,0,0.9)',
-          transform: isPressed ? 'scale(0.97)' : 'scale(1)',
-          transition:
-            'transform 120ms ease-out, box-shadow 120ms ease-out, background 120ms ease-out',
-        }}
-      >
-        {/* Text + icon */}
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: 12,
-            minWidth: 0,
-          }}
-        >
-          <div className="gc-card-icon">
-            <IonIcon icon={icon} style={{ fontSize: 20 }} />
-          </div>
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              minWidth: 0,
-            }}
-          >
-            <span
-              style={{
-                fontWeight: 800,
-                fontSize: 16,
-                letterSpacing: 0.2,
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                color: '#E5E7EB',
-              }}
-            >
-              {title}
-            </span>
-            <span
-              style={{
-                marginTop: 4,
-                fontSize: 13,
-                opacity: 0.9,
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                color: 'rgba(226,232,240,0.9)',
-              }}
-            >
-              {description}
-            </span>
-          </div>
-        </div>
-
-        {/* Chevron */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'flex-end',
-            paddingLeft: 4,
-          }}
-        >
-          <IonIcon
-            icon={chevronForwardOutline}
-            style={{ fontSize: 18, opacity: 0.6 }}
-          />
-        </div>
-      </div>
-    </IonItem>
-  );
-}
-
-type BandSelectRowProps = {
-  label: string;
-  value: string;
-  onChange: (id: string) => void;
-  bands: BandLite[];
-  loadingBands: boolean;
-  ensureBandsLoaded: () => void | Promise<void>;
-};
-
-function BandSelectRow({
-  label,
-  value,
-  onChange,
-  bands,
-  loadingBands,
-  ensureBandsLoaded,
-}: BandSelectRowProps) {
-  return (
-    <IonItem>
-      <IonLabel position="stacked" className="gc-label">
-        {label}
-      </IonLabel>
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-          width: '100%',
-        }}
-      >
-        <IonSelect
-          interface="popover"
-          value={value}
-          onIonChange={(e) => onChange(String(e.detail.value))}
-          onIonFocus={() => {
-            if (!bands.length) ensureBandsLoaded();
-          }}
-          style={{ '--padding-start': '0' }}
-        >
-          {loadingBands && (
-            <IonSelectOption value="" disabled>
-              Loading…
-            </IonSelectOption>
-          )}
-          {!loadingBands &&
-            bands.map((b) => (
-              <IonSelectOption key={b.id} value={b.id}>
-                {b.name}
-              </IonSelectOption>
-            ))}
-        </IonSelect>
-        {loadingBands && <IonSpinner name="dots" />}
-      </div>
-    </IonItem>
-  );
-}
-
-// ---------- Main Component ----------
-
 export default function GlobalCreateMobile({
   open: openProp,
   onOpenChange,
@@ -280,127 +75,105 @@ export default function GlobalCreateMobile({
   const nav = useNavigate();
 
   const isControlled = typeof openProp === 'boolean';
-  const [openUnc, setOpenUnc] = React.useState(false);
+  const [openUnc, setOpenUnc] = useState(false);
   const open = isControlled ? (openProp as boolean) : openUnc;
-  const setOpen = React.useCallback(
-    (v: boolean) => (isControlled ? onOpenChange?.(v) : setOpenUnc(v)),
+  const setOpen = useCallback(
+    (v: boolean) => {
+      // console.debug('[GlobalCreate] setOpen', { v, isControlled });
+      return isControlled ? onOpenChange?.(v) : setOpenUnc(v);
+    },
     [isControlled, onOpenChange]
   );
+  const [bandsLoadedOnce, setBandsLoadedOnce] = useState(false);
 
-  const [step, setStep] = React.useState<Step>('menu');
+  const [step, setStep] = useState<Step>('menu');
+  const [error, setError] = useState<string | null>(null);
+  const [pressedButton, setPressedButton] = useState<string | null>(null);
 
-  const [error, setError] = React.useState<string | null>(null);
-  const [toast, setToast] = React.useState<{ open: boolean; msg: string }>({
-    open: false,
-    msg: '',
-  });
+  // Bands list for selects
+  const [bands, setBands] = useState<BandLite[]>([]);
+  const [loadingBands, setLoadingBands] = useState(false);
 
-  // ---- Bands list for selects ----
-  const [bands, setBands] = React.useState<BandLite[]>([]);
-  const [loadingBands, setLoadingBands] = React.useState(false);
-
-  // haptics for press
-  const longPressTimeoutRef = React.useRef<number | null>(null);
-  const pressStartRef = React.useRef<{ x: number; y: number } | null>(null);
-  const [pressedId, setPressedId] = React.useState<string | null>(null);
-  const MOVE_THRESHOLD = 12;
-
-  const showToast = (msg: string) => setToast({ open: true, msg });
-
-  // hooks for each form
+  // Form hooks
   const bandForm = useNewBandForm({
-    showToast,
+    showToast: () => {},
     onError: setError,
   });
 
   const eventForm = useNewEventForm({
-    showToast,
+    showToast: () => {},
     onError: setError,
   });
 
   const songForm = useNewSongForm({
-    showToast,
+    showToast: () => {},
     onError: setError,
   });
 
   const proposalForm = useNewProposalForm({
-    showToast,
+    showToast: () => {},
     onError: setError,
   });
 
-  const triggerHaptic = React.useCallback(async () => {
+  // Stars
+  const stars = useMemo(
+    () =>
+      Array.from({ length: 30 }, (_, i) => ({
+        id: i,
+        size: Math.random() * 2 + 1,
+        x: Math.random() * 100,
+        y: Math.random() * 100,
+        duration: Math.random() * 3 + 2,
+        delay: Math.random() * 3,
+        opacity: Math.random() * 0.5 + 0.3,
+      })),
+    []
+  );
+
+  // Orbs
+  const orbs = useMemo<Orb[]>(() => {
+    const colors = [
+      'rgba(147, 51, 234, 0.25)',
+      'rgba(124, 58, 237, 0.3)',
+      'rgba(168, 85, 247, 0.25)',
+      'rgba(192, 132, 252, 0.2)',
+    ];
+
+    return Array.from({ length: 6 }, (_, i) => ({
+      id: i,
+      size: Math.random() * 150 + 80,
+      x: Math.random() * 100,
+      y: Math.random() * 100,
+      duration: Math.random() * 20 + 15,
+      delay: Math.random() * -15,
+      opacity: Math.random() * 0.4 + 0.2,
+      color: colors[i % colors.length],
+    }));
+  }, []);
+
+  const triggerHaptic = useCallback(async () => {
     if (Capacitor.getPlatform() === 'web') return;
     try {
       await Haptics.impact({ style: ImpactStyle.Medium });
     } catch (e) {
-      console.warn('[global create haptic error]', e);
+      console.warn('[haptic error]', e);
     }
   }, []);
 
-  const handlePressStart = React.useCallback(
-    (
-      id: string,
-      e:
-        | React.TouchEvent<HTMLDivElement>
-        | React.MouseEvent<HTMLDivElement, MouseEvent>
-    ) => {
-      if (longPressTimeoutRef.current != null) {
-        window.clearTimeout(longPressTimeoutRef.current);
-      }
-
-      let clientX = 0;
-      let clientY = 0;
-
-      if ('touches' in e && e.touches.length > 0) {
-        clientX = e.touches[0].clientX;
-        clientY = e.touches[0].clientY;
-      } else if ('clientX' in e) {
-        clientX = e.clientX;
-        clientY = e.clientY;
-      }
-
-      pressStartRef.current = { x: clientX, y: clientY };
-
-      longPressTimeoutRef.current = window.setTimeout(() => {
-        setPressedId(id);
-        void triggerHaptic();
-      }, 350);
+  const handleButtonPress = useCallback(
+    (buttonId: string, action: () => void) => {
+      setPressedButton(buttonId);
+      triggerHaptic();
+      setTimeout(() => {
+        setPressedButton(null);
+        action();
+      }, 120);
     },
     [triggerHaptic]
   );
 
-  const handlePressMove = React.useCallback(
-    (e: React.TouchEvent<HTMLDivElement>) => {
-      if (!pressStartRef.current || longPressTimeoutRef.current == null) return;
-      if (e.touches.length !== 1) return;
-
-      const { x, y } = pressStartRef.current;
-      const t = e.touches[0];
-      const dx = t.clientX - x;
-      const dy = t.clientY - y;
-
-      if (Math.abs(dx) > MOVE_THRESHOLD || Math.abs(dy) > MOVE_THRESHOLD) {
-        window.clearTimeout(longPressTimeoutRef.current);
-        longPressTimeoutRef.current = null;
-      }
-    },
-    []
-  );
-
-  const handlePressEnd = React.useCallback(() => {
-    if (longPressTimeoutRef.current != null) {
-      window.clearTimeout(longPressTimeoutRef.current);
-      longPressTimeoutRef.current = null;
-    }
-    pressStartRef.current = null;
-
-    if (pressedId != null) {
-      setTimeout(() => setPressedId(null), 130);
-    }
-  }, [pressedId]);
-
-  // -------- Global open/close + custom event handler --------
-  React.useEffect(() => {
+  // Global open/close event handlers
+  useEffect(() => {
     const onOpen = () => {
       setStep('menu');
       setOpen(true);
@@ -409,27 +182,24 @@ export default function GlobalCreateMobile({
     const onClose = () => setOpen(false);
 
     const onAmpleeGlobalCreate = (evt: Event) => {
-      const custom = evt as CustomEvent<
-        { kind?: string; type?: string; bandId?: string } | undefined
-      >;
+      const custom = evt as CustomEvent<{
+        kind?: string;
+        type?: string;
+        bandId?: string;
+      }>;
+
       const detail = custom.detail || {};
       const kind = detail.kind ?? detail.type;
 
       if (kind === 'event') {
         setStep('newEvent');
-        if (detail.bandId) {
-          eventForm.setBandId(detail.bandId);
-        }
+        if (detail.bandId) eventForm.setBandId(detail.bandId);
       } else if (kind === 'song') {
         setStep('newSong');
-        if (detail.bandId) {
-          songForm.setBandId(detail.bandId);
-        }
+        if (detail.bandId) songForm.setBandId(detail.bandId);
       } else if (kind === 'proposal') {
         setStep('newProposal');
-        if (detail.bandId) {
-          proposalForm.setBandId(detail.bandId);
-        }
+        if (detail.bandId) proposalForm.setBandId(detail.bandId);
       } else {
         setStep('menu');
       }
@@ -454,23 +224,13 @@ export default function GlobalCreateMobile({
     };
   }, [setOpen, eventForm, songForm, proposalForm]);
 
-  const ensureBandsLoaded = React.useCallback(async () => {
+  const ensureBandsLoaded = useCallback(async () => {
     setLoadingBands(true);
     try {
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      if (!user) {
-        showToast('Please sign in first.');
-        setLoadingBands(false);
-        return;
-      }
-      try {
-        const { error: rpcErr } = await supabase.rpc('ensure_profile');
-        if (rpcErr && rpcErr.code !== '42883') {
-          console.warn('[ensure_profile]', rpcErr.message);
-        }
-      } catch {}
+      if (!user) return;
 
       const { data, error: bmErr } = await supabase
         .from('band_members')
@@ -481,34 +241,36 @@ export default function GlobalCreateMobile({
       const mapped = mapBands(data);
       setBands((prev) => mergeLocalBands(prev, mapped));
 
-      if (mapped.length && !eventForm.bandId) {
-        eventForm.setBandId(mapped[0].id);
-      }
-      if (mapped.length && !songForm.bandId) {
-        songForm.setBandId(mapped[0].id);
-      }
-      if (mapped.length && !proposalForm.bandId) {
+      if (mapped.length && !eventForm.bandId) eventForm.setBandId(mapped[0].id);
+      if (mapped.length && !songForm.bandId) songForm.setBandId(mapped[0].id);
+      if (mapped.length && !proposalForm.bandId)
         proposalForm.setBandId(mapped[0].id);
-      }
     } catch (e: any) {
       setError(String(e?.message ?? 'Failed to load your bands'));
     } finally {
       setLoadingBands(false);
+      setBandsLoadedOnce(true);
     }
   }, [eventForm, proposalForm, songForm]);
 
-  const closeAll = React.useCallback(() => {
+  useEffect(() => {
+    if (!open) return;
+    if (!bandsLoadedOnce) {
+      void ensureBandsLoaded();
+    }
+  }, [open, bandsLoadedOnce, ensureBandsLoaded]);
+
+  const closeAll = useCallback(() => {
     setOpen(false);
     setStep('menu');
     setError(null);
-
     bandForm.reset();
     eventForm.reset();
     songForm.reset();
     proposalForm.reset();
   }, [bandForm, eventForm, songForm, proposalForm, setOpen]);
 
-  const handleSubmitCreateBand = React.useCallback(async () => {
+  const handleSubmitCreateBand = useCallback(async () => {
     const created = await bandForm.submit();
     if (!created) return;
 
@@ -527,665 +289,587 @@ export default function GlobalCreateMobile({
     nav(`/bands/${created.id}`);
   }, [bandForm, closeAll, nav, onBandCreated]);
 
-  const handleSubmitCreateEvent = React.useCallback(async () => {
+  const handleSubmitCreateEvent = useCallback(async () => {
     const id = await eventForm.submit();
     if (!id) return;
-
     closeAll();
     nav(`/bands/${eventForm.bandId}/events/${id}`);
   }, [eventForm, closeAll, nav]);
 
-  const handleSubmitCreateSong = React.useCallback(async () => {
+  const handleSubmitCreateSong = useCallback(async () => {
     const id = await songForm.submit();
     if (!id) return;
-
     closeAll();
     nav(`/bands/${songForm.bandId}/songs/${id}`);
   }, [songForm, closeAll, nav]);
 
-  const handleSubmitCreateProposal = React.useCallback(async () => {
+  const handleSubmitCreateProposal = useCallback(async () => {
     const id = await proposalForm.submit();
     if (!id) return;
-
     closeAll();
     nav(`/bands/${proposalForm.bandId}/proposals/${id}`);
   }, [proposalForm, closeAll, nav]);
 
-  React.useEffect(() => {
-    if (!open) return;
-    if (!bands.length && !loadingBands) {
-      void ensureBandsLoaded();
-    }
-  }, [open, bands.length, loadingBands, ensureBandsLoaded]);
-
-  React.useEffect(() => {
-    if (open) {
-      setError(null);
-    }
+  useEffect(() => {
+    if (open) setError(null);
   }, [open]);
 
+  // Get current band ID based on step
+  const currentBandId =
+    step === 'newEvent'
+      ? eventForm.bandId
+      : step === 'newSong'
+      ? songForm.bandId
+      : proposalForm.bandId;
+
+  const handleBandChange = (val: string) => {
+    if (step === 'newEvent') eventForm.setBandId(val);
+    else if (step === 'newSong') songForm.setBandId(val);
+    else proposalForm.setBandId(val);
+  };
+
   return (
-    <>
-      <IonModal
-        isOpen={open}
-        onDidDismiss={closeAll}
-        presentingElement={undefined}
-        className="gc-modal-root"
-      >
-        <IonHeader>
-          <IonToolbar
-            style={{
-              '--background': 'rgba(8,8,12,0.98)',
-              borderBottom: '0.5px solid rgba(255,255,255,0.06)',
-            }}
-          >
-            <IonTitle
-              style={{
-                color: '#F9FAFB',
-                fontWeight: 700,
-                fontSize: 17,
-                letterSpacing: 0.25,
-              }}
-            >
-              Create
-            </IonTitle>
-
-            <IonButtons slot="end">
-              <IonButton
-                onClick={closeAll}
-                aria-label="Close"
-                style={{ '--color': '#F9FAFB' }}
+    <IonModal isOpen={open} onDidDismiss={closeAll} className="gc-modal-root">
+      <IonHeader translucent className="gc-header">
+        <IonToolbar className="gc-header">
+          <div className="gc-header-content">
+            {step !== 'menu' ? (
+              <button
+                className="gc-header-back"
+                onClick={() => {
+                  triggerHaptic();
+                  setStep('menu');
+                }}
               >
-                <IonIcon icon={closeIcon} />
-              </IonButton>
-            </IonButtons>
-          </IonToolbar>
-        </IonHeader>
+                <IonIcon icon={chevronBackOutline} />
+              </button>
+            ) : (
+              <div className="gc-header-spacer" />
+            )}
 
-        <IonContent
-          className="gc-content"
-          style={{
-            ['--padding-top' as any]: 'env(safe-area-inset-top)',
-          }}
-        >
+            <h1 className="gc-header-title">
+              {step === 'menu' && 'Create'}
+              {step === 'newBand' && 'New Band'}
+              {step === 'newEvent' && 'New Event'}
+              {step === 'newSong' && 'New Song'}
+              {step === 'newProposal' && 'New Proposal'}
+            </h1>
+
+            <button className="gc-header-close" onClick={closeAll}>
+              <IonIcon icon={closeOutline} />
+            </button>
+          </div>
+        </IonToolbar>
+      </IonHeader>
+
+      <IonContent className="gc-content">
+        {/* Animated Background Orbs */}
+        {orbs.map((orb) => (
+          <div
+            key={orb.id}
+            className="gc-orb"
+            style={{
+              width: orb.size,
+              height: orb.size,
+              left: `${orb.x}%`,
+              top: `${orb.y}%`,
+              background: `radial-gradient(circle, ${orb.color}, transparent)`,
+              opacity: orb.opacity,
+              animation: `gcFloat ${orb.duration}s infinite ease-in-out ${orb.delay}s`,
+            }}
+          />
+        ))}
+
+        {/* Twinkling Stars */}
+        <div className="gc-stars-container">
+          {stars.map((star) => (
+            <div
+              key={star.id}
+              className="gc-star"
+              style={{
+                width: star.size,
+                height: star.size,
+                left: `${star.x}%`,
+                top: `${star.y}%`,
+                opacity: star.opacity,
+                animation: `gcTwinkle ${star.duration}s infinite ease-in-out ${star.delay}s`,
+              }}
+            />
+          ))}
+        </div>
+
+        <div className="gc-main-content">
+          {/* Error message */}
           {(error || bandForm.createBandErr) && (
             <div className="gc-error-box">
               {error || bandForm.createBandErr}
             </div>
           )}
 
+          {/* Menu Step */}
+          {/* Menu Step */}
           {step === 'menu' && (
             <div className="gc-menu-container">
-              <MenuCard
-                id="newBand"
-                title="New Band"
-                description="Create a new project or solo act."
-                icon={gridOutline}
-                className="gc-card-band"
-                pressedId={pressedId}
-                onCardClick={() => setStep('newBand')}
-                handlePressStart={handlePressStart}
-                handlePressMove={handlePressMove}
-                handlePressEnd={handlePressEnd}
-              />
-
-              {/* Only show Event if user has at least one band */}
-              {bands.length > 0 && (
-                <MenuCard
-                  id="newEvent"
-                  title="New Event"
-                  description="Schedule a show or rehearsal."
-                  icon={calendarOutline}
-                  className="gc-card-event"
-                  pressedId={pressedId}
-                  onCardClick={() => setStep('newEvent')}
-                  handlePressStart={handlePressStart}
-                  handlePressMove={handlePressMove}
-                  handlePressEnd={handlePressEnd}
+              <button
+                className={`gc-menu-card gc-menu-card-band ${
+                  pressedButton === 'newBand' ? 'pressed' : ''
+                }`}
+                onClick={() =>
+                  handleButtonPress('newBand', () => setStep('newBand'))
+                }
+              >
+                <div className="gc-menu-card-icon">
+                  <IonIcon icon={gridOutline} />
+                </div>
+                <div className="gc-menu-card-content">
+                  <div className="gc-menu-card-title">New Band</div>
+                  <div className="gc-menu-card-description">
+                    Create a new project or solo act
+                  </div>
+                </div>
+                <IonIcon
+                  icon={chevronForwardOutline}
+                  className="gc-menu-card-chevron"
                 />
-              )}
+              </button>
 
               {bands.length > 0 && (
-                <MenuCard
-                  id="newProposal"
-                  title="New Proposal"
-                  description="Pitch a gig idea for your band."
-                  icon={clipboardOutline}
-                  className="gc-card-proposal"
-                  pressedId={pressedId}
-                  onCardClick={() => setStep('newProposal')}
-                  handlePressStart={handlePressStart}
-                  handlePressMove={handlePressMove}
-                  handlePressEnd={handlePressEnd}
-                />
-              )}
-
-              {bands.length > 0 && (
-                <MenuCard
-                  id="newSong"
-                  title="New Song"
-                  description="Add a song to your band's library."
-                  icon={musicalNotesOutline}
-                  className="gc-card-song"
-                  pressedId={pressedId}
-                  onCardClick={() => setStep('newSong')}
-                  handlePressStart={handlePressStart}
-                  handlePressMove={handlePressMove}
-                  handlePressEnd={handlePressEnd}
-                />
-              )}
-            </div>
-          )}
-
-          {/* ---- New Band ---- */}
-          {step === 'newBand' && (
-            <div className="gc-form-shell">
-              <IonList className="gc-list" lines="full">
-                <IonItem>
-                  <IonLabel position="stacked" className="gc-label">
-                    Band name
-                  </IonLabel>
-                  <IonInput
-                    value={bandForm.bandName}
-                    placeholder="e.g., Teem and Tiger"
-                    onIonInput={(e) =>
-                      bandForm.setBandName(String(e.detail.value ?? ''))
+                <>
+                  <button
+                    className={`gc-menu-card gc-menu-card-event ${
+                      pressedButton === 'newEvent' ? 'pressed' : ''
+                    }`}
+                    onClick={() =>
+                      handleButtonPress('newEvent', () => setStep('newEvent'))
                     }
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        void handleSubmitCreateBand();
-                      }
-                    }}
-                    style={{ '--padding-start': '0' }}
-                  />
-                </IonItem>
-
-                <IonItem>
-                  <IonLabel position="stacked" className="gc-label">
-                    Avatar (optional)
-                  </IonLabel>
-                  <div
-                    style={{
-                      display: 'flex',
-                      gap: 12,
-                      alignItems: 'center',
-                      width: '100%',
-                      paddingTop: 8,
-                      paddingBottom: 8,
-                    }}
                   >
-                    <div
-                      style={{
-                        width: 60,
-                        height: 60,
-                        borderRadius: '50%',
-                        overflow: 'hidden',
-                        background: 'rgba(15,23,42,0.9)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontWeight: 700,
-                        fontSize: 20,
-                        color: '#e5e7eb',
-                      }}
-                    >
-                      {bandForm.avatarPreview ? (
-                        <img
-                          src={bandForm.avatarPreview}
-                          alt="Preview"
-                          style={{
-                            width: '100%',
-                            height: '100%',
-                            objectFit: 'cover',
-                          }}
-                        />
-                      ) : (
-                        bandForm.bandName.trim().slice(0, 2).toUpperCase() ||
-                        '??'
-                      )}
+                    <div className="gc-menu-card-icon">
+                      <IonIcon icon={calendarOutline} />
                     </div>
-
-                    <IonButton
-                      fill="outline"
-                      size="small"
-                      onClick={() => bandForm.fileInputRef.current?.click()}
-                    >
-                      {bandForm.avatarPreview ? 'Change image' : 'Add image'}
-                    </IonButton>
-
-                    <input
-                      ref={bandForm.fileInputRef}
-                      type="file"
-                      accept="image/*"
-                      style={{ display: 'none' }}
-                      onChange={bandForm.pickAvatar}
+                    <div className="gc-menu-card-content">
+                      <div className="gc-menu-card-title">New Event</div>
+                      <div className="gc-menu-card-description">
+                        Schedule a show or rehearsal
+                      </div>
+                    </div>
+                    <IonIcon
+                      icon={chevronForwardOutline}
+                      className="gc-menu-card-chevron"
                     />
-                  </div>
-                </IonItem>
-              </IonList>
+                  </button>
 
-              <div className="gc-buttons">
-                <IonButton
-                  fill="outline"
-                  onClick={() => {
-                    bandForm.reset();
-                    setStep('menu');
-                  }}
-                  className="gc-btn-back"
-                >
-                  Back
-                </IonButton>
-                <IonButton
-                  onClick={handleSubmitCreateBand}
-                  disabled={!bandForm.bandName.trim() || bandForm.creatingBand}
-                  className="gc-btn-primary gc-btn-primary-band"
-                >
-                  {bandForm.creatingBand ? (
-                    <>
-                      <IonSpinner name="dots" />
-                      &nbsp;Creating…
-                    </>
+                  <button
+                    className={`gc-menu-card gc-menu-card-proposal ${
+                      pressedButton === 'newProposal' ? 'pressed' : ''
+                    }`}
+                    onClick={() =>
+                      handleButtonPress('newProposal', () =>
+                        setStep('newProposal')
+                      )
+                    }
+                  >
+                    <div className="gc-menu-card-icon">
+                      <IonIcon icon={clipboardOutline} />
+                    </div>
+                    <div className="gc-menu-card-content">
+                      <div className="gc-menu-card-title">New Proposal</div>
+                      <div className="gc-menu-card-description">
+                        Pitch a gig idea for your band
+                      </div>
+                    </div>
+                    <IonIcon
+                      icon={chevronForwardOutline}
+                      className="gc-menu-card-chevron"
+                    />
+                  </button>
+
+                  <button
+                    className={`gc-menu-card gc-menu-card-song ${
+                      pressedButton === 'newSong' ? 'pressed' : ''
+                    }`}
+                    onClick={() =>
+                      handleButtonPress('newSong', () => setStep('newSong'))
+                    }
+                  >
+                    <div className="gc-menu-card-icon">
+                      <IonIcon icon={musicalNotesOutline} />
+                    </div>
+                    <div className="gc-menu-card-content">
+                      <div className="gc-menu-card-title">New Song</div>
+                      <div className="gc-menu-card-description">
+                        Add a song to your band's library
+                      </div>
+                    </div>
+                    <IonIcon
+                      icon={chevronForwardOutline}
+                      className="gc-menu-card-chevron"
+                    />
+                  </button>
+                </>
+              )}
+
+              {/* Optional hint when you truly have no bands */}
+              {!loadingBands && bands.length === 0 && (
+                <div className="gc-empty-hint">
+                  Create a band to unlock events, songs, and proposals.
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* New Band Form */}
+          {step === 'newBand' && (
+            <div className="gc-form-card gc-form-card-band">
+              <div className="gc-form-group">
+                <label className="gc-form-label gc-form-label-band">
+                  Band name
+                </label>
+                <input
+                  type="text"
+                  className="gc-form-input gc-form-input-band"
+                  value={bandForm.bandName}
+                  onChange={(e) => bandForm.setBandName(e.target.value)}
+                  placeholder="e.g., Teem and Tiger"
+                />
+              </div>
+
+              <label className="gc-form-label gc-form-label-band">
+                Avatar (optional)
+              </label>
+              <div className="gc-avatar-picker">
+                <div className="gc-avatar-preview">
+                  {bandForm.avatarPreview ? (
+                    <img src={bandForm.avatarPreview} alt="" />
                   ) : (
-                    'Create Band'
+                    bandForm.bandName.trim().slice(0, 2).toUpperCase() || '??'
                   )}
-                </IonButton>
+                </div>
+                <button
+                  className="gc-avatar-btn"
+                  onClick={() => bandForm.fileInputRef.current?.click()}
+                >
+                  {bandForm.avatarPreview ? 'Change' : 'Add image'}
+                </button>
+                <input
+                  ref={bandForm.fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="gc-hidden"
+                  onChange={bandForm.pickAvatar}
+                />
               </div>
+
+              <button
+                className="gc-submit-btn gc-submit-btn-band"
+                onClick={handleSubmitCreateBand}
+                disabled={!bandForm.bandName.trim() || bandForm.creatingBand}
+              >
+                {bandForm.creatingBand ? 'Creating…' : 'Create Band'}
+              </button>
             </div>
           )}
 
-          {/* ---- New Event ---- */}
+          {/* New Event Form */}
           {step === 'newEvent' && (
-            <div className="gc-form-shell">
-              <IonList className="gc-list" lines="full">
-                <BandSelectRow
-                  label="Band"
-                  value={eventForm.bandId}
-                  onChange={eventForm.setBandId}
-                  bands={bands}
-                  loadingBands={loadingBands}
-                  ensureBandsLoaded={ensureBandsLoaded}
-                />
-
-                <IonItem>
-                  <IonLabel position="stacked" className="gc-label">
-                    Title
-                  </IonLabel>
-                  <IonInput
-                    value={eventForm.title}
-                    placeholder="e.g., Show @ The Rino"
-                    onIonInput={(e) =>
-                      eventForm.setTitle(String(e.detail.value ?? ''))
-                    }
-                    style={{ '--padding-start': '0' }}
+            <div className="gc-form-card gc-form-card-event">
+              <div className="gc-form-group">
+                <label className="gc-form-label gc-form-label-event">
+                  Band
+                </label>
+                <div className="gc-select-wrapper">
+                  <select
+                    className="gc-select gc-form-input-event"
+                    value={currentBandId}
+                    onChange={(e) => handleBandChange(e.target.value)}
+                  >
+                    {loadingBands && <option value="">Loading…</option>}
+                    {!loadingBands &&
+                      bands.map((b) => (
+                        <option key={b.id} value={b.id}>
+                          {b.name}
+                        </option>
+                      ))}
+                  </select>
+                  <IonIcon
+                    icon={chevronForwardOutline}
+                    className="gc-select-chevron"
                   />
-                </IonItem>
-
-                <IonItem>
-                  <IonLabel position="stacked" className="gc-label">
-                    Type
-                  </IonLabel>
-                  <IonSelect
-                    interface="popover"
-                    value={eventForm.type}
-                    onIonChange={(e) =>
-                      eventForm.setType(e.detail.value as any)
-                    }
-                    style={{ '--padding-start': '0' }}
-                  >
-                    <IonSelectOption value="show">Show</IonSelectOption>
-                    <IonSelectOption value="practice">Practice</IonSelectOption>
-                  </IonSelect>
-                </IonItem>
-
-                <IonItem>
-                  <IonLabel position="stacked" className="gc-label">
-                    Starts
-                  </IonLabel>
-                  <div
-                    style={{
-                      width: '100%',
-                      paddingTop: 8,
-                      paddingBottom: 8,
-                    }}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => eventForm.setShowStartsPicker(true)}
-                      style={{
-                        width: '100%',
-                        padding: '12px 16px',
-                        borderRadius: 10,
-                        border: '1px solid rgba(139, 92, 246, 0.3)',
-                        background: 'rgba(30, 41, 59, 0.8)',
-                        color: eventForm.starts ? '#e5e7eb' : '#9ca3af',
-                        fontSize: 15,
-                        fontWeight: 600,
-                        textAlign: 'left',
-                        cursor: 'pointer',
-                        fontFamily: 'inherit',
-                        transition: 'all 0.2s',
-                      }}
-                    >
-                      {eventForm.starts
-                        ? new Date(eventForm.starts).toLocaleString(undefined, {
-                            weekday: 'short',
-                            month: 'short',
-                            day: 'numeric',
-                            year: 'numeric',
-                            hour: 'numeric',
-                            minute: '2-digit',
-                          })
-                        : 'Select start date & time'}
-                    </button>
-                  </div>
-                </IonItem>
-
-                <IonItem>
-                  <IonLabel position="stacked" className="gc-label">
-                    Ends (optional)
-                  </IonLabel>
-                  <div
-                    style={{
-                      width: '100%',
-                      paddingTop: 8,
-                      paddingBottom: 8,
-                    }}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => eventForm.setShowEndsPicker(true)}
-                      style={{
-                        width: '100%',
-                        padding: '12px 16px',
-                        borderRadius: 10,
-                        border: '1px solid rgba(139, 92, 246, 0.3)',
-                        background: 'rgba(30, 41, 59, 0.8)',
-                        color: eventForm.ends ? '#e5e7eb' : '#9ca3af',
-                        fontSize: 15,
-                        fontWeight: 600,
-                        textAlign: 'left',
-                        cursor: 'pointer',
-                        fontFamily: 'inherit',
-                        transition: 'all 0.2s',
-                      }}
-                    >
-                      {eventForm.ends
-                        ? new Date(eventForm.ends).toLocaleString(undefined, {
-                            weekday: 'short',
-                            month: 'short',
-                            day: 'numeric',
-                            year: 'numeric',
-                            hour: 'numeric',
-                            minute: '2-digit',
-                          })
-                        : 'Select end date & time'}
-                    </button>
-                  </div>
-                </IonItem>
-
-                <IonItem>
-                  <IonLabel position="stacked" className="gc-label">
-                    Location (optional)
-                  </IonLabel>
-                  <IonInput
-                    value={eventForm.location}
-                    onIonInput={(e) =>
-                      eventForm.setLocation(String(e.detail.value ?? ''))
-                    }
-                    placeholder="123 Main St"
-                    style={{ '--padding-start': '0' }}
-                  />
-                </IonItem>
-              </IonList>
-
-              <div className="gc-buttons">
-                <IonButton
-                  fill="outline"
-                  onClick={() => {
-                    eventForm.reset();
-                    setStep('menu');
-                  }}
-                  className="gc-btn-back"
-                >
-                  Back
-                </IonButton>
-                <IonButton
-                  onClick={handleSubmitCreateEvent}
-                  disabled={
-                    !eventForm.bandId ||
-                    !eventForm.title.trim() ||
-                    !eventForm.starts
-                  }
-                  className="gc-btn-primary gc-btn-primary-event"
-                >
-                  Create Event
-                </IonButton>
+                </div>
               </div>
+
+              <div className="gc-form-group">
+                <label className="gc-form-label gc-form-label-event">
+                  Title
+                </label>
+                <input
+                  type="text"
+                  className="gc-form-input gc-form-input-event"
+                  value={eventForm.title}
+                  onChange={(e) => eventForm.setTitle(e.target.value)}
+                  placeholder="e.g., Show @ The Rino"
+                />
+              </div>
+
+              <div className="gc-form-group">
+                <label className="gc-form-label gc-form-label-event">
+                  Type
+                </label>
+                <div className="gc-toggle-group">
+                  {['show', 'practice'].map((t) => (
+                    <button
+                      key={t}
+                      className={`gc-toggle-btn ${
+                        eventForm.type === t
+                          ? 'gc-toggle-btn-active-event'
+                          : 'gc-toggle-btn-inactive'
+                      }`}
+                      onClick={() => eventForm.setType(t as any)}
+                    >
+                      {t}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="gc-form-group">
+                <label className="gc-form-label gc-form-label-event">
+                  Starts
+                </label>
+                <button
+                  className={`gc-date-btn gc-date-btn-event ${
+                    eventForm.starts
+                      ? 'gc-date-btn-filled'
+                      : 'gc-date-btn-empty'
+                  }`}
+                  onClick={() => eventForm.setShowStartsPicker(true)}
+                >
+                  {eventForm.starts
+                    ? new Date(eventForm.starts).toLocaleString(undefined, {
+                        weekday: 'short',
+                        month: 'short',
+                        day: 'numeric',
+                        hour: 'numeric',
+                        minute: '2-digit',
+                      })
+                    : 'Select date & time'}
+                </button>
+              </div>
+
+              <div className="gc-form-group">
+                <label className="gc-form-label gc-form-label-event">
+                  Location (optional)
+                </label>
+                <input
+                  type="text"
+                  className="gc-form-input gc-form-input-event"
+                  value={eventForm.location}
+                  onChange={(e) => eventForm.setLocation(e.target.value)}
+                  placeholder="123 Main St"
+                />
+              </div>
+
+              <button
+                className="gc-submit-btn gc-submit-btn-event"
+                onClick={handleSubmitCreateEvent}
+                disabled={
+                  !eventForm.bandId ||
+                  !eventForm.title.trim() ||
+                  !eventForm.starts
+                }
+              >
+                Create Event
+              </button>
             </div>
           )}
 
-          {/* ---- New Proposal ---- */}
-          {step === 'newProposal' && (
-            <div className="gc-form-shell">
-              <IonList className="gc-list" lines="full">
-                <BandSelectRow
-                  label="Band"
-                  value={proposalForm.bandId}
-                  onChange={proposalForm.setBandId}
-                  bands={bands}
-                  loadingBands={loadingBands}
-                  ensureBandsLoaded={ensureBandsLoaded}
-                />
-
-                <IonItem>
-                  <IonLabel position="stacked" className="gc-label">
-                    Proposal title
-                  </IonLabel>
-                  <IonInput
-                    value={proposalForm.title}
-                    placeholder="e.g., Friday night at Riverfront"
-                    onIonInput={(e) =>
-                      proposalForm.setTitle(String(e.detail.value ?? ''))
-                    }
-                    style={{ '--padding-start': '0' }}
-                  />
-                </IonItem>
-
-                <IonItem>
-                  <IonLabel position="stacked" className="gc-label">
-                    Venue (optional)
-                  </IonLabel>
-                  <IonInput
-                    value={proposalForm.venue}
-                    placeholder="The Record Bar"
-                    onIonInput={(e) =>
-                      proposalForm.setVenue(String(e.detail.value ?? ''))
-                    }
-                    style={{ '--padding-start': '0' }}
-                  />
-                </IonItem>
-              </IonList>
-
-              <div className="gc-buttons">
-                <IonButton
-                  fill="outline"
-                  onClick={() => {
-                    proposalForm.reset();
-                    setStep('menu');
-                  }}
-                  className="gc-btn-back"
-                >
-                  Back
-                </IonButton>
-                <IonButton
-                  onClick={handleSubmitCreateProposal}
-                  disabled={!proposalForm.bandId || !proposalForm.title.trim()}
-                  className="gc-btn-primary gc-btn-primary-proposal"
-                >
-                  Create Proposal
-                </IonButton>
-              </div>
-            </div>
-          )}
-
-          {/* ---- New Song ---- */}
+          {/* New Song Form */}
           {step === 'newSong' && (
-            <div className="gc-form-shell">
-              <IonList className="gc-list" lines="full">
-                <BandSelectRow
-                  label="Band"
-                  value={songForm.bandId}
-                  onChange={songForm.setBandId}
-                  bands={bands}
-                  loadingBands={loadingBands}
-                  ensureBandsLoaded={ensureBandsLoaded}
-                />
-
-                <IonItem>
-                  <IonLabel position="stacked" className="gc-label">
-                    Song title
-                  </IonLabel>
-                  <IonInput
-                    value={songForm.title}
-                    placeholder="e.g., Meadowlark & the Bluebird"
-                    onIonInput={(e) =>
-                      songForm.setTitle(String(e.detail.value ?? ''))
-                    }
-                    style={{ '--padding-start': '0' }}
-                  />
-                </IonItem>
-
-                <IonItem>
-                  <IonLabel position="stacked" className="gc-label">
-                    Origin
-                  </IonLabel>
-                  <div
-                    style={{
-                      display: 'flex',
-                      gap: 8,
-                      marginTop: 8,
-                      marginBottom: 4,
-                    }}
+            <div className="gc-form-card gc-form-card-song">
+              <div className="gc-form-group">
+                <label className="gc-form-label gc-form-label-song">Band</label>
+                <div className="gc-select-wrapper">
+                  <select
+                    className="gc-select gc-form-input-song"
+                    value={currentBandId}
+                    onChange={(e) => handleBandChange(e.target.value)}
                   >
-                    <IonButton
-                      size="small"
-                      fill={
-                        songForm.origin === 'original' ? 'solid' : 'outline'
-                      }
-                      onClick={() => songForm.setOrigin('original')}
-                      style={
-                        {
-                          '--background': 'rgba(34,197,94,0.18)',
-                          '--background-activated': 'rgba(34,197,94,0.3)',
-                          '--color': '#bbf7d0',
-                          '--border-color': 'rgba(34,197,94,0.7)',
-                          '--border-radius': '999px',
-                          fontSize: 12,
-                          paddingInline: 12,
-                          paddingBlock: 4,
-                        } as any
-                      }
-                    >
-                      Original
-                    </IonButton>
-
-                    <IonButton
-                      size="small"
-                      fill={songForm.origin === 'cover' ? 'solid' : 'outline'}
-                      onClick={() => songForm.setOrigin('cover')}
-                      style={
-                        {
-                          '--background': 'rgba(248,250,252,0.04)',
-                          '--background-activated': 'rgba(248,250,252,0.08)',
-                          '--color': '#f9a8d4',
-                          '--border-color': 'rgba(244,114,182,0.8)',
-                          '--border-radius': '999px',
-                          fontSize: 12,
-                          paddingInline: 12,
-                          paddingBlock: 4,
-                        } as any
-                      }
-                    >
-                      Cover
-                    </IonButton>
-                  </div>
-                </IonItem>
-
-                {songForm.origin === 'cover' && (
-                  <IonItem>
-                    <IonLabel position="stacked" className="gc-label">
-                      Original artist{' '}
-                      <span style={{ opacity: 0.6 }}>(required)</span>
-                    </IonLabel>
-                    <IonInput
-                      value={songForm.originalArtist}
-                      placeholder="e.g., Fleetwood Mac"
-                      onIonInput={(e) =>
-                        songForm.setOriginalArtist(String(e.detail.value ?? ''))
-                      }
-                      style={{ '--padding-start': '0' }}
-                    />
-                  </IonItem>
-                )}
-
-                <IonItem>
-                  <IonLabel position="stacked" className="gc-label">
-                    Key (optional)
-                  </IonLabel>
-                  <IonInput
-                    value={songForm.key}
-                    placeholder="e.g., G, B♭"
-                    onIonInput={(e) =>
-                      songForm.setKey(String(e.detail.value ?? ''))
-                    }
-                    style={{ '--padding-start': '0' }}
+                    {loadingBands && <option value="">Loading…</option>}
+                    {!loadingBands &&
+                      bands.map((b) => (
+                        <option key={b.id} value={b.id}>
+                          {b.name}
+                        </option>
+                      ))}
+                  </select>
+                  <IonIcon
+                    icon={chevronForwardOutline}
+                    className="gc-select-chevron"
                   />
-                </IonItem>
-
-                <IonItem>
-                  <IonLabel position="stacked" className="gc-label">
-                    BPM (optional)
-                  </IonLabel>
-                  <IonInput
-                    type="number"
-                    inputmode="numeric"
-                    value={songForm.bpm}
-                    placeholder="e.g., 120"
-                    onIonInput={(e) =>
-                      songForm.setBpm(String(e.detail.value ?? ''))
-                    }
-                    style={{ '--padding-start': '0' }}
-                  />
-                </IonItem>
-              </IonList>
-
-              <div className="gc-buttons">
-                <IonButton
-                  fill="outline"
-                  onClick={() => {
-                    songForm.reset();
-                    setStep('menu');
-                  }}
-                  className="gc-btn-back"
-                >
-                  Back
-                </IonButton>
-                <IonButton
-                  onClick={handleSubmitCreateSong}
-                  disabled={!songForm.bandId || !songForm.title.trim()}
-                  className="gc-btn-primary gc-btn-primary-song"
-                >
-                  Create Song
-                </IonButton>
+                </div>
               </div>
+
+              <div className="gc-form-group">
+                <label className="gc-form-label gc-form-label-song">
+                  Song title
+                </label>
+                <input
+                  type="text"
+                  className="gc-form-input gc-form-input-song"
+                  value={songForm.title}
+                  onChange={(e) => songForm.setTitle(e.target.value)}
+                  placeholder="e.g., Meadowlark & the Bluebird"
+                />
+              </div>
+
+              <div className="gc-form-group">
+                <label className="gc-form-label gc-form-label-song">
+                  Origin
+                </label>
+                <div className="gc-toggle-group">
+                  <button
+                    className={`gc-toggle-btn ${
+                      songForm.origin === 'original'
+                        ? 'gc-toggle-btn-active-original'
+                        : 'gc-toggle-btn-inactive'
+                    }`}
+                    onClick={() => songForm.setOrigin('original')}
+                  >
+                    Original
+                  </button>
+                  <button
+                    className={`gc-toggle-btn ${
+                      songForm.origin === 'cover'
+                        ? 'gc-toggle-btn-active-cover'
+                        : 'gc-toggle-btn-inactive'
+                    }`}
+                    onClick={() => songForm.setOrigin('cover')}
+                  >
+                    Cover
+                  </button>
+                </div>
+              </div>
+
+              {songForm.origin === 'cover' && (
+                <div className="gc-form-group">
+                  <label className="gc-form-label gc-form-label-song">
+                    Original artist
+                  </label>
+                  <input
+                    type="text"
+                    className="gc-form-input gc-form-input-song"
+                    value={songForm.originalArtist}
+                    onChange={(e) => songForm.setOriginalArtist(e.target.value)}
+                    placeholder="e.g., Fleetwood Mac"
+                  />
+                </div>
+              )}
+
+              <div className="gc-form-row">
+                <div className="gc-form-group">
+                  <label className="gc-form-label gc-form-label-song">
+                    Key (optional)
+                  </label>
+                  <input
+                    type="text"
+                    className="gc-form-input gc-form-input-song"
+                    value={songForm.key}
+                    onChange={(e) => songForm.setKey(e.target.value)}
+                    placeholder="e.g., G, B♭"
+                  />
+                </div>
+                <div className="gc-form-group">
+                  <label className="gc-form-label gc-form-label-song">
+                    BPM (optional)
+                  </label>
+                  <input
+                    type="number"
+                    className="gc-form-input gc-form-input-song"
+                    value={songForm.bpm}
+                    onChange={(e) => songForm.setBpm(e.target.value)}
+                    placeholder="e.g., 120"
+                  />
+                </div>
+              </div>
+
+              <button
+                className="gc-submit-btn gc-submit-btn-song"
+                onClick={handleSubmitCreateSong}
+                disabled={!songForm.bandId || !songForm.title.trim()}
+              >
+                Create Song
+              </button>
             </div>
           )}
-        </IonContent>
+
+          {/* New Proposal Form */}
+          {step === 'newProposal' && (
+            <div className="gc-form-card gc-form-card-proposal">
+              <div className="gc-form-group">
+                <label className="gc-form-label gc-form-label-proposal">
+                  Band
+                </label>
+                <div className="gc-select-wrapper">
+                  <select
+                    className="gc-select gc-form-input-proposal"
+                    value={currentBandId}
+                    onChange={(e) => handleBandChange(e.target.value)}
+                  >
+                    {loadingBands && <option value="">Loading…</option>}
+                    {!loadingBands &&
+                      bands.map((b) => (
+                        <option key={b.id} value={b.id}>
+                          {b.name}
+                        </option>
+                      ))}
+                  </select>
+                  <IonIcon
+                    icon={chevronForwardOutline}
+                    className="gc-select-chevron"
+                  />
+                </div>
+              </div>
+
+              <div className="gc-form-group">
+                <label className="gc-form-label gc-form-label-proposal">
+                  Proposal title
+                </label>
+                <input
+                  type="text"
+                  className="gc-form-input gc-form-input-proposal"
+                  value={proposalForm.title}
+                  onChange={(e) => proposalForm.setTitle(e.target.value)}
+                  placeholder="e.g., Friday night at Riverfront"
+                />
+              </div>
+
+              <div className="gc-form-group">
+                <label className="gc-form-label gc-form-label-proposal">
+                  Venue (optional)
+                </label>
+                <input
+                  type="text"
+                  className="gc-form-input gc-form-input-proposal"
+                  value={proposalForm.venue}
+                  onChange={(e) => proposalForm.setVenue(e.target.value)}
+                  placeholder="The Record Bar"
+                />
+              </div>
+
+              <button
+                className="gc-submit-btn gc-submit-btn-proposal"
+                onClick={handleSubmitCreateProposal}
+                disabled={!proposalForm.bandId || !proposalForm.title.trim()}
+              >
+                Create Proposal
+              </button>
+            </div>
+          )}
+        </div>
 
         {/* Date pickers */}
         <EventDateTimePicker
           open={eventForm.showStartsPicker}
-          label="Event Start Date & Time"
+          label="Event Start"
           value={eventForm.starts || undefined}
           onChange={(iso) => {
             if (iso) eventForm.setStarts(iso);
@@ -1196,27 +880,17 @@ export default function GlobalCreateMobile({
 
         <EventDateTimePicker
           open={eventForm.showEndsPicker}
-          label="Event End Date & Time"
+          label="Event End"
           value={eventForm.ends || undefined}
           min={eventForm.starts || undefined}
           onChange={(iso) => {
-            if (iso) {
-              eventForm.setEnds(iso);
-            } else {
-              eventForm.setEnds('');
-            }
+            if (iso) eventForm.setEnds(iso);
+            else eventForm.setEnds('');
             eventForm.setShowEndsPicker(false);
           }}
           onDismiss={() => eventForm.setShowEndsPicker(false)}
         />
-      </IonModal>
-
-      <IonToast
-        isOpen={toast.open}
-        message={toast.msg}
-        duration={2200}
-        onDidDismiss={() => setToast({ open: false, msg: '' })}
-      />
-    </>
+      </IonContent>
+    </IonModal>
   );
 }

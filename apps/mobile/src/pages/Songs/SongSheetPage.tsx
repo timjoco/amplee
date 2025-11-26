@@ -1,34 +1,39 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { Capacitor } from '@capacitor/core';
+import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import {
   IonButton,
-  IonButtons,
   IonContent,
   IonHeader,
   IonIcon,
+  IonModal,
   IonPage,
   IonSpinner,
-  IonText,
-  IonTextarea,
-  IonTitle,
   IonToolbar,
 } from '@ionic/react';
 import {
-  addCircleOutline,
-  checkmarkCircleOutline,
+  addOutline,
+  chatbubblesOutline,
   chevronBackOutline,
-  closeOutline,
   createOutline,
+  documentTextOutline,
+  linkOutline,
   musicalNotesOutline,
-  saveOutline,
-  timeOutline,
+  openOutline,
+  personCircleOutline,
+  sendOutline,
+  sparklesOutline,
+  speedometerOutline,
+  trashOutline,
 } from 'ionicons/icons';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 
 type SongOrigin = 'original' | 'cover';
 
 type SongRow = {
   id: string;
+  band_id: string;
   title: string;
   default_key: string | null;
   default_bpm: number | null;
@@ -38,34 +43,28 @@ type SongRow = {
   band_name: string | null;
 };
 
-type UserChart = {
+type RecordingLink = {
   id: string;
-  chart_content: string | null;
-  personal_notes: string | null;
-  key_override: string | null;
-  bpm_override: number | null;
+  song_id: string;
+  label: string;
+  url: string;
   created_at: string;
-  updated_at: string;
+};
+
+type SongComment = {
+  id: string;
+  song_id: string;
+  user_id: string;
+  content: string;
+  created_at: string;
+  user_name: string;
+  user_avatar: string | null;
 };
 
 type SongSheetPageProps = {
   songId: string;
   onBack: () => void;
   onEdit?: (songId: string) => void;
-};
-
-type ViewMode = 'shared' | 'personal';
-
-type ChordPlacement = {
-  id: string;
-  chord: string;
-  position: number; // character position in line
-};
-
-type ChartLine = {
-  id: string;
-  text: string;
-  chords: ChordPlacement[];
 };
 
 export default function SongSheetPage({
@@ -75,34 +74,64 @@ export default function SongSheetPage({
 }: SongSheetPageProps) {
   const [loading, setLoading] = useState(true);
   const [song, setSong] = useState<SongRow | null>(null);
-  const [userChart, setUserChart] = useState<UserChart | null>(null);
-  const [viewMode, setViewMode] = useState<ViewMode>('shared');
-  const [isEditing, setIsEditing] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const [recordings, setRecordings] = useState<RecordingLink[]>([]);
+  const [comments, setComments] = useState<SongComment[]>([]);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
-  // Edit form state
-  const [editLines, setEditLines] = useState<ChartLine[]>([]);
-  const [editPersonalNotes, setEditPersonalNotes] = useState('');
-  const [editKeyOverride, setEditKeyOverride] = useState('');
-  const [editBpmOverride, setEditBpmOverride] = useState('');
-  const [selectedLineId, setSelectedLineId] = useState<string | null>(null);
-  const [collisionFlashLineId, setCollisionFlashLineId] = useState<
-    string | null
-  >(null);
+  const [pressedButton, setPressedButton] = useState<string | null>(null);
 
-  // Drag state
-  const [draggingChord, setDraggingChord] = useState<{
-    lineId: string;
-    chordId: string;
-  } | null>(null);
-  const [dragStartX, setDragStartX] = useState(0);
-  const [dragStartPosition, setDragStartPosition] = useState(0);
+  // Add recording modal
+  const [showAddRecording, setShowAddRecording] = useState(false);
+  const [newRecordingLabel, setNewRecordingLabel] = useState('');
+  const [newRecordingUrl, setNewRecordingUrl] = useState('');
+  const [savingRecording, setSavingRecording] = useState(false);
 
+  // Edit lyrics modal
+  const [showEditLyrics, setShowEditLyrics] = useState(false);
+  const [editLyricsText, setEditLyricsText] = useState('');
+  const [savingLyrics, setSavingLyrics] = useState(false);
+
+  // New comment
+  const [newComment, setNewComment] = useState('');
+  const [sendingComment, setSendingComment] = useState(false);
+  const commentInputRef = useRef<HTMLTextAreaElement>(null);
+
+  const triggerHaptic = useCallback(async () => {
+    if (Capacitor.getPlatform() === 'web') return;
+    try {
+      await Haptics.impact({ style: ImpactStyle.Medium });
+    } catch (e) {
+      console.warn('[haptic error]', e);
+    }
+  }, []);
+
+  const handleButtonPress = useCallback(
+    (buttonId: string, action: () => void) => {
+      setPressedButton(buttonId);
+      triggerHaptic();
+      setTimeout(() => {
+        setPressedButton(null);
+        action();
+      }, 120);
+    },
+    [triggerHaptic]
+  );
+
+  // Load song data
   useEffect(() => {
     if (!songId) return;
 
     const loadData = async () => {
       setLoading(true);
+
+      // Get current user
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user) {
+        setCurrentUserId(user.id);
+      }
 
       // Load song
       const { data: songData, error: songError } = await supabase
@@ -110,6 +139,7 @@ export default function SongSheetPage({
         .select(
           `
           id,
+          band_id,
           title,
           default_key,
           default_bpm,
@@ -130,6 +160,7 @@ export default function SongSheetPage({
         const bandName = anyData.bands?.name ?? null;
         setSong({
           id: anyData.id,
+          band_id: anyData.band_id,
           title: anyData.title,
           default_key: anyData.default_key,
           default_bpm: anyData.default_bpm,
@@ -138,24 +169,58 @@ export default function SongSheetPage({
           origin: anyData.origin,
           band_name: bandName,
         });
+
+        // Check if user is admin
+        if (user && anyData.band_id) {
+          const { data: memberData } = await supabase
+            .from('band_members')
+            .select('role')
+            .eq('band_id', anyData.band_id)
+            .eq('user_id', user.id)
+            .maybeSingle();
+
+          setIsAdmin(memberData?.role === 'admin');
+        }
       }
 
-      // Load user's personal chart
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      // Load recordings
+      const { data: recordingsData, error: recordingsError } = await supabase
+        .from('song_recordings')
+        .select('*')
+        .eq('song_id', songId)
+        .order('created_at', { ascending: true });
 
-      if (user) {
-        const { data: chartData, error: chartError } = await supabase
-          .from('user_charts')
-          .select('*')
-          .eq('song_id', songId)
-          .eq('user_id', user.id)
-          .maybeSingle();
+      if (!recordingsError && recordingsData) {
+        setRecordings(recordingsData as RecordingLink[]);
+      }
 
-        if (!chartError && chartData) {
-          setUserChart(chartData as UserChart);
-        }
+      // Load comments
+      const { data: commentsData, error: commentsError } = await supabase
+        .from('song_comments')
+        .select(
+          `
+          id,
+          song_id,
+          user_id,
+          content,
+          created_at,
+          profiles(display_name, avatar_url)
+        `
+        )
+        .eq('song_id', songId)
+        .order('created_at', { ascending: true });
+
+      if (!commentsError && commentsData) {
+        const formattedComments = commentsData.map((c: any) => ({
+          id: c.id,
+          song_id: c.song_id,
+          user_id: c.user_id,
+          content: c.content,
+          created_at: c.created_at,
+          user_name: c.profiles?.display_name || 'Unknown',
+          user_avatar: c.profiles?.avatar_url || null,
+        }));
+        setComments(formattedComments);
       }
 
       setLoading(false);
@@ -164,496 +229,178 @@ export default function SongSheetPage({
     void loadData();
   }, [songId]);
 
-  // Convert bracket notation [C] to structured format
-  const parseChartContent = (content: string): ChartLine[] => {
-    const lines = content.split('\n');
-    return lines.map((line, idx) => {
-      const chords: ChordPlacement[] = [];
+  // Add recording
+  const handleAddRecording = async () => {
+    if (!song || !newRecordingLabel.trim() || !newRecordingUrl.trim()) return;
 
-      // First, clean up any corrupted empty brackets or malformed data
-      let cleanedLine = line.replace(/\[\s*\]/g, ''); // Remove empty brackets []
+    setSavingRecording(true);
 
-      const chordRegex = /\[([^\]]+)\]/g;
-      let match;
-      let textWithoutChords = cleanedLine;
-
-      // First, extract all chords and their positions in the original string
-      const chordsWithOriginalPos: Array<{
-        chord: string;
-        originalPos: number;
-      }> = [];
-      while ((match = chordRegex.exec(cleanedLine)) !== null) {
-        // Skip empty or whitespace-only chords
-        if (match[1].trim().length > 0) {
-          chordsWithOriginalPos.push({
-            chord: match[1].trim(),
-            originalPos: match.index,
-          });
-        }
-      }
-
-      // Remove all chord brackets to get clean text
-      textWithoutChords = cleanedLine.replace(/\[([^\]]+)\]/g, '');
-
-      // Calculate new positions after removing brackets
-      chordsWithOriginalPos.forEach((item, i) => {
-        // Count how many brackets came before this position
-        const bracketsBeforeCount = i;
-        const totalCharsRemovedBefore = chordsWithOriginalPos
-          .slice(0, i)
-          .reduce((sum, c) => sum + c.chord.length + 2, 0); // +2 for []
-
-        const adjustedPosition = item.originalPos - totalCharsRemovedBefore;
-
-        chords.push({
-          id: `chord-${idx}-${i}`,
-          chord: item.chord,
-          position: Math.max(0, adjustedPosition), // Ensure non-negative
-        });
-      });
-
-      return {
-        id: `line-${idx}`,
-        text: textWithoutChords,
-        chords,
-      };
-    });
-  };
-
-  // Convert structured format back to bracket notation
-  const serializeChartContent = (lines: ChartLine[]): string => {
-    return lines
-      .map((line, lineIdx) => {
-        if (line.chords.length === 0) {
-          return line.text;
-        }
-
-        // Sort chords by position (descending) to insert from right to left
-        // This prevents position shifts as we insert brackets
-        const sortedChords = [...line.chords].sort(
-          (a, b) => b.position - a.position
-        );
-
-        let result = line.text;
-
-        console.log(`[Line ${lineIdx}] Original text:`, line.text);
-        console.log(`[Line ${lineIdx}] Text length:`, line.text.length);
-        console.log(`[Line ${lineIdx}] Chords to insert:`, sortedChords);
-
-        // Insert chords from right to left so positions don't shift
-        sortedChords.forEach((chord) => {
-          const pos = Math.min(chord.position, result.length);
-          console.log(
-            `[Line ${lineIdx}] Inserting [${chord.chord}] at position ${pos}`
-          );
-          console.log(`[Line ${lineIdx}] Before:`, result);
-          result =
-            result.slice(0, pos) + `[${chord.chord}]` + result.slice(pos);
-          console.log(`[Line ${lineIdx}] After:`, result);
-        });
-
-        console.log(`[Line ${lineIdx}] Final result:`, result);
-        return result;
-      })
-      .join('\n');
-  };
-
-  const handleStartEdit = () => {
-    if (userChart && userChart.chart_content) {
-      setEditLines(parseChartContent(userChart.chart_content));
-      setEditPersonalNotes(userChart.personal_notes || '');
-      setEditKeyOverride(userChart.key_override || '');
-      setEditBpmOverride(userChart.bpm_override?.toString() || '');
-    } else {
-      // Start with song's shared lyrics as template
-      const initialContent = song?.lyrics || '';
-      setEditLines(parseChartContent(initialContent));
-      setEditPersonalNotes('');
-      setEditKeyOverride('');
-      setEditBpmOverride('');
-    }
-    setIsEditing(true);
-  };
-
-  const handleCancelEdit = () => {
-    setIsEditing(false);
-    setEditLines([]);
-    setEditPersonalNotes('');
-    setEditKeyOverride('');
-    setEditBpmOverride('');
-    setSelectedLineId(null);
-  };
-
-  const handleSaveChart = async () => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user || !song) return;
-
-    setSaving(true);
-
-    const chartContent = serializeChartContent(editLines);
-
-    const chartData = {
-      user_id: user.id,
-      song_id: song.id,
-      chart_content: chartContent || null,
-      personal_notes: editPersonalNotes || null,
-      key_override: editKeyOverride || null,
-      bpm_override: editBpmOverride ? parseInt(editBpmOverride) : null,
-    };
-
-    if (userChart) {
-      // Update existing chart
+    try {
       const { data, error } = await supabase
-        .from('user_charts')
-        .update(chartData)
-        .eq('id', userChart.id)
+        .from('song_recordings')
+        .insert({
+          song_id: song.id,
+          label: newRecordingLabel.trim(),
+          url: newRecordingUrl.trim(),
+        })
         .select()
         .single();
 
       if (error) {
-        console.error('[SongSheetPage] update chart error', error.message);
-      } else {
-        setUserChart(data as UserChart);
-        setIsEditing(false);
-        setSelectedLineId(null);
-      }
-    } else {
-      // Create new chart
-      const { data, error } = await supabase
-        .from('user_charts')
-        .insert([chartData])
-        .select()
-        .single();
-
-      if (error) {
-        console.error('[SongSheetPage] create chart error', error.message);
-      } else {
-        setUserChart(data as UserChart);
-        setIsEditing(false);
-        setSelectedLineId(null);
-        setViewMode('personal');
-      }
-    }
-
-    setSaving(false);
-  };
-
-  const handleAddLine = () => {
-    setEditLines([
-      ...editLines,
-      {
-        id: `line-${Date.now()}`,
-        text: '',
-        chords: [],
-      },
-    ]);
-  };
-
-  const handleUpdateLineText = (lineId: string, newText: string) => {
-    setEditLines(
-      editLines.map((line) =>
-        line.id === lineId ? { ...line, text: newText } : line
-      )
-    );
-  };
-
-  // Helper function to find nearest word boundary
-  const findNearestWordBoundary = (pos: number, text: string): number => {
-    // Never allow position 0 - always snap to at least after the first word
-    if (pos === 0 || pos === 1) {
-      // Find the end of the first word
-      let firstWordEnd = 0;
-      while (firstWordEnd < text.length && text[firstWordEnd] !== ' ') {
-        firstWordEnd++;
-      }
-      // Skip any spaces after the first word
-      while (firstWordEnd < text.length && text[firstWordEnd] === ' ') {
-        firstWordEnd++;
-      }
-      return firstWordEnd;
-    }
-
-    if (pos >= text.length) return text.length;
-
-    // Check if we're already at a space or start
-    if (text[pos] === ' ' || (pos > 0 && text[pos - 1] === ' ')) {
-      // If clicking on or after a space, snap to after the space
-      while (pos < text.length && text[pos] === ' ') pos++;
-      return pos;
-    }
-
-    // We're in the middle of a word
-    // Look backward to find the start of the current word
-    let startOfWord = pos;
-    while (startOfWord > 0 && text[startOfWord - 1] !== ' ') {
-      startOfWord--;
-    }
-
-    // Look forward to find the end of the current word
-    let endOfWord = pos;
-    while (endOfWord < text.length && text[endOfWord] !== ' ') {
-      endOfWord++;
-    }
-
-    // Choose the closer boundary
-    const distToStart = pos - startOfWord;
-    const distToEnd = endOfWord - pos;
-
-    // If closer to start (first half of word), snap to start
-    // If closer to end (second half of word), snap to end
-    return distToStart <= distToEnd ? startOfWord : endOfWord;
-  };
-
-  const handleAddChordToLine = (
-    lineId: string,
-    clickX: number,
-    lineStartX: number
-  ) => {
-    const charWidth = 8.4; // monospace character width
-    const rawPosition = Math.max(
-      0,
-      Math.round((clickX - lineStartX) / charWidth)
-    );
-
-    console.log('=== ADD CHORD ===');
-    console.log('clickX:', clickX);
-    console.log('lineStartX:', lineStartX);
-    console.log('delta:', clickX - lineStartX);
-    console.log('rawPosition:', rawPosition);
-
-    setEditLines(
-      editLines.map((line) => {
-        if (line.id === lineId) {
-          console.log('Line text:', line.text);
-          console.log('Line text length:', line.text.length);
-          console.log('Existing chords:', line.chords);
-
-          // Check if trying to place beyond text length
-          if (rawPosition > line.text.length) {
-            console.log('REJECTED: Beyond text length');
-            setCollisionFlashLineId(lineId);
-            setTimeout(() => setCollisionFlashLineId(null), 400);
-            return line;
-          }
-
-          // SMART POSITIONING: Use word boundary snapping
-          const requestedPosition = findNearestWordBoundary(
-            rawPosition,
-            line.text
-          );
-          console.log('Smart-adjusted position:', requestedPosition);
-
-          // Check for collision with existing chords
-          const chordWidth = 6; // approximate character width of a chord (e.g., "Cmaj7" = ~5 chars)
-          const hasCollision = line.chords.some((chord) => {
-            const distance = Math.abs(chord.position - requestedPosition);
-            return distance < chordWidth;
-          });
-
-          // If collision, trigger red flash and don't add chord
-          if (hasCollision) {
-            console.log('REJECTED: Collision detected');
-            setCollisionFlashLineId(lineId);
-            setTimeout(() => setCollisionFlashLineId(null), 400);
-            return line;
-          }
-
-          console.log('ACCEPTED: Adding chord at position', requestedPosition);
-          return {
-            ...line,
-            chords: [
-              ...line.chords,
-              {
-                id: `chord-${Date.now()}`,
-                chord: 'C',
-                position: requestedPosition,
-              },
-            ],
-          };
-        }
-        return line;
-      })
-    );
-  };
-
-  const handleUpdateChord = (
-    lineId: string,
-    chordId: string,
-    updates: Partial<ChordPlacement>
-  ) => {
-    setEditLines(
-      editLines.map((line) => {
-        if (line.id === lineId) {
-          return {
-            ...line,
-            chords: line.chords.map((chord) =>
-              chord.id === chordId ? { ...chord, ...updates } : chord
-            ),
-          };
-        }
-        return line;
-      })
-    );
-  };
-
-  const handleDeleteChord = (lineId: string, chordId: string) => {
-    setEditLines(
-      editLines.map((line) => {
-        if (line.id === lineId) {
-          return {
-            ...line,
-            chords: line.chords.filter((chord) => chord.id !== chordId),
-          };
-        }
-        return line;
-      })
-    );
-  };
-
-  const handleDeleteLine = (lineId: string) => {
-    setEditLines(editLines.filter((line) => line.id !== lineId));
-  };
-
-  // Drag handlers
-  const handleChordMouseDown = (
-    e: React.MouseEvent,
-    lineId: string,
-    chordId: string,
-    currentPosition: number
-  ) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDraggingChord({ lineId, chordId });
-    setDragStartX(e.clientX);
-    setDragStartPosition(currentPosition);
-  };
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!draggingChord) return;
-
-    const charWidth = 8.4;
-    const deltaX = e.clientX - dragStartX;
-    const deltaPosition = Math.round(deltaX / charWidth);
-    const rawPosition = Math.max(0, dragStartPosition + deltaPosition);
-
-    // Find the line to get max position and check collisions
-    const line = editLines.find((l) => l.id === draggingChord.lineId);
-    if (line) {
-      // Don't allow dragging beyond text length
-      if (rawPosition > line.text.length) {
+        console.error('[SongSheetPage] add recording error', error.message);
         return;
       }
 
-      // Apply smart positioning during drag too
-      const requestedPosition = findNearestWordBoundary(rawPosition, line.text);
-
-      const chordWidth = 6; // approximate character width buffer
-
-      // Check collision with other chords (not including the one being dragged)
-      const hasCollision = line.chords.some((chord) => {
-        if (chord.id === draggingChord.chordId) return false; // Skip self
-        const distance = Math.abs(chord.position - requestedPosition);
-        return distance < chordWidth;
-      });
-
-      // Only update if no collision and within bounds
-      if (!hasCollision) {
-        handleUpdateChord(draggingChord.lineId, draggingChord.chordId, {
-          position: requestedPosition,
-        });
-      }
+      setRecordings((prev) => [...prev, data as RecordingLink]);
+      setShowAddRecording(false);
+      setNewRecordingLabel('');
+      setNewRecordingUrl('');
+    } finally {
+      setSavingRecording(false);
     }
   };
 
-  const handleMouseUp = () => {
-    setDraggingChord(null);
+  // Delete recording
+  const handleDeleteRecording = async (recordingId: string) => {
+    triggerHaptic();
+
+    const { error } = await supabase
+      .from('song_recordings')
+      .delete()
+      .eq('id', recordingId);
+
+    if (error) {
+      console.error('[SongSheetPage] delete recording error', error.message);
+      return;
+    }
+
+    setRecordings((prev) => prev.filter((r) => r.id !== recordingId));
   };
 
-  // ---- Rendering functions ----
-  const renderContent = (content: string | null | undefined) => {
-    if (!content) return null;
+  // Save lyrics
+  const handleSaveLyrics = async () => {
+    if (!song) return;
 
+    setSavingLyrics(true);
+
+    try {
+      const { error } = await supabase
+        .from('songs')
+        .update({ lyrics: editLyricsText.trim() || null })
+        .eq('id', song.id);
+
+      if (error) {
+        console.error('[SongSheetPage] save lyrics error', error.message);
+        return;
+      }
+
+      setSong((prev) =>
+        prev ? { ...prev, lyrics: editLyricsText.trim() || null } : prev
+      );
+      setShowEditLyrics(false);
+    } finally {
+      setSavingLyrics(false);
+    }
+  };
+
+  // Add comment
+  const handleAddComment = async () => {
+    if (!song || !newComment.trim() || !currentUserId) return;
+
+    setSendingComment(true);
+    triggerHaptic();
+
+    try {
+      const { data, error } = await supabase
+        .from('song_comments')
+        .insert({
+          song_id: song.id,
+          user_id: currentUserId,
+          content: newComment.trim(),
+        })
+        .select(
+          `
+          id,
+          song_id,
+          user_id,
+          content,
+          created_at,
+          profiles(display_name, avatar_url)
+        `
+        )
+        .single();
+
+      if (error) {
+        console.error('[SongSheetPage] add comment error', error.message);
+        return;
+      }
+
+      const anyData = data as any;
+      const formattedComment: SongComment = {
+        id: anyData.id,
+        song_id: anyData.song_id,
+        user_id: anyData.user_id,
+        content: anyData.content,
+        created_at: anyData.created_at,
+        user_name: anyData.profiles?.display_name || 'Unknown',
+        user_avatar: anyData.profiles?.avatar_url || null,
+      };
+
+      setComments((prev) => [...prev, formattedComment]);
+      setNewComment('');
+    } finally {
+      setSendingComment(false);
+    }
+  };
+
+  // Delete comment
+  const handleDeleteComment = async (commentId: string) => {
+    triggerHaptic();
+
+    const { error } = await supabase
+      .from('song_comments')
+      .delete()
+      .eq('id', commentId);
+
+    if (error) {
+      console.error('[SongSheetPage] delete comment error', error.message);
+      return;
+    }
+
+    setComments((prev) => prev.filter((c) => c.id !== commentId));
+  };
+
+  // Format relative time
+  const formatRelativeTime = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+    });
+  };
+
+  // Render lyrics with section headers
+  const renderLyrics = (content: string) => {
     const lines = content.split('\n');
 
     return lines.map((line, idx) => {
-      // blank spacer
+      // Blank spacer
       if (line.trim() === '') {
         return <div key={idx} style={{ height: 16 }} />;
       }
 
-      const chordRegex = /\[([^\]]+)\]/g;
-      const hasChords = chordRegex.test(line);
-
-      console.log('[renderContent] Line:', line);
-      console.log('[renderContent] hasChords:', hasChords);
-
-      if (hasChords) {
-        const parts: Array<{ text: string; chord?: string }> = [];
-        let lastIndex = 0;
-        // Create a NEW regex because .test() consumed the first one
-        const matchRegex = /\[([^\]]+)\]/g;
-        const matches = [...line.matchAll(matchRegex)];
-
-        matches.forEach((match) => {
-          if (match.index !== undefined && match.index > lastIndex) {
-            parts.push({
-              text: line.slice(lastIndex, match.index),
-            });
-          }
-          parts.push({ chord: match[1], text: '' });
-          lastIndex = (match.index ?? 0) + match[0].length;
-        });
-
-        if (lastIndex < line.length) {
-          parts.push({ text: line.slice(lastIndex) });
-        }
-
-        return (
-          <div
-            key={idx}
-            style={{
-              marginBottom: 24,
-              lineHeight: '2.2em',
-              position: 'relative',
-              whiteSpace: 'pre-wrap',
-            }}
-          >
-            {parts.map((part, partIdx) =>
-              part.chord ? (
-                <span
-                  key={partIdx}
-                  style={{
-                    position: 'relative',
-                    paddingLeft: part.text === '' ? 0 : 4,
-                  }}
-                >
-                  <span
-                    style={{
-                      position: 'absolute',
-                      top: -26,
-                      left: 0,
-                      fontFamily: '"Space Mono", monospace',
-                      fontSize: 13,
-                      fontWeight: 700,
-                      color: 'rgba(244, 114, 182, 0.95)',
-                      textShadow: '0 0 10px rgba(244, 114, 182, 0.3)',
-                    }}
-                  >
-                    {part.chord}
-                  </span>
-                  {part.text}
-                </span>
-              ) : (
-                <span key={partIdx}>{part.text}</span>
-              )
-            )}
-          </div>
-        );
-      }
-
-      // Section headers
+      // Section headers (all caps or parenthetical)
       const isSectionHeader =
         line === line.toUpperCase() &&
         line.trim().length > 0 &&
@@ -666,13 +413,12 @@ export default function SongSheetPage({
           <div
             key={idx}
             style={{
-              fontFamily: '"Space Mono", monospace',
               fontSize: 12,
               fontWeight: 700,
-              color: '#9ca3af',
+              color: '#f472b6',
               letterSpacing: 1,
-              marginTop: idx === 0 ? 0 : 32,
-              marginBottom: 16,
+              marginTop: idx === 0 ? 0 : 24,
+              marginBottom: 12,
               textTransform: 'uppercase',
             }}
           >
@@ -686,8 +432,9 @@ export default function SongSheetPage({
         <div
           key={idx}
           style={{
-            marginBottom: 8,
-            lineHeight: '1.8em',
+            marginBottom: 6,
+            lineHeight: 1.7,
+            color: '#e5e7eb',
           }}
         >
           {line}
@@ -696,292 +443,64 @@ export default function SongSheetPage({
     });
   };
 
-  const renderEditableLine = (line: ChartLine, lineIndex: number) => {
-    const isSelected = selectedLineId === line.id;
-    const charWidth = 8.4; // approximate width per character in pixels
-
-    return (
-      <div
-        key={line.id}
-        style={{
-          marginBottom: 24,
-          padding: 12,
-          background: isSelected
-            ? 'rgba(244, 114, 182, 0.08)'
-            : 'rgba(15,23,42,0.3)',
-          borderRadius: 12,
-          border: isSelected
-            ? '2px solid rgba(244, 114, 182, 0.4)'
-            : '1px solid rgba(148,163,184,0.2)',
-          transition: 'all 0.2s',
-          cursor: 'pointer',
-        }}
-        onClick={() => setSelectedLineId(line.id)}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseUp}
-      >
-        {/* Chord positioning area - CLICKABLE */}
-        <div
-          style={{
-            position: 'relative',
-            height: 50,
-            minHeight: 50,
-            marginBottom: 8,
-            paddingLeft: 12,
-            paddingRight: 12,
-            background: 'rgba(15,23,42,0.4)',
-            borderRadius: 8,
-            border:
-              collisionFlashLineId === line.id
-                ? '2px solid rgba(239, 68, 68, 0.8)'
-                : '1px dashed rgba(148,163,184,0.3)',
-            cursor: 'crosshair',
-            transition: 'border 0.15s ease-out',
-            boxShadow:
-              collisionFlashLineId === line.id
-                ? '0 0 12px rgba(239, 68, 68, 0.6)'
-                : 'none',
-            overflow: 'hidden',
-          }}
-          onClick={(e) => {
-            e.stopPropagation();
-            const chordAreaRect = e.currentTarget.getBoundingClientRect();
-            const clickX = e.clientX;
-            const relativeX = clickX - (chordAreaRect.left + 12);
-
-            // Calculate the max allowed width based on text length
-            const charWidth = 8.4;
-            const maxWidth = line.text.length * charWidth;
-
-            // Check if click is within text bounds
-            if (relativeX < 0 || relativeX > maxWidth) {
-              setCollisionFlashLineId(line.id);
-              setTimeout(() => setCollisionFlashLineId(null), 400);
-              return;
-            }
-
-            handleAddChordToLine(line.id, clickX, chordAreaRect.left + 12);
-          }}
-        >
-          {/* Visual boundary marker showing text length */}
-          {line.text.length > 0 && (
-            <div
-              style={{
-                position: 'absolute',
-                left: 12 + line.text.length * 8.4,
-                top: 0,
-                bottom: 0,
-                width: 2,
-                background: 'rgba(148,163,184,0.3)',
-                pointerEvents: 'none',
-              }}
-            />
-          )}
-
-          {line.chords.length === 0 && (
-            <div
-              style={{
-                position: 'absolute',
-                top: '50%',
-                left: '50%',
-                transform: 'translate(-50%, -50%)',
-                color: '#6b7280',
-                fontSize: 12,
-                pointerEvents: 'none',
-              }}
-            >
-              Click to add chord
-            </div>
-          )}
-          {line.chords.map((chord) => (
-            <div
-              key={chord.id}
-              style={{
-                position: 'absolute',
-                left: chord.position * charWidth + 12,
-                top: '50%',
-                transform: 'translateY(-50%)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 4,
-                cursor:
-                  draggingChord?.chordId === chord.id ? 'grabbing' : 'grab',
-                userSelect: 'none',
-              }}
-              onMouseDown={(e) =>
-                handleChordMouseDown(e, line.id, chord.id, chord.position)
-              }
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 4,
-                  background: 'rgba(244, 114, 182, 0.95)',
-                  padding: '6px 10px',
-                  borderRadius: 8,
-                  boxShadow:
-                    draggingChord?.chordId === chord.id
-                      ? '0 4px 12px rgba(244, 114, 182, 0.5)'
-                      : '0 2px 6px rgba(0,0,0,0.3)',
-                  transition: 'box-shadow 0.2s',
-                }}
-              >
-                <input
-                  type="text"
-                  value={chord.chord}
-                  onChange={(e) =>
-                    handleUpdateChord(line.id, chord.id, {
-                      chord: e.target.value,
-                    })
-                  }
-                  onClick={(e) => e.stopPropagation()}
-                  onMouseDown={(e) => e.stopPropagation()}
-                  maxLength={6}
-                  style={{
-                    width: 50,
-                    minWidth: 50,
-                    maxWidth: 50,
-                    background: 'rgba(0,0,0,0.2)',
-                    color: '#000',
-                    border: 'none',
-                    borderRadius: 4,
-                    padding: '2px 6px',
-                    fontSize: 13,
-                    fontFamily: '"Space Mono", monospace',
-                    fontWeight: 700,
-                    textAlign: 'center',
-                    boxSizing: 'border-box',
-                  }}
-                />
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDeleteChord(line.id, chord.id);
-                  }}
-                  onMouseDown={(e) => e.stopPropagation()}
-                  style={{
-                    background: 'rgba(0,0,0,0.3)',
-                    border: 'none',
-                    color: '#000',
-                    padding: '2px 6px',
-                    borderRadius: 4,
-                    cursor: 'pointer',
-                    fontSize: 14,
-                    fontWeight: 700,
-                    lineHeight: 1,
-                  }}
-                >
-                  ×
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Lyric text with monospace preview - single line, no wrap */}
-        <div
-          style={{
-            fontFamily: '"Space Mono", monospace',
-            fontSize: 15,
-            color: '#9ca3af',
-            marginBottom: 8,
-            padding: '8px 12px',
-            background: 'rgba(15,23,42,0.4)',
-            borderRadius: 8,
-            height: 36,
-            lineHeight: '20px',
-            overflow: 'hidden',
-            whiteSpace: 'nowrap',
-            textOverflow: 'ellipsis',
-          }}
-        >
-          {line.text || <span style={{ color: '#6b7280' }}>Empty line...</span>}
-        </div>
-
-        {/* Lyric text input - single line */}
-        <input
-          type="text"
-          value={line.text}
-          onChange={(e) => handleUpdateLineText(line.id, e.target.value)}
-          onClick={(e) => e.stopPropagation()}
-          placeholder="Enter lyrics or section header..."
-          style={{
-            width: '100%',
-            background: 'rgba(15,23,42,0.6)',
-            color: '#e5e7eb',
-            border: '1px solid rgba(148,163,184,0.3)',
-            borderRadius: 8,
-            padding: '8px 12px',
-            fontSize: 14,
-            fontFamily: '"Inter", sans-serif',
-            marginBottom: 8,
-            overflow: 'hidden',
-            whiteSpace: 'nowrap',
-            textOverflow: 'ellipsis',
-          }}
-        />
-
-        {/* Line controls */}
-        {isSelected && (
-          <div
-            style={{
-              display: 'flex',
-              gap: 8,
-              marginTop: 8,
-            }}
-          >
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                handleDeleteLine(line.id);
-              }}
-              style={{
-                flex: 1,
-                background: 'rgba(239, 68, 68, 0.15)',
-                border: '1px solid rgba(239, 68, 68, 0.4)',
-                color: 'rgba(239, 68, 68, 0.9)',
-                padding: '8px 12px',
-                borderRadius: 8,
-                cursor: 'pointer',
-                fontSize: 13,
-                fontWeight: 600,
-              }}
-            >
-              🗑 Delete Line
-            </button>
-          </div>
-        )}
-      </div>
-    );
+  // Get icon for recording based on URL
+  const getRecordingIcon = (url: string) => {
+    const lowerUrl = url.toLowerCase();
+    if (lowerUrl.includes('spotify')) return '🎧';
+    if (lowerUrl.includes('youtube') || lowerUrl.includes('youtu.be'))
+      return '▶️';
+    if (lowerUrl.includes('soundcloud')) return '☁️';
+    if (lowerUrl.includes('apple') || lowerUrl.includes('music.apple'))
+      return '🍎';
+    if (lowerUrl.includes('bandcamp')) return '💿';
+    if (lowerUrl.includes('drive.google')) return '📁';
+    if (lowerUrl.includes('dropbox')) return '📦';
+    return '🔗';
   };
 
-  // ---- Loading & Not Found ----
+  // Loading state
   if (loading) {
     return (
       <IonPage>
-        <IonContent fullscreen style={{ '--background': '#050509' } as any}>
+        <IonContent
+          fullscreen
+          style={{
+            '--background': 'linear-gradient(180deg, #050509 0%, #020109 100%)',
+          }}
+        >
           <div
             style={{
               display: 'flex',
+              flexDirection: 'column',
               justifyContent: 'center',
               alignItems: 'center',
               minHeight: '100vh',
+              gap: 12,
             }}
           >
-            <IonSpinner color="light" />
+            <IonSpinner
+              name="crescent"
+              style={{ '--color': '#f472b6', width: 32, height: 32 }}
+            />
+            <span style={{ fontSize: 14, color: '#6b7280' }}>
+              Loading song…
+            </span>
           </div>
         </IonContent>
       </IonPage>
     );
   }
 
+  // Not found state
   if (!song) {
     return (
       <IonPage>
-        <IonContent fullscreen style={{ '--background': '#050509' } as any}>
+        <IonContent
+          fullscreen
+          style={{
+            '--background': 'linear-gradient(180deg, #050509 0%, #020109 100%)',
+          }}
+        >
           <div
             style={{
               display: 'flex',
@@ -990,754 +509,1103 @@ export default function SongSheetPage({
               alignItems: 'center',
               minHeight: '100vh',
               padding: 24,
+              gap: 16,
             }}
           >
-            <IonText color="medium">
-              <h2 style={{ color: '#e5e7eb' }}>Song not found</h2>
-            </IonText>
-            <IonButton
+            <div
+              style={{
+                width: 64,
+                height: 64,
+                borderRadius: 20,
+                background: 'rgba(244, 114, 182, 0.1)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <IonIcon
+                icon={musicalNotesOutline}
+                style={{ fontSize: 32, color: '#f472b6' }}
+              />
+            </div>
+            <h3
+              style={{
+                margin: 0,
+                fontSize: 18,
+                fontWeight: 700,
+                color: '#e5e7eb',
+              }}
+            >
+              Song not found
+            </h3>
+            <p style={{ margin: 0, fontSize: 14, color: '#6b7280' }}>
+              This song may have been deleted or moved.
+            </p>
+            <button
               onClick={onBack}
-              style={
-                {
-                  marginTop: 16,
-                  '--background': 'rgba(148,163,184,0.3)',
-                  '--color': '#f9fafb',
-                } as any
-              }
+              style={{
+                marginTop: 8,
+                padding: '12px 24px',
+                borderRadius: 12,
+                border: '1px solid rgba(148, 163, 184, 0.3)',
+                background: 'transparent',
+                color: '#9ca3af',
+                fontSize: 15,
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
             >
               Go back
-            </IonButton>
+            </button>
           </div>
         </IonContent>
       </IonPage>
     );
   }
 
-  const artistName = song.band_name || 'Unknown artist';
-  const displayKey =
-    viewMode === 'personal' && userChart?.key_override
-      ? userChart.key_override
-      : song.default_key;
-  const displayBpm =
-    viewMode === 'personal' && userChart?.bpm_override
-      ? userChart.bpm_override
-      : song.default_bpm;
-
   return (
     <IonPage>
       <IonHeader translucent>
         <IonToolbar
           style={{
-            '--background': 'rgba(8,8,12,0.98)',
-            borderBottom: '0.5px solid rgba(255,255,255,0.06)',
+            '--background': 'rgba(8, 8, 12, 0.98)',
+            borderBottom: '0.5px solid rgba(255, 255, 255, 0.06)',
           }}
         >
-          <IonButtons slot="start">
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              padding: '12px 16px',
+              gap: 12,
+            }}
+          >
             <IonButton
               onClick={onBack}
-              style={{ '--color': '#e8e4ecff' } as any}
+              fill="clear"
+              style={{
+                minWidth: 0,
+                padding: 6,
+                margin: 0,
+                '--padding-start': '0',
+                '--padding-end': '0',
+              }}
             >
               <IonIcon
                 icon={chevronBackOutline}
-                style={{ fontSize: 20, color: '#ffffffff', marginRight: 2 }}
+                style={{ color: '#F9FAFB', fontSize: 24 }}
               />
             </IonButton>
-          </IonButtons>
-          <IonTitle
-            style={{
-              color: '#e8e4ecff',
-              fontWeight: 700,
-              fontSize: 17,
-              letterSpacing: 0.25,
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            {song.title}
-          </IonTitle>
-          <IonButtons slot="end">
-            {onEdit && viewMode === 'shared' && (
+
+            <div
+              style={{
+                flex: 1,
+                minWidth: 0,
+                background: 'rgba(255, 255, 255, 0.04)',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                borderRadius: 14,
+                padding: '10px 14px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12,
+              }}
+            >
+              {/* Pink dot */}
+              <div
+                style={{
+                  width: 10,
+                  height: 10,
+                  borderRadius: '50%',
+                  background: '#f472b6',
+                  flexShrink: 0,
+                  boxShadow: '0 0 8px rgba(244, 114, 182, 0.4)',
+                }}
+              />
+
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <span
+                  style={{
+                    fontSize: 18,
+                    fontWeight: 700,
+                    color: '#F9FAFB',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    display: 'block',
+                    lineHeight: 1.2,
+                  }}
+                >
+                  {song.title}
+                </span>
+                <span style={{ fontSize: 12, color: '#6b7280' }}>
+                  {song.origin === 'cover' ? 'Cover' : 'Original'}
+                  {song.band_name && ` • ${song.band_name}`}
+                </span>
+              </div>
+            </div>
+
+            {onEdit && isAdmin && (
               <IonButton
                 onClick={() => onEdit(song.id)}
-                style={{ '--color': '#e8e4ecff' } as any}
+                fill="clear"
+                style={{
+                  minWidth: 0,
+                  padding: 6,
+                  margin: 0,
+                  '--padding-start': '0',
+                  '--padding-end': '0',
+                }}
               >
-                <IonIcon icon={createOutline} />
+                <IonIcon
+                  icon={createOutline}
+                  style={{ color: '#f472b6', fontSize: 22 }}
+                />
               </IonButton>
             )}
-          </IonButtons>
+          </div>
         </IonToolbar>
       </IonHeader>
 
       <IonContent
         fullscreen
-        style={
-          {
-            '--background': '#050509',
-          } as any
-        }
+        style={{
+          '--background': 'linear-gradient(180deg, #050509 0%, #020109 100%)',
+        }}
       >
         <div
           style={{
-            padding: '24px 20px 80px 20px',
-            maxWidth: 800,
+            padding: 16,
+            paddingBottom: 100,
+            maxWidth: 600,
             margin: '0 auto',
           }}
         >
-          {/* Song Header */}
+          {/* Stats row */}
           <div
             style={{
-              background:
-                'linear-gradient(145deg, #08070d, #050509 55%, #0b0614)',
-              border: '1px solid rgba(148,163,184,0.4)',
-              borderRadius: 20,
-              padding: 24,
-              marginBottom: 28,
-              boxShadow: '0 18px 40px rgba(0,0,0,0.9)',
+              display: 'flex',
+              gap: 10,
+              marginBottom: 16,
             }}
           >
-            <h1
-              style={{
-                fontSize: 30,
-                fontWeight: 700,
-                color: '#f9fafb',
-                marginBottom: 6,
-                lineHeight: 1.2,
-              }}
-            >
-              {song.title}
-            </h1>
-
-            <div
-              style={{
-                fontSize: 14,
-                color: '#9ca3af',
-                marginBottom: 16,
-              }}
-            >
-              {artistName}
-            </div>
-
-            <div
-              style={{
-                display: 'flex',
-                flexWrap: 'wrap',
-                gap: 8,
-                alignItems: 'center',
-              }}
-            >
-              {displayKey && (
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    background: 'rgba(244, 114, 182, 0.12)',
-                    padding: '6px 12px',
-                    borderRadius: 999,
-                    border: '1px solid rgba(244, 114, 182, 0.4)',
-                  }}
-                >
-                  <IonIcon
-                    icon={musicalNotesOutline}
-                    style={{ fontSize: 16, color: 'rgba(244, 114, 182, 0.95)' }}
-                  />
-                  <span
-                    style={{
-                      fontFamily: '"Space Mono", monospace',
-                      fontSize: 12,
-                      fontWeight: 600,
-                      color: '#f9fafb',
-                    }}
-                  >
-                    Key: {displayKey}
-                  </span>
-                </div>
-              )}
-
-              {displayBpm != null && (
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    background: 'rgba(15,23,42,0.98)',
-                    padding: '6px 12px',
-                    borderRadius: 999,
-                    border: '1px solid rgba(148,163,184,0.5)',
-                  }}
-                >
-                  <IonIcon
-                    icon={timeOutline}
-                    style={{ fontSize: 16, color: '#9ca3af' }}
-                  />
-                  <span
-                    style={{
-                      fontFamily: '"Space Mono", monospace',
-                      fontSize: 12,
-                      fontWeight: 600,
-                      color: '#e5e7eb',
-                    }}
-                  >
-                    {displayBpm} BPM
-                  </span>
-                </div>
-              )}
-
-              {song.origin && (
-                <div
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    padding: '6px 12px',
-                    borderRadius: 999,
-                    border:
-                      song.origin === 'cover'
-                        ? '1px solid rgba(59,130,246,0.85)'
-                        : '1px solid rgba(52,211,153,0.85)',
-                    background:
-                      song.origin === 'cover'
-                        ? 'rgba(59,130,246,0.15)'
-                        : 'rgba(52,211,153,0.12)',
-                  }}
-                >
-                  <span
-                    style={{
-                      fontSize: 11,
-                      fontWeight: 600,
-                      letterSpacing: 0.08,
-                      textTransform: 'uppercase',
-                      color:
-                        song.origin === 'cover'
-                          ? 'rgba(129, 178, 255, 0.98)'
-                          : 'rgba(52, 211, 153, 0.98)',
-                    }}
-                  >
-                    {song.origin === 'cover' ? 'Cover' : 'Original'}
-                  </span>
-                </div>
-              )}
-            </div>
-
-            {song.notes && viewMode === 'shared' && (
+            {song.default_key && (
               <div
                 style={{
-                  marginTop: 18,
-                  padding: 14,
-                  background: 'rgba(15,23,42,0.9)',
-                  borderRadius: 12,
-                  borderLeft: '3px solid rgba(244, 114, 182, 0.6)',
+                  flex: 1,
+                  background: 'rgba(244, 114, 182, 0.08)',
+                  border: '1px solid rgba(244, 114, 182, 0.2)',
+                  borderRadius: 14,
+                  padding: '12px 16px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
                 }}
               >
-                <IonText
-                  style={{
-                    fontSize: 14,
-                    color: '#d1d5db',
-                    lineHeight: 1.6,
-                    fontStyle: 'italic',
-                  }}
-                >
-                  {song.notes}
-                </IonText>
+                <IonIcon
+                  icon={musicalNotesOutline}
+                  style={{ fontSize: 20, color: '#f472b6' }}
+                />
+                <div>
+                  <div
+                    style={{ fontSize: 11, color: '#6b7280', marginBottom: 2 }}
+                  >
+                    KEY
+                  </div>
+                  <div
+                    style={{ fontSize: 18, fontWeight: 700, color: '#f472b6' }}
+                  >
+                    {song.default_key}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {song.default_bpm && (
+              <div
+                style={{
+                  flex: 1,
+                  background: 'rgba(244, 114, 182, 0.08)',
+                  border: '1px solid rgba(244, 114, 182, 0.2)',
+                  borderRadius: 14,
+                  padding: '12px 16px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                }}
+              >
+                <IonIcon
+                  icon={speedometerOutline}
+                  style={{ fontSize: 20, color: '#f472b6' }}
+                />
+                <div>
+                  <div
+                    style={{ fontSize: 11, color: '#6b7280', marginBottom: 2 }}
+                  >
+                    BPM
+                  </div>
+                  <div
+                    style={{ fontSize: 18, fontWeight: 700, color: '#f472b6' }}
+                  >
+                    {song.default_bpm}
+                  </div>
+                </div>
               </div>
             )}
           </div>
 
-          {/* Main Content Block (The Amp!) */}
+          {/* Lyrics Section */}
           <div
             style={{
-              background: 'linear-gradient(135deg, #050509 0%, #050814 100%)',
-              border: '1px solid rgba(148,163,184,0.35)',
+              background:
+                'linear-gradient(135deg, rgba(30, 41, 59, 0.4) 0%, rgba(15, 23, 42, 0.3) 100%)',
+              border: '1px solid rgba(71, 85, 105, 0.3)',
               borderRadius: 20,
-              padding: '16px 16px 24px 16px',
-              boxShadow: '0 10px 32px rgba(0,0,0,0.9)',
+              padding: 20,
+              marginBottom: 16,
             }}
           >
-            {/* Tab Switcher */}
             <div
               style={{
                 display: 'flex',
-                gap: 6,
-                marginBottom: 20,
-                background: 'rgba(15,23,42,0.6)',
-                padding: 4,
-                borderRadius: 12,
-                border: '1px solid rgba(148,163,184,0.3)',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                marginBottom: 16,
               }}
             >
-              <button
-                onClick={() => !isEditing && setViewMode('shared')}
-                disabled={isEditing}
+              <div
                 style={{
-                  flex: 1,
-                  padding: '10px 16px',
-                  borderRadius: 10,
-                  border:
-                    viewMode === 'shared'
-                      ? '1px solid rgba(244, 114, 182, 0.4)'
-                      : 'none',
-                  background:
-                    viewMode === 'shared'
-                      ? 'rgba(244, 114, 182, 0.15)'
-                      : 'transparent',
-                  color:
-                    viewMode === 'shared'
-                      ? 'rgba(244, 114, 182, 0.98)'
-                      : '#9ca3af',
-                  fontFamily: 'inherit',
-                  fontSize: 13,
-                  fontWeight: 600,
-                  cursor: isEditing ? 'not-allowed' : 'pointer',
-                  opacity: isEditing ? 0.5 : 1,
-                  transition: 'all 0.2s',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
                 }}
               >
-                Shared Lyrics
-              </button>
-              <button
-                onClick={() => !isEditing && setViewMode('personal')}
-                disabled={isEditing}
-                style={{
-                  flex: 1,
-                  padding: '10px 16px',
-                  borderRadius: 10,
-                  border:
-                    viewMode === 'personal'
-                      ? '1px solid rgba(244, 114, 182, 0.4)'
-                      : 'none',
-                  background:
-                    viewMode === 'personal'
-                      ? 'rgba(244, 114, 182, 0.15)'
-                      : 'transparent',
-                  color:
-                    viewMode === 'personal'
-                      ? 'rgba(244, 114, 182, 0.98)'
-                      : '#9ca3af',
-                  fontFamily: 'inherit',
-                  fontSize: 13,
-                  fontWeight: 600,
-                  cursor: isEditing ? 'not-allowed' : 'pointer',
-                  opacity: isEditing ? 0.5 : 1,
-                  position: 'relative',
-                  transition: 'all 0.2s',
-                }}
-              >
-                My Chart
-                {userChart && (
-                  <span
-                    style={{
-                      position: 'absolute',
-                      top: -4,
-                      right: -4,
-                      background: 'rgba(34, 211, 238, 0.9)',
-                      color: '#000',
-                      fontSize: 9,
-                      fontWeight: 700,
-                      padding: '2px 5px',
-                      borderRadius: 999,
-                      border: '2px solid #050509',
-                    }}
-                  >
-                    ✓
-                  </span>
-                )}
-              </button>
-            </div>
+                <IonIcon
+                  icon={documentTextOutline}
+                  style={{ fontSize: 18, color: '#f472b6' }}
+                />
+                <span
+                  style={{
+                    fontSize: 13,
+                    fontWeight: 700,
+                    color: '#9ca3af',
+                    textTransform: 'uppercase',
+                    letterSpacing: 0.5,
+                  }}
+                >
+                  Lyrics
+                </span>
+              </div>
 
-            {/* Content Area */}
-            {isEditing ? (
-              /* EDIT MODE - Drag & Drop Editor */
-              <div>
-                <div
+              {isAdmin && (
+                <button
+                  onClick={() =>
+                    handleButtonPress('editLyrics', () => {
+                      setEditLyricsText(song.lyrics || '');
+                      setShowEditLyrics(true);
+                    })
+                  }
                   style={{
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'space-between',
-                    marginBottom: 16,
-                    paddingBottom: 12,
-                    borderBottom: '1px solid rgba(148,163,184,0.2)',
-                  }}
-                >
-                  <div
-                    style={{
-                      fontSize: 15,
-                      fontWeight: 700,
-                      color: '#f9fafb',
-                    }}
-                  >
-                    ✏️ Editing Your Chart
-                  </div>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <IonButton
-                      onClick={handleCancelEdit}
-                      size="small"
-                      fill="clear"
-                      style={
-                        {
-                          '--color': '#9ca3af',
-                        } as any
-                      }
-                    >
-                      <IonIcon icon={closeOutline} slot="icon-only" />
-                    </IonButton>
-                    <IonButton
-                      onClick={handleSaveChart}
-                      size="small"
-                      disabled={saving}
-                      style={
-                        {
-                          '--background': 'rgba(244, 114, 182, 0.95)',
-                          '--background-activated': 'rgba(244, 114, 182, 1)',
-                          '--color': '#000000',
-                          '--border-radius': '999px',
-                        } as any
-                      }
-                    >
-                      {saving ? (
-                        <IonSpinner
-                          name="crescent"
-                          style={{ width: 16, height: 16 }}
-                        />
-                      ) : (
-                        <>
-                          <IonIcon icon={saveOutline} slot="start" />
-                          Save
-                        </>
-                      )}
-                    </IonButton>
-                  </div>
-                </div>
-
-                {/* Help text */}
-                <div
-                  style={{
-                    background: 'rgba(34, 211, 238, 0.1)',
-                    border: '1px solid rgba(34, 211, 238, 0.3)',
-                    borderRadius: 12,
-                    padding: 12,
-                    marginBottom: 16,
+                    gap: 6,
+                    padding: '8px 14px',
+                    borderRadius: 20,
+                    border: '1px solid rgba(244, 114, 182, 0.4)',
+                    background: 'rgba(244, 114, 182, 0.15)',
+                    color: '#f472b6',
                     fontSize: 13,
-                    color: '#d1d5db',
-                    lineHeight: 1.5,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    transition: 'all 100ms ease-out',
+                    transform:
+                      pressedButton === 'editLyrics'
+                        ? 'scale(0.95)'
+                        : 'scale(1)',
                   }}
                 >
-                  <strong>💡 How to use:</strong> Click in the dashed area to
-                  add a chord. Drag chords left/right to position them. Edit
-                  chord names by clicking the text input.
-                </div>
-
-                {/* Line editor */}
-                <div style={{ marginBottom: 16 }}>
-                  {editLines.map((line, idx) => renderEditableLine(line, idx))}
-
-                  <button
-                    onClick={handleAddLine}
-                    style={{
-                      width: '100%',
-                      background: 'rgba(148,163,184,0.15)',
-                      border: '1px dashed rgba(148,163,184,0.4)',
-                      color: '#9ca3af',
-                      padding: '12px',
-                      borderRadius: 12,
-                      cursor: 'pointer',
-                      fontSize: 13,
-                      fontWeight: 600,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: 8,
-                    }}
-                  >
-                    <IonIcon icon={addCircleOutline} />
-                    Add Line
-                  </button>
-                </div>
-
-                {/* Personal Notes Editor */}
-                <div style={{ marginBottom: 16 }}>
-                  <label
-                    style={{
-                      display: 'block',
-                      fontSize: 13,
-                      fontWeight: 600,
-                      color: '#9ca3af',
-                      marginBottom: 8,
-                    }}
-                  >
-                    Personal Notes
-                  </label>
-                  <IonTextarea
-                    value={editPersonalNotes}
-                    onIonInput={(e) =>
-                      setEditPersonalNotes(e.detail.value || '')
-                    }
-                    rows={3}
-                    placeholder="Add performance notes, reminders, etc..."
-                    style={
-                      {
-                        '--background': 'rgba(15,23,42,0.6)',
-                        '--color': '#e5e7eb',
-                        '--padding-start': '12px',
-                        '--padding-end': '12px',
-                        '--padding-top': '12px',
-                        '--padding-bottom': '12px',
-                        fontSize: 14,
-                        borderRadius: 12,
-                        border: '1px solid rgba(148,163,184,0.3)',
-                      } as any
-                    }
+                  <IonIcon
+                    icon={song.lyrics ? createOutline : addOutline}
+                    style={{ fontSize: 16 }}
                   />
-                </div>
+                  {song.lyrics ? 'Edit' : 'Add'}
+                </button>
+              )}
+            </div>
 
-                {/* Optional Overrides */}
-                <div style={{ display: 'flex', gap: 12 }}>
-                  <div style={{ flex: 1 }}>
-                    <label
-                      style={{
-                        display: 'block',
-                        fontSize: 13,
-                        fontWeight: 600,
-                        color: '#9ca3af',
-                        marginBottom: 8,
-                      }}
-                    >
-                      Key Override
-                    </label>
-                    <input
-                      type="text"
-                      value={editKeyOverride}
-                      onChange={(e) => setEditKeyOverride(e.target.value)}
-                      placeholder="e.g. A, Bb"
-                      style={{
-                        width: '100%',
-                        background: 'rgba(15,23,42,0.6)',
-                        color: '#e5e7eb',
-                        padding: '10px 12px',
-                        fontSize: 14,
-                        borderRadius: 12,
-                        border: '1px solid rgba(148,163,184,0.3)',
-                        fontFamily: '"Space Mono", monospace',
-                      }}
-                    />
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <label
-                      style={{
-                        display: 'block',
-                        fontSize: 13,
-                        fontWeight: 600,
-                        color: '#9ca3af',
-                        marginBottom: 8,
-                      }}
-                    >
-                      BPM Override
-                    </label>
-                    <input
-                      type="number"
-                      value={editBpmOverride}
-                      onChange={(e) => setEditBpmOverride(e.target.value)}
-                      placeholder="e.g. 120"
-                      style={{
-                        width: '100%',
-                        background: 'rgba(15,23,42,0.6)',
-                        color: '#e5e7eb',
-                        padding: '10px 12px',
-                        fontSize: 14,
-                        borderRadius: 12,
-                        border: '1px solid rgba(148,163,184,0.3)',
-                        fontFamily: '"Space Mono", monospace',
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-            ) : viewMode === 'shared' ? (
-              /* SHARED LYRICS VIEW */
-              <div>
-                <div
+            {song.lyrics ? (
+              <div style={{ fontSize: 15 }}>{renderLyrics(song.lyrics)}</div>
+            ) : (
+              <div
+                style={{
+                  padding: '32px 16px',
+                  textAlign: 'center',
+                }}
+              >
+                <IonIcon
+                  icon={documentTextOutline}
                   style={{
-                    fontFamily: '"Inter", -apple-system, system-ui, sans-serif',
-                    fontSize: 15,
-                    color: '#e5e7eb',
-                    lineHeight: 1.8,
+                    fontSize: 40,
+                    color: '#374151',
+                    marginBottom: 12,
+                  }}
+                />
+                <p style={{ margin: 0, fontSize: 14, color: '#6b7280' }}>
+                  No lyrics added yet
+                </p>
+                {isAdmin && (
+                  <p
+                    style={{
+                      margin: '8px 0 0',
+                      fontSize: 12,
+                      color: '#4b5563',
+                    }}
+                  >
+                    Tap "Add" to add lyrics for this song
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Comments Section (Band Notes) */}
+          <div
+            style={{
+              background:
+                'linear-gradient(135deg, rgba(30, 41, 59, 0.4) 0%, rgba(15, 23, 42, 0.3) 100%)',
+              border: '1px solid rgba(71, 85, 105, 0.3)',
+              borderRadius: 20,
+              padding: 20,
+              marginBottom: 16,
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                marginBottom: 16,
+              }}
+            >
+              <IonIcon
+                icon={chatbubblesOutline}
+                style={{ fontSize: 18, color: '#f472b6' }}
+              />
+              <span
+                style={{
+                  fontSize: 13,
+                  fontWeight: 700,
+                  color: '#9ca3af',
+                  textTransform: 'uppercase',
+                  letterSpacing: 0.5,
+                }}
+              >
+                Band Notes
+              </span>
+              {comments.length > 0 && (
+                <span
+                  style={{
+                    fontSize: 12,
+                    color: '#6b7280',
+                    marginLeft: 4,
                   }}
                 >
-                  {song.lyrics ? (
-                    renderContent(song.lyrics)
-                  ) : (
-                    <div
-                      style={{
-                        textAlign: 'center',
-                        padding: '60px 20px',
-                      }}
-                    >
-                      <IonIcon
-                        icon={musicalNotesOutline}
+                  ({comments.length})
+                </span>
+              )}
+            </div>
+
+            {/* Comments list */}
+            {comments.length > 0 ? (
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 12,
+                  marginBottom: 16,
+                }}
+              >
+                {comments.map((comment) => (
+                  <div
+                    key={comment.id}
+                    style={{
+                      display: 'flex',
+                      gap: 12,
+                      padding: '12px 14px',
+                      borderRadius: 14,
+                      background: 'rgba(15, 23, 42, 0.6)',
+                      border: '1px solid rgba(71, 85, 105, 0.2)',
+                    }}
+                  >
+                    {/* Avatar */}
+                    {comment.user_avatar ? (
+                      <img
+                        src={comment.user_avatar}
+                        alt=""
                         style={{
-                          fontSize: 48,
-                          color: '#27272f',
-                          marginBottom: 16,
+                          width: 36,
+                          height: 36,
+                          borderRadius: '50%',
+                          objectFit: 'cover',
+                          flexShrink: 0,
                         }}
                       />
-                      <IonText color="medium">
-                        <p style={{ fontSize: 15, color: '#9ca3af' }}>
-                          No lyrics or chart added yet.
-                        </p>
-                      </IonText>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ) : (
-              /* PERSONAL CHART VIEW */
-              <div>
-                {userChart ? (
-                  <>
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        marginBottom: 16,
-                        paddingBottom: 12,
-                        borderBottom: '1px solid rgba(148,163,184,0.2)',
-                      }}
-                    >
+                    ) : (
                       <div
                         style={{
-                          fontSize: 15,
-                          fontWeight: 700,
-                          color: '#f9fafb',
+                          width: 36,
+                          height: 36,
+                          borderRadius: '50%',
+                          background: 'rgba(244, 114, 182, 0.2)',
                           display: 'flex',
                           alignItems: 'center',
-                          gap: 8,
+                          justifyContent: 'center',
+                          flexShrink: 0,
                         }}
                       >
-                        📝 Your Personal Chart
-                      </div>
-                      <IonButton
-                        onClick={handleStartEdit}
-                        size="small"
-                        style={
-                          {
-                            '--background': 'rgba(244, 114, 182, 0.15)',
-                            '--background-activated':
-                              'rgba(244, 114, 182, 0.25)',
-                            '--color': 'rgba(244, 114, 182, 0.98)',
-                            '--border-radius': '999px',
-                            '--padding-start': '12px',
-                            '--padding-end': '12px',
-                          } as any
-                        }
-                      >
-                        <IonIcon icon={createOutline} slot="start" />
-                        Edit
-                      </IonButton>
-                    </div>
-
-                    {userChart.personal_notes && (
-                      <div
-                        style={{
-                          background: 'rgba(34, 211, 238, 0.1)',
-                          borderLeft: '3px solid rgba(34, 211, 238, 0.6)',
-                          padding: '12px 14px',
-                          borderRadius: 8,
-                          marginBottom: 20,
-                          fontSize: 14,
-                          color: '#d1d5db',
-                          fontStyle: 'italic',
-                        }}
-                      >
-                        <div
-                          style={{
-                            fontWeight: 600,
-                            color: 'rgba(34, 211, 238, 0.98)',
-                            marginBottom: 4,
-                          }}
-                        >
-                          💡 Your notes:
-                        </div>
-                        {userChart.personal_notes}
+                        <IonIcon
+                          icon={personCircleOutline}
+                          style={{ fontSize: 24, color: '#f472b6' }}
+                        />
                       </div>
                     )}
 
-                    <div
-                      style={{
-                        fontFamily:
-                          '"Inter", -apple-system, system-ui, sans-serif',
-                        fontSize: 15,
-                        color: '#e5e7eb',
-                        lineHeight: 1.8,
-                      }}
-                    >
-                      {renderContent(userChart.chart_content)}
+                    {/* Content */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 8,
+                          marginBottom: 4,
+                        }}
+                      >
+                        <span
+                          style={{
+                            fontSize: 14,
+                            fontWeight: 600,
+                            color: '#F9FAFB',
+                          }}
+                        >
+                          {comment.user_name}
+                        </span>
+                        <span style={{ fontSize: 12, color: '#4b5563' }}>
+                          {formatRelativeTime(comment.created_at)}
+                        </span>
+                      </div>
+                      <p
+                        style={{
+                          margin: 0,
+                          fontSize: 14,
+                          color: '#d1d5db',
+                          lineHeight: 1.5,
+                          whiteSpace: 'pre-wrap',
+                        }}
+                      >
+                        {comment.content}
+                      </p>
                     </div>
-                  </>
+
+                    {/* Delete button (own comments or admin) */}
+                    {(comment.user_id === currentUserId || isAdmin) && (
+                      <button
+                        onClick={() => handleDeleteComment(comment.id)}
+                        style={{
+                          padding: 6,
+                          borderRadius: 8,
+                          background: 'transparent',
+                          border: 'none',
+                          color: '#4b5563',
+                          cursor: 'pointer',
+                          alignSelf: 'flex-start',
+                          transition: 'color 100ms',
+                        }}
+                      >
+                        <IonIcon icon={trashOutline} style={{ fontSize: 16 }} />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div
+                style={{
+                  padding: '24px 16px',
+                  textAlign: 'center',
+                  marginBottom: 16,
+                }}
+              >
+                <IonIcon
+                  icon={chatbubblesOutline}
+                  style={{
+                    fontSize: 36,
+                    color: '#374151',
+                    marginBottom: 10,
+                  }}
+                />
+                <p style={{ margin: 0, fontSize: 14, color: '#6b7280' }}>
+                  No notes yet
+                </p>
+                <p
+                  style={{
+                    margin: '6px 0 0',
+                    fontSize: 12,
+                    color: '#4b5563',
+                  }}
+                >
+                  Leave a note about arrangements, cues, or tips
+                </p>
+              </div>
+            )}
+
+            {/* Add comment input */}
+            <div
+              style={{
+                display: 'flex',
+                gap: 10,
+                alignItems: 'flex-end',
+              }}
+            >
+              <textarea
+                ref={commentInputRef}
+                value={newComment}
+                onChange={(e) => setNewComment(e.target.value)}
+                placeholder="Add a note…"
+                rows={2}
+                style={{
+                  flex: 1,
+                  padding: '12px 14px',
+                  borderRadius: 14,
+                  border: '1px solid rgba(244, 114, 182, 0.3)',
+                  background: 'rgba(15, 23, 42, 0.8)',
+                  color: '#F9FAFB',
+                  fontSize: 15,
+                  resize: 'none',
+                  outline: 'none',
+                  fontFamily: 'inherit',
+                }}
+              />
+              <button
+                onClick={handleAddComment}
+                disabled={!newComment.trim() || sendingComment}
+                style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: 14,
+                  border: 'none',
+                  background:
+                    newComment.trim() && !sendingComment
+                      ? '#f472b6'
+                      : 'rgba(244, 114, 182, 0.3)',
+                  color:
+                    newComment.trim() && !sendingComment ? '#000' : '#6b7280',
+                  cursor:
+                    newComment.trim() && !sendingComment
+                      ? 'pointer'
+                      : 'not-allowed',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                  transition: 'all 100ms',
+                }}
+              >
+                {sendingComment ? (
+                  <IonSpinner
+                    name="crescent"
+                    style={{ width: 20, height: 20, '--color': '#f472b6' }}
+                  />
                 ) : (
-                  /* NO PERSONAL CHART YET */
+                  <IonIcon icon={sendOutline} style={{ fontSize: 22 }} />
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* Recordings Section */}
+          <div
+            style={{
+              background:
+                'linear-gradient(135deg, rgba(30, 41, 59, 0.4) 0%, rgba(15, 23, 42, 0.3) 100%)',
+              border: '1px solid rgba(71, 85, 105, 0.3)',
+              borderRadius: 20,
+              padding: 20,
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                marginBottom: 16,
+              }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                }}
+              >
+                <IonIcon
+                  icon={linkOutline}
+                  style={{ fontSize: 18, color: '#f472b6' }}
+                />
+                <span
+                  style={{
+                    fontSize: 13,
+                    fontWeight: 700,
+                    color: '#9ca3af',
+                    textTransform: 'uppercase',
+                    letterSpacing: 0.5,
+                  }}
+                >
+                  Recordings
+                </span>
+              </div>
+
+              {isAdmin && (
+                <button
+                  onClick={() =>
+                    handleButtonPress('addRecording', () =>
+                      setShowAddRecording(true)
+                    )
+                  }
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    padding: '8px 14px',
+                    borderRadius: 20,
+                    border: '1px solid rgba(244, 114, 182, 0.4)',
+                    background: 'rgba(244, 114, 182, 0.15)',
+                    color: '#f472b6',
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    transition: 'all 100ms ease-out',
+                    transform:
+                      pressedButton === 'addRecording'
+                        ? 'scale(0.95)'
+                        : 'scale(1)',
+                  }}
+                >
+                  <IonIcon icon={addOutline} style={{ fontSize: 16 }} />
+                  Add
+                </button>
+              )}
+            </div>
+
+            {recordings.length > 0 ? (
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 10,
+                }}
+              >
+                {recordings.map((recording) => (
                   <div
+                    key={recording.id}
                     style={{
-                      textAlign: 'center',
-                      padding: '60px 20px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 12,
+                      padding: '12px 14px',
+                      borderRadius: 12,
+                      background: 'rgba(15, 23, 42, 0.6)',
+                      border: '1px solid rgba(71, 85, 105, 0.3)',
                     }}
                   >
-                    <IonIcon
-                      icon={musicalNotesOutline}
-                      style={{
-                        fontSize: 48,
-                        color: '#27272f',
-                        marginBottom: 16,
-                      }}
-                    />
-                    <IonText color="medium">
-                      <p
+                    <span style={{ fontSize: 24 }}>
+                      {getRecordingIcon(recording.url)}
+                    </span>
+
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div
                         style={{
                           fontSize: 15,
-                          color: '#9ca3af',
-                          marginBottom: 8,
+                          fontWeight: 600,
+                          color: '#F9FAFB',
+                          marginBottom: 2,
                         }}
                       >
-                        You haven't created a personal chart yet.
-                      </p>
-                      <p
+                        {recording.label}
+                      </div>
+                      <div
                         style={{
-                          fontSize: 13,
+                          fontSize: 12,
                           color: '#6b7280',
-                          marginBottom: 20,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
                         }}
                       >
-                        Create your own version with custom chords and
-                        performance cues.
-                      </p>
-                    </IonText>
-                    <IonButton
-                      onClick={handleStartEdit}
-                      style={
-                        {
-                          '--background': 'rgba(244, 114, 182, 0.95)',
-                          '--background-activated': 'rgba(244, 114, 182, 1)',
-                          '--color': '#000000',
-                          '--border-radius': '999px',
-                        } as any
-                      }
+                        {recording.url}
+                      </div>
+                    </div>
+
+                    <a
+                      href={recording.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        padding: 8,
+                        borderRadius: 8,
+                        background: 'rgba(244, 114, 182, 0.15)',
+                        color: '#f472b6',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        textDecoration: 'none',
+                      }}
                     >
-                      <IonIcon icon={checkmarkCircleOutline} slot="start" />
-                      Create My Chart
-                    </IonButton>
+                      <IonIcon icon={openOutline} style={{ fontSize: 18 }} />
+                    </a>
+
+                    {isAdmin && (
+                      <button
+                        onClick={() => handleDeleteRecording(recording.id)}
+                        style={{
+                          padding: 8,
+                          borderRadius: 8,
+                          background: 'rgba(239, 68, 68, 0.1)',
+                          border: 'none',
+                          color: '#f87171',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        <IonIcon icon={trashOutline} style={{ fontSize: 16 }} />
+                      </button>
+                    )}
                   </div>
-                )}
+                ))}
+              </div>
+            ) : (
+              <div
+                style={{
+                  padding: '24px 16px',
+                  textAlign: 'center',
+                }}
+              >
+                <IonIcon
+                  icon={sparklesOutline}
+                  style={{
+                    fontSize: 36,
+                    color: '#374151',
+                    marginBottom: 10,
+                  }}
+                />
+                <p style={{ margin: 0, fontSize: 14, color: '#6b7280' }}>
+                  No recordings linked yet
+                </p>
+                <p
+                  style={{
+                    margin: '6px 0 0',
+                    fontSize: 12,
+                    color: '#4b5563',
+                  }}
+                >
+                  Add links to Spotify, YouTube, SoundCloud, etc.
+                </p>
               </div>
             )}
           </div>
         </div>
 
-        <style>
-          {`
-            @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap');
-            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-          `}
-        </style>
+        {/* Edit Lyrics Modal */}
+        <IonModal
+          isOpen={showEditLyrics}
+          onDidDismiss={() => {
+            if (!savingLyrics) {
+              setShowEditLyrics(false);
+            }
+          }}
+        >
+          <IonContent
+            style={{
+              '--background': 'rgba(8, 8, 12, 0.98)',
+            }}
+          >
+            <div
+              style={{
+                padding: 20,
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+              }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  marginBottom: 16,
+                }}
+              >
+                <h2
+                  style={{
+                    margin: 0,
+                    fontSize: 22,
+                    fontWeight: 800,
+                    color: '#F9FAFB',
+                  }}
+                >
+                  {song.lyrics ? 'Edit Lyrics' : 'Add Lyrics'}
+                </h2>
+                <button
+                  onClick={() => setShowEditLyrics(false)}
+                  disabled={savingLyrics}
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: 20,
+                    border: '1px solid rgba(148, 163, 184, 0.3)',
+                    background: 'transparent',
+                    color: '#9ca3af',
+                    fontSize: 14,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+
+              <div
+                style={{
+                  padding: '12px 16px',
+                  borderRadius: 12,
+                  background: 'rgba(244, 114, 182, 0.1)',
+                  border: '1px solid rgba(244, 114, 182, 0.2)',
+                  marginBottom: 16,
+                  fontSize: 13,
+                  color: '#d1d5db',
+                  lineHeight: 1.5,
+                }}
+              >
+                <strong style={{ color: '#f472b6' }}>💡 Tip:</strong> Use ALL
+                CAPS for section headers (like VERSE, CHORUS, BRIDGE) and
+                they'll be styled automatically.
+              </div>
+
+              <textarea
+                value={editLyricsText}
+                onChange={(e) => setEditLyricsText(e.target.value)}
+                placeholder="Enter lyrics here..."
+                style={{
+                  flex: 1,
+                  width: '100%',
+                  padding: 16,
+                  borderRadius: 14,
+                  border: '1px solid rgba(244, 114, 182, 0.3)',
+                  background: 'rgba(15, 23, 42, 0.8)',
+                  color: '#F9FAFB',
+                  fontSize: 15,
+                  lineHeight: 1.7,
+                  resize: 'none',
+                  outline: 'none',
+                  fontFamily: 'inherit',
+                }}
+              />
+
+              <button
+                onClick={handleSaveLyrics}
+                disabled={savingLyrics}
+                style={{
+                  width: '100%',
+                  marginTop: 16,
+                  padding: '16px',
+                  borderRadius: 14,
+                  border: 'none',
+                  background: '#f472b6',
+                  color: '#000',
+                  fontSize: 16,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  opacity: savingLyrics ? 0.7 : 1,
+                }}
+              >
+                {savingLyrics ? 'Saving…' : 'Save Lyrics'}
+              </button>
+            </div>
+          </IonContent>
+        </IonModal>
+
+        {/* Add Recording Modal */}
+        <IonModal
+          isOpen={showAddRecording}
+          onDidDismiss={() => {
+            if (!savingRecording) {
+              setShowAddRecording(false);
+              setNewRecordingLabel('');
+              setNewRecordingUrl('');
+            }
+          }}
+        >
+          <IonContent
+            style={{
+              '--background': 'rgba(8, 8, 12, 0.98)',
+            }}
+          >
+            <div
+              style={{
+                height: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: 24,
+              }}
+            >
+              <div
+                style={{
+                  width: '100%',
+                  maxWidth: 380,
+                  borderRadius: 24,
+                  padding: 24,
+                  background:
+                    'linear-gradient(135deg, rgba(30, 41, 59, 0.6) 0%, rgba(15, 23, 42, 0.8) 100%)',
+                  border: '1px solid rgba(244, 114, 182, 0.3)',
+                  boxShadow: '0 25px 50px rgba(0, 0, 0, 0.5)',
+                }}
+              >
+                <h3
+                  style={{
+                    margin: 0,
+                    marginBottom: 20,
+                    fontSize: 22,
+                    fontWeight: 800,
+                    color: '#F9FAFB',
+                  }}
+                >
+                  Add Recording
+                </h3>
+
+                <div style={{ marginBottom: 16 }}>
+                  <label
+                    style={{
+                      display: 'block',
+                      marginBottom: 8,
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: '#9ca3af',
+                      textTransform: 'uppercase',
+                      letterSpacing: 0.5,
+                    }}
+                  >
+                    Label
+                  </label>
+                  <input
+                    value={newRecordingLabel}
+                    onChange={(e) => setNewRecordingLabel(e.target.value)}
+                    placeholder="e.g. Studio Recording, Live at Venue"
+                    style={{
+                      width: '100%',
+                      borderRadius: 12,
+                      border: '1px solid rgba(244, 114, 182, 0.4)',
+                      padding: '14px 16px',
+                      background: 'rgba(15, 23, 42, 0.8)',
+                      color: '#F9FAFB',
+                      fontSize: 16,
+                      outline: 'none',
+                    }}
+                  />
+                </div>
+
+                <div style={{ marginBottom: 24 }}>
+                  <label
+                    style={{
+                      display: 'block',
+                      marginBottom: 8,
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: '#9ca3af',
+                      textTransform: 'uppercase',
+                      letterSpacing: 0.5,
+                    }}
+                  >
+                    URL
+                  </label>
+                  <input
+                    value={newRecordingUrl}
+                    onChange={(e) => setNewRecordingUrl(e.target.value)}
+                    placeholder="https://..."
+                    type="url"
+                    style={{
+                      width: '100%',
+                      borderRadius: 12,
+                      border: '1px solid rgba(244, 114, 182, 0.4)',
+                      padding: '14px 16px',
+                      background: 'rgba(15, 23, 42, 0.8)',
+                      color: '#F9FAFB',
+                      fontSize: 16,
+                      outline: 'none',
+                    }}
+                  />
+                </div>
+
+                <div
+                  style={{
+                    display: 'flex',
+                    gap: 12,
+                  }}
+                >
+                  <button
+                    type="button"
+                    disabled={savingRecording}
+                    onClick={() => {
+                      setShowAddRecording(false);
+                      setNewRecordingLabel('');
+                      setNewRecordingUrl('');
+                    }}
+                    style={{
+                      flex: 1,
+                      padding: '14px 16px',
+                      borderRadius: 12,
+                      border: '1px solid rgba(148, 163, 184, 0.3)',
+                      background: 'transparent',
+                      color: '#9ca3af',
+                      fontSize: 15,
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    disabled={
+                      savingRecording ||
+                      !newRecordingLabel.trim() ||
+                      !newRecordingUrl.trim()
+                    }
+                    onClick={handleAddRecording}
+                    style={{
+                      flex: 1,
+                      padding: '14px 16px',
+                      borderRadius: 12,
+                      border: 'none',
+                      background: '#f472b6',
+                      color: '#000',
+                      fontSize: 15,
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      opacity:
+                        savingRecording ||
+                        !newRecordingLabel.trim() ||
+                        !newRecordingUrl.trim()
+                          ? 0.5
+                          : 1,
+                    }}
+                  >
+                    {savingRecording ? 'Adding…' : 'Add'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </IonContent>
+        </IonModal>
       </IonContent>
     </IonPage>
   );

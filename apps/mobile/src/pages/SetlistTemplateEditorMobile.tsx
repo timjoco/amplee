@@ -1,4 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { Capacitor } from '@capacitor/core';
+import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import {
   IonButton,
   IonContent,
@@ -8,16 +10,16 @@ import {
   IonPage,
   IonSpinner,
   IonText,
-  IonTitle,
   IonToolbar,
 } from '@ionic/react';
 import {
   addOutline,
   chevronBackOutline,
-  chevronForwardOutline,
   createOutline,
   musicalNotesOutline,
   reorderThreeOutline,
+  searchOutline,
+  sparklesOutline,
   speedometerOutline,
   trashOutline,
 } from 'ionicons/icons';
@@ -82,10 +84,13 @@ export default function SetlistTemplateEditorMobile() {
   const [items, setItems] = useState<TemplateItemRow[]>([]);
   const [savingReorder, setSavingReorder] = useState(false);
 
+  const [pressedButton, setPressedButton] = useState<string | null>(null);
+
   // song picker state
   const [songPickerOpen, setSongPickerOpen] = useState(false);
   const [songs, setSongs] = useState<SongOption[]>([]);
   const [loadingSongs, setLoadingSongs] = useState(false);
+  const [songSearch, setSongSearch] = useState('');
 
   // template edit / delete state
   const [showEditTemplate, setShowEditTemplate] = useState(false);
@@ -105,6 +110,32 @@ export default function SetlistTemplateEditorMobile() {
   const keyboardSensor = useSensor(KeyboardSensor);
 
   const sensors = useSensors(mouseSensor, touchSensor, keyboardSensor);
+
+  const triggerHaptic = useCallback(async () => {
+    if (Capacitor.getPlatform() === 'web') return;
+    try {
+      await Haptics.impact({ style: ImpactStyle.Medium });
+    } catch (e) {
+      console.warn('[haptic error]', e);
+    }
+  }, []);
+
+  const handleButtonPress = useCallback(
+    (buttonId: string, action: () => void) => {
+      setPressedButton(buttonId);
+      triggerHaptic();
+      setTimeout(() => {
+        setPressedButton(null);
+        action();
+      }, 120);
+    },
+    [triggerHaptic]
+  );
+
+  // Filter songs by search
+  const filteredSongs = songs.filter((s) =>
+    s.title.toLowerCase().includes(songSearch.toLowerCase())
+  );
 
   // ---------- Load template + items ----------
   useEffect(() => {
@@ -197,6 +228,8 @@ export default function SetlistTemplateEditorMobile() {
       const { active, over } = event;
       if (!over || active.id === over.id) return;
 
+      triggerHaptic();
+
       setItems((prev) => {
         const oldIndex = prev.findIndex((r) => r.id === active.id);
         const newIndex = prev.findIndex((r) => r.id === over.id);
@@ -211,7 +244,7 @@ export default function SetlistTemplateEditorMobile() {
         return moved;
       });
     },
-    [saveOrder]
+    [saveOrder, triggerHaptic]
   );
 
   // ---------- Songs: load + picker ----------
@@ -238,6 +271,7 @@ export default function SetlistTemplateEditorMobile() {
 
   const openSongPicker = useCallback(() => {
     setSongPickerOpen(true);
+    setSongSearch('');
     if (!songs.length) {
       void loadSongs();
     }
@@ -246,6 +280,8 @@ export default function SetlistTemplateEditorMobile() {
   const handleSelectSong = useCallback(
     async (song: SongOption) => {
       if (!setlistId) return;
+
+      triggerHaptic();
 
       try {
         const order_index = items.length;
@@ -279,12 +315,14 @@ export default function SetlistTemplateEditorMobile() {
         console.error('[SetlistTemplateEditorMobile] handleSelectSong', err);
       }
     },
-    [setlistId, items.length]
+    [setlistId, items.length, triggerHaptic]
   );
 
   // ---------- Delete item ----------
   const handleDeleteItem = useCallback(
     async (id: string) => {
+      triggerHaptic();
+
       try {
         const { error } = await supabase
           .from('setlist_template_items')
@@ -311,7 +349,7 @@ export default function SetlistTemplateEditorMobile() {
         console.error('[SetlistTemplateEditorMobile] handleDeleteItem', err);
       }
     },
-    [saveOrder]
+    [saveOrder, triggerHaptic]
   );
 
   // ---------- Template edit / delete handlers ----------
@@ -364,7 +402,6 @@ export default function SetlistTemplateEditorMobile() {
     try {
       setDeletingTemplate(true);
 
-      // delete items first
       await supabase
         .from('setlist_template_items')
         .delete()
@@ -386,7 +423,6 @@ export default function SetlistTemplateEditorMobile() {
       }
 
       setShowDeleteTemplate(false);
-      // route back to setlist list page
       nav(`/bands/${bandId}/setlists`);
     } catch (e) {
       console.error(e);
@@ -400,15 +436,20 @@ export default function SetlistTemplateEditorMobile() {
       return (
         <div
           style={{
-            padding: 16,
             display: 'flex',
+            flexDirection: 'column',
             alignItems: 'center',
-            gap: 8,
+            justifyContent: 'center',
+            height: '50vh',
+            gap: 12,
           }}
         >
-          <IonSpinner name="dots" />
+          <IonSpinner
+            name="crescent"
+            style={{ '--color': '#f472b6', width: 32, height: 32 }}
+          />
           <IonText color="medium">
-            <p style={{ margin: 0 }}>Loading setlist…</p>
+            <p style={{ margin: 0, fontSize: 14 }}>Loading setlist…</p>
           </IonText>
         </div>
       );
@@ -416,10 +457,47 @@ export default function SetlistTemplateEditorMobile() {
 
     if (!template) {
       return (
-        <div style={{ padding: 16 }}>
-          <IonText color="danger">
-            <p style={{ margin: 0 }}>Setlist not found.</p>
-          </IonText>
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            height: '50vh',
+            gap: 12,
+            padding: 24,
+            textAlign: 'center',
+          }}
+        >
+          <div
+            style={{
+              width: 64,
+              height: 64,
+              borderRadius: 20,
+              background: 'rgba(244, 114, 182, 0.1)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <IonIcon
+              icon={musicalNotesOutline}
+              style={{ fontSize: 32, color: '#f472b6' }}
+            />
+          </div>
+          <h3
+            style={{
+              margin: 0,
+              fontSize: 18,
+              fontWeight: 700,
+              color: '#e5e7eb',
+            }}
+          >
+            Setlist not found
+          </h3>
+          <p style={{ margin: 0, fontSize: 14, color: '#6b7280' }}>
+            This setlist may have been deleted or moved.
+          </p>
         </div>
       );
     }
@@ -428,163 +506,290 @@ export default function SetlistTemplateEditorMobile() {
       <div
         style={{
           padding: 16,
-          paddingBottom: 80,
+          paddingBottom: 100,
+          maxWidth: 600,
+          margin: '0 auto',
         }}
       >
-        {/* header meta */}
+        {/* Stats bar */}
         <div
           style={{
-            marginBottom: 16,
             display: 'flex',
-            flexDirection: 'column',
-            gap: 6,
+            gap: 12,
+            marginBottom: 16,
           }}
         >
-          <IonText color="medium">
-            <p
-              style={{
-                margin: 0,
-                fontSize: 12,
-                letterSpacing: 0.08,
-                textTransform: 'uppercase',
-                color: 'rgba(244,114,182,0.9)',
-              }}
-            >
-              Template · {items.length} song{items.length === 1 ? '' : 's'}
-              {savingReorder && ' · Saving order…'}
-            </p>
-          </IonText>
-          <IonText color="light">
-            <h2
-              style={{
-                margin: 0,
-                fontSize: 19,
-                fontWeight: 800,
-                letterSpacing: 0.02,
-                color: '#F9FAFB',
-              }}
-            >
-              {template.name || 'Untitled setlist'}
-            </h2>
-          </IonText>
-
-          {/* Edit / Delete controls */}
           <div
             style={{
-              display: 'flex',
-              gap: 8,
-              marginTop: 6,
-            }}
-          >
-            <IonButton
-              size="small"
-              fill="outline"
-              onClick={startEditTemplate}
-              style={
-                {
-                  '--color': 'rgba(244,114,182,0.95)',
-                  '--border-color': 'rgba(244,114,182,0.95)',
-                  '--background-activated': 'rgba(244,114,182,0.12)',
-                  '--border-radius': '999px',
-                  textTransform: 'none',
-                  fontSize: 13,
-                } as any
-              }
-            >
-              <IonIcon icon={createOutline} slot="start" />
-              Rename
-            </IonButton>
-
-            <IonButton
-              size="small"
-              fill="outline"
-              onClick={() => setShowDeleteTemplate(true)}
-              style={
-                {
-                  '--color': 'rgba(248,113,113,0.95)',
-                  '--border-color': 'rgba(248,113,113,0.9)',
-                  '--background-activated': 'rgba(127,29,29,0.4)',
-                  '--border-radius': '999px',
-                  textTransform: 'none',
-                  fontSize: 13,
-                } as any
-              }
-            >
-              <IonIcon icon={trashOutline} slot="start" />
-              Delete
-            </IonButton>
-          </div>
-        </div>
-
-        {items.length === 0 ? (
-          <div
-            style={{
-              paddingTop: 16,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
+              flex: 1,
+              background: 'rgba(244, 114, 182, 0.08)',
+              border: '1px solid rgba(244, 114, 182, 0.2)',
+              borderRadius: 14,
+              padding: '12px 16px',
               textAlign: 'center',
-              gap: 10,
             }}
           >
             <div
               style={{
-                width: 56,
-                height: 56,
-                borderRadius: '50%',
+                fontSize: 24,
+                fontWeight: 700,
+                color: '#f472b6',
+                lineHeight: 1,
+              }}
+            >
+              {items.length}
+            </div>
+            <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 4 }}>
+              {items.length === 1 ? 'SONG' : 'SONGS'}
+            </div>
+          </div>
+
+          <div
+            style={{
+              flex: 1,
+              background: 'rgba(244, 114, 182, 0.08)',
+              border: '1px solid rgba(244, 114, 182, 0.2)',
+              borderRadius: 14,
+              padding: '12px 16px',
+              textAlign: 'center',
+            }}
+          >
+            <div
+              style={{
+                fontSize: 24,
+                fontWeight: 700,
+                color: '#f472b6',
+                lineHeight: 1,
+              }}
+            >
+              {items.length > 0
+                ? `~${Math.round((items.length * 4) / 5) * 5}`
+                : '0'}
+            </div>
+            <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 4 }}>
+              MINUTES
+            </div>
+          </div>
+
+          {savingReorder && (
+            <div
+              style={{
+                position: 'absolute',
+                top: 12,
+                right: 16,
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center',
-                background: 'rgba(15,23,42,0.96)',
-                boxShadow: '0 10px 24px rgba(0,0,0,0.8)',
+                gap: 6,
+                padding: '6px 12px',
+                borderRadius: 20,
+                background: 'rgba(244, 114, 182, 0.15)',
+                fontSize: 12,
+                color: '#f472b6',
+              }}
+            >
+              <IonSpinner
+                name="dots"
+                style={{ '--color': '#f472b6', width: 16, height: 16 }}
+              />
+              Saving…
+            </div>
+          )}
+        </div>
+
+        {/* Action buttons */}
+        <div
+          style={{
+            display: 'flex',
+            gap: 10,
+            marginBottom: 20,
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => handleButtonPress('rename', startEditTemplate)}
+            style={{
+              flex: 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+              padding: '12px 16px',
+              borderRadius: 12,
+              border: '1px solid rgba(244, 114, 182, 0.3)',
+              background: 'rgba(244, 114, 182, 0.08)',
+              color: '#f472b6',
+              fontSize: 14,
+              fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'all 100ms ease-out',
+              transform:
+                pressedButton === 'rename' ? 'scale(0.97)' : 'scale(1)',
+            }}
+          >
+            <IonIcon icon={createOutline} style={{ fontSize: 18 }} />
+            Rename
+          </button>
+
+          <button
+            type="button"
+            onClick={() =>
+              handleButtonPress('delete', () => setShowDeleteTemplate(true))
+            }
+            style={{
+              flex: 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+              padding: '12px 16px',
+              borderRadius: 12,
+              border: '1px solid rgba(239, 68, 68, 0.3)',
+              background: 'rgba(239, 68, 68, 0.08)',
+              color: '#f87171',
+              fontSize: 14,
+              fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'all 100ms ease-out',
+              transform:
+                pressedButton === 'delete' ? 'scale(0.97)' : 'scale(1)',
+            }}
+          >
+            <IonIcon icon={trashOutline} style={{ fontSize: 18 }} />
+            Delete
+          </button>
+        </div>
+
+        {/* Songs section */}
+        <div
+          style={{
+            background:
+              'linear-gradient(135deg, rgba(30, 41, 59, 0.4) 0%, rgba(15, 23, 42, 0.3) 100%)',
+            border: '1px solid rgba(71, 85, 105, 0.3)',
+            borderRadius: 20,
+            padding: 16,
+            marginBottom: 16,
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: 16,
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
               }}
             >
               <IonIcon
                 icon={musicalNotesOutline}
-                style={{ fontSize: 26, color: '#e5e7eb' }}
+                style={{ fontSize: 18, color: '#f472b6' }}
               />
+              <span
+                style={{
+                  fontSize: 13,
+                  fontWeight: 700,
+                  color: '#9ca3af',
+                  textTransform: 'uppercase',
+                  letterSpacing: 0.5,
+                }}
+              >
+                Songs
+              </span>
             </div>
-            <h3
-              style={{
-                margin: 0,
-                marginTop: 8,
-                fontSize: 18,
-                fontWeight: 700,
-                color: '#e5e7eb',
-              }}
-            >
-              No songs in this setlist
-            </h3>
-            <p
-              style={{
-                margin: 0,
-                marginTop: 4,
-                fontSize: 14,
-                color: '#9ca3af',
-              }}
-            >
-              Add songs from your band library to start building this template.
-            </p>
 
-            <IonButton
-              onClick={openSongPicker}
-              style={
-                {
-                  marginTop: 10,
-                  '--background': 'rgba(244,114,182,0.95)',
-                  '--background-activated': 'rgba(244,114,182,1)',
-                  '--color': '#000000',
-                  '--border-radius': '999px',
-                  paddingInline: 20,
-                } as any
-              }
+            <button
+              type="button"
+              onClick={() => handleButtonPress('add', openSongPicker)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '8px 14px',
+                borderRadius: 20,
+                border: '1px solid rgba(244, 114, 182, 0.4)',
+                background: 'rgba(244, 114, 182, 0.15)',
+                color: '#f472b6',
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'all 100ms ease-out',
+                transform: pressedButton === 'add' ? 'scale(0.95)' : 'scale(1)',
+              }}
             >
-              <IonIcon icon={addOutline} slot="start" />
-              Add song from library
-            </IonButton>
+              <IonIcon icon={addOutline} style={{ fontSize: 16 }} />
+              Add
+            </button>
           </div>
-        ) : (
-          <>
+
+          {items.length === 0 ? (
+            <div
+              style={{
+                padding: '32px 16px',
+                textAlign: 'center',
+              }}
+            >
+              <div
+                style={{
+                  width: 56,
+                  height: 56,
+                  borderRadius: 16,
+                  background: 'rgba(244, 114, 182, 0.1)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  margin: '0 auto 16px',
+                }}
+              >
+                <IonIcon
+                  icon={sparklesOutline}
+                  style={{ fontSize: 28, color: '#f472b6' }}
+                />
+              </div>
+              <h3
+                style={{
+                  margin: 0,
+                  fontSize: 17,
+                  fontWeight: 700,
+                  color: '#e5e7eb',
+                  marginBottom: 6,
+                }}
+              >
+                Start building your setlist
+              </h3>
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: 14,
+                  color: '#6b7280',
+                  marginBottom: 16,
+                }}
+              >
+                Add songs from your library and drag to reorder
+              </p>
+
+              <button
+                type="button"
+                onClick={openSongPicker}
+                style={{
+                  padding: '12px 24px',
+                  borderRadius: 12,
+                  border: 'none',
+                  background: '#f472b6',
+                  color: '#000',
+                  fontSize: 15,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >
+                Add your first song
+              </button>
+            </div>
+          ) : (
             <DndContext
               sensors={sensors}
               collisionDetection={closestCenter}
@@ -613,209 +818,190 @@ export default function SetlistTemplateEditorMobile() {
                 </div>
               </SortableContext>
             </DndContext>
-
-            <div
-              style={{
-                marginTop: 16,
-                display: 'flex',
-                justifyContent: 'center',
-              }}
-            >
-              <IonButton
-                onClick={openSongPicker}
-                fill="outline"
-                size="small"
-                style={
-                  {
-                    '--color': 'rgba(244,114,182,0.95)',
-                    '--border-color': 'rgba(244,114,182,0.95)',
-                    '--background-activated': 'rgba(244,114,182,0.95)',
-                    '--border-color-activated': 'rgba(244,114,182,0.95)',
-                    '--color-activated': '#000000',
-                    borderRadius: 999,
-                  } as any
-                }
-              >
-                <IonIcon icon={addOutline} slot="start" />
-                Add song
-              </IonButton>
-            </div>
-          </>
-        )}
+          )}
+        </div>
 
         {/* Song picker modal */}
         <IonModal
           isOpen={songPickerOpen}
           onDidDismiss={() => setSongPickerOpen(false)}
+          style={{
+            '--background': 'rgba(8, 8, 12, 1)',
+          }}
         >
           <div
             style={{
               padding: 16,
               paddingTop: 20,
-              paddingBottom: 24,
-              background: 'rgba(8,8,12,1)',
+              background: 'rgba(8, 8, 12, 1)',
               minHeight: '100%',
-              color: '#e5e7eb',
             }}
           >
-            <h2
+            <div
               style={{
-                margin: 0,
-                marginBottom: 12,
-                fontSize: 18,
-                fontWeight: 700,
-                letterSpacing: 0.06,
-                textTransform: 'uppercase',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                marginBottom: 16,
               }}
             >
-              Choose a song
-            </h2>
+              <h2
+                style={{
+                  margin: 0,
+                  fontSize: 20,
+                  fontWeight: 800,
+                  color: '#F9FAFB',
+                }}
+              >
+                Add song
+              </h2>
+              <button
+                type="button"
+                onClick={() => setSongPickerOpen(false)}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: 20,
+                  border: '1px solid rgba(148, 163, 184, 0.3)',
+                  background: 'transparent',
+                  color: '#9ca3af',
+                  fontSize: 14,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+
+            {/* Search bar */}
+            <div
+              style={{
+                position: 'relative',
+                marginBottom: 16,
+              }}
+            >
+              <IonIcon
+                icon={searchOutline}
+                style={{
+                  position: 'absolute',
+                  left: 14,
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  fontSize: 18,
+                  color: '#6b7280',
+                }}
+              />
+              <input
+                type="text"
+                value={songSearch}
+                onChange={(e) => setSongSearch(e.target.value)}
+                placeholder="Search songs…"
+                style={{
+                  width: '100%',
+                  padding: '12px 14px 12px 42px',
+                  borderRadius: 12,
+                  border: '1px solid rgba(244, 114, 182, 0.3)',
+                  background: 'rgba(15, 23, 42, 0.8)',
+                  color: '#e5e7eb',
+                  fontSize: 15,
+                  outline: 'none',
+                }}
+              />
+            </div>
 
             {loadingSongs ? (
               <div
                 style={{
-                  paddingTop: 20,
                   display: 'flex',
                   alignItems: 'center',
-                  gap: 8,
+                  justifyContent: 'center',
+                  padding: 40,
+                  gap: 10,
                 }}
               >
-                <IonSpinner name="dots" />
-                <IonText color="medium">
-                  <p style={{ margin: 0 }}>Loading songs…</p>
-                </IonText>
+                <IonSpinner
+                  name="crescent"
+                  style={{ '--color': '#f472b6', width: 24, height: 24 }}
+                />
+                <span style={{ fontSize: 14, color: '#9ca3af' }}>
+                  Loading songs…
+                </span>
               </div>
-            ) : songs.length === 0 ? (
-              <p
+            ) : filteredSongs.length === 0 ? (
+              <div
                 style={{
-                  marginTop: 8,
-                  fontSize: 14,
-                  color: '#9ca3af',
+                  padding: 40,
+                  textAlign: 'center',
                 }}
               >
-                No songs in your band library yet. Add some on the Songs tab
-                first.
-              </p>
+                <IonIcon
+                  icon={musicalNotesOutline}
+                  style={{
+                    fontSize: 40,
+                    color: '#4b5563',
+                    marginBottom: 12,
+                  }}
+                />
+                <p style={{ margin: 0, fontSize: 14, color: '#6b7280' }}>
+                  {songs.length === 0
+                    ? 'No songs in your library yet'
+                    : 'No songs match your search'}
+                </p>
+              </div>
             ) : (
               <div
                 style={{
                   display: 'flex',
                   flexDirection: 'column',
                   gap: 8,
-                  marginTop: 8,
-                  maxHeight: '70vh',
+                  maxHeight: '65vh',
                   overflowY: 'auto',
+                  paddingBottom: 20,
                 }}
               >
-                {songs.map((song) => (
+                {filteredSongs.map((song) => (
                   <button
                     key={song.id}
                     type="button"
                     onClick={() => handleSelectSong(song)}
                     style={{
-                      border: 'none',
-                      padding: 0,
-                      margin: 0,
-                      background: 'transparent',
+                      width: '100%',
+                      padding: '14px 16px',
+                      borderRadius: 14,
+                      border: '1px solid rgba(244, 114, 182, 0.2)',
+                      background: 'rgba(244, 114, 182, 0.05)',
+                      cursor: 'pointer',
                       textAlign: 'left',
+                      transition: 'all 100ms ease-out',
                     }}
                   >
                     <div
                       style={{
-                        borderRadius: 14,
-                        paddingInline: 14,
-                        paddingBlock: 10,
-                        width: '100%',
-                        display: 'grid',
-                        gridTemplateColumns: '1fr auto',
-                        columnGap: 10,
-                        alignItems: 'center',
-                        background:
-                          'linear-gradient(135deg, rgba(15,15,20,1), rgba(20,24,35,1))',
-                        boxShadow: '0 8px 20px rgba(0,0,0,0.55)',
-                        border: '1px solid rgba(148,163,184,0.4)',
+                        fontSize: 15,
+                        fontWeight: 600,
+                        color: '#F9FAFB',
+                        marginBottom: 4,
                       }}
                     >
-                      <div
-                        style={{
-                          display: 'flex',
-                          flexDirection: 'column',
-                          minWidth: 0,
-                        }}
-                      >
-                        <span
-                          style={{
-                            fontWeight: 700,
-                            fontSize: 15,
-                            color: '#F9FAFB',
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                          }}
-                          title={song.title}
-                        >
-                          {song.title}
-                        </span>
-
-                        <div
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 8,
-                            marginTop: 4,
-                            fontSize: 12,
-                            color: '#9ca3af',
-                          }}
-                        >
-                          <span>
-                            Key:{' '}
-                            {song.default_key && song.default_key.trim().length
-                              ? song.default_key
-                              : '—'}
-                          </span>
-                          <span style={{ opacity: 0.4 }}>·</span>
-                          <span>
-                            BPM:{' '}
-                            {song.default_bpm != null ? song.default_bpm : '—'}
-                          </span>
-                        </div>
-                      </div>
-
-                      <IonIcon
-                        icon={chevronForwardOutline}
-                        style={{
-                          fontSize: 18,
-                          color: 'rgba(248,250,252,0.7)',
-                        }}
-                      />
+                      {song.title}
+                    </div>
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 12,
+                        fontSize: 12,
+                        color: '#6b7280',
+                      }}
+                    >
+                      <span>Key: {song.default_key?.trim() || '—'}</span>
+                      <span>•</span>
+                      <span>BPM: {song.default_bpm ?? '—'}</span>
                     </div>
                   </button>
                 ))}
               </div>
             )}
-
-            <div
-              style={{
-                marginTop: 16,
-                display: 'flex',
-                justifyContent: 'center',
-              }}
-            >
-              <IonButton
-                fill="outline"
-                size="small"
-                onClick={() => setSongPickerOpen(false)}
-                style={
-                  {
-                    '--color': '#e5e7eb',
-                    '--border-color': 'rgba(156,163,175,0.8)',
-                    borderRadius: 999,
-                  } as any
-                }
-              >
-                Close
-              </IonButton>
-            </div>
           </div>
         </IonModal>
 
@@ -828,8 +1014,7 @@ export default function SetlistTemplateEditorMobile() {
         >
           <IonContent
             style={{
-              '--background':
-                'linear-gradient(135deg, rgba(15,23,42,0.98), rgba(15,23,42,0.95))',
+              '--background': 'rgba(8, 8, 12, 0.98)',
             }}
           >
             <div
@@ -845,18 +1030,19 @@ export default function SetlistTemplateEditorMobile() {
                 style={{
                   width: '100%',
                   maxWidth: 380,
-                  borderRadius: 20,
+                  borderRadius: 24,
                   padding: 24,
-                  background: 'rgba(15,23,42,0.98)',
-                  border: '1px solid rgba(244,114,182,0.6)',
-                  boxShadow: '0 20px 50px rgba(0,0,0,0.9)',
+                  background:
+                    'linear-gradient(135deg, rgba(30, 41, 59, 0.6) 0%, rgba(15, 23, 42, 0.8) 100%)',
+                  border: '1px solid rgba(244, 114, 182, 0.3)',
+                  boxShadow: '0 25px 50px rgba(0, 0, 0, 0.5)',
                 }}
               >
                 <h3
                   style={{
                     margin: 0,
-                    marginBottom: 16,
-                    fontSize: 20,
+                    marginBottom: 20,
+                    fontSize: 22,
                     fontWeight: 800,
                     color: '#F9FAFB',
                   }}
@@ -864,14 +1050,16 @@ export default function SetlistTemplateEditorMobile() {
                   Rename setlist
                 </h3>
 
-                <div>
+                <div style={{ marginBottom: 24 }}>
                   <label
                     style={{
                       display: 'block',
-                      marginBottom: 6,
+                      marginBottom: 8,
                       fontSize: 13,
                       fontWeight: 600,
                       color: '#9ca3af',
+                      textTransform: 'uppercase',
+                      letterSpacing: 0.5,
                     }}
                   >
                     Name
@@ -880,14 +1068,16 @@ export default function SetlistTemplateEditorMobile() {
                     value={editName}
                     onChange={(e) => setEditName(e.target.value)}
                     placeholder="Setlist name"
+                    autoFocus
                     style={{
                       width: '100%',
                       borderRadius: 12,
-                      border: '1px solid rgba(244,114,182,0.5)',
-                      padding: 12,
-                      background: 'rgba(15,23,42,0.9)',
-                      color: '#e5e7eb',
-                      fontSize: 14,
+                      border: '1px solid rgba(244, 114, 182, 0.4)',
+                      padding: '14px 16px',
+                      background: 'rgba(15, 23, 42, 0.8)',
+                      color: '#F9FAFB',
+                      fontSize: 16,
+                      outline: 'none',
                     }}
                   />
                 </div>
@@ -895,39 +1085,19 @@ export default function SetlistTemplateEditorMobile() {
                 <div
                   style={{
                     display: 'flex',
-                    flexDirection: 'column',
-                    gap: 10,
-                    marginTop: 20,
+                    gap: 12,
                   }}
                 >
                   <button
                     type="button"
                     disabled={savingTemplate}
-                    onClick={saveTemplateEdits}
-                    style={{
-                      width: '100%',
-                      padding: '14px 16px',
-                      borderRadius: 12,
-                      border: '1px solid rgba(244,114,182,0.7)',
-                      background: 'rgba(244,114,182,0.98)',
-                      color: '#000000',
-                      fontSize: 15,
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    {savingTemplate ? 'Saving…' : 'Save'}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={savingTemplate}
                     onClick={() => setShowEditTemplate(false)}
                     style={{
-                      width: '100%',
+                      flex: 1,
                       padding: '14px 16px',
                       borderRadius: 12,
-                      border: '1px solid rgba(148,163,184,0.3)',
-                      background: 'rgba(15,23,42,0.9)',
+                      border: '1px solid rgba(148, 163, 184, 0.3)',
+                      background: 'transparent',
                       color: '#9ca3af',
                       fontSize: 15,
                       fontWeight: 600,
@@ -935,6 +1105,25 @@ export default function SetlistTemplateEditorMobile() {
                     }}
                   >
                     Cancel
+                  </button>
+                  <button
+                    type="button"
+                    disabled={savingTemplate}
+                    onClick={saveTemplateEdits}
+                    style={{
+                      flex: 1,
+                      padding: '14px 16px',
+                      borderRadius: 12,
+                      border: 'none',
+                      background: '#f472b6',
+                      color: '#000',
+                      fontSize: 15,
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      opacity: savingTemplate ? 0.7 : 1,
+                    }}
+                  >
+                    {savingTemplate ? 'Saving…' : 'Save'}
                   </button>
                 </div>
               </div>
@@ -951,8 +1140,7 @@ export default function SetlistTemplateEditorMobile() {
         >
           <IonContent
             style={{
-              '--background':
-                'linear-gradient(135deg, rgba(15,23,42,0.98), rgba(15,23,42,0.95))',
+              '--background': 'rgba(8, 8, 12, 0.98)',
             }}
           >
             <div
@@ -968,20 +1156,39 @@ export default function SetlistTemplateEditorMobile() {
                 style={{
                   width: '100%',
                   maxWidth: 380,
-                  borderRadius: 20,
+                  borderRadius: 24,
                   padding: 24,
-                  background: 'rgba(15,23,42,0.98)',
-                  border: '1px solid rgba(248,113,113,0.6)',
-                  boxShadow: '0 20px 50px rgba(0,0,0,0.9)',
+                  background:
+                    'linear-gradient(135deg, rgba(30, 41, 59, 0.6) 0%, rgba(15, 23, 42, 0.8) 100%)',
+                  border: '1px solid rgba(239, 68, 68, 0.3)',
+                  boxShadow: '0 25px 50px rgba(0, 0, 0, 0.5)',
                 }}
               >
+                <div
+                  style={{
+                    width: 56,
+                    height: 56,
+                    borderRadius: 16,
+                    background: 'rgba(239, 68, 68, 0.15)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginBottom: 16,
+                  }}
+                >
+                  <IonIcon
+                    icon={trashOutline}
+                    style={{ fontSize: 28, color: '#f87171' }}
+                  />
+                </div>
+
                 <h3
                   style={{
                     margin: 0,
-                    marginBottom: 12,
-                    fontSize: 20,
+                    marginBottom: 8,
+                    fontSize: 22,
                     fontWeight: 800,
-                    color: 'rgba(248,113,113,0.98)',
+                    color: '#F9FAFB',
                   }}
                 >
                   Delete setlist?
@@ -989,51 +1196,33 @@ export default function SetlistTemplateEditorMobile() {
                 <p
                   style={{
                     margin: 0,
-                    marginBottom: 18,
+                    marginBottom: 24,
                     fontSize: 15,
                     color: '#9ca3af',
                     lineHeight: 1.5,
                   }}
                 >
-                  This will permanently remove this setlist template and all of
-                  its songs. This action cannot be undone.
+                  This will permanently remove "{template?.name}" and all{' '}
+                  {items.length} song{items.length === 1 ? '' : 's'}. This can't
+                  be undone.
                 </p>
 
                 <div
                   style={{
                     display: 'flex',
-                    flexDirection: 'column',
-                    gap: 10,
+                    gap: 12,
                   }}
                 >
                   <button
                     type="button"
                     disabled={deletingTemplate}
-                    onClick={deleteTemplate}
-                    style={{
-                      width: '100%',
-                      padding: '14px 16px',
-                      borderRadius: 12,
-                      border: '1px solid rgba(248,113,113,0.7)',
-                      background: 'rgba(248,113,113,0.98)',
-                      color: '#000000',
-                      fontSize: 15,
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    {deletingTemplate ? 'Deleting…' : 'Delete setlist'}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={deletingTemplate}
                     onClick={() => setShowDeleteTemplate(false)}
                     style={{
-                      width: '100%',
+                      flex: 1,
                       padding: '14px 16px',
                       borderRadius: 12,
-                      border: '1px solid rgba(148,163,184,0.3)',
-                      background: 'rgba(15,23,42,0.9)',
+                      border: '1px solid rgba(148, 163, 184, 0.3)',
+                      background: 'transparent',
                       color: '#9ca3af',
                       fontSize: 15,
                       fontWeight: 600,
@@ -1041,6 +1230,25 @@ export default function SetlistTemplateEditorMobile() {
                     }}
                   >
                     Cancel
+                  </button>
+                  <button
+                    type="button"
+                    disabled={deletingTemplate}
+                    onClick={deleteTemplate}
+                    style={{
+                      flex: 1,
+                      padding: '14px 16px',
+                      borderRadius: 12,
+                      border: 'none',
+                      background: '#ef4444',
+                      color: '#fff',
+                      fontSize: 15,
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      opacity: deletingTemplate ? 0.7 : 1,
+                    }}
+                  >
+                    {deletingTemplate ? 'Deleting…' : 'Delete'}
                   </button>
                 </div>
               </div>
@@ -1053,43 +1261,110 @@ export default function SetlistTemplateEditorMobile() {
 
   return (
     <IonPage>
-      <IonHeader>
+      <IonHeader translucent>
         <IonToolbar
           style={{
-            '--background': 'rgba(8,8,12,0.98)',
-            borderBottom: '0.5px solid rgba(255,255,255,0.06)',
+            '--background': 'rgba(8, 8, 12, 0.98)',
+            borderBottom: '0.5px solid rgba(255, 255, 255, 0.06)',
           }}
         >
-          <IonButton slot="start">
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              padding: '12px 16px',
+              gap: 12,
+            }}
+          >
             <IonButton
               onClick={() => nav(-1)}
               fill="clear"
               style={{
                 minWidth: 0,
-                paddingInline: 4,
+                padding: 6,
+                margin: 0,
+                '--padding-start': '0',
+                '--padding-end': '0',
               }}
             >
               <IonIcon
                 icon={chevronBackOutline}
-                style={{ fontSize: 22, color: '#F9FAFB' }}
+                style={{ color: '#F9FAFB', fontSize: 24 }}
               />
             </IonButton>
-          </IonButton>
 
-          <IonTitle
-            style={{
-              color: '#F9FAFB',
-              fontWeight: 700,
-              fontSize: 17,
-              letterSpacing: 0.25,
-            }}
-          >
-            Edit setlist
-          </IonTitle>
+            <button
+              type="button"
+              onClick={() => {
+                triggerHaptic();
+                startEditTemplate();
+              }}
+              onTouchStart={() => setPressedButton('header')}
+              onTouchEnd={() => setPressedButton(null)}
+              onTouchCancel={() => setPressedButton(null)}
+              onMouseDown={() => setPressedButton('header')}
+              onMouseUp={() => setPressedButton(null)}
+              onMouseLeave={() => setPressedButton(null)}
+              style={{
+                flex: 1,
+                minWidth: 0,
+                background:
+                  pressedButton === 'header'
+                    ? 'rgba(244, 114, 182, 0.12)'
+                    : 'rgba(255, 255, 255, 0.04)',
+                border:
+                  pressedButton === 'header'
+                    ? '1px solid rgba(244, 114, 182, 0.3)'
+                    : '1px solid rgba(255, 255, 255, 0.08)',
+                borderRadius: 14,
+                padding: '10px 14px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12,
+                cursor: 'pointer',
+                transition: 'all 100ms ease-out',
+                transform:
+                  pressedButton === 'header' ? 'scale(0.98)' : 'scale(1)',
+              }}
+            >
+              <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
+                <span
+                  style={{
+                    fontSize: 18,
+                    fontWeight: 700,
+                    color: '#F9FAFB',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    display: 'block',
+                    lineHeight: 1.2,
+                  }}
+                >
+                  {template?.name ?? (loading ? 'Loading…' : 'Setlist')}
+                </span>
+                <span
+                  style={{
+                    fontSize: 12,
+                    color: pressedButton === 'header' ? '#f472b6' : '#6b7280',
+                    transition: 'color 100ms ease-out',
+                  }}
+                >
+                  Tap to rename
+                </span>
+              </div>
+            </button>
+          </div>
         </IonToolbar>
       </IonHeader>
 
-      <IonContent fullscreen>{renderBody()}</IonContent>
+      <IonContent
+        fullscreen
+        style={{
+          '--background': 'linear-gradient(180deg, #050509 0%, #020109 100%)',
+        }}
+      >
+        {renderBody()}
+      </IonContent>
     </IonPage>
   );
 }
@@ -1117,38 +1392,39 @@ function SortableTemplateItemCard({
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0.92 : 1,
+    zIndex: isDragging ? 100 : 'auto',
   };
 
   return (
     <div ref={setNodeRef} style={style}>
       <div
         style={{
-          borderRadius: 18,
-          paddingInline: 14,
-          paddingBlock: 10,
-          minHeight: 72,
-          width: '100%',
-          display: 'grid',
-          gridTemplateColumns: 'auto 1fr auto',
-          columnGap: 10,
+          borderRadius: 14,
+          padding: '12px 14px',
+          display: 'flex',
           alignItems: 'center',
-          background:
-            'linear-gradient(180deg, rgba(15,23,42,0.96), rgba(15,23,42,0.9))',
+          gap: 12,
+          background: isDragging
+            ? 'rgba(244, 114, 182, 0.15)'
+            : 'rgba(15, 23, 42, 0.6)',
+          border: isDragging
+            ? '1px solid rgba(244, 114, 182, 0.4)'
+            : '1px solid rgba(71, 85, 105, 0.3)',
           boxShadow: isDragging
-            ? '0 18px 40px rgba(0,0,0,0.9)'
-            : '0 10px 24px rgba(0,0,0,.45)',
-          border: '1px solid rgba(148,163,184,0.45)',
+            ? '0 20px 40px rgba(0, 0, 0, 0.5)'
+            : '0 2px 8px rgba(0, 0, 0, 0.2)',
+          transition: 'background 150ms, border 150ms, box-shadow 150ms',
         }}
       >
-        {/* Drag + index */}
+        {/* Drag handle + index */}
         <div
           style={{
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
             gap: 2,
-            paddingRight: 6,
+            width: 28,
+            flexShrink: 0,
           }}
         >
           <button
@@ -1159,62 +1435,60 @@ function SortableTemplateItemCard({
             style={{
               border: 'none',
               background: 'transparent',
-              padding: 0,
+              padding: 4,
               margin: 0,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               cursor: 'grab',
-              opacity: 0.85,
               touchAction: 'none',
+              borderRadius: 6,
             }}
           >
             <IonIcon
               icon={reorderThreeOutline}
-              style={{ fontSize: 18, color: '#9ca3af' }}
+              style={{ fontSize: 20, color: '#6b7280' }}
             />
           </button>
           <span
             style={{
               fontSize: 11,
-              color: '#9ca3af',
+              fontWeight: 600,
+              color: '#f472b6',
             }}
           >
             {index + 1}
           </span>
         </div>
 
-        {/* Text + meta */}
+        {/* Song info */}
         <div
           style={{
-            display: 'flex',
-            flexDirection: 'column',
+            flex: 1,
             minWidth: 0,
           }}
         >
-          <span
+          <div
             style={{
-              fontWeight: 700,
               fontSize: 15,
-              letterSpacing: 0.15,
+              fontWeight: 600,
+              color: '#F9FAFB',
               whiteSpace: 'nowrap',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
-              color: '#e5e7eb',
+              marginBottom: 4,
             }}
-            title={row.title}
           >
             {row.title}
-          </span>
+          </div>
 
           <div
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: 8,
-              marginTop: 6,
+              gap: 10,
               fontSize: 12,
-              color: '#9ca3af',
+              color: '#6b7280',
             }}
           >
             <div
@@ -1222,85 +1496,48 @@ function SortableTemplateItemCard({
                 display: 'flex',
                 alignItems: 'center',
                 gap: 4,
-                minWidth: 0,
               }}
             >
               <IonIcon
                 icon={musicalNotesOutline}
-                style={{ fontSize: 14, opacity: 0.85 }}
+                style={{ fontSize: 13, color: '#f472b6', opacity: 0.8 }}
               />
               <span>{row.musical_key || '—'}</span>
             </div>
-            <span
-              style={{
-                opacity: 0.35,
-              }}
-            >
-              ·
-            </span>
             <div
               style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: 4,
-                minWidth: 0,
               }}
             >
               <IonIcon
                 icon={speedometerOutline}
-                style={{ fontSize: 14, opacity: 0.85 }}
+                style={{ fontSize: 13, color: '#f472b6', opacity: 0.8 }}
               />
-              <span>{row.bpm != null ? `${row.bpm} bpm` : '—'}</span>
+              <span>{row.bpm ?? '—'}</span>
             </div>
           </div>
-
-          {row.notes && (
-            <p
-              style={{
-                margin: 0,
-                marginTop: 6,
-                fontSize: 12,
-                color: '#9ca3af',
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-              }}
-            >
-              {row.notes}
-            </p>
-          )}
         </div>
 
-        {/* Right: delete item */}
-        <div
+        {/* Remove button */}
+        <button
+          type="button"
+          onClick={onDelete}
           style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'flex-end',
-            justifyContent: 'center',
-            fontSize: 11,
-            color: '#6b7280',
-            gap: 6,
+            padding: '6px 12px',
+            borderRadius: 8,
+            border: '1px solid rgba(239, 68, 68, 0.3)',
+            background: 'rgba(239, 68, 68, 0.1)',
+            color: '#f87171',
+            fontSize: 12,
+            fontWeight: 600,
+            cursor: 'pointer',
+            flexShrink: 0,
           }}
         >
-          <button
-            type="button"
-            onClick={onDelete}
-            style={{
-              borderRadius: 999,
-              border: '1px solid rgba(239,68,68,0.7)',
-              paddingInline: 10,
-              paddingBlock: 4,
-              background: 'rgba(127,29,29,0.3)',
-              color: '#fecaca',
-              fontSize: 11,
-              fontWeight: 600,
-            }}
-          >
-            Remove
-          </button>
-          <span>#{row.order_index + 1}</span>
-        </div>
+          Remove
+        </button>
       </div>
     </div>
   );

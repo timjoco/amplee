@@ -20,10 +20,6 @@ export const normalizeCreateEventError = (e: any) => {
   return 'Could not create the event. Please try again.';
 };
 
-/**
- * NEW BAND
- */
-
 export function useNewBandForm(opts: {
   showToast: ShowToast;
   onError?: (msg: string) => void;
@@ -45,9 +41,7 @@ export function useNewBandForm(opts: {
     if (avatarPreview) {
       try {
         URL.revokeObjectURL(avatarPreview);
-      } catch {
-        // ignore
-      }
+      } catch {}
     }
   };
 
@@ -157,7 +151,6 @@ export function useNewEventForm(opts: {
     setStarts('');
     setEnds('');
     setLocation('');
-    // NOTE: we *keep* bandId so default band stays selected
   }, []);
 
   const submit = useCallback(async () => {

@@ -425,6 +425,9 @@ export default function EventSheetMobile() {
               style={{
                 minWidth: 0,
                 padding: 6,
+                margin: 0,
+                '--padding-start': '0',
+                '--padding-end': '0',
               }}
             >
               <IonIcon
@@ -435,63 +438,77 @@ export default function EventSheetMobile() {
 
             <button
               type="button"
-              onClick={() => setShowInfoSheet(true)}
+              onClick={() => {
+                triggerHaptic();
+                setShowInfoSheet(true);
+              }}
+              onTouchStart={() => setPressedButton('header')}
+              onTouchEnd={() => setPressedButton(null)}
+              onTouchCancel={() => setPressedButton(null)}
+              onMouseDown={() => setPressedButton('header')}
+              onMouseUp={() => setPressedButton(null)}
+              onMouseLeave={() => setPressedButton(null)}
               style={{
                 flex: 1,
                 minWidth: 0,
-                background: 'transparent',
-                border: 'none',
-                padding: 0,
+                background:
+                  pressedButton === 'header'
+                    ? 'rgba(52, 211, 153, 0.12)'
+                    : 'rgba(255,255,255,0.04)',
+                border:
+                  pressedButton === 'header'
+                    ? '1px solid rgba(52, 211, 153, 0.3)'
+                    : '1px solid rgba(255,255,255,0.08)',
+                borderRadius: 14,
+                padding: '10px 14px',
                 display: 'flex',
                 alignItems: 'center',
-                gap: 8,
+                gap: 12,
                 cursor: 'pointer',
+                transition: 'all 100ms ease-out',
+                transform:
+                  pressedButton === 'header' ? 'scale(0.98)' : 'scale(1)',
               }}
             >
-              {/* Title + subtitle */}
-              <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
+              {/* Status dot
+              {status && (
                 <div
                   style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 6,
+                    width: 10,
+                    height: 10,
+                    borderRadius: '50%',
+                    background: status.color,
+                    flexShrink: 0,
+                    boxShadow: `0 0 8px ${status.color}40`,
                   }}
-                >
-                  <span
-                    style={{
-                      fontSize: 24,
-                      fontWeight: 800,
-                      color: '#F9FAFB',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                      letterSpacing: '-0.5px',
-                      lineHeight: 1,
-                    }}
-                  >
-                    {event?.title ?? (loading ? 'Loading…' : 'Event')}
-                  </span>
-                </div>
-                <p
-                  style={{
-                    margin: '4px 0 0',
-                    fontSize: 13,
-                    color: '#9ca3af',
-                  }}
-                >
-                  Event
-                </p>
-              </div>
+                />
+              )} */}
 
-              {/* Chevron on the right */}
-              <IonIcon
-                icon={chevronForwardOutline}
-                style={{
-                  fontSize: 18,
-                  color: '#9ca3af',
-                  flexShrink: 0,
-                }}
-              />
+              <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
+                <span
+                  style={{
+                    fontSize: 20,
+                    fontWeight: 700,
+                    color: '#F9FAFB',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    display: 'block',
+                    lineHeight: 1.2,
+                  }}
+                >
+                  {event?.title ?? (loading ? 'Loading…' : 'Event')}
+                </span>
+                <span
+                  style={{
+                    fontSize: 12,
+                    color: pressedButton === 'header' ? '#34d399' : '#6b7280',
+                    transition: 'color 100ms ease-out',
+                  }}
+                >
+                  Tap for details
+                </span>
+              </div>
             </button>
           </div>
         </IonToolbar>

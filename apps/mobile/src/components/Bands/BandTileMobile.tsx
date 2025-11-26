@@ -23,9 +23,6 @@ export default function BandTileMobile({
   selected = false,
   onClick,
 }: Props) {
-  // keep this if you ever use avatarUrl as a *real* URL
-  // const srcGuess = avatarUrl ?? undefined;
-
   const effectivePath = avatarPath ?? avatar_url ?? undefined;
 
   return (
@@ -68,7 +65,6 @@ export default function BandTileMobile({
             'transform 150ms ease, box-shadow 150ms ease, border-color 150ms ease',
         }}
       >
-        {/* Avatar */}
         <div
           style={{
             display: 'grid',
@@ -89,8 +85,6 @@ export default function BandTileMobile({
             }}
           />
         </div>
-
-        {/* Name */}
         <div
           style={{
             width: '100%',

@@ -3,11 +3,15 @@ import { useEffect } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 
 import MobileBottomNav from './components/Nav/MobileBottomNav';
-import { useSession } from './lib/useSession';
+import { useSession } from './hooks/useSession';
 
 import { Capacitor, type PluginListenerHandle } from '@capacitor/core';
 import { Keyboard, KeyboardResize } from '@capacitor/keyboard';
 import AuthCallback from './pages/AuthCallback';
+import BandEventsPage from './pages/Bands/BandEventsPage';
+import BandLibraryPage from './pages/Bands/BandLibraryPage';
+import BandProposalsPage from './pages/Bands/BandProposalsPage';
+import BandRosterPage from './pages/Bands/BandRosterPage';
 import BandSetlistPageMobile from './pages/BandSetlistPageMobile';
 import BandSettingsMobile from './pages/BandSettingsMobile';
 import BandSheetMobile from './pages/BandSheetMobile';
@@ -30,12 +34,6 @@ import ProposedGigSheetMobile from './pages/ProposedGigSheetMobile';
 import SetlistTemplateEditorMobile from './pages/SetlistTemplateEditorMobile';
 import VerifyEmail from './pages/VerifyEmail';
 import GlobalCreateHost from './shared/GlobalCreateHost';
-
-// ⬇️ NEW band sub-page imports
-import BandEventsPage from './pages/Bands/BandEventsPage';
-import BandLibraryPage from './pages/Bands/BandLibraryPage';
-import BandProposalsPage from './pages/Bands/BandProposalsPage';
-import BandRosterPage from './pages/Bands/BandRosterPage';
 
 export default function App() {
   const { loading, session } = useSession();

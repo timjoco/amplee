@@ -39,7 +39,6 @@ export default function Home() {
 
   const isEmpty = bands.length === 0;
 
-  // Generate cosmic orbs for empty state
   React.useEffect(() => {
     if (!isEmpty) {
       setOrbs([]);
@@ -128,7 +127,6 @@ export default function Home() {
   };
 
   const handleCreateFirstBand = () => {
-    // Trigger global create for band if your shell listens to this event
     window.dispatchEvent(
       new CustomEvent('amplee:global-create', {
         detail: { kind: 'band' },
@@ -177,10 +175,8 @@ export default function Home() {
           <IonRefresherContent />
         </IonRefresher>
 
-        {/* Cosmic Background for Empty State */}
         {isEmpty && (
           <>
-            {/* Animated Orbs */}
             {orbs.map((orb) => (
               <div
                 key={orb.id}
@@ -201,7 +197,6 @@ export default function Home() {
               />
             ))}
 
-            {/* Twinkling Stars */}
             <div
               style={{
                 position: 'absolute',
@@ -241,7 +236,6 @@ export default function Home() {
             zIndex: 1,
           }}
         >
-          {/* Empty State - Cosmic Welcome */}
           {isEmpty && !refreshing && (
             <div
               style={{
@@ -251,7 +245,6 @@ export default function Home() {
                 animation: 'ampFadeInUp 0.8s ease-out forwards',
               }}
             >
-              {/* Logo card (same style as Login) */}
               <div
                 style={{
                   display: 'inline-flex',
@@ -346,7 +339,6 @@ export default function Home() {
                   opacity: 0,
                 }}
               >
-                {/* CTA Button */}
                 <div
                   style={{
                     display: 'flex',
@@ -400,7 +392,6 @@ export default function Home() {
                 </p>
               </div>
 
-              {/* Bottom Indicator */}
               <div
                 style={{
                   display: 'flex',
@@ -422,7 +413,6 @@ export default function Home() {
             </div>
           )}
 
-          {/* Regular Content - Bands Section (when there ARE bands) */}
           {!isEmpty && (
             <div
               style={{
@@ -467,7 +457,7 @@ export default function Home() {
             </div>
           )}
 
-          {/* Event Chats Section - Only show if there are bands */}
+          {/* Event Chats Section */}
           {!isEmpty && (
             <div>
               <div
@@ -488,7 +478,7 @@ export default function Home() {
                     color: '#E5E7EB',
                   }}
                 >
-                  Event Chats
+                  Event
                 </h2>
               </div>
 
@@ -497,17 +487,12 @@ export default function Home() {
                   marginLeft: 4,
                 }}
               >
-                {/* 
-                  EventInboxListMobile now handles its own empty state.
-                  No enableCreateForBand prop = no create button in empty state.
-                */}
                 <EventInboxListMobile showAvatars onLoaded={() => {}} />
               </div>
             </div>
           )}
         </div>
 
-        {/* Animations */}
         <style>{`
           @keyframes ampFloat {
             0%, 100% {

@@ -595,12 +595,10 @@ export default function BandSheetMobile() {
                     textAlign: 'left',
                     position: 'relative',
                     transform:
-                      pressedButton === 'proposals'
-                        ? 'scale(0.97)'
-                        : 'scale(1)',
+                      pressedButton === 'events' ? 'scale(0.97)' : 'scale(1)',
                     transition:
                       'transform 120ms ease-out, box-shadow 120ms ease-out',
-                    minHeight: 120,
+                    // minHeight: 120,
                   }}
                 >
                   <div
@@ -772,7 +770,7 @@ export default function BandSheetMobile() {
                         : 'scale(1)',
                     transition:
                       'transform 120ms ease-out, box-shadow 120ms ease-out',
-                    minHeight: 120,
+                    // minHeight: 120,
                   }}
                 >
                   <div
@@ -861,7 +859,6 @@ export default function BandSheetMobile() {
                     gap: 10,
                     cursor: 'pointer',
                     textAlign: 'left',
-                    minHeight: 130,
                     position: 'relative',
                     transform:
                       pressedButton === 'proposals'
@@ -907,7 +904,6 @@ export default function BandSheetMobile() {
                     </span>
                   </div>
 
-                  {/* Description */}
                   <div
                     style={{
                       fontSize: 12,
