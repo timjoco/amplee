@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useCallback, useRef, useState } from 'react';
-import { useCreateBand } from '../../src/hooks/useCreateBand';
-import { createEvent, type EventType } from '../../src/lib/events/createEvents';
+import { createEvent, type EventType } from '../lib/events/createEvents';
 import { supabase } from '../lib/supabase';
+import { useCreateBand } from './useCreateBand';
 
 export type BandLite = { id: string; name: string; avatar_url?: string | null };
 

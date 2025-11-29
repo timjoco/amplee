@@ -78,28 +78,17 @@ export default function ProposedGigSheetMobile() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
   const [showAddDatePicker, setShowAddDatePicker] = useState(false);
   const [newDate, setNewDate] = useState<string | null>(null);
   const [showConvertAlert, setShowConvertAlert] = useState(false);
-
-  // proposal meta
   const [proposedByName, setProposedByName] = useState<string | null>(null);
-
-  // proposal conversion
   const [converting, setConverting] = useState<string | null>(null);
-
-  // delete proposal flow
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
-
-  // edit proposal details
   const [showEditProposal, setShowEditProposal] = useState(false);
   const [editTitle, setEditTitle] = useState('');
   const [editVenue, setEditVenue] = useState('');
   const [savingProposal, setSavingProposal] = useState(false);
-
-  // edit individual time option
   const [showEditDatePicker, setShowEditDatePicker] = useState(false);
   const [editingOptionId, setEditingOptionId] = useState<string | null>(null);
   const [editingOptionDate, setEditingOptionDate] = useState<string | null>(
@@ -112,7 +101,6 @@ export default function ProposedGigSheetMobile() {
       setLoading(true);
       setError(null);
 
-      // Get user, members count, and proposal in parallel
       const [
         {
           data: { user },
@@ -429,7 +417,7 @@ export default function ProposedGigSheetMobile() {
     return [...options].sort((a, b) => {
       const dateA = new Date(a.starts_at).getTime();
       const dateB = new Date(b.starts_at).getTime();
-      return dateA - dateB; // Ascending order (earliest first)
+      return dateA - dateB;
     });
   }
 
@@ -494,7 +482,6 @@ export default function ProposedGigSheetMobile() {
       if (updErr) throw updErr;
 
       // update local state instead of refetching
-
       setProposal((prev) => {
         if (!prev) return prev;
 
@@ -1231,20 +1218,19 @@ export default function ProposedGigSheetMobile() {
                 style={{ color: '#F9FAFB', fontSize: 24 }}
               />
             </IonButton>
-
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <span
-                style={{
-                  fontSize: 18,
-                  fontWeight: 700,
-                  color: '#F9FAFB',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {headerTitle}
-              </span>
+            <div
+              style={{
+                flex: 1,
+                minWidth: 0,
+                fontSize: 18,
+                fontWeight: 700,
+                color: '#F9FAFB',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {headerTitle}
             </div>
 
             <div

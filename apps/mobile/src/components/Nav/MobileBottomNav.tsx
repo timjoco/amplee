@@ -22,34 +22,18 @@ export default function MobileBottomNav() {
   React.useEffect(() => {
     let alive = true;
 
-    (async () => {
-      const { data: auth, error: authErr } = await supabase.auth.getUser();
-      if (authErr) {
-        console.error(authErr);
-        return;
-      }
-
-      const user = auth?.user ?? null;
-      const uid = user?.id;
-      const fallbackName =
-        user?.user_metadata?.full_name ?? user?.email ?? 'Your profile';
-
-      if (!uid) return;
-
+    const fetchProfile = async (userId: string, fallbackName: string) => {
       const { data, error: profErr } = await supabase
         .from('profiles')
         .select('display_name, first_name, last_name, avatar_url')
-        .eq('id', uid)
+        .eq('id', userId)
         .maybeSingle();
 
       if (!alive) return;
 
       if (profErr) {
         console.error(profErr);
-        setProfile({
-          name: fallbackName,
-          avatarUrl: null,
-        });
+        setProfile({ name: fallbackName, avatarUrl: null });
         return;
       }
 
@@ -67,28 +51,56 @@ export default function MobileBottomNav() {
         name: displayName,
         avatarUrl: data?.avatar_url ?? null,
       });
-    })();
+    };
+
+    const handleAuthChange = async () => {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const session = sessionData?.session;
+
+      if (!session) {
+        // User logged out - clear profile
+        if (alive) setProfile(null);
+        return;
+      }
+
+      const fallbackName =
+        session.user.user_metadata?.full_name ??
+        session.user.email ??
+        'Your profile';
+
+      await fetchProfile(session.user.id, fallbackName);
+    };
+
+    // Initial fetch
+    handleAuthChange();
+
+    // Listen for auth state changes (login, logout, token refresh)
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      (event, _session) => {
+        // Re-fetch on sign in, sign out, or user update
+        if (
+          event === 'SIGNED_IN' ||
+          event === 'SIGNED_OUT' ||
+          event === 'USER_UPDATED'
+        ) {
+          handleAuthChange();
+        }
+      }
+    );
 
     const handleAvatarChanged = (ev: Event) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const detail = (ev as CustomEvent<any>).detail;
-      const newUrl = detail?.avatar_url as string | undefined;
+      const detail = (ev as CustomEvent<{ avatar_url?: string }>).detail;
+      const newUrl = detail?.avatar_url;
       if (!newUrl) return;
 
-      setProfile((prev) =>
-        prev
-          ? {
-              ...prev,
-              avatarUrl: newUrl,
-            }
-          : prev
-      );
+      setProfile((prev) => (prev ? { ...prev, avatarUrl: newUrl } : prev));
     };
 
     window.addEventListener('profiles:avatar_changed', handleAvatarChanged);
 
     return () => {
       alive = false;
+      authListener.subscription.unsubscribe();
       window.removeEventListener(
         'profiles:avatar_changed',
         handleAvatarChanged

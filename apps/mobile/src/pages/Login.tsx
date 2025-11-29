@@ -147,6 +147,7 @@ export default function Login() {
 
       setStatus('verifying');
       try {
+        // 1) Verify OTP and create Supabase session
         const { error } = await supabase.auth.verifyOtp({
           email: email.trim(),
           token: code.trim(),
@@ -154,10 +155,47 @@ export default function Login() {
         });
         if (error) throw error;
 
-        const dest = invite
+        // 2) Fetch the user
+        const {
+          data: { user },
+          error: userErr,
+        } = await supabase.auth.getUser();
+        if (userErr) throw userErr;
+        if (!user) throw new Error('No user after verifying code');
+
+        // 3) Ensure there is a profile row (like web's ensure_profile)
+        try {
+          const { error: rpcErr } = await supabase.rpc('ensure_profile');
+          if (rpcErr && rpcErr.code !== '42883') {
+            console.warn('[ensure_profile] RPC error:', rpcErr.message);
+          }
+        } catch (rpcErr) {
+          console.warn('[ensure_profile] call failed:', rpcErr);
+        }
+
+        // 4) Check onboarding status
+        const { data: profile, error: pErr } = await supabase
+          .from('profiles')
+          .select('onboarded')
+          .eq('id', user.id)
+          .maybeSingle();
+
+        if (pErr) {
+          console.warn('[onboarding check error]', pErr);
+        }
+
+        // Where the user *eventually* wants to go
+        const baseDest = invite
           ? `${next}?invite=${encodeURIComponent(invite)}`
           : next;
-        nav(dest, { replace: true });
+
+        // If not onboarded, send to onboarding first
+        const finalDest =
+          profile?.onboarded === true
+            ? baseDest
+            : `/onboarding?next=${encodeURIComponent(baseDest)}`;
+
+        nav(finalDest, { replace: true });
       } catch (err) {
         setStatus('error');
         setMessage(getErrorMessage(err) || 'Invalid or expired code.');

@@ -407,7 +407,6 @@ export default function GlobalCreateMobile({
           )}
 
           {/* Menu Step */}
-          {/* Menu Step */}
           {step === 'menu' && (
             <div className="gc-menu-container">
               <button
@@ -506,13 +505,6 @@ export default function GlobalCreateMobile({
                     />
                   </button>
                 </>
-              )}
-
-              {/* Optional hint when you truly have no bands */}
-              {!loadingBands && bands.length === 0 && (
-                <div className="gc-empty-hint">
-                  Create a band to unlock events, songs, and proposals.
-                </div>
               )}
             </div>
           )}

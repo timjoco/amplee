@@ -59,11 +59,10 @@ export default function VerifyEmail() {
       const { data, error } = await supabase.auth.verifyOtp({
         email,
         token,
-        type: 'email', // email OTP (not sms)
+        type: 'email',
       });
       if (error) throw error;
 
-      // Once session exists, go to redirect or home
       await supabase.auth.getSession();
       const r = getRedirectParam();
       navigate(r || afterLoginPath(), { replace: true });

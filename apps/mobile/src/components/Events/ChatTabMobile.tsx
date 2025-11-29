@@ -14,9 +14,9 @@ import {
 import { send as sendIcon } from 'ionicons/icons';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../../lib/supabase';
-import { MessageActionSheet } from '../Chat/MessageActionSheet';
-import { MessageBodyWithLinks } from '../Chat/MessageBodyWithLinks';
-import { ReactionBarMobile } from '../Chat/ReactionBar/ReactionBarMobile';
+import { MessageActionSheet } from './Chat/MessageActionSheet';
+import { MessageBodyWithLinks } from './Chat/MessageBodyWithLinks';
+import { ReactionBarMobile } from './Chat/ReactionBar/ReactionBarMobile';
 
 import AvatarImageMobile from '../ui/AvatarImageMobile';
 
@@ -281,65 +281,56 @@ export default function ChatTabMobile({
     };
   }, []);
 
-  //  Subscribing to external system (realtime updates/deletes)
+  // Subscribing to external system (realtime reactions)
   useEffect(() => {
     const ch = supabase
-      .channel(`event:${eventId}`)
+      .channel(`event:${eventId}:reactions`)
       .on(
         'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'event_messages',
-          filter: `event_id=eq.${eventId}`,
-        },
+        { event: '*', schema: 'public', table: 'event_message_reactions' },
         (payload) => {
-          if (payload.eventType === 'INSERT') {
+          const base = (payload.new ??
+            payload.old) as Partial<ReactionRow> | null;
+          if (!base || typeof base.message_id !== 'number') return;
+
+          const mid = String(base.message_id);
+
+          const hasMessage = messagesRef.current.some((m) => m.id === mid);
+          if (!hasMessage) return;
+
+          const me = userRef.current?.id as string | undefined;
+
+          // 🔑 Important: ignore my own events because toggleReaction already handled them
+          if (me && base.user_id === me) {
             return;
           }
 
-          if (payload.eventType === 'UPDATE') {
-            const row = payload.new as any;
-            const updatedId = String(row.id);
-            const newBody = row.body as string;
+          if (payload.eventType === 'INSERT') {
+            const row = payload.new as ReactionRow;
+            const emoji = row.emoji;
 
-            setMessages((prev) =>
-              prev.map((m) =>
-                m.id === updatedId ? { ...m, body: newBody } : m
-              )
-            );
+            setReactions((prev) => {
+              const curr = { ...(prev[mid] || {}) };
+              curr[emoji] = (curr[emoji] || 0) + 1;
+              return { ...prev, [mid]: curr };
+            });
+
+            // no need to touch myReactions here; for "me" we short-circuit above
           }
 
           if (payload.eventType === 'DELETE') {
-            const oldRow = payload.old as any;
-            if (!oldRow) return;
-
-            const deletedId = String(oldRow.id);
-
-            setMessages((prev) => prev.filter((m) => m.id !== deletedId));
+            const row = payload.old as ReactionRow;
+            const emoji = row.emoji;
 
             setReactions((prev) => {
-              if (!prev[deletedId]) return prev;
-              const next = { ...prev };
-              delete next[deletedId];
-              return next;
+              const curr = { ...(prev[mid] || {}) };
+              const nextCount = Math.max(0, (curr[emoji] || 1) - 1);
+              if (nextCount <= 0) delete curr[emoji];
+              else curr[emoji] = nextCount;
+              return { ...prev, [mid]: curr };
             });
 
-            setMyReactions((prev) => {
-              if (!prev[deletedId]) return prev;
-              const next = { ...prev };
-              delete next[deletedId];
-              return next;
-            });
-
-            setLinkPreviews((prev) => {
-              if (!prev[deletedId]) return prev;
-              const next = { ...prev };
-              delete next[deletedId];
-              return next;
-            });
-
-            fetchedPreviewsRef.current.delete(deletedId);
+            // also no need to change myReactions here for "me"
           }
         }
       )
@@ -453,7 +444,7 @@ export default function ChatTabMobile({
     setLoadingMore(false);
   }, [eventId, loadingMore, hasMoreMessages, loadReactionsFor]);
 
-  // ✅ OPTIMIZE: Use ref for callback to prevent listener recreation
+  // Use ref for callback to prevent listener recreation
   const handleScrollRef = useRef<(() => void) | null>(null);
 
   handleScrollRef.current = useCallback(() => {
@@ -465,7 +456,7 @@ export default function ChatTabMobile({
     }
   }, [loadMoreMessages]);
 
-  // Now only runs once, uses ref for callback
+  // Only runs once, uses ref for callback
   useEffect(() => {
     const el = scrollContainerRef.current;
     if (!el) return;

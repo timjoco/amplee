@@ -9,11 +9,16 @@ import {
   IonLabel,
   IonList,
   IonPage,
+  IonSpinner,
   IonText,
   IonToast,
   IonToolbar,
 } from '@ionic/react';
-import { chevronBackOutline } from 'ionicons/icons';
+import {
+  chevronBackOutline,
+  locationOutline,
+  personOutline,
+} from 'ionicons/icons';
 import { LuPencil } from 'react-icons/lu';
 
 import * as React from 'react';
@@ -126,7 +131,7 @@ function LocationAutocomplete({
         onIonBlur={() => {
           setTimeout(() => setOpen(false), 120);
         }}
-        style={{ fontSize: 16 }}
+        style={{ fontSize: 15 }}
       />
 
       {editable && open && suggestions.length > 0 && (
@@ -137,16 +142,20 @@ function LocationAutocomplete({
             right: 0,
             top: '100%',
             marginTop: 4,
-            borderRadius: 12,
-            background: 'rgba(8,8,12,0.98)',
-            border: '1px solid rgba(255,255,255,0.12)',
-            boxShadow: '0 12px 28px rgba(0,0,0,0.6)',
+            borderRadius: 14,
+            background:
+              'linear-gradient(145deg, rgba(20,15,25,0.98) 0%, rgba(12,8,18,0.98) 100%)',
+            border: '1px solid rgba(168,85,247,0.2)',
+            boxShadow:
+              '0 12px 28px rgba(0,0,0,0.6), 0 0 20px rgba(168,85,247,0.1)',
             zIndex: 50,
             maxHeight: 220,
             overflowY: 'auto',
+            backdropFilter: 'blur(12px)',
+            WebkitBackdropFilter: 'blur(12px)',
           }}
         >
-          {suggestions.map((s) => (
+          {suggestions.map((s, i) => (
             <button
               key={s}
               type="button"
@@ -154,16 +163,20 @@ function LocationAutocomplete({
               style={{
                 width: '100%',
                 textAlign: 'left',
-                padding: '12px 16px',
+                padding: '14px 16px',
                 background: 'transparent',
                 border: 'none',
+                borderBottom:
+                  i < suggestions.length - 1
+                    ? '1px solid rgba(148,163,184,0.08)'
+                    : 'none',
                 color: '#e5e7eb',
                 fontSize: 14,
                 cursor: 'pointer',
                 transition: 'background 0.15s ease',
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
+                e.currentTarget.style.background = 'rgba(168,85,247,0.1)';
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.background = 'transparent';
@@ -175,11 +188,18 @@ function LocationAutocomplete({
           {loading && (
             <div
               style={{
-                padding: '8px 16px',
-                fontSize: 12,
-                color: '#9ca3af',
+                padding: '12px 16px',
+                fontSize: 13,
+                color: '#a855f7',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
               }}
             >
+              <IonSpinner
+                name="crescent"
+                style={{ width: 14, height: 14, color: '#a855f7' }}
+              />
               Searching…
             </div>
           )}
@@ -214,24 +234,18 @@ export default function ProfileBasics() {
       setLoading(true);
       setError(null);
 
-      const { data: auth, error: authErr } = await supabase.auth.getUser();
-      if (authErr) {
-        console.error(authErr);
-        if (alive) setError('Unable to load session');
-        setLoading(false);
-        return;
-      }
+      const { data: sessionData } = await supabase.auth.getSession();
+      const user = sessionData?.session?.user ?? null;
 
-      const user = auth?.user ?? null;
-      setAuthUser(user);
-      const uid = user?.id;
-      const fallbackName = user?.user_metadata?.full_name ?? user?.email ?? '';
-
-      if (!uid) {
+      if (!user) {
         if (alive) setError('You are not signed in.');
         setLoading(false);
         return;
       }
+
+      setAuthUser(user);
+      const uid = user.id;
+      const fallbackName = user.user_metadata?.full_name ?? user.email ?? '';
 
       const { data, error: profErr } = await supabase
         .from('profiles')
@@ -320,7 +334,7 @@ export default function ProfileBasics() {
       if (updateErr) throw updateErr;
 
       setSuccess('Profile updated');
-      setToastMessage('Profile updated');
+      setToastMessage('Profile updated successfully');
 
       setProfile((prev) =>
         prev
@@ -355,8 +369,8 @@ export default function ProfileBasics() {
     setSuccess(null);
 
     try {
-      const { data: auth } = await supabase.auth.getUser();
-      const uid = auth?.user?.id;
+      const { data: sessionData } = await supabase.auth.getSession();
+      const uid = sessionData?.session?.user?.id;
       if (!uid) throw new Error('Not signed in');
 
       if (!file.type.startsWith('image/')) {
@@ -395,7 +409,7 @@ export default function ProfileBasics() {
           : prev
       );
 
-      setSuccess('Photo updated');
+      setToastMessage('Photo updated successfully');
 
       window.dispatchEvent(
         new CustomEvent('profiles:avatar_changed', {
@@ -411,6 +425,26 @@ export default function ProfileBasics() {
     }
   };
 
+  const inputItemStyle = {
+    '--background': 'rgba(255,255,255,0.03)',
+    '--border-radius': '12px',
+    '--padding-start': '16px',
+    '--inner-padding-end': '16px',
+    '--min-height': '52px',
+    border: '1px solid rgba(148,163,184,0.12)',
+    borderRadius: '12px',
+    marginTop: 8,
+  };
+
+  const labelStyle = {
+    fontSize: 11,
+    textTransform: 'uppercase' as const,
+    letterSpacing: 0.5,
+    color: '#6b7280',
+    fontWeight: 600,
+    display: 'block',
+  };
+
   return (
     <IonPage>
       <IonHeader translucent>
@@ -424,8 +458,8 @@ export default function ProfileBasics() {
             style={{
               display: 'flex',
               alignItems: 'center',
-              padding: '16px',
-              gap: 12,
+              padding: '12px 16px',
+              gap: 8,
             }}
           >
             <IonButton
@@ -433,39 +467,38 @@ export default function ProfileBasics() {
               fill="clear"
               style={{
                 minWidth: 0,
-                padding: 6,
+                padding: 4,
                 margin: 0,
                 flexShrink: 0,
               }}
             >
               <IonIcon
                 icon={chevronBackOutline}
-                style={{ color: '#9ca3af', fontSize: 22 }}
+                style={{ color: '#F9FAFB', fontSize: 22 }}
               />
             </IonButton>
 
             <div style={{ flex: 1 }}>
               <h1
                 style={{
-                  fontSize: 20,
+                  fontSize: 24,
                   fontWeight: 800,
                   color: '#F9FAFB',
                   margin: 0,
-                  letterSpacing: '-0.8px',
-                  lineHeight: 1.15,
+                  letterSpacing: '-0.5px',
                 }}
               >
                 Edit Profile
               </h1>
-              <div
+              <p
                 style={{
                   fontSize: 13,
                   color: '#9ca3af',
-                  marginTop: 4,
+                  margin: '4px 0 0',
                 }}
               >
                 Update your information
-              </div>
+              </p>
             </div>
           </div>
         </IonToolbar>
@@ -475,7 +508,7 @@ export default function ProfileBasics() {
         fullscreen
         scrollY={true}
         style={{
-          '--background': 'linear-gradient(180deg, #050509 0%, #020109 100%)',
+          '--background': 'linear-gradient(180deg, #0a0812 0%, #050509 100%)',
         }}
       >
         {loading && (
@@ -486,13 +519,11 @@ export default function ProfileBasics() {
               height: '100%',
             }}
           >
-            <IonText color="medium">
-              <p>Loading…</p>
-            </IonText>
+            <IonSpinner name="dots" style={{ color: '#a855f7' }} />
           </div>
         )}
 
-        {!loading && error && (
+        {!loading && error && !profile && (
           <div
             style={{
               padding: 16,
@@ -502,14 +533,19 @@ export default function ProfileBasics() {
           >
             <div
               style={{
-                background: 'rgba(239, 68, 68, 0.1)',
-                border: '1px solid rgba(239, 68, 68, 0.3)',
-                borderRadius: '12px',
-                padding: '16px',
+                background:
+                  'linear-gradient(135deg, rgba(127,29,29,0.15) 0%, rgba(80,20,20,0.1) 100%)',
+                border: '1px solid rgba(248, 113, 113, 0.25)',
+                borderRadius: 16,
+                padding: 16,
+                backdropFilter: 'blur(12px)',
+                WebkitBackdropFilter: 'blur(12px)',
               }}
             >
-              <IonText color="danger">
-                <p style={{ margin: 0, fontSize: 14 }}>{error}</p>
+              <IonText>
+                <p style={{ margin: 0, fontSize: 14, color: '#fca5a5' }}>
+                  {error}
+                </p>
               </IonText>
             </div>
           </div>
@@ -518,7 +554,8 @@ export default function ProfileBasics() {
         {!loading && profile && (
           <div
             style={{
-              padding: '16px',
+              padding: 16,
+              paddingBottom: 32,
               maxWidth: '600px',
               margin: '0 auto',
             }}
@@ -526,28 +563,66 @@ export default function ProfileBasics() {
             {/* Avatar Section */}
             <div
               style={{
-                background: 'rgba(255,255,255,0.02)',
-                border: '1px solid rgba(255,255,255,0.06)',
-                borderRadius: '20px',
+                background:
+                  'linear-gradient(135deg, rgba(168,85,247,0.08) 0%, rgba(139,92,246,0.04) 100%)',
+                border: '1px solid rgba(168,85,247,0.2)',
+                borderRadius: 24,
                 padding: '32px 24px',
                 textAlign: 'center',
-                marginBottom: '16px',
+                marginBottom: 16,
+                backdropFilter: 'blur(12px)',
+                WebkitBackdropFilter: 'blur(12px)',
               }}
             >
+              {/* Avatar with glow */}
               <div
                 style={{
                   display: 'flex',
                   justifyContent: 'center',
-                  marginBottom: '20px',
+                  marginBottom: 20,
+                  position: 'relative',
                 }}
               >
-                <AvatarImageMobile
-                  name={computedDisplayName}
-                  bucket={AVATAR_BUCKET}
-                  avatarPath={profile.avatar_url ?? undefined}
-                  size={120}
+                <div
+                  style={{
+                    position: 'absolute',
+                    width: 130,
+                    height: 130,
+                    borderRadius: '50%',
+                    background:
+                      'radial-gradient(circle, rgba(168,85,247,0.3) 0%, transparent 70%)',
+                    filter: 'blur(20px)',
+                  }}
                 />
+                <div
+                  style={{
+                    position: 'relative',
+                    padding: 4,
+                    borderRadius: '50%',
+                    background:
+                      'linear-gradient(135deg, rgba(168,85,247,0.4) 0%, rgba(139,92,246,0.2) 100%)',
+                  }}
+                >
+                  <AvatarImageMobile
+                    name={computedDisplayName}
+                    bucket={AVATAR_BUCKET}
+                    avatarPath={profile.avatar_url ?? undefined}
+                    size={120}
+                  />
+                </div>
               </div>
+
+              <p
+                style={{
+                  margin: '0 0 20px',
+                  fontSize: 18,
+                  fontWeight: 700,
+                  color: '#f9fafb',
+                  letterSpacing: '-0.3px',
+                }}
+              >
+                {computedDisplayName}
+              </p>
 
               <input
                 ref={fileInputRef}
@@ -562,43 +637,45 @@ export default function ProfileBasics() {
                 onClick={onPickFile}
                 disabled={uploadingAvatar}
                 style={{
-                  marginTop: '20px',
-                  padding: '10px 24px',
-                  borderRadius: '12px',
-                  background: 'rgba(155, 135, 245, 0.15)',
-                  border: '1px solid rgba(155, 135, 245, 0.3)',
-                  color: '#9b87f5',
+                  padding: '12px 24px',
+                  borderRadius: 14,
+                  background: uploadingAvatar
+                    ? 'rgba(168,85,247,0.1)'
+                    : 'linear-gradient(135deg, rgba(168,85,247,0.9) 0%, rgba(139,92,246,0.9) 100%)',
+                  border: '1px solid rgba(168,85,247,0.4)',
+                  color: '#fff',
                   fontSize: 14,
                   fontWeight: 600,
-                  cursor: uploadingAvatar ? 'default' : 'pointer',
+                  cursor: uploadingAvatar ? 'not-allowed' : 'pointer',
                   display: 'inline-flex',
                   alignItems: 'center',
-                  gap: '8px',
+                  gap: 8,
                   transition: 'all 0.2s ease',
-                  opacity: uploadingAvatar ? 0.5 : 1,
-                }}
-                onMouseEnter={(e) => {
-                  if (!uploadingAvatar) {
-                    e.currentTarget.style.background =
-                      'rgba(155, 135, 245, 0.2)';
-                    e.currentTarget.style.borderColor =
-                      'rgba(155, 135, 245, 0.5)';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background =
-                    'rgba(155, 135, 245, 0.15)';
-                  e.currentTarget.style.borderColor =
-                    'rgba(155, 135, 245, 0.3)';
+                  opacity: uploadingAvatar ? 0.7 : 1,
+                  boxShadow: uploadingAvatar
+                    ? 'none'
+                    : '0 4px 14px rgba(168,85,247,0.3)',
                 }}
               >
-                <LuPencil size={16} />
-                {uploadingAvatar ? 'Uploading…' : 'Change photo'}
+                {uploadingAvatar ? (
+                  <>
+                    <IonSpinner
+                      name="crescent"
+                      style={{ width: 16, height: 16 }}
+                    />
+                    Uploading…
+                  </>
+                ) : (
+                  <>
+                    <LuPencil size={16} />
+                    Change photo
+                  </>
+                )}
               </button>
 
               <p
                 style={{
-                  marginTop: '16px',
+                  marginTop: 16,
                   marginBottom: 0,
                   fontSize: 13,
                   color: '#9ca3af',
@@ -612,12 +689,53 @@ export default function ProfileBasics() {
             {/* Form Fields */}
             <div
               style={{
-                background: 'rgba(255,255,255,0.02)',
-                border: '1px solid rgba(255,255,255,0.06)',
-                borderRadius: '20px',
-                padding: '24px',
+                background:
+                  'linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%)',
+                border: '1px solid rgba(148,163,184,0.12)',
+                borderRadius: 24,
+                padding: 24,
+                backdropFilter: 'blur(12px)',
+                WebkitBackdropFilter: 'blur(12px)',
               }}
             >
+              {/* Section Header */}
+              <div style={{ marginBottom: 20 }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    marginBottom: 4,
+                  }}
+                >
+                  <IonIcon
+                    icon={personOutline}
+                    style={{ fontSize: 18, color: '#a855f7' }}
+                  />
+                  <p
+                    style={{
+                      margin: 0,
+                      fontSize: 12,
+                      fontWeight: 700,
+                      letterSpacing: 0.5,
+                      textTransform: 'uppercase',
+                      color: '#a855f7',
+                    }}
+                  >
+                    Personal Info
+                  </p>
+                </div>
+                <p
+                  style={{
+                    margin: '4px 0 0',
+                    fontSize: 13,
+                    color: '#9ca3af',
+                  }}
+                >
+                  Your name and how others see you
+                </p>
+              </div>
+
               <IonList
                 lines="none"
                 style={{
@@ -625,36 +743,15 @@ export default function ProfileBasics() {
                 }}
               >
                 {/* Display name */}
-                <div style={{ marginBottom: 20 }}>
-                  <IonLabel
-                    style={{
-                      fontSize: 12,
-                      textTransform: 'uppercase',
-                      letterSpacing: 0.6,
-                      color: '#9ca3af',
-                      fontWeight: 600,
-                      marginBottom: 8,
-                      display: 'block',
-                    }}
-                  >
-                    Display name
-                  </IonLabel>
-                  <IonItem
-                    lines="none"
-                    style={{
-                      '--background': 'rgba(255,255,255,0.04)',
-                      '--border-radius': '12px',
-                      '--padding-start': '16px',
-                      '--inner-padding-end': '16px',
-                      '--min-height': '52px',
-                    }}
-                  >
+                <div style={{ marginBottom: 16 }}>
+                  <IonLabel style={labelStyle}>Display name</IonLabel>
+                  <IonItem lines="none" style={inputItemStyle as any}>
                     <IonInput
                       value={displayName}
                       placeholder="How you appear to your band"
                       onIonChange={(e) => setDisplayName(e.detail.value ?? '')}
                       style={{
-                        fontSize: 16,
+                        fontSize: 15,
                         '--placeholder-color': 'rgba(156,163,175,0.5)' as any,
                         '--color': '#e5e7eb',
                       }}
@@ -663,36 +760,15 @@ export default function ProfileBasics() {
                 </div>
 
                 {/* First name */}
-                <div style={{ marginBottom: 20 }}>
-                  <IonLabel
-                    style={{
-                      fontSize: 12,
-                      textTransform: 'uppercase',
-                      letterSpacing: 0.6,
-                      color: '#9ca3af',
-                      fontWeight: 600,
-                      marginBottom: 8,
-                      display: 'block',
-                    }}
-                  >
-                    First name
-                  </IonLabel>
-                  <IonItem
-                    lines="none"
-                    style={{
-                      '--background': 'rgba(255,255,255,0.04)',
-                      '--border-radius': '12px',
-                      '--padding-start': '16px',
-                      '--inner-padding-end': '16px',
-                      '--min-height': '52px',
-                    }}
-                  >
+                <div style={{ marginBottom: 16 }}>
+                  <IonLabel style={labelStyle}>First name</IonLabel>
+                  <IonItem lines="none" style={inputItemStyle as any}>
                     <IonInput
                       value={firstName}
                       placeholder="First name"
                       onIonChange={(e) => setFirstName(e.detail.value ?? '')}
                       style={{
-                        fontSize: 16,
+                        fontSize: 15,
                         '--placeholder-color': 'rgba(156,163,175,0.5)' as any,
                         '--color': '#e5e7eb',
                       }}
@@ -701,36 +777,15 @@ export default function ProfileBasics() {
                 </div>
 
                 {/* Last name */}
-                <div style={{ marginBottom: 20 }}>
-                  <IonLabel
-                    style={{
-                      fontSize: 12,
-                      textTransform: 'uppercase',
-                      letterSpacing: 0.6,
-                      color: '#9ca3af',
-                      fontWeight: 600,
-                      marginBottom: 8,
-                      display: 'block',
-                    }}
-                  >
-                    Last name
-                  </IonLabel>
-                  <IonItem
-                    lines="none"
-                    style={{
-                      '--background': 'rgba(255,255,255,0.04)',
-                      '--border-radius': '12px',
-                      '--padding-start': '16px',
-                      '--inner-padding-end': '16px',
-                      '--min-height': '52px',
-                    }}
-                  >
+                <div style={{ marginBottom: 16 }}>
+                  <IonLabel style={labelStyle}>Last name</IonLabel>
+                  <IonItem lines="none" style={inputItemStyle as any}>
                     <IonInput
                       value={lastName}
                       placeholder="Last name"
                       onIonChange={(e) => setLastName(e.detail.value ?? '')}
                       style={{
-                        fontSize: 16,
+                        fontSize: 15,
                         '--placeholder-color': 'rgba(156,163,175,0.5)' as any,
                         '--color': '#e5e7eb',
                       }}
@@ -740,29 +795,20 @@ export default function ProfileBasics() {
 
                 {/* Location */}
                 <div>
-                  <IonLabel
+                  <div
                     style={{
-                      fontSize: 12,
-                      textTransform: 'uppercase',
-                      letterSpacing: 0.6,
-                      color: '#9ca3af',
-                      fontWeight: 600,
-                      marginBottom: 8,
-                      display: 'block',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6,
                     }}
                   >
-                    Location
-                  </IonLabel>
-                  <IonItem
-                    lines="none"
-                    style={{
-                      '--background': 'rgba(255,255,255,0.04)',
-                      '--border-radius': '12px',
-                      '--padding-start': '16px',
-                      '--inner-padding-end': '16px',
-                      '--min-height': '52px',
-                    }}
-                  >
+                    <IonIcon
+                      icon={locationOutline}
+                      style={{ fontSize: 14, color: '#6b7280' }}
+                    />
+                    <IonLabel style={labelStyle}>Location</IonLabel>
+                  </div>
+                  <IonItem lines="none" style={inputItemStyle as any}>
                     <LocationAutocomplete
                       value={location}
                       onChange={setLocation}
@@ -772,35 +818,21 @@ export default function ProfileBasics() {
                 </div>
               </IonList>
 
-              {success && (
-                <div
-                  style={{
-                    marginTop: 16,
-                    padding: '12px 16px',
-                    borderRadius: '12px',
-                    background: 'rgba(155, 135, 245, 0.1)',
-                    border: '1px solid rgba(155, 135, 245, 0.3)',
-                  }}
-                >
-                  <IonText style={{ color: '#9b87f5' }}>
-                    <p style={{ margin: 0, fontSize: 14 }}>{success}</p>
-                  </IonText>
-                </div>
-              )}
-
+              {/* Error message */}
               {error && (
                 <div
                   style={{
                     marginTop: 16,
                     padding: '12px 16px',
-                    borderRadius: '12px',
-                    background: 'rgba(239, 68, 68, 0.1)',
-                    border: '1px solid rgba(239, 68, 68, 0.3)',
+                    borderRadius: 12,
+                    background:
+                      'linear-gradient(135deg, rgba(127,29,29,0.15) 0%, rgba(80,20,20,0.1) 100%)',
+                    border: '1px solid rgba(248, 113, 113, 0.25)',
                   }}
                 >
-                  <IonText color="danger">
-                    <p style={{ margin: 0, fontSize: 14 }}>{error}</p>
-                  </IonText>
+                  <p style={{ margin: 0, fontSize: 14, color: '#fca5a5' }}>
+                    {error}
+                  </p>
                 </div>
               )}
 
@@ -814,33 +846,38 @@ export default function ProfileBasics() {
                 style={{
                   width: '100%',
                   marginTop: 24,
-                  padding: '14px',
-                  borderRadius: '12px',
-                  background: 'rgba(155, 135, 245, 0.15)',
-                  border: '1px solid rgba(155, 135, 245, 0.3)',
-                  color: '#9b87f5',
-                  fontSize: 16,
-                  fontWeight: 700,
-                  cursor: savingProfile ? 'default' : 'pointer',
+                  padding: '14px 16px',
+                  borderRadius: 14,
+                  border: '1px solid rgba(168,85,247,0.4)',
+                  background: savingProfile
+                    ? 'rgba(168,85,247,0.1)'
+                    : 'linear-gradient(135deg, rgba(168,85,247,0.9) 0%, rgba(139,92,246,0.9) 100%)',
+                  color: '#fff',
+                  fontSize: 15,
+                  fontWeight: 600,
+                  cursor: savingProfile ? 'not-allowed' : 'pointer',
                   transition: 'all 0.2s ease',
-                  opacity: savingProfile ? 0.5 : 1,
-                }}
-                onMouseEnter={(e) => {
-                  if (!savingProfile) {
-                    e.currentTarget.style.background =
-                      'rgba(155, 135, 245, 0.2)';
-                    e.currentTarget.style.borderColor =
-                      'rgba(155, 135, 245, 0.5)';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background =
-                    'rgba(155, 135, 245, 0.15)';
-                  e.currentTarget.style.borderColor =
-                    'rgba(155, 135, 245, 0.3)';
+                  opacity: savingProfile ? 0.7 : 1,
+                  boxShadow: savingProfile
+                    ? 'none'
+                    : '0 4px 14px rgba(168,85,247,0.3)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
                 }}
               >
-                {savingProfile ? 'Saving…' : 'Save changes'}
+                {savingProfile ? (
+                  <>
+                    <IonSpinner
+                      name="crescent"
+                      style={{ width: 18, height: 18 }}
+                    />
+                    Saving…
+                  </>
+                ) : (
+                  'Save changes'
+                )}
               </button>
             </div>
           </div>
@@ -854,18 +891,7 @@ export default function ProfileBasics() {
         mode="ios"
         position="bottom"
         onDidDismiss={() => setToastMessage(null)}
-        style={{
-          '--background': 'rgba(34, 197, 94, 0.95)', // Amplee event green
-          '--color': '#ECFDF5',
-          '--border-radius': '999px',
-          '--box-shadow': '0 18px 40px rgba(0,0,0,0.7)',
-          '--padding-start': '16px',
-          '--padding-end': '16px',
-          '--min-width': '220px',
-          textAlign: 'center',
-          fontWeight: 600,
-          fontSize: 14,
-        }}
+        cssClass="amplee-toast-success"
       />
     </IonPage>
   );

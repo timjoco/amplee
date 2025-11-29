@@ -7,7 +7,12 @@ import {
   IonSpinner,
   IonText,
 } from '@ionic/react';
-import { settingsOutline } from 'ionicons/icons';
+import {
+  calendarOutline,
+  locationOutline,
+  musicalNotesOutline,
+  settingsOutline,
+} from 'ionicons/icons';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import AvatarImageMobile from '../ui/AvatarImageMobile';
@@ -78,7 +83,8 @@ export default function EventSheetModal({
               height: 4,
               borderRadius: 999,
               margin: '4px auto 12px',
-              background: 'rgba(52,211,153,0.6)',
+              background: 'linear-gradient(90deg, #34d399 0%, #10b981 100%)',
+              boxShadow: '0 0 8px rgba(52,211,153,0.4)',
             }}
           />
 
@@ -134,11 +140,12 @@ export default function EventSheetModal({
                     type="button"
                     onClick={onGotoSettings}
                     style={{
-                      width: 36,
-                      height: 36,
+                      width: 40,
+                      height: 40,
                       borderRadius: 12,
-                      border: '1px solid rgba(148,163,184,0.3)',
-                      backgroundColor: 'rgba(255,255,255,0.03)',
+                      border: '1px solid rgba(52,211,153,0.3)',
+                      background:
+                        'linear-gradient(135deg, rgba(52,211,153,0.15) 0%, rgba(16,185,129,0.1) 100%)',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
@@ -146,13 +153,15 @@ export default function EventSheetModal({
                       transition: 'all 0.2s ease',
                       WebkitTapHighlightColor: 'transparent',
                       touchAction: 'manipulation',
+                      backdropFilter: 'blur(8px)',
+                      WebkitBackdropFilter: 'blur(8px)',
                     }}
                   >
                     <IonIcon
                       icon={settingsOutline}
                       style={{
-                        fontSize: 18,
-                        color: '#e5e7eb',
+                        fontSize: 20,
+                        color: '#6ee7b7',
                         pointerEvents: 'none',
                       }}
                     />
@@ -170,14 +179,17 @@ export default function EventSheetModal({
                 {/* EVENT OVERVIEW CARD */}
                 <div
                   style={{
-                    background: 'rgba(255,255,255,0.02)',
+                    background:
+                      'linear-gradient(135deg, rgba(52,211,153,0.08) 0%, rgba(16,185,129,0.04) 100%)',
                     border: '1px solid rgba(52,211,153,0.2)',
                     borderRadius: 20,
                     padding: 20,
                     marginBottom: 16,
+                    backdropFilter: 'blur(12px)',
+                    WebkitBackdropFilter: 'blur(12px)',
                   }}
                 >
-                  <div style={{ marginBottom: 16 }}>
+                  <div style={{ marginBottom: 20 }}>
                     <p
                       style={{
                         margin: 0,
@@ -205,85 +217,160 @@ export default function EventSheetModal({
                     style={{
                       display: 'flex',
                       flexDirection: 'column',
-                      gap: 12,
+                      gap: 16,
                     }}
                   >
                     {/* When */}
-                    <div>
-                      <p
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        gap: 12,
+                      }}
+                    >
+                      <div
                         style={{
-                          margin: 0,
-                          fontSize: 11,
-                          textTransform: 'uppercase',
-                          letterSpacing: 0.5,
-                          color: '#6b7280',
-                          fontWeight: 600,
+                          width: 36,
+                          height: 36,
+                          borderRadius: 10,
+                          background: 'rgba(52,211,153,0.1)',
+                          border: '1px solid rgba(52,211,153,0.2)',
+                          display: 'grid',
+                          placeItems: 'center',
+                          flexShrink: 0,
                         }}
                       >
-                        When
-                      </p>
-                      <p
-                        style={{
-                          margin: '4px 0 0',
-                          fontSize: 14,
-                          fontWeight: 500,
-                          color: '#e5e7eb',
-                        }}
-                      >
-                        {startsAtLabel || 'TBD'}
-                      </p>
+                        <IonIcon
+                          icon={calendarOutline}
+                          style={{ fontSize: 18, color: '#6ee7b7' }}
+                        />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p
+                          style={{
+                            margin: 0,
+                            fontSize: 11,
+                            textTransform: 'uppercase',
+                            letterSpacing: 0.5,
+                            color: '#6b7280',
+                            fontWeight: 600,
+                          }}
+                        >
+                          When
+                        </p>
+                        <p
+                          style={{
+                            margin: '4px 0 0',
+                            fontSize: 14,
+                            fontWeight: 500,
+                            color: '#e5e7eb',
+                          }}
+                        >
+                          {startsAtLabel || 'TBD'}
+                        </p>
+                      </div>
                     </div>
 
                     {/* Where */}
-                    <div>
-                      <p
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        gap: 12,
+                      }}
+                    >
+                      <div
                         style={{
-                          margin: 0,
-                          fontSize: 11,
-                          textTransform: 'uppercase',
-                          letterSpacing: 0.5,
-                          color: '#6b7280',
-                          fontWeight: 600,
+                          width: 36,
+                          height: 36,
+                          borderRadius: 10,
+                          background: 'rgba(52,211,153,0.1)',
+                          border: '1px solid rgba(52,211,153,0.2)',
+                          display: 'grid',
+                          placeItems: 'center',
+                          flexShrink: 0,
                         }}
                       >
-                        Where
-                      </p>
-                      <p
-                        style={{
-                          margin: '4px 0 0',
-                          fontSize: 14,
-                          fontWeight: 500,
-                          color: '#e5e7eb',
-                        }}
-                      >
-                        {event.location || 'TBD'}
-                      </p>
+                        <IonIcon
+                          icon={locationOutline}
+                          style={{ fontSize: 18, color: '#6ee7b7' }}
+                        />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p
+                          style={{
+                            margin: 0,
+                            fontSize: 11,
+                            textTransform: 'uppercase',
+                            letterSpacing: 0.5,
+                            color: '#6b7280',
+                            fontWeight: 600,
+                          }}
+                        >
+                          Where
+                        </p>
+                        <p
+                          style={{
+                            margin: '4px 0 0',
+                            fontSize: 14,
+                            fontWeight: 500,
+                            color: '#e5e7eb',
+                          }}
+                        >
+                          {event.location || 'TBD'}
+                        </p>
+                      </div>
                     </div>
 
                     {/* Type */}
-                    <div>
-                      <p
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        gap: 12,
+                      }}
+                    >
+                      <div
                         style={{
-                          margin: 0,
-                          fontSize: 11,
-                          textTransform: 'uppercase',
-                          letterSpacing: 0.5,
-                          color: '#6b7280',
-                          fontWeight: 600,
+                          width: 36,
+                          height: 36,
+                          borderRadius: 10,
+                          background: 'rgba(52,211,153,0.1)',
+                          border: '1px solid rgba(52,211,153,0.2)',
+                          display: 'grid',
+                          placeItems: 'center',
+                          flexShrink: 0,
                         }}
                       >
-                        Type
-                      </p>
-                      <p
-                        style={{
-                          margin: '4px 0 0',
-                          fontSize: 14,
-                          fontWeight: 500,
-                          color: '#e5e7eb',
-                        }}
-                      >
-                        {event.type === 'practice' ? 'Practice' : 'Show'}
-                      </p>
+                        <IonIcon
+                          icon={musicalNotesOutline}
+                          style={{ fontSize: 18, color: '#6ee7b7' }}
+                        />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p
+                          style={{
+                            margin: 0,
+                            fontSize: 11,
+                            textTransform: 'uppercase',
+                            letterSpacing: 0.5,
+                            color: '#6b7280',
+                            fontWeight: 600,
+                          }}
+                        >
+                          Type
+                        </p>
+                        <p
+                          style={{
+                            margin: '4px 0 0',
+                            fontSize: 14,
+                            fontWeight: 500,
+                            color: '#e5e7eb',
+                          }}
+                        >
+                          {event.type === 'practice' ? 'Practice' : 'Show'}
+                        </p>
+                      </div>
                     </div>
                   </div>
 
@@ -295,19 +382,24 @@ export default function EventSheetModal({
                       disabled={!hasStart}
                       style={{
                         width: '100%',
-                        padding: '12px 16px',
-                        borderRadius: 12,
-                        border: '1px solid rgba(52, 211, 153, 0.3)',
+                        padding: '14px 16px',
+                        borderRadius: 14,
+                        border: hasStart
+                          ? '1px solid rgba(52,211,153,0.4)'
+                          : '1px solid rgba(148,163,184,0.15)',
                         background: hasStart
-                          ? 'rgba(52, 211, 153, 0.05)'
+                          ? 'linear-gradient(135deg, rgba(52,211,153,0.9) 0%, rgba(16,185,129,0.9) 100%)'
                           : 'rgba(255,255,255,0.02)',
-                        color: hasStart ? '#34d399' : '#6b7280',
+                        color: hasStart ? '#fff' : '#6b7280',
                         fontSize: 14,
                         fontWeight: 600,
                         cursor: hasStart ? 'pointer' : 'not-allowed',
                         transition: 'all 0.2s ease',
                         WebkitTapHighlightColor: 'transparent',
                         touchAction: 'manipulation',
+                        boxShadow: hasStart
+                          ? '0 4px 14px rgba(52,211,153,0.3)'
+                          : 'none',
                       }}
                     >
                       Add to Google Calendar
@@ -318,11 +410,14 @@ export default function EventSheetModal({
                 {/* LINEUP CARD */}
                 <div
                   style={{
-                    background: 'rgba(255,255,255,0.02)',
-                    border: '1px solid rgba(148,163,184,0.15)',
+                    background:
+                      'linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%)',
+                    border: '1px solid rgba(148,163,184,0.12)',
                     borderRadius: 20,
                     padding: 20,
                     marginBottom: 16,
+                    backdropFilter: 'blur(12px)',
+                    WebkitBackdropFilter: 'blur(12px)',
                   }}
                 >
                   <div style={{ marginBottom: 16 }}>
@@ -675,7 +770,7 @@ function RosterPanelMobile({
                 display: 'flex',
                 alignItems: 'center',
                 gap: 12,
-                paddingBlock: 8,
+                paddingBlock: 10,
               }}
             >
               <AvatarImageMobile
@@ -683,7 +778,7 @@ function RosterPanelMobile({
                 bucket="profile-avatars"
                 avatarPath={r.avatar_url || undefined}
                 updatedAt={r.updated_at || undefined}
-                size={36}
+                size={40}
               />
 
               <div
@@ -714,7 +809,7 @@ function RosterPanelMobile({
                   alignItems: 'center',
                   justifyContent: 'center',
                   paddingInline: 10,
-                  paddingBlock: 4,
+                  paddingBlock: 5,
                   borderRadius: 8,
                   fontSize: 11,
                   fontWeight: 600,
@@ -722,8 +817,9 @@ function RosterPanelMobile({
                   whiteSpace: 'nowrap',
                   ...(r.needs_sub
                     ? {
-                        background: 'rgba(59, 130, 246, 0.1)',
-                        border: '1px solid rgba(59, 130, 246, 0.3)',
+                        background:
+                          'linear-gradient(135deg, rgba(59,130,246,0.15) 0%, rgba(37,99,235,0.1) 100%)',
+                        border: '1px solid rgba(59,130,246,0.3)',
                         color: '#93c5fd',
                       }
                     : {
@@ -743,7 +839,8 @@ function RosterPanelMobile({
                 style={{
                   height: 1,
                   marginInline: 4,
-                  backgroundColor: 'rgba(148,163,184,0.1)',
+                  background:
+                    'linear-gradient(90deg, transparent 0%, rgba(148,163,184,0.1) 50%, transparent 100%)',
                 }}
               />
             )}

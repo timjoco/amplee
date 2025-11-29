@@ -12,22 +12,23 @@ import BandEventsPage from './pages/Bands/BandEventsPage';
 import BandLibraryPage from './pages/Bands/BandLibraryPage';
 import BandProposalsPage from './pages/Bands/BandProposalsPage';
 import BandRosterPage from './pages/Bands/BandRosterPage';
-import BandSetlistPageMobile from './pages/BandSetlistPageMobile';
-import BandSettingsMobile from './pages/BandSettingsMobile';
-import BandSheetMobile from './pages/BandSheetMobile';
-import BandSongSheetRouteMobile from './pages/BandSongSheetRouteMobile';
-import BandSongsRouteMobile from './pages/BandSongsRouteMobile';
-import EventChatPageMobile from './pages/EventChatPageMobile';
-import EventFilesPageMobile from './pages/EventFilesPageMobile';
-import EventNotesPageMobile from './pages/EventNotesPageMobile';
-import EventRollCallPageMobile from './pages/EventRollCallPageMobile';
-import EventSetlistPageMobile from './pages/EventSetlistPageMobile';
-import EventSettingsMobile from './pages/EventSettingsMobile';
-import EventSheetMobile from './pages/EventSheetMobile';
+import BandSetlistPageMobile from './pages/Bands/BandSetlistPageMobile';
+import BandSettingsMobile from './pages/Bands/BandSettingsMobile';
+import BandSheetMobile from './pages/Bands/BandSheetMobile';
+import BandSongListRouteMobile from './pages/Bands/BandSongListRouteMobile';
+import BandSongSheetRouteMobile from './pages/Bands/BandSongSheetRouteMobile';
+import EventChatPageMobile from './pages/Events/EventChatPageMobile';
+import EventFilesPageMobile from './pages/Events/EventFilesPageMobile';
+import EventNotesPageMobile from './pages/Events/EventNotesPageMobile';
+import EventRollCallPageMobile from './pages/Events/EventRollCallPageMobile';
+import EventSetlistPageMobile from './pages/Events/EventSetlistPageMobile';
+import EventSettingsMobile from './pages/Events/EventSettingsMobile';
+import EventSheetMobile from './pages/Events/EventSheetMobile';
 import Home from './pages/Home';
 import Invite from './pages/Invite';
 import InviteBandMobile from './pages/InviteBandMobile';
 import Login from './pages/Login';
+import OnboardingPageMobile from './pages/OnboardingPageMobile';
 import Profile from './pages/Profile';
 import ProfileBasics from './pages/ProfileBasics';
 import ProposedGigSheetMobile from './pages/ProposedGigSheetMobile';
@@ -117,6 +118,7 @@ export default function App() {
           <>
             {/* authed home */}
             <Route path="/home" element={<Home />} />
+            <Route path="/onboarding" element={<OnboardingPageMobile />} />
 
             {/* BAND ROUTES*/}
             <Route path="/bands/:id" element={<BandSheetMobile />} />
@@ -151,7 +153,7 @@ export default function App() {
             />
             <Route
               path="/bands/:bandId/songs"
-              element={<BandSongsRouteMobile />}
+              element={<BandSongListRouteMobile />}
             />
             <Route
               path="/bands/:bandId/songs/:songId"

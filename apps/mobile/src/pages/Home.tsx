@@ -18,53 +18,14 @@ import { getBandsCache, setBandsCache } from '../lib/cache/bandCache';
 import { supabase } from '../lib/supabase';
 import type { BandWithRole } from '../types/bands';
 
-interface Orb {
-  id: number;
-  size: number;
-  x: number;
-  y: number;
-  duration: number;
-  delay: number;
-  opacity: number;
-  color: string;
-}
-
 export default function Home() {
   const nav = useNavigate();
 
   const initial = getBandsCache();
   const [bands, setBands] = React.useState<BandWithRole[]>(initial.bands);
   const [refreshing, setRefreshing] = React.useState(false);
-  const [orbs, setOrbs] = React.useState<Orb[]>([]);
 
   const isEmpty = bands.length === 0;
-
-  React.useEffect(() => {
-    if (!isEmpty) {
-      setOrbs([]);
-      return;
-    }
-
-    const colors = [
-      'rgba(147, 51, 234, 0.25)',
-      'rgba(124, 58, 237, 0.3)',
-      'rgba(168, 85, 247, 0.25)',
-      'rgba(192, 132, 252, 0.2)',
-      'rgba(52, 211, 153, 0.2)',
-    ];
-
-    const generatedOrbs = Array.from({ length: 6 }, (_, i) => ({
-      id: i,
-      size: Math.random() * 200 + 120,
-      x: Math.random() * 100,
-      y: Math.random() * 100,
-      duration: Math.random() * 30 + 25,
-      delay: Math.random() * -20,
-      opacity: Math.random() * 0.3 + 0.15,
-      color: colors[i % colors.length],
-    }));
-    setOrbs(generatedOrbs);
-  }, [isEmpty]);
 
   const loadBands = React.useCallback(async () => {
     setRefreshing(true);
@@ -177,26 +138,6 @@ export default function Home() {
 
         {isEmpty && (
           <>
-            {orbs.map((orb) => (
-              <div
-                key={orb.id}
-                style={{
-                  position: 'absolute',
-                  width: `${orb.size}px`,
-                  height: `${orb.size}px`,
-                  left: `${orb.x}%`,
-                  top: `${orb.y}%`,
-                  background: `radial-gradient(circle, ${orb.color}, transparent)`,
-                  borderRadius: '50%',
-                  filter: 'blur(70px)',
-                  opacity: orb.opacity,
-                  animation: `ampFloat ${orb.duration}s infinite ease-in-out ${orb.delay}s`,
-                  pointerEvents: 'none',
-                  zIndex: 0,
-                }}
-              />
-            ))}
-
             <div
               style={{
                 position: 'absolute',
@@ -204,26 +145,7 @@ export default function Home() {
                 zIndex: 0,
                 pointerEvents: 'none',
               }}
-            >
-              {Array.from({ length: 30 }).map((_, i) => (
-                <div
-                  key={i}
-                  style={{
-                    position: 'absolute',
-                    width: `${Math.random() * 2.5 + 1}px`,
-                    height: `${Math.random() * 2.5 + 1}px`,
-                    left: `${Math.random() * 100}%`,
-                    top: `${Math.random() * 100}%`,
-                    background: '#fff',
-                    borderRadius: '50%',
-                    animation: `ampTwinkle ${
-                      Math.random() * 3 + 2
-                    }s infinite ease-in-out ${Math.random() * 3}s`,
-                    opacity: Math.random() * 0.6 + 0.3,
-                  }}
-                />
-              ))}
-            </div>
+            ></div>
           </>
         )}
 
@@ -494,29 +416,7 @@ export default function Home() {
         </div>
 
         <style>{`
-          @keyframes ampFloat {
-            0%, 100% {
-              transform: translate(0, 0) scale(1);
-            }
-            25% {
-              transform: translate(40px, -40px) scale(1.1);
-            }
-            50% {
-              transform: translate(-30px, 30px) scale(0.9);
-            }
-            75% {
-              transform: translate(50px, 15px) scale(1.05);
-            }
-          }
 
-          @keyframes ampTwinkle {
-            0%, 100% {
-              opacity: 0.3;
-            }
-            50% {
-              opacity: 1;
-            }
-          }
 
           @keyframes ampScaleIn {
             from {
