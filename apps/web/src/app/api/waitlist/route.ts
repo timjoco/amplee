@@ -22,23 +22,41 @@ export async function POST(req: Request) {
       );
     }
 
-    const { email } = await req.json();
+    const body = await req.json();
+
+    const { email, name, instrument, bands, pain_point } = body ?? {};
     const normalized =
       typeof email === 'string' ? email.trim().toLowerCase() : '';
+
     if (!/^\S+@\S+\.\S+$/.test(normalized)) {
       return NextResponse.json({ error: 'Invalid email' }, { status: 400 });
     }
 
     const sb = supabaseAnonBare();
 
-    const { error } = await sb.from('waitlist_submissions').upsert(
-      { email: normalized },
-      {
-        onConflict: 'email',
-        ignoreDuplicates: true,
-        returning: 'minimal',
-      } as any //
-    );
+    const payload = {
+      email: normalized,
+      // these assume you created nullable columns:
+      // name text, instrument text, bands text, pain_point text
+      name:
+        typeof name === 'string' && name.trim().length > 0 ? name.trim() : null,
+      instrument:
+        typeof instrument === 'string' && instrument.trim().length > 0
+          ? instrument.trim()
+          : null,
+      bands: typeof bands === 'string' && bands.length > 0 ? bands : null,
+      pain_point:
+        typeof pain_point === 'string' && pain_point.trim().length > 0
+          ? pain_point.trim()
+          : null,
+    };
+
+    const { error } = await sb.from('waitlist_submissions').upsert(payload, {
+      onConflict: 'email',
+      // if you want updates when someone submits again, DON'T ignore duplicates:
+      ignoreDuplicates: false,
+      returning: 'minimal',
+    } as any);
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 400 });

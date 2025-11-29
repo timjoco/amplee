@@ -1,9 +1,7 @@
-// next.config.ts
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
   images: {
-    // Option 1: precise pattern for Supabase band avatars
     remotePatterns: [
       {
         protocol: 'https',

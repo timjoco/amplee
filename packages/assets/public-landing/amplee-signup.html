@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Amplee - Early Access Signup</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #0a0a0f;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    /* Animated background */
+    .bg-gradient {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: 
+        radial-gradient(ellipse at 20% 20%, rgba(124, 58, 237, 0.15) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 80%, rgba(139, 92, 246, 0.1) 0%, transparent 50%),
+        radial-gradient(ellipse at 50% 50%, rgba(88, 28, 135, 0.08) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    /* Floating orbs */
+    .orb {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(80px);
+      opacity: 0.5;
+      animation: float 20s ease-in-out infinite;
+      pointer-events: none;
+    }
+
+    .orb-1 {
+      width: 400px;
+      height: 400px;
+      background: rgba(124, 58, 237, 0.3);
+      top: -100px;
+      left: -100px;
+      animation-delay: 0s;
+    }
+
+    .orb-2 {
+      width: 300px;
+      height: 300px;
+      background: rgba(139, 92, 246, 0.2);
+      bottom: -50px;
+      right: -50px;
+      animation-delay: -10s;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translate(0, 0) scale(1); }
+      33% { transform: translate(30px, -30px) scale(1.05); }
+      66% { transform: translate(-20px, 20px) scale(0.95); }
+    }
+
+    /* Stars */
+    .stars {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      pointer-events: none;
+    }
+
+    .star {
+      position: absolute;
+      width: 2px;
+      height: 2px;
+      background: white;
+      border-radius: 50%;
+      animation: twinkle 3s ease-in-out infinite;
+    }
+
+    @keyframes twinkle {
+      0%, 100% { opacity: 0.3; }
+      50% { opacity: 1; }
+    }
+
+    /* Main container */
+    .container {
+      width: 100%;
+      max-width: 480px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Card */
+    .card {
+      background: rgba(20, 20, 30, 0.8);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(124, 58, 237, 0.2);
+      border-radius: 24px;
+      padding: 48px 40px;
+      box-shadow: 
+        0 25px 50px -12px rgba(0, 0, 0, 0.5),
+        0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+    }
+
+    @media (max-width: 520px) {
+      .card {
+        padding: 36px 24px;
+        border-radius: 20px;
+      }
+    }
+
+    /* Logo section */
+    .logo-section {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+
+    .logo {
+      width: 80px;
+      height: 80px;
+      margin-bottom: 16px;
+    }
+
+    .brand-name {
+      font-size: 32px;
+      font-weight: 700;
+      color: #ffffff;
+      letter-spacing: -0.5px;
+      margin-bottom: 8px;
+    }
+
+    .tagline {
+      font-size: 14px;
+      color: #a78bfa;
+      font-style: italic;
+    }
+
+    /* Header */
+    .header {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+
+    .header h1 {
+      font-size: 24px;
+      font-weight: 600;
+      color: #ffffff;
+      margin-bottom: 12px;
+    }
+
+    .header p {
+      font-size: 15px;
+      color: #9ca3af;
+      line-height: 1.6;
+    }
+
+    /* Form */
+    .form {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .form-group label {
+      font-size: 14px;
+      font-weight: 500;
+      color: #e5e5e5;
+    }
+
+    .form-group label .optional {
+      color: #6b7280;
+      font-weight: 400;
+    }
+
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+      background: rgba(15, 15, 20, 0.8);
+      border: 1px solid rgba(75, 75, 90, 0.5);
+      border-radius: 12px;
+      padding: 14px 16px;
+      font-size: 15px;
+      color: #ffffff;
+      font-family: inherit;
+      transition: all 0.2s ease;
+    }
+
+    .form-group input::placeholder,
+    .form-group textarea::placeholder {
+      color: #6b7280;
+    }
+
+    .form-group input:focus,
+    .form-group select:focus,
+    .form-group textarea:focus {
+      outline: none;
+      border-color: #7c3aed;
+      box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.2);
+    }
+
+    .form-group select {
+      cursor: pointer;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      background-size: 18px;
+      padding-right: 44px;
+    }
+
+    .form-group select option {
+      background: #1a1a24;
+      color: #ffffff;
+    }
+
+    .form-group textarea {
+      resize: vertical;
+      min-height: 100px;
+    }
+
+    /* Submit button */
+    .submit-btn {
+      background: linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%);
+      border: none;
+      border-radius: 12px;
+      padding: 16px 24px;
+      font-size: 16px;
+      font-weight: 600;
+      color: #ffffff;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      margin-top: 8px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .submit-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 40px -10px rgba(124, 58, 237, 0.5);
+    }
+
+    .submit-btn:active {
+      transform: translateY(0);
+    }
+
+    .submit-btn::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, transparent 50%);
+      pointer-events: none;
+    }
+
+    /* Footer */
+    .footer {
+      text-align: center;
+      margin-top: 24px;
+      padding-top: 24px;
+      border-top: 1px solid rgba(75, 75, 90, 0.3);
+    }
+
+    .footer p {
+      font-size: 13px;
+      color: #6b7280;
+      line-height: 1.6;
+    }
+
+    .footer a {
+      color: #a78bfa;
+      text-decoration: none;
+    }
+
+    .footer a:hover {
+      text-decoration: underline;
+    }
+
+    /* Success state */
+    .success-message {
+      display: none;
+      text-align: center;
+      padding: 40px 20px;
+    }
+
+    .success-message.show {
+      display: block;
+    }
+
+    .success-icon {
+      width: 64px;
+      height: 64px;
+      background: linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 24px;
+    }
+
+    .success-icon svg {
+      width: 32px;
+      height: 32px;
+      color: white;
+    }
+
+    .success-message h2 {
+      font-size: 24px;
+      font-weight: 600;
+      color: #ffffff;
+      margin-bottom: 12px;
+    }
+
+    .success-message p {
+      font-size: 15px;
+      color: #9ca3af;
+      line-height: 1.6;
+    }
+
+    .form-container.hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <!-- Background effects -->
+  <div class="bg-gradient"></div>
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="stars" id="stars"></div>
+
+  <div class="container">
+    <div class="card">
+      <!-- Logo -->
+      <div class="logo-section">
+        <!-- Replace with your hosted logo URL -->
+        <img src="https://i.imgur.com/YOUR_LOGO_ID.png" alt="Amplee" class="logo" onerror="this.style.display='none'">
+        <div class="brand-name">AMPLEE</div>
+        <div class="tagline">Simplify the Chaos, Amplify the Music</div>
+      </div>
+
+      <!-- Form container -->
+      <div class="form-container" id="formContainer">
+        <div class="header">
+          <h1>Get Early Access 🎸</h1>
+          <p>Be one of the first to try Amplee and help shape the future of band management.</p>
+        </div>
+
+        <!-- 
+          SETUP INSTRUCTIONS:
+          1. Go to formspree.io and create a free account
+          2. Create a new form and copy your form ID
+          3. Replace YOUR_FORM_ID below with your actual Formspree form ID
+          
+          OR use Google Forms:
+          1. Create a Google Form with matching fields
+          2. Replace the action URL with your Google Form submission URL
+        -->
+        <form class="form" id="signupForm" action="https://formspree.io/f/YOUR_FORM_ID" method="POST">
+          
+          <div class="form-group">
+            <label for="name">Name <span class="optional">(optional)</span></label>
+            <input type="text" id="name" name="name" placeholder="Your name">
+          </div>
+
+          <div class="form-group">
+            <label for="email">Email *</label>
+            <input type="email" id="email" name="email" placeholder="you@example.com" required>
+          </div>
+
+          <div class="form-group">
+            <label for="instrument">What instrument(s) do you play? <span class="optional">(optional)</span></label>
+            <input type="text" id="instrument" name="instrument" placeholder="Guitar, drums, vocals...">
+          </div>
+
+          <div class="form-group">
+            <label for="bands">How many bands are you in?</label>
+            <select id="bands" name="bands">
+              <option value="">Select one...</option>
+              <option value="1">1 band</option>
+              <option value="2-3">2-3 bands</option>
+              <option value="4+">4+ bands</option>
+              <option value="0">Not currently in a band</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="pain">What's your biggest headache managing your band? <span class="optional">(optional)</span></label>
+            <textarea id="pain" name="pain_point" placeholder="Scheduling conflicts, lost setlists, group chat chaos..."></textarea>
+          </div>
+
+          <button type="submit" class="submit-btn">Join the Waitlist</button>
+        </form>
+
+        <div class="footer">
+          <p>We'll never spam you. Unsubscribe anytime.<br>Questions? <a href="mailto:tim@amplee.app">Get in touch</a></p>
+        </div>
+      </div>
+
+      <!-- Success message -->
+      <div class="success-message" id="successMessage">
+        <div class="success-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+          </svg>
+        </div>
+        <h2>You're on the list! 🎉</h2>
+        <p>Thanks for signing up for early access. We'll be in touch soon with updates and your invite to try Amplee.</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Generate stars
+    const starsContainer = document.getElementById('stars');
+    for (let i = 0; i < 50; i++) {
+      const star = document.createElement('div');
+      star.className = 'star';
+      star.style.left = Math.random() * 100 + '%';
+      star.style.top = Math.random() * 100 + '%';
+      star.style.animationDelay = Math.random() * 3 + 's';
+      star.style.opacity = Math.random() * 0.5 + 0.3;
+      starsContainer.appendChild(star);
+    }
+
+    // Form submission
+    const form = document.getElementById('signupForm');
+    const formContainer = document.getElementById('formContainer');
+    const successMessage = document.getElementById('successMessage');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const submitBtn = form.querySelector('.submit-btn');
+      submitBtn.textContent = 'Joining...';
+      submitBtn.disabled = true;
+
+      try {
+        const response = await fetch(form.action, {
+          method: 'POST',
+          body: new FormData(form),
+          headers: {
+            'Accept': 'application/json'
+          }
+        });
+
+        if (response.ok) {
+          formContainer.classList.add('hidden');
+          successMessage.classList.add('show');
+        } else {
+          throw new Error('Form submission failed');
+        }
+      } catch (error) {
+        submitBtn.textContent = 'Join the Waitlist';
+        submitBtn.disabled = false;
+        alert('Something went wrong. Please try again.');
+      }
+    });
+  </script>
+</body>
+</html>

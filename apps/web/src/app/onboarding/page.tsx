@@ -8,9 +8,9 @@ type SP = Record<string, string | string[] | undefined>;
 export default async function Page({
   searchParams,
 }: {
-  searchParams: Promise<SP>; // 👈 make it async
+  searchParams: Promise<SP>;
 }) {
-  const sp = await searchParams; // 👈 await before using
+  const sp = await searchParams;
   const next =
     (typeof sp?.next === 'string'
       ? sp.next
