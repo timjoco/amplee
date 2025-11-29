@@ -286,6 +286,23 @@ export default function WaitlistPage() {
                   filter: `drop-shadow(0 0 20px ${alpha(AMPLEE_PURPLE, 0.4)})`,
                 }}
               />
+              <Typography
+                component="span"
+                sx={{
+                  px: 1.5,
+                  py: 0.5,
+                  borderRadius: 999,
+                  fontWeight: 700,
+                  fontSize: '0.65rem',
+                  letterSpacing: 1.5,
+                  textTransform: 'uppercase',
+                  bgcolor: alpha(AMPLEE_PURPLE, 0.2),
+                  border: `1px solid ${alpha(AMPLEE_PURPLE, 0.4)}`,
+                  boxShadow: `0 0 20px ${alpha(AMPLEE_PURPLE, 0.15)}`,
+                }}
+              >
+                Beta
+              </Typography>
             </Stack>
 
             {/* Headline with Gradient */}
@@ -319,8 +336,8 @@ export default function WaitlistPage() {
                 fontSize: { xs: '1rem', md: '1.125rem' },
               }}
             >
-              Join the Amplee waitlist and help shape the all-in-one hub for
-              bands— event chat, roster roles, and clean setlists.
+              Join the Amplee beta and help shape the all-in-one hub for bands—
+              event chat, roster roles, and clean setlists.
             </Typography>
 
             {/* Form */}
