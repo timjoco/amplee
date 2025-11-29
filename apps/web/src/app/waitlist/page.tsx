@@ -56,18 +56,33 @@ const twinkle = keyframes`
   50% { opacity: 1; transform: scale(1.2); }
 `;
 
-// Starfield component
+// Starfield component - client-only to avoid hydration mismatch
 const Starfield = () => {
-  const stars = React.useMemo(() => {
-    return Array.from({ length: 100 }, (_, i) => ({
-      id: i,
-      left: `${Math.random() * 100}%`,
-      top: `${Math.random() * 100}%`,
-      size: Math.random() * 2 + 1,
-      delay: Math.random() * 4,
-      duration: Math.random() * 3 + 2,
-    }));
+  const [stars, setStars] = React.useState<
+    Array<{
+      id: number;
+      left: string;
+      top: string;
+      size: number;
+      delay: number;
+      duration: number;
+    }>
+  >([]);
+
+  React.useEffect(() => {
+    setStars(
+      Array.from({ length: 100 }, (_, i) => ({
+        id: i,
+        left: `${Math.random() * 100}%`,
+        top: `${Math.random() * 100}%`,
+        size: Math.random() * 2 + 1,
+        delay: Math.random() * 4,
+        duration: Math.random() * 3 + 2,
+      }))
+    );
   }, []);
+
+  if (stars.length === 0) return null;
 
   return (
     <Box
@@ -286,23 +301,6 @@ export default function WaitlistPage() {
                   filter: `drop-shadow(0 0 20px ${alpha(AMPLEE_PURPLE, 0.4)})`,
                 }}
               />
-              <Typography
-                component="span"
-                sx={{
-                  px: 1.5,
-                  py: 0.5,
-                  borderRadius: 999,
-                  fontWeight: 700,
-                  fontSize: '0.65rem',
-                  letterSpacing: 1.5,
-                  textTransform: 'uppercase',
-                  bgcolor: alpha(AMPLEE_PURPLE, 0.2),
-                  border: `1px solid ${alpha(AMPLEE_PURPLE, 0.4)}`,
-                  boxShadow: `0 0 20px ${alpha(AMPLEE_PURPLE, 0.15)}`,
-                }}
-              >
-                Beta
-              </Typography>
             </Stack>
 
             {/* Headline with Gradient */}
@@ -336,8 +334,8 @@ export default function WaitlistPage() {
                 fontSize: { xs: '1rem', md: '1.125rem' },
               }}
             >
-              Join the Amplee beta and help shape the all-in-one hub for bands—
-              event chat, roster roles, and clean setlists.
+              Join the Amplee waitlist and help shape the all-in-one hub for
+              bands.
             </Typography>
 
             {/* Form */}
