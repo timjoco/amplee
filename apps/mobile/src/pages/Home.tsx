@@ -322,16 +322,7 @@ export default function Home() {
                   animation: 'ampFadeIn 1s ease-out 0.5s forwards',
                   opacity: 0,
                 }}
-              >
-                <div
-                  style={{
-                    height: 4,
-                    width: 100,
-                    background: 'rgba(255, 255, 255, 0.15)',
-                    borderRadius: 2,
-                  }}
-                />
-              </div>
+              ></div>
             </div>
           )}
 

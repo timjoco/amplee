@@ -37,7 +37,16 @@ export default function Login() {
     }
   });
   const [code, setCode] = useState('');
-  const [status, setStatus] = useState<Status>('idle');
+  const [status, setStatus] = useState<Status>(() => {
+    if (typeof window === 'undefined') return 'idle';
+    try {
+      // If we previously sent a code, restore that state
+      const savedStatus = localStorage.getItem('amplee:login-status');
+      return savedStatus === 'sent' ? 'sent' : 'idle';
+    } catch {
+      return 'idle';
+    }
+  });
   const [message, setMessage] = useState('');
   const [emailError, setEmailError] = useState('');
   const [codeError, setCodeError] = useState('');
@@ -61,6 +70,19 @@ export default function Login() {
       // ignore storage issues
     }
   }, [email]);
+
+  // Persist status to localStorage when it changes to 'sent'
+  useEffect(() => {
+    try {
+      if (status === 'sent') {
+        localStorage.setItem('amplee:login-status', 'sent');
+      } else if (status === 'idle') {
+        localStorage.removeItem('amplee:login-status');
+      }
+    } catch {
+      // ignore storage issues
+    }
+  }, [status]);
 
   // Generate cosmic orbs
   useEffect(() => {
@@ -182,6 +204,14 @@ export default function Login() {
 
         if (pErr) {
           console.warn('[onboarding check error]', pErr);
+        }
+
+        // Clear login state from localStorage on successful verification
+        try {
+          localStorage.removeItem('amplee:login-email');
+          localStorage.removeItem('amplee:login-status');
+        } catch {
+          // ignore
         }
 
         // Where the user *eventually* wants to go

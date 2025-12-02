@@ -186,70 +186,16 @@ export default function BandProposalsTabMobile({ bandId, isAdmin }: Props) {
     fetchAll();
   }, [fetchAll]);
 
-  function EmptyListMessage({ children }: { children: React.ReactNode }) {
-    return (
-      <div
-        style={{
-          padding: '16px',
-          maxWidth: '600px',
-          margin: '0 auto',
-        }}
-      >
-        <div
-          style={{
-            background: 'transparent',
-            border: '1px solid rgba(245, 158, 11, 0.2)',
-            borderRadius: '20px',
-            padding: '32px 24px',
-            textAlign: 'center',
-            marginTop: '24px',
-          }}
-        >
-          <div
-            style={{
-              width: 64,
-              height: 64,
-              borderRadius: '16px',
-              background: 'rgba(245, 158, 11, 0.1)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              margin: '0 auto 20px',
-              border: '1px solid rgba(245, 158, 11, 0.2)',
-            }}
-          >
-            <IonIcon
-              icon={clipboardOutline}
-              style={{ fontSize: 32, color: 'rgba(251, 191, 36, 0.9)' }}
-            />
-          </div>
-          <IonText color="light">
-            <h2
-              style={{
-                margin: '0 0 8px',
-                fontSize: 18,
-                fontWeight: 700,
-                color: 'rgba(241, 245, 249, 0.95)',
-                letterSpacing: '-0.01em',
-              }}
-            >
-              No Proposals Yet
-            </h2>
-            <p
-              style={{
-                margin: 0,
-                color: 'rgba(148, 163, 184, 0.9)',
-                fontSize: 14,
-                lineHeight: 1.5,
-              }}
-            >
-              {children}
-            </p>
-          </IonText>
-        </div>
-      </div>
+  const openCreateProposal = () => {
+    window.dispatchEvent(
+      new CustomEvent('amplee:global-create', {
+        detail: {
+          kind: 'proposal',
+          bandId,
+        },
+      })
     );
-  }
+  };
 
   return (
     <div style={{ paddingBottom: 16, paddingTop: 8, paddingInline: 4 }}>
@@ -272,11 +218,106 @@ export default function BandProposalsTabMobile({ bandId, isAdmin }: Props) {
           <IonSpinner style={{ '--color': 'rgba(251, 191, 36, 0.8)' } as any} />
         </div>
       ) : proposals.length === 0 ? (
-        <EmptyListMessage>
-          {isAdmin
-            ? 'Create your first proposal to let your band vote on possible gig dates and venues.'
-            : 'Your band admin can propose gigs for everyone to vote on.'}
-        </EmptyListMessage>
+        /* Empty state - unified card style */
+        <div
+          style={{
+            padding: '16px',
+            maxWidth: '600px',
+            margin: '0 auto',
+          }}
+        >
+          <div
+            style={{
+              background: 'transparent',
+              border: '1px solid rgba(245, 158, 11, 0.2)',
+              borderRadius: 20,
+              padding: '32px 24px',
+              textAlign: 'center',
+              marginTop: 24,
+            }}
+          >
+            <div
+              style={{
+                width: 64,
+                height: 64,
+                borderRadius: 16,
+                background: 'rgba(245, 158, 11, 0.1)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                margin: '0 auto 20px',
+                border: '1px solid rgba(245, 158, 11, 0.2)',
+              }}
+            >
+              <IonIcon
+                icon={clipboardOutline}
+                style={{ fontSize: 32, color: 'rgba(251, 191, 36, 0.9)' }}
+              />
+            </div>
+            <IonText color="light">
+              <h2
+                style={{
+                  margin: '0 0 8px',
+                  fontSize: 18,
+                  fontWeight: 700,
+                  color: 'rgba(241, 245, 249, 0.95)',
+                  letterSpacing: '-0.01em',
+                }}
+              >
+                No Proposals Yet
+              </h2>
+              <p
+                style={{
+                  margin: 0,
+                  color: 'rgba(148, 163, 184, 0.9)',
+                  fontSize: 14,
+                  lineHeight: 1.5,
+                }}
+              >
+                {isAdmin
+                  ? 'Create your first proposal to let your band vote on possible gig dates and venues.'
+                  : 'Your band admin can propose gigs for everyone to vote on.'}
+              </p>
+            </IonText>
+
+            {/* Admin-only create button inside card */}
+            {isAdmin && (
+              <button
+                type="button"
+                onClick={openCreateProposal}
+                style={{
+                  marginTop: 24,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '12px 20px',
+                  borderRadius: 12,
+                  border: '1px solid rgba(251, 191, 36, 0.25)',
+                  background: 'rgba(245, 158, 11, 0.1)',
+                  color: 'rgba(251, 191, 36, 0.95)',
+                  fontSize: 14.5,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  transition: 'all 150ms cubic-bezier(0.4, 0, 0.2, 1)',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'rgba(245, 158, 11, 0.15)';
+                  e.currentTarget.style.borderColor = 'rgba(251, 191, 36, 0.4)';
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'rgba(245, 158, 11, 0.1)';
+                  e.currentTarget.style.borderColor =
+                    'rgba(251, 191, 36, 0.25)';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                }}
+              >
+                <IonIcon icon={addOutline} style={{ fontSize: 18 }} />
+                Propose new gig
+              </button>
+            )}
+          </div>
+        </div>
       ) : (
         <>
           <IonList
@@ -501,59 +542,43 @@ export default function BandProposalsTabMobile({ bandId, isAdmin }: Props) {
               );
             })}
           </IonList>
-        </>
-      )}
 
-      {isAdmin && (
-        <div
-          style={{
-            padding: 16,
-            paddingTop: proposals.length === 0 ? 24 : 16,
-            display: 'flex',
-            justifyContent: 'center',
-          }}
-        >
-          <button
-            type="button"
-            onClick={() => {
-              window.dispatchEvent(
-                new CustomEvent('amplee:global-create', {
-                  detail: {
-                    kind: 'proposal',
-                    bandId,
-                  },
-                })
-              );
-            }}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              padding: '12px 20px',
-              borderRadius: 12,
-              border: '1px solid rgba(251, 191, 36, 0.25)',
-              background: 'rgba(245, 158, 11, 0.1)',
-              color: 'rgba(251, 191, 36, 0.95)',
-              fontSize: 14.5,
-              fontWeight: 700,
-              cursor: 'pointer',
-              transition: 'all 150ms cubic-bezier(0.4, 0, 0.2, 1)',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'rgba(245, 158, 11, 0.15)';
-              e.currentTarget.style.borderColor = 'rgba(251, 191, 36, 0.4)';
-              e.currentTarget.style.transform = 'translateY(-1px)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'rgba(245, 158, 11, 0.1)';
-              e.currentTarget.style.borderColor = 'rgba(251, 191, 36, 0.25)';
-              e.currentTarget.style.transform = 'translateY(0)';
-            }}
-          >
-            <IonIcon icon={addOutline} style={{ fontSize: 18 }} />
-            Propose new gig
-          </button>
-        </div>
+          {/* Admin-only subtle add button when list has items - matches events style */}
+          {isAdmin && (
+            <div style={{ padding: '12px 16px' }}>
+              <button
+                type="button"
+                onClick={openCreateProposal}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '8px 12px',
+                  borderRadius: 6,
+                  border: 'none',
+                  background: 'transparent',
+                  color: 'rgba(148, 163, 184, 0.7)',
+                  fontSize: 13,
+                  fontWeight: 500,
+                  cursor: 'pointer',
+                  transition: 'all 150ms ease',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background =
+                    'rgba(255, 255, 255, 0.03)';
+                  e.currentTarget.style.color = 'rgba(251, 191, 36, 0.9)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'transparent';
+                  e.currentTarget.style.color = 'rgba(148, 163, 184, 0.7)';
+                }}
+              >
+                <IonIcon icon={addOutline} style={{ fontSize: 16 }} />
+                Add proposal
+              </button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

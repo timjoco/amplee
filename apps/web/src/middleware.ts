@@ -8,6 +8,7 @@ export async function middleware(request: NextRequest) {
   // === WAITLIST REDIRECT (remove this block after launch) ===
   const isAllowedPath =
     pathname === '/waitlist' ||
+    pathname.startsWith('/b/') || // Public band pages
     pathname.startsWith('/api') ||
     pathname.startsWith('/_next') ||
     pathname.startsWith('/logo') ||

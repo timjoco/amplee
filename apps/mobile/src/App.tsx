@@ -11,6 +11,7 @@ import AuthCallback from './pages/AuthCallback';
 import BandEventsPage from './pages/Bands/BandEventsPage';
 import BandLibraryPage from './pages/Bands/BandLibraryPage';
 import BandProposalsPage from './pages/Bands/BandProposalsPage';
+import BandPublicProfileMobile from './pages/Bands/BandPublicProfileMobile';
 import BandRosterPage from './pages/Bands/BandRosterPage';
 import BandSetlistPageMobile from './pages/Bands/BandSetlistPageMobile';
 import BandSettingsMobile from './pages/Bands/BandSettingsMobile';
@@ -125,6 +126,10 @@ export default function App() {
             <Route path="/bands/:bandId" element={<BandSheetMobile />} />
             <Route path="/invite" element={<InviteBandMobile />} />
             <Route path="/bands/:bandId/events" element={<BandEventsPage />} />
+            <Route
+              path="/bands/:bandId/public"
+              element={<BandPublicProfileMobile />}
+            />
             <Route
               path="/bands/:bandId/proposals"
               element={<BandProposalsPage />}

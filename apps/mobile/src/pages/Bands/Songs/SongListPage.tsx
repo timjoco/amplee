@@ -1,9 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { Capacitor } from '@capacitor/core';
+import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import {
   IonButton,
   IonButtons,
-  IonCard,
-  IonCardContent,
   IonContent,
   IonHeader,
   IonIcon,
@@ -20,7 +20,7 @@ import {
   chevronForwardOutline,
   musicalNotesOutline,
 } from 'ionicons/icons';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../../../lib/supabase';
 
 type SongOrigin = 'original' | 'cover';
@@ -52,6 +52,75 @@ export default function SongListPage({
   const [songs, setSongs] = useState<SongRow[]>([]);
   const [filteredSongs, setFilteredSongs] = useState<SongRow[]>([]);
   const [searchText, setSearchText] = useState('');
+
+  // Long-press haptic state
+  const longPressTimeoutRef = useRef<number | null>(null);
+  const pressStartRef = useRef<{ x: number; y: number } | null>(null);
+  const [pressedId, setPressedId] = useState<string | null>(null);
+  const MOVE_THRESHOLD = 12;
+
+  const triggerHaptic = useCallback(async () => {
+    if (Capacitor.getPlatform() === 'web') return;
+    try {
+      await Haptics.impact({ style: ImpactStyle.Medium });
+    } catch (e) {
+      console.warn('[song list haptic error]', e);
+    }
+  }, []);
+
+  const handlePressStart = useCallback(
+    (
+      id: string,
+      e: React.TouchEvent<HTMLDivElement> | React.MouseEvent<HTMLDivElement>
+    ) => {
+      if (longPressTimeoutRef.current != null) {
+        window.clearTimeout(longPressTimeoutRef.current);
+      }
+
+      let clientX = 0,
+        clientY = 0;
+      if ('touches' in e && e.touches.length > 0) {
+        clientX = e.touches[0].clientX;
+        clientY = e.touches[0].clientY;
+      } else if ('clientX' in e) {
+        clientX = e.clientX;
+        clientY = e.clientY;
+      }
+
+      pressStartRef.current = { x: clientX, y: clientY };
+      longPressTimeoutRef.current = window.setTimeout(() => {
+        setPressedId(id);
+        void triggerHaptic();
+      }, 350);
+    },
+    [triggerHaptic]
+  );
+
+  const handlePressMove = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+    if (!pressStartRef.current || longPressTimeoutRef.current == null) return;
+    if (e.touches.length !== 1) return;
+
+    const { x, y } = pressStartRef.current;
+    const t = e.touches[0];
+    if (
+      Math.abs(t.clientX - x) > MOVE_THRESHOLD ||
+      Math.abs(t.clientY - y) > MOVE_THRESHOLD
+    ) {
+      window.clearTimeout(longPressTimeoutRef.current);
+      longPressTimeoutRef.current = null;
+    }
+  }, []);
+
+  const handlePressEnd = useCallback(() => {
+    if (longPressTimeoutRef.current != null) {
+      window.clearTimeout(longPressTimeoutRef.current);
+      longPressTimeoutRef.current = null;
+    }
+    pressStartRef.current = null;
+    if (pressedId != null) {
+      setTimeout(() => setPressedId(null), 130);
+    }
+  }, [pressedId]);
 
   useEffect(() => {
     if (!bandId) return;
@@ -118,7 +187,7 @@ export default function SongListPage({
               letterSpacing: 0.25,
             }}
           >
-            Song library
+            Songs
           </IonTitle>
           <IonButtons slot="end">
             {onCreateSong && (
@@ -154,264 +223,316 @@ export default function SongListPage({
                 '--clear-button-color': 'rgba(148,163,184,0.9)',
                 '--border-radius': '12px',
                 padding: '0 0 12px 0',
-                fontSize: 16, // prevent mobile zoom
+                fontSize: 16,
               } as React.CSSProperties
             }
           />
 
+          {/* Loading State */}
           {loading ? (
             <div
               style={{
                 display: 'flex',
-                justifyContent: 'center',
                 alignItems: 'center',
-                minHeight: 200,
+                justifyContent: 'center',
+                gap: 10,
+                padding: '40px 16px',
               }}
             >
-              <IonSpinner color="light" />
+              <IonSpinner
+                name="dots"
+                style={{ '--color': 'rgba(244, 114, 182, 0.8)' } as any}
+              />
+              <IonText
+                style={{ color: 'rgba(156, 163, 175, 0.9)', fontSize: 14 }}
+              >
+                Loading songs…
+              </IonText>
             </div>
           ) : filteredSongs.length === 0 ? (
+            /* Empty State */
+            <div
+              style={{
+                padding: '16px',
+                maxWidth: '600px',
+                margin: '0 auto',
+              }}
+            >
+              <div
+                style={{
+                  background: 'transparent',
+                  border: '1px solid rgba(244, 114, 182, 0.2)',
+                  borderRadius: 20,
+                  padding: '32px 24px',
+                  textAlign: 'center',
+                  marginTop: 24,
+                }}
+              >
+                <div
+                  style={{
+                    width: 64,
+                    height: 64,
+                    borderRadius: 16,
+                    background: 'rgba(244, 114, 182, 0.1)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    margin: '0 auto 20px',
+                    border: '1px solid rgba(244, 114, 182, 0.2)',
+                  }}
+                >
+                  <IonIcon
+                    icon={musicalNotesOutline}
+                    style={{ fontSize: 32, color: 'rgba(244, 114, 182, 0.9)' }}
+                  />
+                </div>
+                <IonText color="light">
+                  <h2
+                    style={{
+                      margin: '0 0 8px',
+                      fontSize: 18,
+                      fontWeight: 700,
+                      color: 'rgba(241, 245, 249, 0.95)',
+                      letterSpacing: '-0.01em',
+                    }}
+                  >
+                    {searchText ? 'No Songs Found' : 'No Songs Yet'}
+                  </h2>
+                  <p
+                    style={{
+                      margin: 0,
+                      color: 'rgba(148, 163, 184, 0.9)',
+                      fontSize: 14,
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    {searchText
+                      ? 'Try a different search term.'
+                      : 'Add your first song to start building your library.'}
+                  </p>
+                </IonText>
+
+                {!searchText && onCreateSong && (
+                  <button
+                    type="button"
+                    onClick={onCreateSong}
+                    style={{
+                      marginTop: 24,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      padding: '12px 20px',
+                      borderRadius: 12,
+                      border: '1px solid rgba(244, 114, 182, 0.25)',
+                      background: 'rgba(244, 114, 182, 0.1)',
+                      color: 'rgba(244, 114, 182, 0.95)',
+                      fontSize: 14.5,
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      transition: 'all 150ms cubic-bezier(0.4, 0, 0.2, 1)',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background =
+                        'rgba(244, 114, 182, 0.15)';
+                      e.currentTarget.style.borderColor =
+                        'rgba(244, 114, 182, 0.4)';
+                      e.currentTarget.style.transform = 'translateY(-1px)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background =
+                        'rgba(244, 114, 182, 0.1)';
+                      e.currentTarget.style.borderColor =
+                        'rgba(244, 114, 182, 0.25)';
+                      e.currentTarget.style.transform = 'translateY(0)';
+                    }}
+                  >
+                    <IonIcon icon={addOutline} style={{ fontSize: 18 }} />
+                    Add your first song
+                  </button>
+                )}
+              </div>
+            </div>
+          ) : (
+            /* Song List */
             <div
               style={{
                 display: 'flex',
                 flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                minHeight: 300,
-                textAlign: 'center',
-                padding: 24,
+                gap: 8,
               }}
             >
-              <IonIcon
-                icon={musicalNotesOutline}
-                style={{
-                  fontSize: 64,
-                  color: '#27272f',
-                  marginBottom: 16,
-                }}
-              />
-              <IonText color="medium">
-                <h2
-                  style={{
-                    fontSize: 20,
-                    fontWeight: 500,
-                    marginBottom: 8,
-                    color: '#e5e7eb',
-                  }}
-                >
-                  {searchText ? 'No songs found' : 'Your library is empty'}
-                </h2>
-                <p style={{ fontSize: 14, color: '#9ca3af' }}>
-                  {searchText
-                    ? 'Try a different search term.'
-                    : 'Add your first song to get started.'}
-                </p>
-              </IonText>
-              {!searchText && onCreateSong && (
-                <IonButton
-                  onClick={onCreateSong}
-                  style={
-                    {
-                      marginTop: 16,
-                      '--background': 'rgba(244, 114, 182, 0.95)',
-                      '--background-activated': 'rgba(244, 114, 182, 1)',
-                      '--color': '#000000',
-                      '--border-radius': '999px',
-                    } as React.CSSProperties
-                  }
-                >
-                  <IonIcon icon={addOutline} slot="start" />
-                  Add your first song
-                </IonButton>
-              )}
-            </div>
-          ) : (
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
-                gap: 16,
-              }}
-            >
-              {filteredSongs.map((song) => (
-                <IonCard
-                  key={song.id}
-                  button
-                  onClick={() => onOpenSong(song.id)}
-                  style={{
-                    margin: 0,
-                    background:
-                      'linear-gradient(145deg, #08070d, #050509 55%, #0b0614)',
-                    border: '1px solid rgba(148,163,184,0.35)',
-                    borderRadius: 16,
-                    boxShadow: '0 12px 28px rgba(0,0,0,0.75)',
-                    cursor: 'pointer',
-                    overflow: 'hidden',
-                    transition:
-                      'transform 140ms ease-out, box-shadow 140ms ease-out',
-                  }}
-                  className="song-card"
-                >
-                  <IonCardContent style={{ padding: 16 }}>
+              {filteredSongs.map((song) => {
+                const isPressed = pressedId === song.id;
+
+                return (
+                  <div
+                    key={song.id}
+                    onClick={() => onOpenSong(song.id)}
+                    onTouchStart={(ev) => handlePressStart(song.id, ev)}
+                    onTouchMove={handlePressMove}
+                    onTouchEnd={handlePressEnd}
+                    onTouchCancel={handlePressEnd}
+                    onMouseDown={(ev) => handlePressStart(song.id, ev)}
+                    onMouseUp={handlePressEnd}
+                    onMouseLeave={handlePressEnd}
+                    style={{
+                      background: 'transparent',
+                      border: '1px solid rgba(244, 114, 182, 0.2)',
+                      borderRadius: 16,
+                      padding: 14,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 12,
+                      cursor: 'pointer',
+                      transform: isPressed ? 'scale(0.99)' : 'scale(1)',
+                      opacity: isPressed ? 0.7 : 1,
+                      transition: 'all 120ms ease-out',
+                    }}
+                  >
+                    {/* Avatar */}
                     <div
                       style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'auto 1fr auto', // col1 avatar, col2 text, col3 pill+chevron
+                        width: 44,
+                        height: 44,
+                        borderRadius: 12,
+                        background: 'rgba(244, 114, 182, 0.1)',
+                        border: '1px solid rgba(244, 114, 182, 0.2)',
+                        display: 'flex',
                         alignItems: 'center',
-                        columnGap: 12,
+                        justifyContent: 'center',
+                        flexShrink: 0,
                       }}
                     >
-                      {/* Column 1: Avatar */}
+                      <IonIcon
+                        icon={musicalNotesOutline}
+                        style={{
+                          fontSize: 20,
+                          color: 'rgba(244, 114, 182, 0.9)',
+                        }}
+                      />
+                    </div>
+
+                    {/* Title + meta */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
                       <div
                         style={{
-                          width: 42,
-                          height: 42,
-                          borderRadius: 12,
-                          background:
-                            'radial-gradient(circle at 30% 20%, rgba(244,114,182,0.7), rgba(76,29,149,0.5))',
                           display: 'flex',
                           alignItems: 'center',
-                          justifyContent: 'center',
-                          flexShrink: 0,
-                          boxShadow:
-                            '0 0 0 1px rgba(15,23,42,0.9), 0 10px 25px rgba(0,0,0,0.9)',
+                          gap: 8,
+                          marginBottom: 6,
                         }}
                       >
-                        <IonIcon
-                          icon={musicalNotesOutline}
+                        <span
                           style={{
-                            fontSize: 20,
-                            color: '#fdf2ff',
-                          }}
-                        />
-                      </div>
-
-                      {/* Column 2: Title + meta */}
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        {/* Title */}
-                        <h3
-                          style={{
-                            fontSize: 16,
-                            fontWeight: 600,
-                            color: '#f9fafb',
-                            marginBottom: 6,
+                            fontWeight: 700,
+                            fontSize: 15,
+                            color: 'rgba(241, 245, 249, 0.95)',
+                            letterSpacing: '-0.01em',
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
                             whiteSpace: 'nowrap',
                           }}
                         >
                           {song.title}
-                        </h3>
-
-                        {/* Meta row (key + BPM) */}
-                        <div
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 8,
-                            flexWrap: 'wrap',
-                            minWidth: 0,
-                          }}
-                        >
-                          {song.default_key && (
-                            <span
-                              style={{
-                                fontSize: 11,
-                                color: '#e5e7eb',
-                                background: 'rgba(15,23,42,0.98)',
-                                padding: '3px 10px',
-                                borderRadius: 999,
-                                fontWeight: 500,
-                                border: '1px solid rgba(148,163,184,0.45)',
-                                whiteSpace: 'nowrap',
-                              }}
-                            >
-                              Key: {song.default_key}
-                            </span>
-                          )}
-
-                          {song.default_bpm != null && (
-                            <span
-                              style={{
-                                fontSize: 11,
-                                color: '#e5e7eb',
-                                background: 'rgba(15,23,42,0.98)',
-                                padding: '3px 10px',
-                                borderRadius: 999,
-                                fontWeight: 500,
-                                border: '1px solid rgba(148,163,184,0.45)',
-                                whiteSpace: 'nowrap',
-                              }}
-                            >
-                              {song.default_bpm} BPM
-                            </span>
-                          )}
-                        </div>
+                        </span>
                       </div>
 
-                      {/* Column 3: Origin pill + chevron */}
-                      {/* Column 3: Origin pill + chevron in one line */}
+                      {/* Meta row (key + BPM) */}
                       <div
                         style={{
                           display: 'flex',
                           alignItems: 'center',
-                          justifyContent: 'flex-end',
                           gap: 6,
-                          minWidth: 0,
+                          flexWrap: 'wrap',
                         }}
                       >
-                        {song.origin && (
+                        {song.default_key && (
                           <span
                             style={{
-                              fontSize: 10,
-                              color:
-                                song.origin === 'cover' ? '#bfdbfe' : '#f9a8d4',
-                              background:
-                                song.origin === 'cover'
-                                  ? 'rgba(37, 99, 235, 0.16)'
-                                  : 'rgba(244, 114, 182, 0.16)',
-                              padding: '2px 8px',
-                              borderRadius: 999,
+                              fontSize: 11,
                               fontWeight: 600,
-                              border:
-                                song.origin === 'cover'
-                                  ? '1px solid rgba(59,130,246,0.45)'
-                                  : '1px solid rgba(244,114,182,0.5)',
-                              textTransform: 'uppercase',
-                              letterSpacing: 0.35,
+                              color: 'rgba(148, 163, 184, 0.9)',
+                              background: 'rgba(148, 163, 184, 0.1)',
+                              border: '1px solid rgba(148, 163, 184, 0.2)',
+                              padding: '2px 8px',
+                              borderRadius: 6,
                               whiteSpace: 'nowrap',
-                              textAlign: 'center',
                             }}
                           >
-                            {song.origin === 'cover' ? 'Cover' : 'Original'}
+                            {song.default_key}
                           </span>
                         )}
 
-                        <IonIcon
-                          icon={chevronForwardOutline}
-                          style={{
-                            fontSize: 18,
-                            color: 'rgba(148,163,184,0.9)',
-                            flexShrink: 0,
-                          }}
-                        />
+                        {song.default_bpm != null && (
+                          <span
+                            style={{
+                              fontSize: 11,
+                              fontWeight: 600,
+                              color: 'rgba(148, 163, 184, 0.9)',
+                              background: 'rgba(148, 163, 184, 0.1)',
+                              border: '1px solid rgba(148, 163, 184, 0.2)',
+                              padding: '2px 8px',
+                              borderRadius: 6,
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {song.default_bpm} BPM
+                          </span>
+                        )}
                       </div>
                     </div>
-                  </IonCardContent>
-                </IonCard>
-              ))}
+
+                    {/* Origin pill + chevron */}
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        flexShrink: 0,
+                      }}
+                    >
+                      {song.origin && (
+                        <span
+                          style={{
+                            fontSize: 10,
+                            fontWeight: 700,
+                            padding: '3px 8px',
+                            borderRadius: 6,
+                            textTransform: 'uppercase',
+                            letterSpacing: 0.5,
+                            whiteSpace: 'nowrap',
+                            background:
+                              song.origin === 'cover'
+                                ? 'rgba(59, 130, 246, 0.1)'
+                                : 'rgba(244, 114, 182, 0.1)',
+                            border:
+                              song.origin === 'cover'
+                                ? '1px solid rgba(59, 130, 246, 0.3)'
+                                : '1px solid rgba(244, 114, 182, 0.3)',
+                            color:
+                              song.origin === 'cover'
+                                ? 'rgba(96, 165, 250, 0.95)'
+                                : 'rgba(244, 114, 182, 0.95)',
+                          }}
+                        >
+                          {song.origin === 'cover' ? 'Cover' : 'Original'}
+                        </span>
+                      )}
+
+                      <IonIcon
+                        icon={chevronForwardOutline}
+                        style={{
+                          fontSize: 18,
+                          color: 'rgba(148, 163, 184, 0.6)',
+                        }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
-
-        <style>
-          {`
-            .song-card:active {
-              transform: scale(0.98);
-              box-shadow: 0 8px 18px rgba(0,0,0,0.9) !important;
-            }
-          `}
-        </style>
       </IonContent>
     </IonPage>
   );

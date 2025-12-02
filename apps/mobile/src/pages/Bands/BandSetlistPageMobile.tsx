@@ -1,6 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { Capacitor } from '@capacitor/core';
+import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import {
   IonButton,
+  IonButtons,
   IonContent,
   IonHeader,
   IonIcon,
@@ -14,9 +17,9 @@ import {
   addOutline,
   chevronBackOutline,
   chevronForwardOutline,
-  gridOutline,
+  listOutline,
 } from 'ionicons/icons';
-import React from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 
@@ -38,7 +41,75 @@ export default function BandSetlistPageMobile() {
   const [loading, setLoading] = React.useState(true);
   const [templates, setTemplates] = React.useState<TemplateRow[]>([]);
   const [creating, setCreating] = React.useState(false);
-  const [deletingId, setDeletingId] = React.useState<string | null>(null);
+
+  // Long-press haptic state
+  const longPressTimeoutRef = useRef<number | null>(null);
+  const pressStartRef = useRef<{ x: number; y: number } | null>(null);
+  const [pressedId, setPressedId] = useState<string | null>(null);
+  const MOVE_THRESHOLD = 12;
+
+  const triggerHaptic = useCallback(async () => {
+    if (Capacitor.getPlatform() === 'web') return;
+    try {
+      await Haptics.impact({ style: ImpactStyle.Medium });
+    } catch (e) {
+      console.warn('[setlist page haptic error]', e);
+    }
+  }, []);
+
+  const handlePressStart = useCallback(
+    (
+      id: string,
+      e: React.TouchEvent<HTMLDivElement> | React.MouseEvent<HTMLDivElement>
+    ) => {
+      if (longPressTimeoutRef.current != null) {
+        window.clearTimeout(longPressTimeoutRef.current);
+      }
+
+      let clientX = 0,
+        clientY = 0;
+      if ('touches' in e && e.touches.length > 0) {
+        clientX = e.touches[0].clientX;
+        clientY = e.touches[0].clientY;
+      } else if ('clientX' in e) {
+        clientX = e.clientX;
+        clientY = e.clientY;
+      }
+
+      pressStartRef.current = { x: clientX, y: clientY };
+      longPressTimeoutRef.current = window.setTimeout(() => {
+        setPressedId(id);
+        void triggerHaptic();
+      }, 350);
+    },
+    [triggerHaptic]
+  );
+
+  const handlePressMove = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+    if (!pressStartRef.current || longPressTimeoutRef.current == null) return;
+    if (e.touches.length !== 1) return;
+
+    const { x, y } = pressStartRef.current;
+    const t = e.touches[0];
+    if (
+      Math.abs(t.clientX - x) > MOVE_THRESHOLD ||
+      Math.abs(t.clientY - y) > MOVE_THRESHOLD
+    ) {
+      window.clearTimeout(longPressTimeoutRef.current);
+      longPressTimeoutRef.current = null;
+    }
+  }, []);
+
+  const handlePressEnd = useCallback(() => {
+    if (longPressTimeoutRef.current != null) {
+      window.clearTimeout(longPressTimeoutRef.current);
+      longPressTimeoutRef.current = null;
+    }
+    pressStartRef.current = null;
+    if (pressedId != null) {
+      setTimeout(() => setPressedId(null), 130);
+    }
+  }, [pressedId]);
 
   React.useEffect(() => {
     let alive = true;
@@ -99,102 +170,136 @@ export default function BandSetlistPageMobile() {
   };
 
   const renderBody = () => {
+    /* Loading State */
     if (loading && templates.length === 0) {
       return (
         <div
           style={{
-            padding: 16,
             display: 'flex',
             alignItems: 'center',
-            gap: 8,
+            justifyContent: 'center',
+            gap: 10,
+            padding: '40px 16px',
           }}
         >
-          <IonSpinner name="dots" />
-          <IonText color="medium">
-            <p style={{ margin: 0 }}>Loading setlists…</p>
+          <IonSpinner
+            name="dots"
+            style={{ '--color': 'rgba(244, 114, 182, 0.8)' } as any}
+          />
+          <IonText style={{ color: 'rgba(156, 163, 175, 0.9)', fontSize: 14 }}>
+            Loading setlists…
           </IonText>
         </div>
       );
     }
 
+    /* Empty State */
     if (!loading && templates.length === 0) {
       return (
         <div
           style={{
-            padding: 16,
-            paddingTop: 32,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            textAlign: 'center',
-            gap: 14,
+            padding: '16px',
+            maxWidth: '600px',
+            margin: '0 auto',
           }}
         >
           <div
             style={{
-              width: 72,
-              height: 72,
-              borderRadius: '50%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              background:
-                'radial-gradient(circle, rgba(244,114,182,0.22) 0%, rgba(15,23,42,1) 55%)',
-              boxShadow: '0 16px 40px rgba(0,0,0,0.9)',
-              border: '2px solid rgba(244,114,182,0.45)',
+              background: 'transparent',
+              border: '1px solid rgba(244, 114, 182, 0.2)',
+              borderRadius: 20,
+              padding: '32px 24px',
+              textAlign: 'center',
+              marginTop: 24,
             }}
           >
-            <IonIcon
-              icon={gridOutline}
-              style={{ fontSize: 30, color: 'rgba(244,114,182,0.96)' }}
-            />
-          </div>
-          <h3
-            style={{
-              margin: 0,
-              fontSize: 20,
-              fontWeight: 800,
-              color: '#e5e7eb',
-              letterSpacing: -0.2,
-            }}
-          >
-            No setlists yet
-          </h3>
-          <p
-            style={{
-              margin: 0,
-              fontSize: 14,
-              color: '#9ca3af',
-              maxWidth: 280,
-              lineHeight: 1.5,
-            }}
-          >
-            Create a pink-tinged setlist and drag songs into the perfect order
-            for your show.
-          </p>
+            <div
+              style={{
+                width: 64,
+                height: 64,
+                borderRadius: 16,
+                background: 'rgba(244, 114, 182, 0.1)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                margin: '0 auto 20px',
+                border: '1px solid rgba(244, 114, 182, 0.2)',
+              }}
+            >
+              <IonIcon
+                icon={listOutline}
+                style={{ fontSize: 32, color: 'rgba(244, 114, 182, 0.9)' }}
+              />
+            </div>
+            <IonText color="light">
+              <h2
+                style={{
+                  margin: '0 0 8px',
+                  fontSize: 18,
+                  fontWeight: 700,
+                  color: 'rgba(241, 245, 249, 0.95)',
+                  letterSpacing: '-0.01em',
+                }}
+              >
+                No Setlists Yet
+              </h2>
+              <p
+                style={{
+                  margin: 0,
+                  color: 'rgba(148, 163, 184, 0.9)',
+                  fontSize: 14,
+                  lineHeight: 1.5,
+                }}
+              >
+                Create a setlist and drag songs into the perfect order for your
+                show.
+              </p>
+            </IonText>
 
-          <IonButton
-            onClick={handleCreateSetlist}
-            disabled={creating}
-            style={
-              {
-                marginTop: 10,
-                '--background': 'rgba(244,114,182,0.96)',
-                '--background-activated': 'rgba(236,72,153,1)',
-                '--color': '#000000',
-                '--border-radius': '999px',
-                paddingInline: 22,
-                fontWeight: 800,
-              } as any
-            }
-          >
-            <IonIcon icon={addOutline} slot="start" />
-            {creating ? 'Creating…' : 'New setlist'}
-          </IonButton>
+            <button
+              type="button"
+              onClick={handleCreateSetlist}
+              disabled={creating}
+              style={{
+                marginTop: 24,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '12px 20px',
+                borderRadius: 12,
+                border: '1px solid rgba(244, 114, 182, 0.25)',
+                background: 'rgba(244, 114, 182, 0.1)',
+                color: 'rgba(244, 114, 182, 0.95)',
+                fontSize: 14.5,
+                fontWeight: 700,
+                cursor: creating ? 'not-allowed' : 'pointer',
+                transition: 'all 150ms cubic-bezier(0.4, 0, 0.2, 1)',
+                opacity: creating ? 0.6 : 1,
+              }}
+              onMouseEnter={(e) => {
+                if (!creating) {
+                  e.currentTarget.style.background =
+                    'rgba(244, 114, 182, 0.15)';
+                  e.currentTarget.style.borderColor =
+                    'rgba(244, 114, 182, 0.4)';
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'rgba(244, 114, 182, 0.1)';
+                e.currentTarget.style.borderColor = 'rgba(244, 114, 182, 0.25)';
+                e.currentTarget.style.transform = 'translateY(0)';
+              }}
+            >
+              <IonIcon icon={addOutline} style={{ fontSize: 18 }} />
+              {creating ? 'Creating…' : 'New setlist'}
+            </button>
+          </div>
         </div>
       );
     }
 
+    /* Setlist List */
     return (
       <div
         style={{
@@ -202,7 +307,7 @@ export default function BandSetlistPageMobile() {
           paddingBottom: 80,
           display: 'flex',
           flexDirection: 'column',
-          gap: 12,
+          gap: 8,
         }}
       >
         {templates.map((t) => {
@@ -213,140 +318,135 @@ export default function BandSetlistPageMobile() {
               })
             : null;
 
-          const isDeleting = deletingId === t.id;
+          const isPressed = pressedId === t.id;
 
           return (
-            <button
+            <div
               key={t.id}
-              type="button"
               onClick={() => nav(`/bands/${bandId}/setlists/${t.id}`)}
+              onTouchStart={(ev) => handlePressStart(t.id, ev)}
+              onTouchMove={handlePressMove}
+              onTouchEnd={handlePressEnd}
+              onTouchCancel={handlePressEnd}
+              onMouseDown={(ev) => handlePressStart(t.id, ev)}
+              onMouseUp={handlePressEnd}
+              onMouseLeave={handlePressEnd}
               style={{
-                border: 'none',
-                padding: 0,
-                margin: 0,
                 background: 'transparent',
-                textAlign: 'left',
+                border: '1px solid rgba(244, 114, 182, 0.2)',
+                borderRadius: 16,
+                padding: 14,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12,
+                cursor: 'pointer',
+                transform: isPressed ? 'scale(0.99)' : 'scale(1)',
+                opacity: isPressed ? 0.7 : 1,
+                transition: 'all 120ms ease-out',
               }}
             >
+              {/* Icon */}
               <div
                 style={{
-                  borderRadius: 18,
-                  padding: 14,
-                  width: '100%',
-                  background:
-                    'linear-gradient(135deg, rgba(15,23,42,0.98), rgba(24,24,38,0.96))',
-                  boxShadow: '0 14px 32px rgba(0,0,0,0.75)',
-                  border: '1px solid rgba(244,114,182,0.45)',
+                  width: 44,
+                  height: 44,
+                  borderRadius: 12,
+                  background: 'rgba(244, 114, 182, 0.1)',
+                  border: '1px solid rgba(244, 114, 182, 0.2)',
                   display: 'flex',
-                  flexDirection: 'column',
-                  gap: 8,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
                 }}
               >
-                {/* Top row: icon, name, chevron */}
-                <div
+                <IonIcon
+                  icon={listOutline}
                   style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'auto 1fr auto',
-                    columnGap: 10,
-                    alignItems: 'center',
+                    fontSize: 22,
+                    color: 'rgba(244, 114, 182, 0.9)',
                   }}
-                >
-                  <div
-                    style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: 12,
-                      background:
-                        'linear-gradient(135deg, rgba(244,114,182,0.18), rgba(15,23,42,0.9))',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexShrink: 0,
-                      border: '1px solid rgba(244,114,182,0.6)',
-                    }}
-                  >
-                    <IonIcon
-                      icon={gridOutline}
-                      style={{
-                        fontSize: 22,
-                        color: 'rgba(244,114,182,0.96)',
-                      }}
-                    />
-                  </div>
-
-                  <div
-                    style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      minWidth: 0,
-                    }}
-                  >
-                    <span
-                      style={{
-                        fontWeight: 700,
-                        fontSize: 15,
-                        color: '#F9FAFB',
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                      }}
-                      title={t.name}
-                    >
-                      {t.name}
-                    </span>
-                    {created && (
-                      <span
-                        style={{
-                          marginTop: 4,
-                          fontSize: 12,
-                          color: '#9ca3af',
-                        }}
-                      >
-                        Created {created}
-                      </span>
-                    )}
-                  </div>
-
-                  <IonIcon
-                    icon={chevronForwardOutline}
-                    style={{
-                      fontSize: 20,
-                      color: 'rgba(244,114,182,0.85)',
-                    }}
-                  />
-                </div>
+                />
               </div>
-            </button>
+
+              {/* Name + created */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <span
+                  style={{
+                    display: 'block',
+                    fontWeight: 700,
+                    fontSize: 15,
+                    color: 'rgba(241, 245, 249, 0.95)',
+                    letterSpacing: '-0.01em',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                  title={t.name}
+                >
+                  {t.name}
+                </span>
+                {created && (
+                  <span
+                    style={{
+                      display: 'block',
+                      marginTop: 4,
+                      fontSize: 12,
+                      color: 'rgba(148, 163, 184, 0.7)',
+                    }}
+                  >
+                    Created {created}
+                  </span>
+                )}
+              </div>
+
+              {/* Chevron */}
+              <IonIcon
+                icon={chevronForwardOutline}
+                style={{
+                  fontSize: 18,
+                  color: 'rgba(148, 163, 184, 0.6)',
+                  flexShrink: 0,
+                }}
+              />
+            </div>
           );
         })}
 
-        <div
-          style={{
-            marginTop: 10,
-            display: 'flex',
-            justifyContent: 'center',
-          }}
-        >
-          <IonButton
+        {/* Add setlist button */}
+        <div style={{ padding: '12px 0' }}>
+          <button
+            type="button"
             onClick={handleCreateSetlist}
             disabled={creating}
-            fill="outline"
-            size="small"
-            style={
-              {
-                '--color': 'rgba(244,114,182,0.96)',
-                '--border-color': 'rgba(244,114,182,0.96)',
-                '--background-activated': 'rgba(244,114,182,0.12)',
-                '--border-color-activated': 'rgba(244,114,182,1)',
-                '--color-activated': '#F9FAFB',
-                borderRadius: 999,
-                fontWeight: 700,
-              } as any
-            }
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: '8px 12px',
+              borderRadius: 6,
+              border: 'none',
+              background: 'transparent',
+              color: 'rgba(148, 163, 184, 0.7)',
+              fontSize: 13,
+              fontWeight: 500,
+              cursor: creating ? 'not-allowed' : 'pointer',
+              transition: 'all 150ms ease',
+              opacity: creating ? 0.6 : 1,
+            }}
+            onMouseEnter={(e) => {
+              if (!creating) {
+                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.03)';
+                e.currentTarget.style.color = 'rgba(244, 114, 182, 0.9)';
+              }
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'transparent';
+              e.currentTarget.style.color = 'rgba(148, 163, 184, 0.7)';
+            }}
           >
-            <IonIcon icon={addOutline} slot="start" />
-            {creating ? 'Creating…' : 'New setlist'}
-          </IonButton>
+            <IonIcon icon={addOutline} style={{ fontSize: 16 }} />
+            {creating ? 'Creating…' : 'Add setlist'}
+          </button>
         </div>
       </div>
     );
@@ -361,41 +461,33 @@ export default function BandSetlistPageMobile() {
             borderBottom: '0.5px solid rgba(255,255,255,0.06)',
           }}
         >
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              paddingInline: 12,
-              paddingBlock: 6,
-              gap: 10,
-            }}
-          >
+          <IonButtons slot="start">
             <IonButton
               onClick={() => nav(-1)}
               fill="clear"
               style={{
-                minWidth: 0,
-                padding: 6,
+                '--padding-start': '8px',
+                '--padding-end': '8px',
+                minHeight: 44,
               }}
             >
               <IonIcon
                 icon={chevronBackOutline}
-                style={{ color: '#F9FAFB', fontSize: 24 }}
+                style={{ color: '#F9FAFB', fontSize: 22 }}
               />
             </IonButton>
+          </IonButtons>
 
-            <IonTitle
-              style={{
-                color: '#F9FAFB',
-                fontWeight: 700,
-                fontSize: 17,
-                letterSpacing: 0.25,
-                paddingInline: 0,
-              }}
-            >
-              Setlists
-            </IonTitle>
-          </div>
+          <IonTitle
+            style={{
+              color: '#F9FAFB',
+              fontWeight: 700,
+              fontSize: 17,
+              letterSpacing: 0.25,
+            }}
+          >
+            Setlists
+          </IonTitle>
         </IonToolbar>
       </IonHeader>
 

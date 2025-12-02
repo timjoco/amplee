@@ -63,6 +63,7 @@ export default function EventInboxListMobile({
   const pressStartRef = useRef<{ x: number; y: number } | null>(null);
   const MOVE_THRESHOLD = 12;
 
+  // Admin-only create privilege
   const canCreateEvent = Boolean(enableCreateForBand && bandId && isAdmin);
 
   const triggerHaptic = useCallback(async () => {
@@ -391,77 +392,99 @@ export default function EventInboxListMobile({
     );
   }
 
+  // Empty state - unified with proposals style
   if (!suppressEmptyState && rows.length === 0 && !loading) {
-    const subtitle = enableCreateForBand
-      ? 'Create your first show or practice to get started.'
-      : 'Events will appear here once your band schedules them.';
-
     return (
-      <div style={{ padding: '24px 16px', maxWidth: 480, margin: '0 auto' }}>
+      <div
+        style={{
+          padding: '16px',
+          maxWidth: '600px',
+          margin: '0 auto',
+        }}
+      >
         <div
           style={{
-            background: 'rgba(30, 41, 59, 0.4)',
-            borderRadius: 12,
+            background: 'transparent',
+            border: '1px solid rgba(52, 211, 153, 0.2)',
+            borderRadius: 20,
             padding: '32px 24px',
             textAlign: 'center',
+            marginTop: 24,
           }}
         >
           <div
             style={{
-              width: 48,
-              height: 48,
-              borderRadius: 12,
+              width: 64,
+              height: 64,
+              borderRadius: 16,
               background: 'rgba(52, 211, 153, 0.1)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              margin: '0 auto 16px',
+              margin: '0 auto 20px',
+              border: '1px solid rgba(52, 211, 153, 0.2)',
             }}
           >
             <IonIcon
               icon={chatbubbleOutline}
-              style={{ fontSize: 24, color: 'rgba(52, 211, 153, 0.8)' }}
+              style={{ fontSize: 32, color: 'rgba(52, 211, 153, 0.9)' }}
             />
           </div>
-          <h3
-            style={{
-              margin: '0 0 6px',
-              fontSize: 16,
-              fontWeight: 600,
-              color: 'rgba(241, 245, 249, 0.95)',
-            }}
-          >
-            No events yet
-          </h3>
-          <p
-            style={{
-              margin: 0,
-              color: 'rgba(148, 163, 184, 0.8)',
-              fontSize: 14,
-              lineHeight: 1.5,
-            }}
-          >
-            {subtitle}
-          </p>
+          <IonText color="light">
+            <h2
+              style={{
+                margin: '0 0 8px',
+                fontSize: 18,
+                fontWeight: 700,
+                color: 'rgba(241, 245, 249, 0.95)',
+                letterSpacing: '-0.01em',
+              }}
+            >
+              No Events Yet
+            </h2>
+            <p
+              style={{
+                margin: 0,
+                color: 'rgba(148, 163, 184, 0.9)',
+                fontSize: 14,
+                lineHeight: 1.5,
+              }}
+            >
+              {isAdmin
+                ? 'Create your first show or practice to get started.'
+                : 'Events will appear here once your band admin schedules them.'}
+            </p>
+          </IonText>
 
-          {enableCreateForBand && isAdmin && (
+          {/* Admin-only create button */}
+          {canCreateEvent && (
             <button
               type="button"
               onClick={openGlobalCreateForBand}
               style={{
-                marginTop: 20,
+                marginTop: 24,
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: 6,
-                padding: '10px 16px',
-                borderRadius: 8,
-                border: 'none',
-                background: 'rgba(52, 211, 153, 0.15)',
+                gap: 8,
+                padding: '12px 20px',
+                borderRadius: 12,
+                border: '1px solid rgba(52, 211, 153, 0.25)',
+                background: 'rgba(52, 211, 153, 0.1)',
                 color: 'rgba(52, 211, 153, 0.95)',
-                fontSize: 14,
-                fontWeight: 600,
+                fontSize: 14.5,
+                fontWeight: 700,
                 cursor: 'pointer',
-                transition: 'background 150ms ease',
+                transition: 'all 150ms cubic-bezier(0.4, 0, 0.2, 1)',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'rgba(52, 211, 153, 0.15)';
+                e.currentTarget.style.borderColor = 'rgba(52, 211, 153, 0.4)';
+                e.currentTarget.style.transform = 'translateY(-1px)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'rgba(52, 211, 153, 0.1)';
+                e.currentTarget.style.borderColor = 'rgba(52, 211, 153, 0.25)';
+                e.currentTarget.style.transform = 'translateY(0)';
               }}
             >
               <IonIcon icon={addOutline} style={{ fontSize: 18 }} />
@@ -627,6 +650,7 @@ export default function EventInboxListMobile({
         );
       })}
 
+      {/* Admin-only add button when list has items */}
       {canCreateEvent && rows.length > 0 && (
         <div style={{ padding: '12px 16px' }}>
           <button

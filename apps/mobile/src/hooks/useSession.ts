@@ -10,13 +10,12 @@ export function useSession() {
 
   useEffect(() => {
     let alive = true;
-    (async () => {
-      const { data } = await supabase.auth.getSession();
-      if (alive) {
-        setSession(data.session ?? null);
-        setLoading(false);
-      }
-    })();
+
+    supabase.auth.getSession().then(({ data }) => {
+      if (!alive) return;
+      setSession(data.session ?? null);
+      setLoading(false);
+    });
     const { data: sub } = supabase.auth.onAuthStateChange((_ev, s) =>
       setSession(s)
     );

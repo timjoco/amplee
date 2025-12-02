@@ -4,7 +4,7 @@ const config: CapacitorConfig = {
   appId: 'app.amplee',
   appName: 'Amplee',
   webDir: 'dist',
-  server: { url: 'http://192.168.1.119:5173', cleartext: true },
+  server: { url: 'http://192.168.1.113:5173/', cleartext: true },
   plugins: {
     Keyboard: {
       resizeOnFullScreen: true,

@@ -1,5 +1,3 @@
-// apps/mobile/src/utils/setlists.ts
-
 // ---------- Core row types from Supabase ----------
 
 export type SetlistTemplateRow = {
@@ -78,8 +76,6 @@ export function detectLinkType(url: string): DetectedLinkType {
 
   return { kind: 'generic', label: 'Link' };
 }
-
-// ---------- Items helpers ----------
 
 /**
  * Ensure items are ordered by order_index and re-numbered sequentially.
