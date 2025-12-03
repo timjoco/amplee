@@ -122,6 +122,8 @@ export default function MobileBottomNav() {
     /^\/event\/[^/]+\/?$/.test(pathname) ||
     // band settings
     /^\/bands\/[^/]+\/settings\/?$/i.test(pathname) ||
+    // band public profile
+    /^\/bands\/[^/]+\/public\/?$/i.test(pathname) ||
     // proposal detail
     /^\/bands\/[^/]+\/proposals\/[^/]+$/.test(pathname) ||
     // song library
