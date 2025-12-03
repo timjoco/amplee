@@ -1,4 +1,4 @@
-// app/public/b/[slug]/page.tsx
+// app/(public)/b/[slug]/page.tsx
 import { revalidatePath } from 'next/cache';
 import { notFound } from 'next/navigation';
 
@@ -63,18 +63,16 @@ function formatLocation(city: string | null, state: string | null) {
   return parts.join(', ');
 }
 
-type PageProps = {
-  params: { slug: string };
-  searchParams?: { theme?: string };
-};
+// ❌ remove your custom PageProps type entirely
+// type PageProps = { ... };
 
-export default async function PublicBandPage({
-  params,
-  searchParams,
-}: PageProps) {
-  const { slug } = params;
-  const sp = searchParams ?? {};
-  const rawTheme = (sp.theme ?? '').toString();
+export default async function PublicBandPage(props: any) {
+  // ✅ works whether Next passes plain objects or Promises
+  const params = await props.params;
+  const searchParams = (await props.searchParams) ?? {};
+
+  const slug = params.slug as string;
+  const rawTheme = (searchParams.theme ?? '').toString();
 
   const themeKey: ThemeName = isValidTheme(rawTheme) ? rawTheme : 'midnight';
 
