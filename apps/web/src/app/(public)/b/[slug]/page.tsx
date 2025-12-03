@@ -63,13 +63,15 @@ function formatLocation(city: string | null, state: string | null) {
   return parts.join(', ');
 }
 
+type PageProps = {
+  params: { slug: string };
+  searchParams?: { theme?: string };
+};
+
 export default async function PublicBandPage({
   params,
   searchParams,
-}: {
-  params: { slug: string };
-  searchParams?: { theme?: string };
-}) {
+}: PageProps) {
   const { slug } = params;
   const sp = searchParams ?? {};
   const rawTheme = (sp.theme ?? '').toString();
