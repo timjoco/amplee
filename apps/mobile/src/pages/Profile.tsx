@@ -25,6 +25,14 @@ type ProfileRow = {
   avatar_url: string | null;
 };
 
+type AvailabilityStatus = 'open' | 'limited' | 'unavailable';
+
+type AvailabilityRow = {
+  status: AvailabilityStatus;
+  status_note: string | null;
+  away_until: string | null; // 'YYYY-MM-DD'
+};
+
 function computeDisplayName(
   row: ProfileRow | null,
   authUser: any | null
@@ -54,6 +62,16 @@ export default function Profile() {
 
   const [logoutAlertOpen, setLogoutAlertOpen] = React.useState(false);
 
+  const [availability, setAvailability] =
+    React.useState<AvailabilityRow | null>(null);
+  const [savingAvailability, setSavingAvailability] = React.useState(false);
+  const [availabilityError, setAvailabilityError] = React.useState<
+    string | null
+  >(null);
+  const [availabilitySaved, setAvailabilitySaved] = React.useState<
+    string | null
+  >(null);
+
   React.useEffect(() => {
     let alive = true;
 
@@ -64,35 +82,39 @@ export default function Profile() {
       const { data: auth, error: authErr } = await supabase.auth.getUser();
       if (authErr) {
         console.error(authErr);
-        if (alive) setError('Unable to load session');
-        setLoading(false);
+        if (alive) {
+          setError('Unable to load session');
+          setLoading(false);
+        }
         return;
       }
 
       const user = auth?.user ?? null;
-      const uid = user?.id;
       setAuthUser(user);
 
-      if (!uid) {
+      if (!user) {
         if (alive) {
           setProfile(null);
           setError('You are not signed in.');
+          setLoading(false);
         }
-        setLoading(false);
         return;
       }
 
+      const uid = user.id; // 👈 uid is defined here and used below
+
+      // Load profile
       const { data, error: profErr } = await supabase
         .from('profiles')
         .select(
           `
-          id,
-          display_name,
-          first_name,
-          last_name,
-          location,
-          avatar_url
-        `
+        id,
+        display_name,
+        first_name,
+        last_name,
+        location,
+        avatar_url
+      `
         )
         .eq('id', uid)
         .maybeSingle();
@@ -102,16 +124,38 @@ export default function Profile() {
       if (profErr) {
         console.error(profErr);
         setError('Unable to load profile.');
-      } else {
-        setProfile({
-          id: uid,
-          display_name: data?.display_name ?? null,
-          first_name: data?.first_name ?? null,
-          last_name: data?.last_name ?? null,
-          location: data?.location ?? null,
-          avatar_url: data?.avatar_url ?? null,
-        });
+        setLoading(false);
+        return;
       }
+
+      setProfile({
+        id: uid,
+        display_name: data?.display_name ?? null,
+        first_name: data?.first_name ?? null,
+        last_name: data?.last_name ?? null,
+        location: data?.location ?? null,
+        avatar_url: data?.avatar_url ?? null,
+      });
+
+      // Load availability for this profile
+      const { data: avail, error: availErr } = await supabase
+        .from('profile_availability')
+        .select('status, status_note, away_until')
+        .eq('profile_id', uid)
+        .maybeSingle();
+
+      if (!alive) return;
+
+      if (availErr) {
+        console.error(availErr);
+        // don't kill the page if this fails
+      }
+
+      setAvailability({
+        status: (avail?.status as AvailabilityStatus) ?? 'open',
+        status_note: avail?.status_note ?? null,
+        away_until: avail?.away_until ?? null,
+      });
 
       setLoading(false);
     })();
@@ -135,6 +179,56 @@ export default function Profile() {
       nav('/login');
     }
   };
+
+  const handleSaveAvailability = async () => {
+    if (!profile?.id) return;
+
+    if (!availability) {
+      return;
+    }
+
+    setSavingAvailability(true);
+    setAvailabilityError(null);
+    setAvailabilitySaved(null);
+
+    try {
+      const { error: upsertErr } = await supabase
+        .from('profile_availability')
+        .upsert(
+          {
+            profile_id: profile.id,
+            status: availability.status,
+            status_note: availability.status_note
+              ? availability.status_note.trim()
+              : null,
+            away_until: availability.away_until || null,
+          },
+          { onConflict: 'profile_id' }
+        );
+
+      if (upsertErr) throw upsertErr;
+
+      setAvailabilitySaved('Availability updated');
+    } catch (err: any) {
+      console.error(err);
+      setAvailabilityError(err.message ?? 'Unable to save availability.');
+    } finally {
+      setSavingAvailability(false);
+    }
+  };
+
+  function statusLabel(status: AvailabilityStatus): string {
+    switch (status) {
+      case 'open':
+        return 'Usually available';
+      case 'limited':
+        return 'Sometimes available';
+      case 'unavailable':
+        return 'Not taking gigs';
+      default:
+        return 'Usually available';
+    }
+  }
 
   return (
     <IonPage>
@@ -350,6 +444,62 @@ export default function Profile() {
                   }}
                 >
                   Photo, name & location
+                </p>
+              </div>
+              <IonIcon
+                icon={chevronBackOutline}
+                style={{
+                  fontSize: 20,
+                  color: '#6b7280',
+                  transform: 'rotate(180deg)',
+                }}
+              />
+            </div>
+
+            {/* Availability Card (nav) */}
+            <div
+              onClick={() => nav('/profile/availability')}
+              style={{
+                background: 'rgba(255,255,255,0.02)',
+                border: '1px solid rgba(255,255,255,0.06)',
+                borderRadius: 16,
+                padding: '20px 24px',
+                marginBottom: 16,
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
+                e.currentTarget.style.borderColor = 'rgba(52,211,153,0.3)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'rgba(255,255,255,0.02)';
+                e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)';
+              }}
+            >
+              <div>
+                <h3
+                  style={{
+                    margin: 0,
+                    fontSize: 16,
+                    fontWeight: 600,
+                    color: '#f9fafb',
+                    lineHeight: 1.3,
+                  }}
+                >
+                  Availability
+                </h3>
+                <p
+                  style={{
+                    margin: '4px 0 0',
+                    fontSize: 13,
+                    color: '#9ca3af',
+                  }}
+                >
+                  Status, notes & away dates
                 </p>
               </div>
               <IonIcon

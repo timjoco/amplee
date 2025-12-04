@@ -113,8 +113,8 @@ export default function MobileBottomNav() {
     pathname.startsWith('/verify-email') ||
     pathname.startsWith('/auth/') ||
     pathname.startsWith('/invite/') ||
+    pathname.startsWith('/profile') ||
     pathname.startsWith('/profile/basics') ||
-    // event detail + sub-pages (chat / rollcall / setlist / notes / files / settings)
     /^\/bands\/[^/]+\/events\/[^/]+(\/(chat|rollcall|setlist|notes|files))?\/?$/.test(
       pathname
     ) ||

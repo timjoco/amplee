@@ -1,6 +1,14 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { createEvent, type EventType } from '../lib/events/createEvents';
+import {
+  getBandSameDayEvents,
+  type BandSameDayEvent,
+} from '../lib/events/getBandSameDayEvents';
+import {
+  getEventAvailabilityConflicts,
+  type EventAvailabilityConflict,
+} from '../lib/events/getEventAvailabilityConflicts';
 import { supabase } from '../lib/supabase';
 import { useCreateBand } from './useCreateBand';
 
@@ -145,44 +153,121 @@ export function useNewEventForm(opts: {
   const [showStartsPicker, setShowStartsPicker] = useState(false);
   const [showEndsPicker, setShowEndsPicker] = useState(false);
 
+  const [conflicts, setConflicts] = useState<EventAvailabilityConflict[]>([]);
+  const [sameDayEvents, setSameDayEvents] = useState<BandSameDayEvent[]>([]);
+  const [checkingConflicts, setCheckingConflicts] = useState(false);
+
+  useEffect(() => {
+    setConflicts([]);
+    setSameDayEvents([]);
+    setCheckingConflicts(false);
+  }, [bandId, starts]);
+
   const reset = useCallback(() => {
     setTitle('');
     setType('show');
     setStarts('');
     setEnds('');
     setLocation('');
+    setConflicts([]);
+    setSameDayEvents([]);
+    setCheckingConflicts(false);
   }, []);
 
-  const submit = useCallback(async () => {
-    if (!bandId) {
-      showToast('Choose a band.');
-      return null;
-    }
-    if (!title.trim()) {
-      showToast('Add a title.');
-      return null;
-    }
-    if (!starts) {
-      showToast('Pick a start date/time.');
-      return null;
-    }
+  const submit = useCallback(
+    async (opts?: { bypassConflicts?: boolean }) => {
+      const bypassConflicts = opts?.bypassConflicts ?? false;
 
-    try {
-      const id = await createEvent({
-        bandId,
-        title: title.trim(),
-        type,
-        startsAt: new Date(starts),
-        endsAt: ends ? new Date(ends) : null,
-        location: location || null,
-      });
-      return id as string;
-    } catch (e: any) {
-      const msg = normalizeCreateEventError(e);
-      onError?.(msg);
-      return null;
-    }
-  }, [bandId, title, type, starts, ends, location, onError, showToast]);
+      if (!bandId) {
+        showToast('Choose a band.');
+        return null;
+      }
+      if (!title.trim()) {
+        showToast('Add a title.');
+        return null;
+      }
+      if (!starts) {
+        showToast('Pick a start date/time.');
+        return null;
+      }
+
+      onError?.(null as any);
+      setConflicts([]);
+      setSameDayEvents([]);
+
+      // 1) Run checks unless bypassing
+      if (!bypassConflicts) {
+        try {
+          setCheckingConflicts(true);
+
+          const startsDate = new Date(starts);
+          if (Number.isNaN(+startsDate)) {
+            throw new Error('Invalid start date.');
+          }
+
+          const [memberConflicts, sameDay] = await Promise.all([
+            getEventAvailabilityConflicts({
+              bandId,
+              startsAt: startsDate,
+            }),
+            getBandSameDayEvents({
+              bandId,
+              startsAt: startsDate,
+            }),
+          ]);
+
+          setConflicts(memberConflicts);
+          setSameDayEvents(sameDay);
+
+          if (memberConflicts.length > 0 || sameDay.length > 0) {
+            const msgs: string[] = [];
+            if (memberConflicts.length > 0) {
+              msgs.push(
+                memberConflicts.length === 1
+                  ? '1 member may not be available.'
+                  : `${memberConflicts.length} members may not be available.`
+              );
+            }
+            if (sameDay.length > 0) {
+              msgs.push(
+                sameDay.length === 1
+                  ? 'This band already has an event on that date.'
+                  : `This band already has ${sameDay.length} events on that date.`
+              );
+            }
+            showToast(msgs.join(' '));
+            return null; // stop here; user can adjust date or "create anyway"
+          }
+        } catch (e: any) {
+          console.error('[checkEventAvailability]', e);
+          onError?.(
+            String(e?.message ?? 'Could not check availability or conflicts.')
+          );
+          return null;
+        } finally {
+          setCheckingConflicts(false);
+        }
+      }
+
+      // 2) Actually create event
+      try {
+        const id = await createEvent({
+          bandId,
+          title: title.trim(),
+          type,
+          startsAt: new Date(starts),
+          endsAt: ends ? new Date(ends) : null,
+          location: location || null,
+        });
+        return id as string;
+      } catch (e: any) {
+        const msg = normalizeCreateEventError(e);
+        onError?.(msg);
+        return null;
+      }
+    },
+    [bandId, title, type, starts, ends, location, onError, showToast]
+  );
 
   return {
     // state
@@ -194,6 +279,9 @@ export function useNewEventForm(opts: {
     location,
     showStartsPicker,
     showEndsPicker,
+    conflicts,
+    sameDayEvents,
+    checkingConflicts,
 
     // setters
     setBandId,

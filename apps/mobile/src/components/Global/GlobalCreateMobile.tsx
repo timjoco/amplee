@@ -9,13 +9,18 @@ import {
   IonToolbar,
 } from '@ionic/react';
 import {
+  alertCircleOutline,
   calendarOutline,
   chevronBackOutline,
+  chevronDownOutline,
   chevronForwardOutline,
+  chevronUpOutline,
   clipboardOutline,
   closeOutline,
   gridOutline,
   musicalNotesOutline,
+  personOutline,
+  timeOutline,
 } from 'ionicons/icons';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -29,6 +34,10 @@ import {
 import { supabase } from '../../lib/supabase';
 import EventDateTimePicker from '../ui/EventDateTimePicker';
 import './GlobalCreateMobile.css';
+
+// ─────────────────────────────────────────────────────────────
+// Types
+// ─────────────────────────────────────────────────────────────
 
 export type GlobalCreateMobileProps = {
   open?: boolean;
@@ -49,6 +58,385 @@ interface Orb {
   color: string;
 }
 
+type Conflict = {
+  profileId: string;
+  name: string;
+  reason: string;
+  awayUntil?: string | null;
+  statusNote?: string | null;
+};
+
+type SameDayEvent = {
+  id: string;
+  title: string;
+  type?: string;
+};
+
+// ─────────────────────────────────────────────────────────────
+// Event Warnings Component (Availability + Same-day events)
+// ─────────────────────────────────────────────────────────────
+
+function EventWarnings({
+  conflicts,
+  sameDayEvents,
+}: {
+  conflicts: Conflict[];
+  sameDayEvents: SameDayEvent[];
+}) {
+  const [expandedSection, setExpandedSection] = useState<
+    'conflicts' | 'sameDay' | null
+  >(null);
+
+  const hasConflicts = conflicts.length > 0;
+  const hasSameDayEvents = sameDayEvents.length > 0;
+
+  if (!hasConflicts && !hasSameDayEvents) return null;
+
+  const totalWarnings = conflicts.length + sameDayEvents.length;
+
+  const formatReason = (c: Conflict) => {
+    if (c.reason === 'status_unavailable') return 'marked as unavailable';
+    if (c.awayUntil) {
+      const date = new Date(c.awayUntil + 'T00:00:00');
+      const formatted = date.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+      });
+      return `away until ${formatted}`;
+    }
+    return 'may have a conflict';
+  };
+
+  // Single unified warning card
+  return (
+    <div
+      style={{
+        marginTop: 14,
+        marginBottom: 16,
+        borderRadius: 14,
+        background:
+          'linear-gradient(135deg, rgba(251, 191, 36, 0.08) 0%, rgba(245, 158, 11, 0.04) 100%)',
+        border: '1px solid rgba(251, 191, 36, 0.3)',
+        overflow: 'hidden',
+      }}
+    >
+      {/* Main Header */}
+      <div
+        style={{
+          padding: '12px 14px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+        }}
+      >
+        <div
+          style={{
+            width: 32,
+            height: 32,
+            borderRadius: 10,
+            background: 'rgba(251, 191, 36, 0.15)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+          }}
+        >
+          <IonIcon
+            icon={alertCircleOutline}
+            style={{ fontSize: 18, color: '#fbbf24' }}
+          />
+        </div>
+
+        <div style={{ flex: 1 }}>
+          <div
+            style={{
+              fontSize: 13,
+              fontWeight: 700,
+              color: '#fde68a',
+              marginBottom: 2,
+            }}
+          >
+            {totalWarnings} warning{totalWarnings > 1 ? 's' : ''} found
+          </div>
+          <div
+            style={{
+              fontSize: 11,
+              color: 'rgba(253, 230, 138, 0.6)',
+            }}
+          >
+            You can still create this event
+          </div>
+        </div>
+      </div>
+
+      {/* Availability Conflicts Section */}
+      {hasConflicts && (
+        <div
+          style={{
+            borderTop: '1px solid rgba(251, 191, 36, 0.15)',
+          }}
+        >
+          {/* Section header - clickable to expand */}
+          <button
+            type="button"
+            onClick={() =>
+              setExpandedSection(
+                expandedSection === 'conflicts' ? null : 'conflicts'
+              )
+            }
+            style={{
+              width: '100%',
+              padding: '10px 14px',
+              background: 'rgba(0, 0, 0, 0.1)',
+              border: 'none',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              cursor: 'pointer',
+            }}
+          >
+            <IonIcon
+              icon={personOutline}
+              style={{ fontSize: 14, color: '#fbbf24' }}
+            />
+            <span
+              style={{
+                flex: 1,
+                textAlign: 'left',
+                fontSize: 12,
+                fontWeight: 600,
+                color: '#fde68a',
+              }}
+            >
+              {conflicts.length} member{conflicts.length > 1 ? 's' : ''} may not
+              be available
+            </span>
+            <IonIcon
+              icon={
+                expandedSection === 'conflicts'
+                  ? chevronUpOutline
+                  : chevronDownOutline
+              }
+              style={{ fontSize: 14, color: 'rgba(253, 230, 138, 0.5)' }}
+            />
+          </button>
+
+          {/* Expanded member list */}
+          {expandedSection === 'conflicts' && (
+            <div
+              style={{
+                padding: '8px 14px 12px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 6,
+              }}
+            >
+              {conflicts.map((c) => (
+                <div
+                  key={c.profileId}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: 10,
+                    padding: '8px 10px',
+                    borderRadius: 10,
+                    background: 'rgba(0, 0, 0, 0.2)',
+                  }}
+                >
+                  {/* Avatar placeholder */}
+                  <div
+                    style={{
+                      width: 26,
+                      height: 26,
+                      borderRadius: '50%',
+                      background:
+                        'linear-gradient(135deg, rgba(251, 191, 36, 0.3) 0%, rgba(245, 158, 11, 0.2) 100%)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0,
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: 10,
+                        fontWeight: 700,
+                        color: '#fde68a',
+                      }}
+                    >
+                      {c.name.charAt(0).toUpperCase()}
+                    </span>
+                  </div>
+
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div
+                      style={{
+                        fontSize: 13,
+                        fontWeight: 600,
+                        color: '#fef3c7',
+                        marginBottom: 2,
+                      }}
+                    >
+                      {c.name}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 11,
+                        color: 'rgba(254, 243, 199, 0.6)',
+                        lineHeight: 1.4,
+                      }}
+                    >
+                      {formatReason(c)}
+                      {c.statusNote && (
+                        <span
+                          style={{
+                            display: 'block',
+                            marginTop: 2,
+                            fontStyle: 'italic',
+                            color: 'rgba(254, 243, 199, 0.5)',
+                          }}
+                        >
+                          "{c.statusNote}"
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Same Day Events Section */}
+      {hasSameDayEvents && (
+        <div
+          style={{
+            borderTop: '1px solid rgba(251, 191, 36, 0.15)',
+          }}
+        >
+          {/* Section header - clickable to expand */}
+          <button
+            type="button"
+            onClick={() =>
+              setExpandedSection(
+                expandedSection === 'sameDay' ? null : 'sameDay'
+              )
+            }
+            style={{
+              width: '100%',
+              padding: '10px 14px',
+              background: 'rgba(0, 0, 0, 0.1)',
+              border: 'none',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              cursor: 'pointer',
+            }}
+          >
+            <IonIcon
+              icon={timeOutline}
+              style={{ fontSize: 14, color: '#fbbf24' }}
+            />
+            <span
+              style={{
+                flex: 1,
+                textAlign: 'left',
+                fontSize: 12,
+                fontWeight: 600,
+                color: '#fde68a',
+              }}
+            >
+              {sameDayEvents.length} event{sameDayEvents.length > 1 ? 's' : ''}{' '}
+              already on this date
+            </span>
+            <IonIcon
+              icon={
+                expandedSection === 'sameDay'
+                  ? chevronUpOutline
+                  : chevronDownOutline
+              }
+              style={{ fontSize: 14, color: 'rgba(253, 230, 138, 0.5)' }}
+            />
+          </button>
+
+          {/* Expanded event list */}
+          {expandedSection === 'sameDay' && (
+            <div
+              style={{
+                padding: '8px 14px 12px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 6,
+              }}
+            >
+              {sameDayEvents.map((ev) => (
+                <div
+                  key={ev.id}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    padding: '8px 10px',
+                    borderRadius: 10,
+                    background: 'rgba(0, 0, 0, 0.2)',
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 26,
+                      height: 26,
+                      borderRadius: 8,
+                      background:
+                        'linear-gradient(135deg, rgba(52, 211, 153, 0.3) 0%, rgba(16, 185, 129, 0.2) 100%)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0,
+                    }}
+                  >
+                    <IonIcon
+                      icon={calendarOutline}
+                      style={{ fontSize: 12, color: '#6ee7b7' }}
+                    />
+                  </div>
+
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div
+                      style={{
+                        fontSize: 13,
+                        fontWeight: 600,
+                        color: '#fef3c7',
+                      }}
+                    >
+                      {ev.title}
+                    </div>
+                    {ev.type && (
+                      <div
+                        style={{
+                          fontSize: 11,
+                          color: 'rgba(254, 243, 199, 0.5)',
+                          textTransform: 'capitalize',
+                        }}
+                      >
+                        {ev.type}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────────────────
+
 const mergeLocalBands = (a: BandLite[], b: BandLite[]) => {
   const map = new Map<string, BandLite>();
   [...a, ...b].forEach((x) =>
@@ -67,6 +455,10 @@ const mapBands = (rows: any[] | null | undefined): BandLite[] =>
       avatar_url: b.avatar_url ?? null,
     }));
 
+// ─────────────────────────────────────────────────────────────
+// Main Component
+// ─────────────────────────────────────────────────────────────
+
 export default function GlobalCreateMobile({
   open: openProp,
   onOpenChange,
@@ -79,7 +471,6 @@ export default function GlobalCreateMobile({
   const open = isControlled ? (openProp as boolean) : openUnc;
   const setOpen = useCallback(
     (v: boolean) => {
-      // console.debug('[GlobalCreate] setOpen', { v, isControlled });
       return isControlled ? onOpenChange?.(v) : setOpenUnc(v);
     },
     [isControlled, onOpenChange]
@@ -290,7 +681,11 @@ export default function GlobalCreateMobile({
   }, [bandForm, closeAll, nav, onBandCreated]);
 
   const handleSubmitCreateEvent = useCallback(async () => {
-    const id = await eventForm.submit();
+    const bypass =
+      eventForm.conflicts?.length > 0 || eventForm.sameDayEvents?.length > 0;
+    const id = await eventForm.submit(
+      bypass ? { bypassConflicts: true } : undefined
+    );
     if (!id) return;
     closeAll();
     nav(`/bands/${eventForm.bandId}/events/${id}`);
@@ -327,6 +722,11 @@ export default function GlobalCreateMobile({
     else if (step === 'newSong') songForm.setBandId(val);
     else proposalForm.setBandId(val);
   };
+
+  // Calculate total warnings for button state
+  const totalWarnings =
+    (eventForm.conflicts?.length || 0) + (eventForm.sameDayEvents?.length || 0);
+  const hasWarnings = totalWarnings > 0;
 
   return (
     <IonModal isOpen={open} onDidDismiss={closeAll} className="gc-modal-root">
@@ -660,16 +1060,42 @@ export default function GlobalCreateMobile({
                 />
               </div>
 
+              {/* Unified Warnings Component */}
+              <EventWarnings
+                conflicts={eventForm.conflicts || []}
+                sameDayEvents={eventForm.sameDayEvents || []}
+              />
+
+              {/* Submit button - changes style when warnings exist */}
               <button
-                className="gc-submit-btn gc-submit-btn-event"
+                className={`gc-submit-btn ${
+                  hasWarnings ? 'gc-submit-btn-warning' : 'gc-submit-btn-event'
+                }`}
                 onClick={handleSubmitCreateEvent}
                 disabled={
+                  eventForm.checkingConflicts ||
                   !eventForm.bandId ||
                   !eventForm.title.trim() ||
                   !eventForm.starts
                 }
+                style={{
+                  marginTop: hasWarnings ? 8 : undefined,
+                  ...(hasWarnings
+                    ? {
+                        background:
+                          'linear-gradient(135deg, rgba(251, 191, 36, 0.9) 0%, rgba(245, 158, 11, 0.9) 100%)',
+                        boxShadow: '0 4px 14px rgba(251, 191, 36, 0.3)',
+                      }
+                    : {}),
+                }}
               >
-                Create Event
+                {eventForm.checkingConflicts
+                  ? 'Checking availability…'
+                  : hasWarnings
+                  ? `Create anyway · ${totalWarnings} warning${
+                      totalWarnings > 1 ? 's' : ''
+                    }`
+                  : 'Create Event'}
               </button>
             </div>
           )}

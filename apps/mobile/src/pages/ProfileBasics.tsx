@@ -4,10 +4,6 @@ import {
   IonContent,
   IonHeader,
   IonIcon,
-  IonInput,
-  IonItem,
-  IonLabel,
-  IonList,
   IonPage,
   IonSpinner,
   IonText,
@@ -15,6 +11,7 @@ import {
   IonToolbar,
 } from '@ionic/react';
 import {
+  checkmarkCircle,
   chevronBackOutline,
   locationOutline,
   personOutline,
@@ -27,6 +24,10 @@ import AvatarImageMobile from '../components/ui/AvatarImageMobile';
 
 import { supabase } from '../lib/supabase';
 
+// ─────────────────────────────────────────────────────────────
+// Types
+// ─────────────────────────────────────────────────────────────
+
 type ProfileRow = {
   id: string;
   display_name: string | null;
@@ -37,6 +38,10 @@ type ProfileRow = {
 };
 
 const AVATAR_BUCKET = 'profile-avatars';
+
+// ─────────────────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────────────────
 
 function generateAvatarKey(userId: string, ext: string) {
   const anyCrypto: any = (globalThis as any).crypto;
@@ -63,6 +68,10 @@ async function fetchLocationsFromApi(query: string): Promise<string[]> {
   }
 }
 
+// ─────────────────────────────────────────────────────────────
+// Location Autocomplete Component
+// ─────────────────────────────────────────────────────────────
+
 type LocationAutocompleteProps = {
   value: string;
   editable: boolean;
@@ -85,10 +94,8 @@ function LocationAutocomplete({
     setQuery(value);
   }, [value]);
 
-  const handleChange: React.ComponentProps<typeof IonInput>['onIonChange'] = (
-    e
-  ) => {
-    const next = e.detail.value ?? '';
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const next = e.target.value ?? '';
     setQuery(next);
     onChange(next);
 
@@ -120,18 +127,30 @@ function LocationAutocomplete({
 
   return (
     <div style={{ width: '100%', position: 'relative' }}>
-      <IonInput
+      <input
+        type="text"
         value={query}
         placeholder="City, State"
-        readonly={!editable}
-        onIonChange={handleChange}
-        onIonFocus={() => {
+        readOnly={!editable}
+        onChange={handleChange}
+        onFocus={() => {
           if (editable && suggestions.length > 0) setOpen(true);
         }}
-        onIonBlur={() => {
+        onBlur={() => {
           setTimeout(() => setOpen(false), 120);
         }}
-        style={{ fontSize: 15 }}
+        style={{
+          width: '100%',
+          padding: '14px 16px',
+          fontSize: 15,
+          color: '#e5e7eb',
+          background: 'rgba(0, 0, 0, 0.3)',
+          border: '1px solid rgba(255, 255, 255, 0.08)',
+          borderRadius: 12,
+          outline: 'none',
+          fontFamily: 'inherit',
+          transition: 'border-color 0.2s ease',
+        }}
       />
 
       {editable && open && suggestions.length > 0 && (
@@ -209,13 +228,17 @@ function LocationAutocomplete({
   );
 }
 
+// ─────────────────────────────────────────────────────────────
+// Main Component
+// ─────────────────────────────────────────────────────────────
+
 export default function ProfileBasics() {
   const nav = useNavigate();
   const [loading, setLoading] = React.useState(true);
   const [savingProfile, setSavingProfile] = React.useState(false);
+  const [saveSuccess, setSaveSuccess] = React.useState(false);
   const [uploadingAvatar, setUploadingAvatar] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
-  const [success, setSuccess] = React.useState<string | null>(null);
 
   const [profile, setProfile] = React.useState<ProfileRow | null>(null);
   const [displayName, setDisplayName] = React.useState('');
@@ -226,6 +249,10 @@ export default function ProfileBasics() {
   const [toastMessage, setToastMessage] = React.useState<string | null>(null);
 
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
+
+  // ─────────────────────────────────────────────────────────────
+  // Load profile on mount
+  // ─────────────────────────────────────────────────────────────
 
   React.useEffect(() => {
     let alive = true;
@@ -298,6 +325,10 @@ export default function ProfileBasics() {
     };
   }, []);
 
+  // ─────────────────────────────────────────────────────────────
+  // Computed display name
+  // ─────────────────────────────────────────────────────────────
+
   const computedDisplayName = (() => {
     if (displayName.trim()) return displayName.trim();
     const names = [firstName, lastName]
@@ -312,11 +343,15 @@ export default function ProfileBasics() {
     return 'Your profile';
   })();
 
+  // ─────────────────────────────────────────────────────────────
+  // Save profile handler
+  // ─────────────────────────────────────────────────────────────
+
   const onSaveProfile = async () => {
     if (!profile) return;
     setSavingProfile(true);
     setError(null);
-    setSuccess(null);
+    setSaveSuccess(false);
 
     try {
       const payload = {
@@ -333,7 +368,8 @@ export default function ProfileBasics() {
 
       if (updateErr) throw updateErr;
 
-      setSuccess('Profile updated');
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
       setToastMessage('Profile updated successfully');
 
       setProfile((prev) =>
@@ -354,6 +390,10 @@ export default function ProfileBasics() {
     }
   };
 
+  // ─────────────────────────────────────────────────────────────
+  // Avatar upload handlers
+  // ─────────────────────────────────────────────────────────────
+
   const onPickFile = () => {
     fileInputRef.current?.click();
   };
@@ -366,7 +406,6 @@ export default function ProfileBasics() {
 
     setUploadingAvatar(true);
     setError(null);
-    setSuccess(null);
 
     try {
       const { data: sessionData } = await supabase.auth.getSession();
@@ -425,29 +464,14 @@ export default function ProfileBasics() {
     }
   };
 
-  const inputItemStyle = {
-    '--background': 'rgba(255,255,255,0.03)',
-    '--border-radius': '12px',
-    '--padding-start': '16px',
-    '--inner-padding-end': '16px',
-    '--min-height': '52px',
-    border: '1px solid rgba(148,163,184,0.12)',
-    borderRadius: '12px',
-    marginTop: 8,
-  };
-
-  const labelStyle = {
-    fontSize: 11,
-    textTransform: 'uppercase' as const,
-    letterSpacing: 0.5,
-    color: '#6b7280',
-    fontWeight: 600,
-    display: 'block',
-  };
+  // ─────────────────────────────────────────────────────────────
+  // Render
+  // ─────────────────────────────────────────────────────────────
 
   return (
     <IonPage>
-      <IonHeader translucent>
+      {/* ─── Header ─── */}
+      <IonHeader>
         <IonToolbar
           style={{
             '--background': 'rgba(8,8,12,0.98)',
@@ -458,8 +482,8 @@ export default function ProfileBasics() {
             style={{
               display: 'flex',
               alignItems: 'center',
-              padding: '12px 16px',
-              gap: 8,
+              padding: '16px',
+              gap: 12,
             }}
           >
             <IonButton
@@ -467,38 +491,39 @@ export default function ProfileBasics() {
               fill="clear"
               style={{
                 minWidth: 0,
-                padding: 4,
+                padding: 6,
                 margin: 0,
                 flexShrink: 0,
               }}
             >
               <IonIcon
                 icon={chevronBackOutline}
-                style={{ color: '#F9FAFB', fontSize: 22 }}
+                style={{ color: '#9ca3af', fontSize: 22 }}
               />
             </IonButton>
 
             <div style={{ flex: 1 }}>
               <h1
                 style={{
-                  fontSize: 24,
+                  fontSize: 20,
                   fontWeight: 800,
                   color: '#F9FAFB',
                   margin: 0,
-                  letterSpacing: '-0.5px',
+                  letterSpacing: '-0.8px',
+                  lineHeight: 1.15,
                 }}
               >
                 Edit Profile
               </h1>
-              <p
+              <div
                 style={{
                   fontSize: 13,
                   color: '#9ca3af',
-                  margin: '4px 0 0',
+                  marginTop: 4,
                 }}
               >
                 Update your information
-              </p>
+              </div>
             </div>
           </div>
         </IonToolbar>
@@ -506,11 +531,11 @@ export default function ProfileBasics() {
 
       <IonContent
         fullscreen
-        scrollY={true}
         style={{
-          '--background': 'linear-gradient(180deg, #0a0812 0%, #050509 100%)',
+          '--background': 'linear-gradient(180deg, #050509 0%, #020109 100%)',
         }}
       >
+        {/* Loading state */}
         {loading && (
           <div
             style={{
@@ -519,59 +544,53 @@ export default function ProfileBasics() {
               height: '100%',
             }}
           >
-            <IonSpinner name="dots" style={{ color: '#a855f7' }} />
+            <IonSpinner style={{ '--color': '#34d399' }} />
           </div>
         )}
 
+        {/* Error state (no profile) */}
         {!loading && error && !profile && (
           <div
             style={{
-              padding: 16,
-              maxWidth: '600px',
-              margin: '0 auto',
+              display: 'grid',
+              placeItems: 'center',
+              gap: 8,
+              height: '100%',
+              padding: '0 24px',
             }}
           >
-            <div
-              style={{
-                background:
-                  'linear-gradient(135deg, rgba(127,29,29,0.15) 0%, rgba(80,20,20,0.1) 100%)',
-                border: '1px solid rgba(248, 113, 113, 0.25)',
-                borderRadius: 16,
-                padding: 16,
-                backdropFilter: 'blur(12px)',
-                WebkitBackdropFilter: 'blur(12px)',
-              }}
-            >
-              <IonText>
-                <p style={{ margin: 0, fontSize: 14, color: '#fca5a5' }}>
-                  {error}
-                </p>
-              </IonText>
-            </div>
+            <IonText>
+              <p
+                style={{
+                  color: '#ef4444',
+                  fontSize: 14,
+                  textAlign: 'center',
+                }}
+              >
+                {error}
+              </p>
+            </IonText>
           </div>
         )}
 
+        {/* Main content */}
         {!loading && profile && (
           <div
             style={{
-              padding: 16,
-              paddingBottom: 32,
-              maxWidth: '600px',
+              maxWidth: 600,
               margin: '0 auto',
+              padding: '0 16px 32px',
             }}
           >
-            {/* Avatar Section */}
+            {/* ─── Avatar Card ─── */}
             <div
               style={{
-                background:
-                  'linear-gradient(135deg, rgba(168,85,247,0.08) 0%, rgba(139,92,246,0.04) 100%)',
-                border: '1px solid rgba(168,85,247,0.2)',
-                borderRadius: 24,
-                padding: '32px 24px',
+                background: 'rgba(255,255,255,0.02)',
+                border: '1px solid rgba(255,255,255,0.06)',
+                borderRadius: 16,
+                padding: '28px 24px',
+                marginTop: 16,
                 textAlign: 'center',
-                marginBottom: 16,
-                backdropFilter: 'blur(12px)',
-                WebkitBackdropFilter: 'blur(12px)',
               }}
             >
               {/* Avatar with glow */}
@@ -579,10 +598,11 @@ export default function ProfileBasics() {
                 style={{
                   display: 'flex',
                   justifyContent: 'center',
-                  marginBottom: 20,
+                  marginBottom: 16,
                   position: 'relative',
                 }}
               >
+                {/* Glow effect */}
                 <div
                   style={{
                     position: 'absolute',
@@ -590,31 +610,33 @@ export default function ProfileBasics() {
                     height: 130,
                     borderRadius: '50%',
                     background:
-                      'radial-gradient(circle, rgba(168,85,247,0.3) 0%, transparent 70%)',
+                      'radial-gradient(circle, rgba(139, 92, 246, 0.25) 0%, transparent 70%)',
                     filter: 'blur(20px)',
                   }}
                 />
+                {/* Avatar ring */}
                 <div
                   style={{
                     position: 'relative',
-                    padding: 4,
+                    padding: 3,
                     borderRadius: '50%',
                     background:
-                      'linear-gradient(135deg, rgba(168,85,247,0.4) 0%, rgba(139,92,246,0.2) 100%)',
+                      'linear-gradient(135deg, rgba(139, 92, 246, 0.5) 0%, rgba(168, 85, 247, 0.3) 100%)',
                   }}
                 >
                   <AvatarImageMobile
                     name={computedDisplayName}
                     bucket={AVATAR_BUCKET}
                     avatarPath={profile.avatar_url ?? undefined}
-                    size={120}
+                    size={110}
                   />
                 </div>
               </div>
 
+              {/* Display name */}
               <p
                 style={{
-                  margin: '0 0 20px',
+                  margin: '0 0 16px',
                   fontSize: 18,
                   fontWeight: 700,
                   color: '#f9fafb',
@@ -624,6 +646,7 @@ export default function ProfileBasics() {
                 {computedDisplayName}
               </p>
 
+              {/* Hidden file input */}
               <input
                 ref={fileInputRef}
                 type="file"
@@ -632,19 +655,20 @@ export default function ProfileBasics() {
                 onChange={onFileChange}
               />
 
+              {/* Change photo button */}
               <button
                 type="button"
                 onClick={onPickFile}
                 disabled={uploadingAvatar}
                 style={{
-                  padding: '12px 24px',
-                  borderRadius: 14,
+                  padding: '10px 20px',
+                  borderRadius: 10,
                   background: uploadingAvatar
-                    ? 'rgba(168,85,247,0.1)'
-                    : 'linear-gradient(135deg, rgba(168,85,247,0.9) 0%, rgba(139,92,246,0.9) 100%)',
-                  border: '1px solid rgba(168,85,247,0.4)',
-                  color: '#fff',
-                  fontSize: 14,
+                    ? 'rgba(139, 92, 246, 0.2)'
+                    : 'rgba(139, 92, 246, 0.15)',
+                  border: '1px solid rgba(139, 92, 246, 0.3)',
+                  color: '#c4b5fd',
+                  fontSize: 13,
                   fontWeight: 600,
                   cursor: uploadingAvatar ? 'not-allowed' : 'pointer',
                   display: 'inline-flex',
@@ -652,22 +676,19 @@ export default function ProfileBasics() {
                   gap: 8,
                   transition: 'all 0.2s ease',
                   opacity: uploadingAvatar ? 0.7 : 1,
-                  boxShadow: uploadingAvatar
-                    ? 'none'
-                    : '0 4px 14px rgba(168,85,247,0.3)',
                 }}
               >
                 {uploadingAvatar ? (
                   <>
                     <IonSpinner
                       name="crescent"
-                      style={{ width: 16, height: 16 }}
+                      style={{ width: 14, height: 14 }}
                     />
                     Uploading…
                   </>
                 ) : (
                   <>
-                    <LuPencil size={16} />
+                    <LuPencil size={14} />
                     Change photo
                   </>
                 )}
@@ -675,215 +696,257 @@ export default function ProfileBasics() {
 
               <p
                 style={{
-                  marginTop: 16,
+                  marginTop: 14,
                   marginBottom: 0,
-                  fontSize: 13,
-                  color: '#9ca3af',
-                  lineHeight: 1.5,
+                  fontSize: 11,
+                  color: 'rgba(255, 255, 255, 0.35)',
                 }}
               >
                 This is how you appear across Amplee
               </p>
             </div>
 
-            {/* Form Fields */}
+            {/* ─── Personal Info Card ─── */}
             <div
               style={{
-                background:
-                  'linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%)',
-                border: '1px solid rgba(148,163,184,0.12)',
-                borderRadius: 24,
-                padding: 24,
-                backdropFilter: 'blur(12px)',
-                WebkitBackdropFilter: 'blur(12px)',
+                background: 'rgba(255,255,255,0.02)',
+                border: '1px solid rgba(255,255,255,0.06)',
+                borderRadius: 16,
+                padding: '20px 24px',
+                marginTop: 12,
               }}
             >
-              {/* Section Header */}
-              <div style={{ marginBottom: 20 }}>
-                <div
+              {/* Section header */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  fontSize: 11,
+                  fontWeight: 600,
+                  color: 'rgba(255, 255, 255, 0.5)',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.8px',
+                  marginBottom: 16,
+                }}
+              >
+                <IonIcon icon={personOutline} style={{ fontSize: 14 }} />
+                <span>Personal Info</span>
+              </div>
+
+              {/* Display name */}
+              <div style={{ marginBottom: 14 }}>
+                <label
+                  style={{
+                    display: 'block',
+                    fontSize: 11,
+                    fontWeight: 600,
+                    color: 'rgba(255, 255, 255, 0.5)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                    marginBottom: 6,
+                  }}
+                >
+                  Display name
+                </label>
+                <input
+                  type="text"
+                  value={displayName}
+                  placeholder="How you appear to your band"
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '14px 16px',
+                    fontSize: 15,
+                    color: '#e5e7eb',
+                    background: 'rgba(0, 0, 0, 0.3)',
+                    border: '1px solid rgba(255, 255, 255, 0.08)',
+                    borderRadius: 12,
+                    outline: 'none',
+                    fontFamily: 'inherit',
+                    transition: 'border-color 0.2s ease',
+                  }}
+                />
+              </div>
+
+              {/* First & Last name row */}
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr 1fr',
+                  gap: 12,
+                  marginBottom: 14,
+                }}
+              >
+                <div>
+                  <label
+                    style={{
+                      display: 'block',
+                      fontSize: 11,
+                      fontWeight: 600,
+                      color: 'rgba(255, 255, 255, 0.5)',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px',
+                      marginBottom: 6,
+                    }}
+                  >
+                    First name
+                  </label>
+                  <input
+                    type="text"
+                    value={firstName}
+                    placeholder="First"
+                    onChange={(e) => setFirstName(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '14px 16px',
+                      fontSize: 15,
+                      color: '#e5e7eb',
+                      background: 'rgba(0, 0, 0, 0.3)',
+                      border: '1px solid rgba(255, 255, 255, 0.08)',
+                      borderRadius: 12,
+                      outline: 'none',
+                      fontFamily: 'inherit',
+                      transition: 'border-color 0.2s ease',
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label
+                    style={{
+                      display: 'block',
+                      fontSize: 11,
+                      fontWeight: 600,
+                      color: 'rgba(255, 255, 255, 0.5)',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px',
+                      marginBottom: 6,
+                    }}
+                  >
+                    Last name
+                  </label>
+                  <input
+                    type="text"
+                    value={lastName}
+                    placeholder="Last"
+                    onChange={(e) => setLastName(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '14px 16px',
+                      fontSize: 15,
+                      color: '#e5e7eb',
+                      background: 'rgba(0, 0, 0, 0.3)',
+                      border: '1px solid rgba(255, 255, 255, 0.08)',
+                      borderRadius: 12,
+                      outline: 'none',
+                      fontFamily: 'inherit',
+                      transition: 'border-color 0.2s ease',
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Location */}
+              <div>
+                <label
                   style={{
                     display: 'flex',
                     alignItems: 'center',
-                    gap: 8,
-                    marginBottom: 4,
+                    gap: 6,
+                    fontSize: 11,
+                    fontWeight: 600,
+                    color: 'rgba(255, 255, 255, 0.5)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                    marginBottom: 6,
                   }}
                 >
-                  <IonIcon
-                    icon={personOutline}
-                    style={{ fontSize: 18, color: '#a855f7' }}
-                  />
-                  <p
-                    style={{
-                      margin: 0,
-                      fontSize: 12,
-                      fontWeight: 700,
-                      letterSpacing: 0.5,
-                      textTransform: 'uppercase',
-                      color: '#a855f7',
-                    }}
-                  >
-                    Personal Info
-                  </p>
-                </div>
-                <p
-                  style={{
-                    margin: '4px 0 0',
-                    fontSize: 13,
-                    color: '#9ca3af',
-                  }}
-                >
-                  Your name and how others see you
-                </p>
+                  <IonIcon icon={locationOutline} style={{ fontSize: 12 }} />
+                  Location
+                </label>
+                <LocationAutocomplete
+                  value={location}
+                  onChange={setLocation}
+                  editable={true}
+                />
               </div>
-
-              <IonList
-                lines="none"
-                style={{
-                  background: 'transparent',
-                }}
-              >
-                {/* Display name */}
-                <div style={{ marginBottom: 16 }}>
-                  <IonLabel style={labelStyle}>Display name</IonLabel>
-                  <IonItem lines="none" style={inputItemStyle as any}>
-                    <IonInput
-                      value={displayName}
-                      placeholder="How you appear to your band"
-                      onIonChange={(e) => setDisplayName(e.detail.value ?? '')}
-                      style={{
-                        fontSize: 15,
-                        '--placeholder-color': 'rgba(156,163,175,0.5)' as any,
-                        '--color': '#e5e7eb',
-                      }}
-                    />
-                  </IonItem>
-                </div>
-
-                {/* First name */}
-                <div style={{ marginBottom: 16 }}>
-                  <IonLabel style={labelStyle}>First name</IonLabel>
-                  <IonItem lines="none" style={inputItemStyle as any}>
-                    <IonInput
-                      value={firstName}
-                      placeholder="First name"
-                      onIonChange={(e) => setFirstName(e.detail.value ?? '')}
-                      style={{
-                        fontSize: 15,
-                        '--placeholder-color': 'rgba(156,163,175,0.5)' as any,
-                        '--color': '#e5e7eb',
-                      }}
-                    />
-                  </IonItem>
-                </div>
-
-                {/* Last name */}
-                <div style={{ marginBottom: 16 }}>
-                  <IonLabel style={labelStyle}>Last name</IonLabel>
-                  <IonItem lines="none" style={inputItemStyle as any}>
-                    <IonInput
-                      value={lastName}
-                      placeholder="Last name"
-                      onIonChange={(e) => setLastName(e.detail.value ?? '')}
-                      style={{
-                        fontSize: 15,
-                        '--placeholder-color': 'rgba(156,163,175,0.5)' as any,
-                        '--color': '#e5e7eb',
-                      }}
-                    />
-                  </IonItem>
-                </div>
-
-                {/* Location */}
-                <div>
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 6,
-                    }}
-                  >
-                    <IonIcon
-                      icon={locationOutline}
-                      style={{ fontSize: 14, color: '#6b7280' }}
-                    />
-                    <IonLabel style={labelStyle}>Location</IonLabel>
-                  </div>
-                  <IonItem lines="none" style={inputItemStyle as any}>
-                    <LocationAutocomplete
-                      value={location}
-                      onChange={setLocation}
-                      editable={true}
-                    />
-                  </IonItem>
-                </div>
-              </IonList>
-
-              {/* Error message */}
-              {error && (
-                <div
-                  style={{
-                    marginTop: 16,
-                    padding: '12px 16px',
-                    borderRadius: 12,
-                    background:
-                      'linear-gradient(135deg, rgba(127,29,29,0.15) 0%, rgba(80,20,20,0.1) 100%)',
-                    border: '1px solid rgba(248, 113, 113, 0.25)',
-                  }}
-                >
-                  <p style={{ margin: 0, fontSize: 14, color: '#fca5a5' }}>
-                    {error}
-                  </p>
-                </div>
-              )}
-
-              {/* Save button */}
-              <button
-                type="button"
-                disabled={savingProfile}
-                onClick={() => {
-                  if (!savingProfile) onSaveProfile();
-                }}
-                style={{
-                  width: '100%',
-                  marginTop: 24,
-                  padding: '14px 16px',
-                  borderRadius: 14,
-                  border: '1px solid rgba(168,85,247,0.4)',
-                  background: savingProfile
-                    ? 'rgba(168,85,247,0.1)'
-                    : 'linear-gradient(135deg, rgba(168,85,247,0.9) 0%, rgba(139,92,246,0.9) 100%)',
-                  color: '#fff',
-                  fontSize: 15,
-                  fontWeight: 600,
-                  cursor: savingProfile ? 'not-allowed' : 'pointer',
-                  transition: 'all 0.2s ease',
-                  opacity: savingProfile ? 0.7 : 1,
-                  boxShadow: savingProfile
-                    ? 'none'
-                    : '0 4px 14px rgba(168,85,247,0.3)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 8,
-                }}
-              >
-                {savingProfile ? (
-                  <>
-                    <IonSpinner
-                      name="crescent"
-                      style={{ width: 18, height: 18 }}
-                    />
-                    Saving…
-                  </>
-                ) : (
-                  'Save changes'
-                )}
-              </button>
             </div>
+
+            {/* ─── Error Message ─── */}
+            {error && (
+              <div
+                style={{
+                  background: 'rgba(239, 68, 68, 0.1)',
+                  border: '1px solid rgba(239, 68, 68, 0.3)',
+                  borderRadius: 10,
+                  padding: '10px 14px',
+                  marginTop: 12,
+                  fontSize: 13,
+                  color: '#fca5a5',
+                }}
+              >
+                {error}
+              </div>
+            )}
+
+            {/* ─── Save Button ─── */}
+            <button
+              type="button"
+              onClick={onSaveProfile}
+              disabled={savingProfile}
+              style={{
+                width: '100%',
+                marginTop: 20,
+                padding: '14px 20px',
+                borderRadius: 12,
+                border: 'none',
+                fontSize: 15,
+                fontWeight: 700,
+                cursor: savingProfile ? 'default' : 'pointer',
+                transition: 'all 0.3s ease',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                background: saveSuccess
+                  ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
+                  : savingProfile
+                  ? 'rgba(139, 92, 246, 0.4)'
+                  : 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
+                color: '#fff',
+                boxShadow: saveSuccess
+                  ? '0 4px 20px rgba(16, 185, 129, 0.4)'
+                  : savingProfile
+                  ? 'none'
+                  : '0 4px 20px rgba(139, 92, 246, 0.4)',
+              }}
+            >
+              {savingProfile ? (
+                <>
+                  <IonSpinner
+                    style={{
+                      '--color': '#fff',
+                      width: 18,
+                      height: 18,
+                    }}
+                  />
+                  <span>Saving...</span>
+                </>
+              ) : saveSuccess ? (
+                <>
+                  <IonIcon icon={checkmarkCircle} style={{ fontSize: 20 }} />
+                  <span>Saved!</span>
+                </>
+              ) : (
+                <span>Save changes</span>
+              )}
+            </button>
           </div>
         )}
       </IonContent>
 
+      {/* Toast */}
       <IonToast
         isOpen={toastMessage !== null}
         message={toastMessage ?? ''}

@@ -31,6 +31,7 @@ import InviteBandMobile from './pages/InviteBandMobile';
 import Login from './pages/Login';
 import OnboardingPageMobile from './pages/OnboardingPageMobile';
 import Profile from './pages/Profile';
+import ProfileAvailabilityPage from './pages/ProfileAvailability';
 import ProfileBasics from './pages/ProfileBasics';
 import ProposedGigSheetMobile from './pages/ProposedGigSheetMobile';
 import SetlistTemplateEditorMobile from './pages/SetlistTemplateEditorMobile';
@@ -200,6 +201,10 @@ export default function App() {
             {/* profile routes */}
             <Route path="/profile" element={<Profile />} />
             <Route path="/profile/basics" element={<ProfileBasics />} />
+            <Route
+              path="/profile/availability"
+              element={<ProfileAvailabilityPage />}
+            />
 
             {/* default redirects */}
             <Route path="/" element={<Navigate to="/home" replace />} />
