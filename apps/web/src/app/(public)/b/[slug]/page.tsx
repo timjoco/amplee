@@ -104,7 +104,7 @@ export default async function PublicBandPage({
   async function handleContactSubmit(
     formData: FormData
   ): Promise<{ success: boolean; error?: string }> {
-    'use server';
+    'use server'; // eslint-disable-line @typescript-eslint/no-unused-expressions
 
     const bandId = formData.get('bandId') as string | null;
     const senderName =
