@@ -158,6 +158,7 @@ export function useNewEventForm(opts: {
   const [checkingConflicts, setCheckingConflicts] = useState(false);
 
   useEffect(() => {
+    // Any time band or start changes, treat as fresh attempt
     setConflicts([]);
     setSameDayEvents([]);
     setCheckingConflicts(false);

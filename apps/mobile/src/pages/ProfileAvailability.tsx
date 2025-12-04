@@ -14,8 +14,9 @@ import {
   checkmarkCircle,
   chevronBackOutline,
   closeCircleOutline,
+  cloudDoneOutline,
+  cloudOfflineOutline,
   informationCircleOutline,
-  sparklesOutline,
 } from 'ionicons/icons';
 import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -51,29 +52,31 @@ const STATUS_CONFIG: Record<
 > = {
   open: {
     label: 'Available',
-    description: 'Ready for new opportunities',
-    color: '#34d399',
-    bgColor: 'rgba(52, 211, 153, 0.12)',
-    borderColor: 'rgba(52, 211, 153, 0.4)',
-    glowColor: 'rgba(52, 211, 153, 0.25)',
+    description: 'Good to go for gigs & rehearsals',
+    color: '#23a559',
+    bgColor: 'rgba(35, 165, 89, 0.12)',
+    borderColor: 'rgba(35, 165, 89, 0.4)',
+    glowColor: 'rgba(35, 165, 89, 0.2)',
   },
   limited: {
-    label: 'Limited',
-    description: 'Available with some constraints',
-    color: '#fbbf24',
-    bgColor: 'rgba(251, 191, 36, 0.12)',
-    borderColor: 'rgba(251, 191, 36, 0.4)',
-    glowColor: 'rgba(251, 191, 36, 0.25)',
+    label: 'Maybe',
+    description: 'Check with me first',
+    color: '#f0b232',
+    bgColor: 'rgba(240, 178, 50, 0.12)',
+    borderColor: 'rgba(240, 178, 50, 0.4)',
+    glowColor: 'rgba(240, 178, 50, 0.2)',
   },
   unavailable: {
-    label: 'Unavailable',
-    description: 'Currently not available',
-    color: '#f87171',
-    bgColor: 'rgba(248, 113, 113, 0.12)',
-    borderColor: 'rgba(248, 113, 113, 0.4)',
-    glowColor: 'rgba(248, 113, 113, 0.25)',
+    label: 'Busy',
+    description: "Can't commit right now",
+    color: '#ed4245',
+    bgColor: 'rgba(237, 66, 69, 0.12)',
+    borderColor: 'rgba(237, 66, 69, 0.4)',
+    glowColor: 'rgba(237, 66, 69, 0.2)',
   },
 };
+
+type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
 // ─────────────────────────────────────────────────────────────
 // Component
@@ -86,9 +89,14 @@ export default function ProfileAvailabilityPage() {
   const [error, setError] = React.useState<string | null>(null);
   const [availability, setAvailability] =
     React.useState<AvailabilityRow | null>(null);
-  const [saving, setSaving] = React.useState(false);
-  const [saveSuccess, setSaveSuccess] = React.useState(false);
+
+  // Auto-save state
+  const [saveStatus, setSaveStatus] = React.useState<SaveStatus>('idle');
   const [saveError, setSaveError] = React.useState<string | null>(null);
+  const saveTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
+  const initialLoadRef = React.useRef(true);
 
   // Date picker state
   const [showDatePicker, setShowDatePicker] = React.useState(false);
@@ -142,6 +150,10 @@ export default function ProfileAvailabilityPage() {
       });
 
       setLoading(false);
+      // Mark initial load complete after a tick
+      setTimeout(() => {
+        initialLoadRef.current = false;
+      }, 100);
     })();
 
     return () => {
@@ -150,45 +162,59 @@ export default function ProfileAvailabilityPage() {
   }, []);
 
   // ─────────────────────────────────────────────────────────────
-  // Save handler
+  // Auto-save when availability changes
   // ─────────────────────────────────────────────────────────────
 
-  const handleSave = async () => {
-    if (!availability) return;
+  React.useEffect(() => {
+    // Don't save on initial load
+    if (initialLoadRef.current || !availability) return;
 
-    setSaving(true);
-    setSaveError(null);
-    setSaveSuccess(false);
-
-    try {
-      const { data: auth, error: authErr } = await supabase.auth.getUser();
-      if (authErr) throw authErr;
-      const user = auth?.user ?? null;
-      if (!user) throw new Error('You are not signed in.');
-
-      const { error: upsertErr } = await supabase
-        .from('profile_availability')
-        .upsert(
-          {
-            profile_id: user.id,
-            status: availability.status,
-            status_note: availability.status_note?.trim() || null,
-            away_until: availability.away_until || null,
-          },
-          { onConflict: 'profile_id' }
-        );
-
-      if (upsertErr) throw upsertErr;
-
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 3000);
-    } catch (err: any) {
-      console.error(err);
-      setSaveError(err.message ?? 'Unable to save availability.');
-    } finally {
-      setSaving(false);
+    // Clear existing timeout
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
     }
-  };
+
+    // Debounce save by 800ms
+    saveTimeoutRef.current = setTimeout(async () => {
+      setSaveStatus('saving');
+      setSaveError(null);
+
+      try {
+        const { data: auth, error: authErr } = await supabase.auth.getUser();
+        if (authErr) throw authErr;
+        const user = auth?.user ?? null;
+        if (!user) throw new Error('You are not signed in.');
+
+        const { error: upsertErr } = await supabase
+          .from('profile_availability')
+          .upsert(
+            {
+              profile_id: user.id,
+              status: availability.status,
+              status_note: availability.status_note?.trim() || null,
+              away_until: availability.away_until || null,
+            },
+            { onConflict: 'profile_id' }
+          );
+
+        if (upsertErr) throw upsertErr;
+
+        setSaveStatus('saved');
+        // Reset to idle after showing "saved"
+        setTimeout(() => setSaveStatus('idle'), 2000);
+      } catch (err: any) {
+        console.error(err);
+        setSaveStatus('error');
+        setSaveError(err.message ?? 'Unable to save.');
+      }
+    }, 800);
+
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, [availability]);
 
   // ─────────────────────────────────────────────────────────────
   // Helpers
@@ -199,7 +225,6 @@ export default function ProfileAvailabilityPage() {
     : STATUS_CONFIG.open;
 
   const formatAwayDate = (dateStr: string) => {
-    // Handle both ISO datetime and YYYY-MM-DD formats
     const date = dateStr.includes('T')
       ? new Date(dateStr)
       : new Date(dateStr + 'T00:00:00');
@@ -211,20 +236,17 @@ export default function ProfileAvailabilityPage() {
     });
   };
 
-  // Convert away_until to ISO for the picker (needs datetime)
   const awayUntilAsISO = availability?.away_until
     ? availability.away_until.includes('T')
       ? availability.away_until
       : `${availability.away_until}T23:59:00`
     : undefined;
 
-  // Handle date picker change - extract just the date part
   const handleAwayDateChange = (iso: string | null) => {
     if (!iso) {
       setAvailability((prev) => (prev ? { ...prev, away_until: null } : prev));
       return;
     }
-    // Extract just YYYY-MM-DD from the ISO string
     const dateOnly = iso.split('T')[0];
     setAvailability((prev) =>
       prev ? { ...prev, away_until: dateOnly } : prev
@@ -237,7 +259,6 @@ export default function ProfileAvailabilityPage() {
 
   return (
     <IonPage>
-      {/* ─── Header (matches profile pages) ─── */}
       <IonHeader>
         <IonToolbar
           style={{
@@ -272,25 +293,73 @@ export default function ProfileAvailabilityPage() {
             <div style={{ flex: 1 }}>
               <h1
                 style={{
-                  fontSize: 20,
-                  fontWeight: 800,
+                  fontSize: 18,
+                  fontWeight: 700,
                   color: '#F9FAFB',
                   margin: 0,
-                  letterSpacing: '-0.8px',
-                  lineHeight: 1.15,
                 }}
               >
-                Availability
+                Set Your Availability
               </h1>
-              <div
-                style={{
-                  fontSize: 13,
-                  color: '#9ca3af',
-                  marginTop: 4,
-                }}
-              >
-                Let your bands know when you're free
+              <div style={{ fontSize: 13, color: '#949ba4', marginTop: 2 }}>
+                Helps your bands plan around your schedule
               </div>
+            </div>
+
+            {/* Auto-save indicator */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '6px 10px',
+                borderRadius: 8,
+                background:
+                  saveStatus === 'error'
+                    ? 'rgba(239, 68, 68, 0.15)'
+                    : 'rgba(255,255,255,0.05)',
+                transition: 'all 0.2s ease',
+              }}
+            >
+              {saveStatus === 'saving' && (
+                <>
+                  <IonSpinner
+                    style={{ '--color': '#949ba4', width: 14, height: 14 }}
+                  />
+                  <span style={{ fontSize: 11, color: '#949ba4' }}>
+                    Saving...
+                  </span>
+                </>
+              )}
+              {saveStatus === 'saved' && (
+                <>
+                  <IonIcon
+                    icon={cloudDoneOutline}
+                    style={{ fontSize: 14, color: '#23a559' }}
+                  />
+                  <span style={{ fontSize: 11, color: '#23a559' }}>Saved</span>
+                </>
+              )}
+              {saveStatus === 'error' && (
+                <>
+                  <IonIcon
+                    icon={cloudOfflineOutline}
+                    style={{ fontSize: 14, color: '#ed4245' }}
+                  />
+                  <span style={{ fontSize: 11, color: '#ed4245' }}>Error</span>
+                </>
+              )}
+              {saveStatus === 'idle' && (
+                <>
+                  <IonIcon
+                    icon={cloudDoneOutline}
+                    style={{ fontSize: 14, color: '#949ba4' }}
+                  />
+                  <span style={{ fontSize: 11, color: '#949ba4' }}>
+                    Auto-save
+                  </span>
+                </>
+              )}
             </div>
           </div>
         </IonToolbar>
@@ -302,20 +371,14 @@ export default function ProfileAvailabilityPage() {
           '--background': 'linear-gradient(180deg, #050509 0%, #020109 100%)',
         }}
       >
-        {/* Loading state */}
         {loading && (
           <div
-            style={{
-              display: 'grid',
-              placeItems: 'center',
-              height: '100%',
-            }}
+            style={{ display: 'grid', placeItems: 'center', height: '100%' }}
           >
             <IonSpinner style={{ '--color': '#34d399' }} />
           </div>
         )}
 
-        {/* Error state */}
         {!loading && error && (
           <div
             style={{
@@ -328,11 +391,7 @@ export default function ProfileAvailabilityPage() {
           >
             <IonText>
               <p
-                style={{
-                  color: '#ef4444',
-                  fontSize: 14,
-                  textAlign: 'center',
-                }}
+                style={{ color: '#ef4444', fontSize: 14, textAlign: 'center' }}
               >
                 {error}
               </p>
@@ -340,7 +399,6 @@ export default function ProfileAvailabilityPage() {
           </div>
         )}
 
-        {/* Main content */}
         {!loading && !error && availability && (
           <div
             style={{
@@ -349,7 +407,7 @@ export default function ProfileAvailabilityPage() {
               padding: '0 16px 32px',
             }}
           >
-            {/* ─── Status Selection Card ─── */}
+            {/* Status Selection Card */}
             <div
               style={{
                 background: 'rgba(255,255,255,0.02)',
@@ -359,28 +417,16 @@ export default function ProfileAvailabilityPage() {
                 marginTop: 16,
               }}
             >
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  fontSize: 11,
-                  fontWeight: 600,
-                  color: 'rgba(255, 255, 255, 0.5)',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.8px',
-                  marginBottom: 14,
-                }}
-              >
-                <IonIcon icon={sparklesOutline} style={{ fontSize: 14 }} />
-                <span>Your Status</span>
-              </div>
+              <span style={{ fontSize: 13, fontWeight: 600, color: '#b5bac1' }}>
+                How's your schedule?
+              </span>
 
               <div
                 style={{
                   display: 'flex',
                   flexDirection: 'column',
                   gap: 10,
+                  marginTop: 14,
                 }}
               >
                 {(Object.keys(STATUS_CONFIG) as AvailabilityStatus[]).map(
@@ -419,7 +465,6 @@ export default function ProfileAvailabilityPage() {
                           outline: 'none',
                         }}
                       >
-                        {/* Status dot */}
                         <div
                           style={{
                             width: 12,
@@ -432,8 +477,6 @@ export default function ProfileAvailabilityPage() {
                             flexShrink: 0,
                           }}
                         />
-
-                        {/* Text */}
                         <div style={{ flex: 1, textAlign: 'left' }}>
                           <div
                             style={{
@@ -454,14 +497,12 @@ export default function ProfileAvailabilityPage() {
                             {config.description}
                           </div>
                         </div>
-
-                        {/* Check icon */}
                         {isActive && (
                           <IonIcon
                             icon={checkmarkCircle}
                             style={{
                               fontSize: 20,
-                              color: '#34d399',
+                              color: config.color,
                               flexShrink: 0,
                             }}
                           />
@@ -473,7 +514,7 @@ export default function ProfileAvailabilityPage() {
               </div>
             </div>
 
-            {/* ─── Status Note Card ─── */}
+            {/* Status Note Card */}
             <div
               style={{
                 background: 'rgba(255,255,255,0.02)',
@@ -491,35 +532,40 @@ export default function ProfileAvailabilityPage() {
                   marginBottom: 10,
                 }}
               >
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    fontSize: 11,
-                    fontWeight: 600,
-                    color: 'rgba(255, 255, 255, 0.5)',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.8px',
-                  }}
-                >
-                  <span>💬</span>
-                  <span>Add a Note</span>
-                </div>
                 <span
-                  style={{
-                    fontSize: 10,
-                    color: 'rgba(255, 255, 255, 0.35)',
-                  }}
+                  style={{ fontSize: 13, fontWeight: 600, color: '#b5bac1' }}
                 >
-                  Optional
+                  Add a note{' '}
+                  <span style={{ fontWeight: 400, color: '#949ba4' }}>
+                    (optional)
+                  </span>
                 </span>
+                {availability.status_note && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setAvailability((prev) =>
+                        prev ? { ...prev, status_note: null } : prev
+                      )
+                    }
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      padding: '4px 8px',
+                      fontSize: 12,
+                      color: '#949ba4',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Clear
+                  </button>
+                )}
               </div>
 
               <textarea
                 rows={2}
                 maxLength={140}
-                placeholder="e.g., Weekends only, busy with day job during the week..."
+                placeholder="e.g., Weekends only, touring in March..."
                 value={availability.status_note ?? ''}
                 onChange={(e) =>
                   setAvailability((prev) =>
@@ -555,25 +601,19 @@ export default function ProfileAvailabilityPage() {
                 }}
               >
                 <span
-                  style={{
-                    fontSize: 11,
-                    color: 'rgba(255, 255, 255, 0.35)',
-                  }}
+                  style={{ fontSize: 11, color: 'rgba(255, 255, 255, 0.35)' }}
                 >
                   Visible to band admins when scheduling
                 </span>
                 <span
-                  style={{
-                    fontSize: 11,
-                    color: 'rgba(255, 255, 255, 0.3)',
-                  }}
+                  style={{ fontSize: 11, color: 'rgba(255, 255, 255, 0.3)' }}
                 >
                   {availability.status_note?.length ?? 0} / 140
                 </span>
               </div>
             </div>
 
-            {/* ─── Away Until Card ─── */}
+            {/* Away Until Card */}
             <div
               style={{
                 background: 'rgba(255,255,255,0.02)',
@@ -591,32 +631,16 @@ export default function ProfileAvailabilityPage() {
                   marginBottom: 10,
                 }}
               >
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    fontSize: 11,
-                    fontWeight: 600,
-                    color: 'rgba(255, 255, 255, 0.5)',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.8px',
-                  }}
-                >
-                  <IonIcon icon={calendarOutline} style={{ fontSize: 14 }} />
-                  <span>Away Until</span>
-                </div>
                 <span
-                  style={{
-                    fontSize: 10,
-                    color: 'rgba(255, 255, 255, 0.35)',
-                  }}
+                  style={{ fontSize: 13, fontWeight: 600, color: '#b5bac1' }}
                 >
-                  Optional
+                  Back on...{' '}
+                  <span style={{ fontWeight: 400, color: '#949ba4' }}>
+                    (optional)
+                  </span>
                 </span>
               </div>
 
-              {/* Date picker trigger */}
               <div
                 role="button"
                 tabIndex={0}
@@ -644,13 +668,7 @@ export default function ProfileAvailabilityPage() {
                   transition: 'all 0.2s ease',
                 }}
               >
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 10,
-                  }}
-                >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <IonIcon
                     icon={calendarOutline}
                     style={{
@@ -713,11 +731,11 @@ export default function ProfileAvailabilityPage() {
                   lineHeight: 1.4,
                 }}
               >
-                Set a date if you'll be unavailable for a specific period.
+                Set a date when you'll be back and available again.
               </p>
             </div>
 
-            {/* ─── Preview Card ─── */}
+            {/* Preview Card */}
             <div
               style={{
                 background: 'rgba(139, 92, 246, 0.08)',
@@ -727,104 +745,92 @@ export default function ProfileAvailabilityPage() {
                 marginTop: 12,
               }}
             >
-              <div
+              <span
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  marginBottom: 14,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: '#b5bac1',
                 }}
               >
-                <span style={{ fontSize: 14 }}>👀</span>
-                <span
-                  style={{
-                    fontSize: 11,
-                    fontWeight: 600,
-                    color: '#a78bfa',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.5px',
-                  }}
-                >
-                  How others see you
-                </span>
-              </div>
+                Preview
+              </span>
 
-              {/* Status badge */}
-              <div
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  padding: '8px 14px',
-                  borderRadius: 20,
-                  background: currentConfig.bgColor,
-                  border: `1px solid ${currentConfig.borderColor}`,
-                }}
-              >
+              <div style={{ marginTop: 12 }}>
                 <div
                   style={{
-                    width: 8,
-                    height: 8,
-                    borderRadius: '50%',
-                    background: currentConfig.color,
-                  }}
-                />
-                <span
-                  style={{
-                    fontSize: 13,
-                    fontWeight: 600,
-                    color: currentConfig.color,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    padding: '8px 14px',
+                    borderRadius: 20,
+                    background: currentConfig.bgColor,
+                    border: `1px solid ${currentConfig.borderColor}`,
                   }}
                 >
-                  {currentConfig.label}
-                </span>
-              </div>
-
-              {/* Additional details */}
-              {(availability.away_until || availability.status_note) && (
-                <div
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 6,
-                    marginTop: 12,
-                  }}
-                >
-                  {availability.away_until && (
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 6,
-                        fontSize: 12,
-                        color: 'rgba(255, 255, 255, 0.6)',
-                      }}
-                    >
-                      <IonIcon
-                        icon={calendarOutline}
-                        style={{ fontSize: 12 }}
-                      />
-                      <span>
-                        Away until {formatAwayDate(availability.away_until)}
-                      </span>
-                    </div>
-                  )}
-                  {availability.status_note && (
-                    <div
-                      style={{
-                        fontSize: 12,
-                        color: 'rgba(255, 255, 255, 0.6)',
-                        fontStyle: 'italic',
-                      }}
-                    >
-                      "{availability.status_note}"
-                    </div>
-                  )}
+                  <div
+                    style={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: '50%',
+                      background: currentConfig.color,
+                    }}
+                  />
+                  <span
+                    style={{
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: currentConfig.color,
+                    }}
+                  >
+                    {currentConfig.label}
+                  </span>
                 </div>
-              )}
+
+                {(availability.away_until || availability.status_note) && (
+                  <div
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 6,
+                      marginTop: 12,
+                    }}
+                  >
+                    {availability.away_until && (
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          fontSize: 12,
+                          color: 'rgba(255, 255, 255, 0.6)',
+                        }}
+                      >
+                        <IonIcon
+                          icon={calendarOutline}
+                          style={{ fontSize: 12 }}
+                        />
+                        <span>
+                          Back {formatAwayDate(availability.away_until)}
+                        </span>
+                      </div>
+                    )}
+                    {availability.status_note && (
+                      <div
+                        style={{
+                          fontSize: 12,
+                          color: 'rgba(255, 255, 255, 0.6)',
+                          fontStyle: 'italic',
+                        }}
+                      >
+                        "{availability.status_note}"
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
 
-            {/* ─── Info Callout ─── */}
+            {/* Info Callout */}
             <div
               style={{
                 display: 'flex',
@@ -847,19 +853,18 @@ export default function ProfileAvailabilityPage() {
               />
               <p
                 style={{
-                  fontSize: 12,
-                  color: 'rgba(255, 255, 255, 0.7)',
+                  fontSize: 13,
+                  color: '#b5bac1',
                   lineHeight: 1.5,
                   margin: 0,
                 }}
               >
-                This availability syncs across all your bands. When admins
-                create events, they'll see your status to help pick the best
-                dates for everyone.
+                Your availability shows up when band admins are picking dates
+                for events. It syncs across all your bands automatically.
               </p>
             </div>
 
-            {/* ─── Save Error ─── */}
+            {/* Save Error */}
             {saveError && (
               <div
                 style={{
@@ -875,66 +880,12 @@ export default function ProfileAvailabilityPage() {
                 {saveError}
               </div>
             )}
-
-            {/* ─── Save Button ─── */}
-            <button
-              type="button"
-              onClick={handleSave}
-              disabled={saving}
-              style={{
-                width: '100%',
-                marginTop: 20,
-                padding: '14px 20px',
-                borderRadius: 12,
-                border: 'none',
-                fontSize: 15,
-                fontWeight: 700,
-                cursor: saving ? 'default' : 'pointer',
-                transition: 'all 0.3s ease',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 8,
-                background: saveSuccess
-                  ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
-                  : saving
-                  ? 'rgba(139, 92, 246, 0.4)'
-                  : 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
-                color: '#fff',
-                boxShadow: saveSuccess
-                  ? '0 4px 20px rgba(16, 185, 129, 0.4)'
-                  : saving
-                  ? 'none'
-                  : '0 4px 20px rgba(139, 92, 246, 0.4)',
-              }}
-            >
-              {saving ? (
-                <>
-                  <IonSpinner
-                    style={{
-                      '--color': '#fff',
-                      width: 18,
-                      height: 18,
-                    }}
-                  />
-                  <span>Saving...</span>
-                </>
-              ) : saveSuccess ? (
-                <>
-                  <IonIcon icon={checkmarkCircle} style={{ fontSize: 20 }} />
-                  <span>Saved!</span>
-                </>
-              ) : (
-                <span>Save Availability</span>
-              )}
-            </button>
           </div>
         )}
 
-        {/* ─── Date Picker Modal ─── */}
         <EventDateTimePicker
           open={showDatePicker}
-          label="Away Until"
+          label="Back on"
           value={awayUntilAsISO}
           min={new Date().toISOString()}
           onChange={handleAwayDateChange}

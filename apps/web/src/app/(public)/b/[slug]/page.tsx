@@ -9,16 +9,7 @@ import { ThemePickerPublicBand } from '@/components/Public/ThemePickerPublicBand
 import { UpcomingShowsSection } from '@/components/Public/UpcomingShowsSection';
 import { supabaseServer } from '@/lib/supabaseServer';
 import { THEMES, isDarkTheme, type ThemeName } from '@/themes/publicPageThemes';
-
-// Note: File locations in your project:
-// - This file: apps/web/src/app/(public)/b/[slug]/page.tsx
-// - ThemePickerPublicBand: apps/web/src/components/Public/ThemePickerPublicBand.tsx
-// - Themes: apps/web/src/themes/publicPageThemes.ts
-
-// ═══════════════════════════════════════════════════════════════════════════
-// AMPLEE PUBLIC BAND PAGE - REDESIGNED
-// A free customizable website for every band
-// ═══════════════════════════════════════════════════════════════════════════
+import type { BandMediaItem } from '@/types/db'; // adjust path if needed
 
 export const revalidate = 60;
 
@@ -97,11 +88,11 @@ export default async function PublicBandPage({
   params,
   searchParams,
 }: {
-  params: Promise<{ slug: string }>;
-  searchParams?: Promise<{ theme?: string }>;
+  params: { slug: string };
+  searchParams?: { theme?: string };
 }) {
-  const { slug } = await params;
-  const sp = (await searchParams) ?? {};
+  const { slug } = params;
+  const sp = searchParams ?? {};
   const rawTheme = (sp.theme ?? '').toString();
 
   // Validate theme - default to 'default' (Neon)
@@ -172,14 +163,6 @@ export default async function PublicBandPage({
     }
 
     // TODO: Send email notification to band's contact_email
-    // Example with Resend:
-    // await resend.emails.send({
-    //   from: 'noreply@amplee.app',
-    //   to: bandData.contact_email,
-    //   replyTo: senderEmail,
-    //   subject: `New message from your Amplee page`,
-    //   html: `<h2>New message from ${senderName}</h2><p>${messageBody}</p>`,
-    // });
 
     revalidatePath(`/b/${slug}`);
 
@@ -235,6 +218,26 @@ export default async function PublicBandPage({
   const links = normalizeLinks(band.streaming_links as StreamingLink[] | null);
   const avatarSrc = resolveAvatarSrc(band);
   const initials = getInitials(band.name);
+
+  const mediaItems: BandMediaItem[] = [
+    {
+      id: 'live-show-1',
+      type: 'video',
+      title: 'Live at The Roxy',
+      thumbnailUrl: 'https://img.youtube.com/vi/dQw4w9WgXcQ/hqdefault.jpg', // or any image you like
+      href: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+      tag: 'Live',
+    },
+    {
+      id: 'promo-photo-1',
+      type: 'photo',
+      title: 'Band Promo Shot',
+      thumbnailUrl:
+        'https://images.pexels.com/photos/164745/pexels-photo-164745.jpeg', // placeholder
+      href: undefined,
+      tag: 'Photo',
+    },
+  ];
 
   return (
     <Box
@@ -411,12 +414,19 @@ export default async function PublicBandPage({
             <UpcomingShowsSection shows={shows} theme={theme} dark={dark} />
           </Box>
         )}
+
         {/* Streaming Links */}
         {links.length > 0 && (
           <Box sx={{ mb: 2.5 }}>
             <StreamingLinksSection links={links} theme={theme} dark={dark} />
           </Box>
         )}
+
+        {/* Media Strip */}
+        {/* <Box sx={{ mb: 2.5 }}>
+          <BandMediaStrip items={mediaItems} theme={theme} />
+        </Box> */}
+
         {/* Contact Form */}
         <Box sx={{ mb: 2.5 }}>
           <ContactFormSection

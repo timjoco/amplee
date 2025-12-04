@@ -55,6 +55,8 @@ export default function BandSheetMobile() {
   const [eventsCount, setEventsCount] = React.useState(0);
   const [proposalsCount, setProposalsCount] = React.useState(0);
 
+  const [rosterMembers, setRosterMembers] = React.useState<any[]>([]);
+
   const triggerHaptic = React.useCallback(async () => {
     if (Capacitor.getPlatform() === 'web') return;
     try {
@@ -93,12 +95,6 @@ export default function BandSheetMobile() {
     if (minutes > 0) return `${minutes}m`;
     return 'Soon!';
   }, [nextEvent]);
-
-  React.useEffect(() => {
-    if (!bandId) {
-      navigate('/home', { replace: true });
-    }
-  }, [bandId, navigate]);
 
   React.useEffect(() => {
     if (!bandId) return;
@@ -149,6 +145,47 @@ export default function BandSheetMobile() {
         setBandName(band.name);
         setBandAvatarUrl(band.avatar_url ?? null);
         setBandAvatarUpdatedAt(band.updated_at ?? null);
+
+        // ADD THIS: Fetch roster members with availability
+        const { data: members } = await supabase
+          .from('band_members')
+          .select(
+            `
+          id,
+          profile:profiles!inner(
+            id,
+            display_name,
+            full_name,
+            availability:profile_availability(status)
+          )
+        `
+          )
+          .eq('band_id', bandId)
+          .order('created_at', { ascending: true });
+
+        if (!alive) return;
+
+        if (members) {
+          const formattedMembers = members.map((m: any) => ({
+            id: m.id,
+            display_name: m.profile.display_name,
+            full_name: m.profile.full_name,
+            availabilityStatus: m.profile.availability?.[0]?.status || 'open',
+            availabilityColor:
+              m.profile.availability?.[0]?.status === 'open'
+                ? '#34d399'
+                : m.profile.availability?.[0]?.status === 'limited'
+                ? '#fbbf24'
+                : '#f87171',
+            availabilityLabel:
+              m.profile.availability?.[0]?.status === 'open'
+                ? 'Available'
+                : m.profile.availability?.[0]?.status === 'limited'
+                ? 'Limited'
+                : 'Unavailable',
+          }));
+          setRosterMembers(formattedMembers);
+        }
 
         // Fetch next upcoming event
         const { data: events } = await supabase
@@ -1060,7 +1097,7 @@ export default function BandSheetMobile() {
                     opacity: 0.9,
                   }}
                 >
-                  Coming soon
+                  Manage band members
                 </div>
               </button>
 

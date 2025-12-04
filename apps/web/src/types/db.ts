@@ -13,3 +13,12 @@ export type BandMembershipRow = {
   role: MembershipRole;
   created_at: string;
 };
+
+export type BandMediaItem = {
+  id: string;
+  type: 'photo' | 'video';
+  thumbnailUrl: string; // photo itself, or video thumb
+  title?: string; // “Live at recordBar”, etc.
+  tag?: string; // “Live”, “Promo”, “Behind the scenes”
+  href?: string; // full image or external video URL
+};

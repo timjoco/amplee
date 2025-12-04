@@ -14,6 +14,7 @@ import {
 } from '@ionic/react';
 import {
   chevronBackOutline,
+  musicalNotesOutline,
   peopleOutline,
   personOutline,
   shieldOutline,
@@ -36,6 +37,278 @@ type MemberRow = {
   avatar_updated_at: string | null;
   role: MembershipRole | string | null;
 };
+
+function MyBandRoleEditor({
+  bandId,
+  currentUserId,
+}: {
+  bandId: string;
+  currentUserId: string | null;
+}) {
+  const [bandRoles, setBandRoles] = useState<string[]>([]);
+  const [newRole, setNewRole] = useState<string>('');
+  const [saving, setSaving] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!currentUserId || !bandId) return;
+
+    let active = true;
+
+    (async () => {
+      try {
+        const { data, error: fetchError } = await supabase
+          .from('band_members')
+          .select('band_role')
+          .eq('band_id', bandId)
+          .eq('user_id', currentUserId)
+          .maybeSingle();
+
+        if (!active) return;
+
+        if (fetchError) throw fetchError;
+
+        // Parse comma-separated roles
+        const rolesString = data?.band_role || '';
+        const roles = rolesString
+          ? rolesString
+              .split(',')
+              .map((r: string) => r.trim())
+              .filter(Boolean)
+          : [];
+
+        setBandRoles(roles);
+      } catch (err: any) {
+        console.error('Failed to load band role:', err);
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [bandId, currentUserId]);
+
+  const saveRoles = async (roles: string[]) => {
+    if (!currentUserId) return;
+
+    setSaving(true);
+    setSuccess(false);
+    setError(null);
+
+    try {
+      // Join roles with comma
+      const rolesString = roles.join(', ');
+
+      const { error: updateError } = await supabase
+        .from('band_members')
+        .update({ band_role: rolesString || null })
+        .eq('band_id', bandId)
+        .eq('user_id', currentUserId);
+
+      if (updateError) throw updateError;
+
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 1500);
+    } catch (err: any) {
+      console.error('Failed to save band role:', err);
+      setError(err.message || 'Failed to save role');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleAddRole = async () => {
+    const trimmed = newRole.trim();
+    if (!trimmed) return;
+    if (bandRoles.includes(trimmed)) {
+      setError('Role already added');
+      return;
+    }
+    if (bandRoles.length >= 5) {
+      setError('Maximum 5 roles allowed');
+      return;
+    }
+
+    const updatedRoles = [...bandRoles, trimmed];
+    setBandRoles(updatedRoles);
+    setNewRole('');
+    if (error) setError(null);
+
+    // Auto-save
+    await saveRoles(updatedRoles);
+  };
+
+  const handleRemoveRole = async (roleToRemove: string) => {
+    const updatedRoles = bandRoles.filter((r) => r !== roleToRemove);
+    setBandRoles(updatedRoles);
+
+    // Auto-save
+    await saveRoles(updatedRoles);
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleAddRole();
+    }
+  };
+
+  return (
+    <div>
+      {/* Current roles */}
+      {bandRoles.length > 0 && (
+        <div
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: 8,
+            marginBottom: 12,
+          }}
+        >
+          {bandRoles.map((role) => (
+            <div
+              key={role}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '6px 12px',
+                borderRadius: 20,
+                background: 'rgba(139, 92, 246, 0.15)',
+                border: '1px solid rgba(139, 92, 246, 0.3)',
+              }}
+            >
+              <span
+                style={{
+                  fontSize: 13,
+                  color: '#e5e7eb',
+                  fontWeight: 500,
+                }}
+              >
+                {role}
+              </span>
+              <button
+                type="button"
+                onClick={() => handleRemoveRole(role)}
+                disabled={saving}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: saving ? '#9ca3af' : '#f87171',
+                  cursor: saving ? 'not-allowed' : 'pointer',
+                  padding: 0,
+                  fontSize: 16,
+                  lineHeight: 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  opacity: saving ? 0.5 : 1,
+                }}
+              >
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Add new role */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+        <input
+          type="text"
+          maxLength={30}
+          placeholder="e.g., Lead Guitar, Drums, Vocals..."
+          value={newRole}
+          onChange={(e) => {
+            setNewRole(e.target.value);
+            if (error) setError(null);
+          }}
+          onKeyPress={handleKeyPress}
+          disabled={bandRoles.length >= 5 || saving}
+          style={{
+            flex: 1,
+            padding: '10px 12px',
+            fontSize: 14,
+            color: '#e5e7eb',
+            background: 'rgba(0, 0, 0, 0.3)',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            borderRadius: 10,
+            outline: 'none',
+            fontFamily: 'inherit',
+            opacity: saving ? 0.6 : 1,
+          }}
+        />
+        <button
+          type="button"
+          onClick={handleAddRole}
+          disabled={!newRole.trim() || bandRoles.length >= 5 || saving}
+          style={{
+            padding: '10px 16px',
+            borderRadius: 10,
+            border: 'none',
+            background: 'rgba(139, 92, 246, 0.2)',
+            color: '#a78bfa',
+            fontSize: 14,
+            fontWeight: 600,
+            cursor:
+              !newRole.trim() || bandRoles.length >= 5 || saving
+                ? 'not-allowed'
+                : 'pointer',
+            opacity:
+              !newRole.trim() || bandRoles.length >= 5 || saving ? 0.5 : 1,
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {saving ? 'Adding...' : 'Add'}
+        </button>
+      </div>
+
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+        }}
+      >
+        <span
+          style={{
+            fontSize: 11,
+            color: 'rgba(255, 255, 255, 0.3)',
+          }}
+        >
+          {bandRoles.length} / 5 roles
+        </span>
+
+        {success && (
+          <span
+            style={{
+              fontSize: 11,
+              color: '#10b981',
+              fontWeight: 600,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 4,
+            }}
+          >
+            ✓ Saved
+          </span>
+        )}
+      </div>
+
+      {error && (
+        <p
+          style={{
+            margin: '8px 0 0',
+            fontSize: 12,
+            color: '#f87171',
+          }}
+        >
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
 
 export default function BandSettingsMobile() {
   const params = useParams<{ bandId?: string; id?: string }>();
@@ -497,6 +770,79 @@ export default function BandSettingsMobile() {
                 >
                   {isAdmin ? 'Admin' : 'Member'}
                 </span>
+              </div>
+            </div>
+
+            <div
+              style={{
+                background: 'transparent',
+                border: '1px solid rgba(139, 92, 246, 0.2)',
+                borderRadius: 20,
+                padding: '24px 20px',
+              }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 12,
+                  marginBottom: 16,
+                }}
+              >
+                <div
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 10,
+                    background: 'rgba(139, 92, 246, 0.1)',
+                    border: '1px solid rgba(139, 92, 246, 0.2)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <IonIcon
+                    icon={musicalNotesOutline}
+                    style={{
+                      fontSize: 20,
+                      color: 'rgba(139, 92, 246, 0.9)',
+                    }}
+                  />
+                </div>
+                <div>
+                  <p
+                    style={{
+                      margin: 0,
+                      fontSize: 16,
+                      fontWeight: 700,
+                      color: 'rgba(241, 245, 249, 0.95)',
+                      letterSpacing: '-0.01em',
+                    }}
+                  >
+                    My Role in Band
+                  </p>
+                  <p
+                    style={{
+                      margin: '2px 0 0',
+                      fontSize: 13,
+                      color: 'rgba(148, 163, 184, 0.8)',
+                    }}
+                  >
+                    Let bandmates know your instrument or position
+                  </p>
+                </div>
+              </div>
+
+              <div
+                style={{
+                  borderTop: '1px solid rgba(139, 92, 246, 0.15)',
+                  paddingTop: 16,
+                }}
+              >
+                <MyBandRoleEditor
+                  bandId={bandId}
+                  currentUserId={currentUserId}
+                />
               </div>
             </div>
 

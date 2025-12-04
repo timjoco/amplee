@@ -26,6 +26,7 @@ type MemberRow = {
   avatar_path: string | null;
   avatar_updated_at: string | null;
   role: MembershipRole | string | null;
+  band_role: string | null;
 };
 
 type Props = {
@@ -67,7 +68,7 @@ export default function BandSheetModal({
         const { data, error } = await supabase
           .from('band_members')
           .select(
-            'user_id, role, profiles(display_name, avatar_url, updated_at)'
+            'user_id, role, band_role, profiles(display_name, avatar_url, updated_at)'
           )
           .eq('band_id', bandId)
           .order('created_at', { ascending: true });
@@ -84,6 +85,7 @@ export default function BandSheetModal({
           (data ?? []).map((r: any) => ({
             user_id: r.user_id,
             role: r.role,
+            band_role: r.band_role, // Add this line
             name: r.profiles?.display_name || 'Band member',
             avatar_path: r.profiles?.avatar_url || null,
             avatar_updated_at: r.profiles?.updated_at || null,
@@ -443,7 +445,8 @@ export default function BandSheetModal({
                   }}
                 >
                   {members.map((m) => {
-                    const role = m.role === 'admin' ? 'Admin' : 'Member';
+                    const permissionRole =
+                      m.role === 'admin' ? 'Admin' : 'Member';
                     return (
                       <IonItem
                         key={m.user_id}
@@ -478,10 +481,11 @@ export default function BandSheetModal({
                           <p
                             style={{
                               fontSize: 13,
-                              color: m.role === 'admin' ? '#fbbf24' : '#9ca3af',
+                              color: '#9ca3af',
                             }}
                           >
-                            {role}
+                            {m.band_role || permissionRole}
+                            {m.role === 'admin' && m.band_role && ' • Admin'}
                           </p>
                         </IonLabel>
                       </IonItem>

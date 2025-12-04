@@ -5,7 +5,8 @@ export type AvailabilityStatus = 'open' | 'limited' | 'unavailable';
 
 export type EventAvailabilityConflictReason =
   | 'status_unavailable'
-  | 'away_until';
+  | 'away_until'
+  | 'blocked_range';
 
 export type EventAvailabilityConflict = {
   profileId: string;
@@ -14,6 +15,9 @@ export type EventAvailabilityConflict = {
   statusNote: string | null;
   awayUntil: string | null;
   reason: EventAvailabilityConflictReason;
+  blockStartDate?: string | null;
+  blockEndDate?: string | null;
+  blockNote?: string | null;
 };
 
 /**
@@ -46,6 +50,8 @@ export async function getEventAvailabilityConflicts(params: {
 
   if (profileIds.length === 0) return [];
 
+  const eventDateStr = startsAt.toISOString().slice(0, 10); // 'YYYY-MM-DD'
+
   // 2) Profiles for names
   const { data: profiles, error: profilesErr } = await supabase
     .from('profiles')
@@ -77,9 +83,61 @@ export async function getEventAvailabilityConflicts(params: {
     .in('profile_id', profileIds);
 
   if (availErr) throw availErr;
-  if (!availabilityRows || availabilityRows.length === 0) return [];
 
-  const eventDateStr = startsAt.toISOString().slice(0, 10); // 'YYYY-MM-DD'
+  // 4) Blocked ranges that cover the event date
+  const { data: blockRows, error: blocksErr } = await supabase
+    .from('profile_availability_blocks')
+    .select('profile_id, start_date, end_date, note')
+    .in('profile_id', profileIds)
+    .lte('start_date', eventDateStr) // start_date <= event date
+    .gte('end_date', eventDateStr); // end_date >= event date
+
+  if (blocksErr) throw blocksErr;
+
+  // Group blocks by profile_id
+  const blocksByProfile = new Map<
+    string,
+    { start_date: string; end_date: string; note: string | null }[]
+  >();
+  for (const b of blockRows ?? []) {
+    const pid = b.profile_id as string;
+    const arr = blocksByProfile.get(pid) ?? [];
+    arr.push({
+      start_date: b.start_date as string,
+      end_date: b.end_date as string,
+      note: (b as any).note ?? null,
+    });
+    blocksByProfile.set(pid, arr);
+  }
+
+  if (!availabilityRows || availabilityRows.length === 0) {
+    // Even if there is no profile_availability row, a block still matters.
+    // So handle purely-block-based conflicts here:
+    const conflictsFromBlocksOnly: EventAvailabilityConflict[] = [];
+    for (const [pid, blocks] of blocksByProfile.entries()) {
+      const profile = profileMap.get(pid);
+      const computedName =
+        profile?.display_name?.trim() ||
+        [profile?.first_name, profile?.last_name].filter(Boolean).join(' ') ||
+        'Unknown member';
+
+      for (const blk of blocks) {
+        conflictsFromBlocksOnly.push({
+          profileId: pid,
+          name: computedName,
+          status: 'open', // default / fallback
+          statusNote: null,
+          awayUntil: null,
+          reason: 'blocked_range',
+          blockStartDate: blk.start_date,
+          blockEndDate: blk.end_date,
+          blockNote: blk.note,
+        });
+      }
+    }
+    return conflictsFromBlocksOnly;
+  }
+
   const conflicts: EventAvailabilityConflict[] = [];
 
   for (const row of availabilityRows) {
@@ -97,7 +155,23 @@ export async function getEventAvailabilityConflicts(params: {
     const awayDateOnly =
       awayRaw && awayRaw.includes('T') ? awayRaw.slice(0, 10) : awayRaw;
 
-    // If they have an away_until, treat them as unavailable ONLY through that date.
+    // 4a) Blocked ranges → always treated as "conflict-on-that-date"
+    const blocks = blocksByProfile.get(profileId) ?? [];
+    for (const blk of blocks) {
+      conflicts.push({
+        profileId,
+        name: computedName,
+        status,
+        statusNote,
+        awayUntil: awayDateOnly ?? null,
+        reason: 'blocked_range',
+        blockStartDate: blk.start_date,
+        blockEndDate: blk.end_date,
+        blockNote: blk.note,
+      });
+    }
+
+    // 4b) Away-until: unavailable only up to and including that date
     if (awayDateOnly) {
       if (eventDateStr <= awayDateOnly) {
         conflicts.push({
@@ -108,14 +182,11 @@ export async function getEventAvailabilityConflicts(params: {
           awayUntil: awayDateOnly,
           reason: 'away_until',
         });
-        continue;
-      } else {
-        // event is after away_until → no conflict from away flag
+        continue; // no need to also add status_unavailable for this date
       }
     }
 
-    // If no away_until, and they are marked hard-unavailable,
-    // treat that as "always conflict until they change it".
+    // 4c) Hard "unavailable" with no away_until = always conflict
     if (status === 'unavailable' && !awayDateOnly) {
       conflicts.push({
         profileId,
@@ -127,6 +198,8 @@ export async function getEventAvailabilityConflicts(params: {
       });
       continue;
     }
+
+    // open/limited without blocks or away_until = no conflict
   }
 
   return conflicts;

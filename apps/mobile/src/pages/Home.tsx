@@ -391,7 +391,7 @@ export default function Home() {
                     color: '#E5E7EB',
                   }}
                 >
-                  Event
+                  Events
                 </h2>
               </div>
 
