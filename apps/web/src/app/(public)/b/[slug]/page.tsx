@@ -84,17 +84,15 @@ function isValidTheme(key: string): key is ThemeName {
   return key in THEMES;
 }
 
-export default async function PublicBandPage({
-  params,
-  searchParams,
-}: {
-  params: { slug: string };
-  searchParams?: { theme?: string };
-}) {
+export default async function PublicBandPage(props: any) {
+  const { params, searchParams } = props as {
+    params: { slug: string };
+    searchParams?: { theme?: string };
+  };
+
   const { slug } = params;
   const sp = searchParams ?? {};
   const rawTheme = (sp.theme ?? '').toString();
-
   // Validate theme - default to 'default' (Neon)
   const themeKey: ThemeName = isValidTheme(rawTheme) ? rawTheme : 'default';
   const theme = THEMES[themeKey];
