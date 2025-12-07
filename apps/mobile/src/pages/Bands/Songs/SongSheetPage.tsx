@@ -16,7 +16,6 @@ import {
   chatbubblesOutline,
   chevronBackOutline,
   createOutline,
-  documentTextOutline,
   linkOutline,
   musicalNotesOutline,
   openOutline,
@@ -24,9 +23,11 @@ import {
   sendOutline,
   sparklesOutline,
   speedometerOutline,
+  timeOutline,
   trashOutline,
 } from 'ionicons/icons';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { getAvatarUrl } from '../../../lib/cache/avatarUrlCache';
 import { supabase } from '../../../lib/supabase';
 
 type SongOrigin = 'original' | 'cover';
@@ -37,9 +38,10 @@ type SongRow = {
   title: string;
   default_key: string | null;
   default_bpm: number | null;
-  lyrics: string | null;
+  duration: number | null; // in seconds
   notes: string | null;
   origin: SongOrigin;
+  original_artist: string | null;
   band_name: string | null;
 };
 
@@ -87,15 +89,12 @@ export default function SongSheetPage({
   const [newRecordingUrl, setNewRecordingUrl] = useState('');
   const [savingRecording, setSavingRecording] = useState(false);
 
-  // Edit lyrics modal
-  const [showEditLyrics, setShowEditLyrics] = useState(false);
-  const [editLyricsText, setEditLyricsText] = useState('');
-  const [savingLyrics, setSavingLyrics] = useState(false);
-
   // New comment
   const [newComment, setNewComment] = useState('');
   const [sendingComment, setSendingComment] = useState(false);
   const commentInputRef = useRef<HTMLTextAreaElement>(null);
+
+  const detailsRef = useRef<HTMLDivElement | null>(null); // 👈 add this
 
   const triggerHaptic = useCallback(async () => {
     if (Capacitor.getPlatform() === 'web') return;
@@ -117,6 +116,13 @@ export default function SongSheetPage({
     },
     [triggerHaptic]
   );
+
+  // Format duration from seconds to mm:ss
+  const formatDuration = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
 
   // Load song data
   useEffect(() => {
@@ -143,9 +149,10 @@ export default function SongSheetPage({
           title,
           default_key,
           default_bpm,
-          lyrics,
+          duration,
           notes,
           origin,
+          original_artist,
           bands(name)
         `
         )
@@ -164,9 +171,10 @@ export default function SongSheetPage({
           title: anyData.title,
           default_key: anyData.default_key,
           default_bpm: anyData.default_bpm,
-          lyrics: anyData.lyrics,
+          duration: anyData.duration,
           notes: anyData.notes,
           origin: anyData.origin,
+          original_artist: anyData.original_artist,
           band_name: bandName,
         });
 
@@ -197,29 +205,49 @@ export default function SongSheetPage({
       // Load comments
       const { data: commentsData, error: commentsError } = await supabase
         .from('song_comments')
-        .select(
-          `
-          id,
-          song_id,
-          user_id,
-          content,
-          created_at,
-          profiles(display_name, avatar_url)
-        `
-        )
+        .select('id, song_id, user_id, content, created_at')
         .eq('song_id', songId)
         .order('created_at', { ascending: true });
 
       if (!commentsError && commentsData) {
-        const formattedComments = commentsData.map((c: any) => ({
-          id: c.id,
-          song_id: c.song_id,
-          user_id: c.user_id,
-          content: c.content,
-          created_at: c.created_at,
-          user_name: c.profiles?.display_name || 'Unknown',
-          user_avatar: c.profiles?.avatar_url || null,
-        }));
+        // Fetch profiles for all comment authors
+        const userIds = [...new Set(commentsData.map((c: any) => c.user_id))];
+        const { data: profilesData } = await supabase
+          .from('profiles')
+          .select('id, display_name, avatar_url')
+          .in('id', userIds);
+
+        // Build profiles map with resolved avatar URLs
+        const profilesMap = new Map<
+          string,
+          { display_name: string; avatar_url: string | null }
+        >();
+
+        await Promise.all(
+          (profilesData || []).map(async (p: any) => {
+            const avatarUrl = await getAvatarUrl(
+              'profile-avatars',
+              p.avatar_url
+            );
+            profilesMap.set(p.id, {
+              display_name: p.display_name,
+              avatar_url: avatarUrl,
+            });
+          })
+        );
+
+        const formattedComments = commentsData.map((c: any) => {
+          const profile = profilesMap.get(c.user_id);
+          return {
+            id: c.id,
+            song_id: c.song_id,
+            user_id: c.user_id,
+            content: c.content,
+            created_at: c.created_at,
+            user_name: profile?.display_name || 'Unknown',
+            user_avatar: profile?.avatar_url || null,
+          };
+        });
         setComments(formattedComments);
       }
 
@@ -277,32 +305,6 @@ export default function SongSheetPage({
     setRecordings((prev) => prev.filter((r) => r.id !== recordingId));
   };
 
-  // Save lyrics
-  const handleSaveLyrics = async () => {
-    if (!song) return;
-
-    setSavingLyrics(true);
-
-    try {
-      const { error } = await supabase
-        .from('songs')
-        .update({ lyrics: editLyricsText.trim() || null })
-        .eq('id', song.id);
-
-      if (error) {
-        console.error('[SongSheetPage] save lyrics error', error.message);
-        return;
-      }
-
-      setSong((prev) =>
-        prev ? { ...prev, lyrics: editLyricsText.trim() || null } : prev
-      );
-      setShowEditLyrics(false);
-    } finally {
-      setSavingLyrics(false);
-    }
-  };
-
   // Add comment
   const handleAddComment = async () => {
     if (!song || !newComment.trim() || !currentUserId) return;
@@ -318,16 +320,7 @@ export default function SongSheetPage({
           user_id: currentUserId,
           content: newComment.trim(),
         })
-        .select(
-          `
-          id,
-          song_id,
-          user_id,
-          content,
-          created_at,
-          profiles(display_name, avatar_url)
-        `
-        )
+        .select('id, song_id, user_id, content, created_at')
         .single();
 
       if (error) {
@@ -335,15 +328,26 @@ export default function SongSheetPage({
         return;
       }
 
-      const anyData = data as any;
+      // Fetch the user's profile for display
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('display_name, avatar_url')
+        .eq('id', currentUserId)
+        .single();
+
+      const avatarUrl = await getAvatarUrl(
+        'profile-avatars',
+        profileData?.avatar_url
+      );
+
       const formattedComment: SongComment = {
-        id: anyData.id,
-        song_id: anyData.song_id,
-        user_id: anyData.user_id,
-        content: anyData.content,
-        created_at: anyData.created_at,
-        user_name: anyData.profiles?.display_name || 'Unknown',
-        user_avatar: anyData.profiles?.avatar_url || null,
+        id: data.id,
+        song_id: data.song_id,
+        user_id: data.user_id,
+        content: data.content,
+        created_at: data.created_at,
+        user_name: profileData?.display_name || 'Unknown',
+        user_avatar: avatarUrl,
       };
 
       setComments((prev) => [...prev, formattedComment]);
@@ -387,59 +391,6 @@ export default function SongSheetPage({
     return date.toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
-    });
-  };
-
-  // Render lyrics with section headers
-  const renderLyrics = (content: string) => {
-    const lines = content.split('\n');
-
-    return lines.map((line, idx) => {
-      // Blank spacer
-      if (line.trim() === '') {
-        return <div key={idx} style={{ height: 16 }} />;
-      }
-
-      // Section headers (all caps or parenthetical)
-      const isSectionHeader =
-        line === line.toUpperCase() &&
-        line.trim().length > 0 &&
-        line.trim().length < 30;
-      const isParenthetical =
-        line.trim().startsWith('(') && line.trim().endsWith(')');
-
-      if (isSectionHeader || isParenthetical) {
-        return (
-          <div
-            key={idx}
-            style={{
-              fontSize: 12,
-              fontWeight: 700,
-              color: '#f472b6',
-              letterSpacing: 1,
-              marginTop: idx === 0 ? 0 : 24,
-              marginBottom: 12,
-              textTransform: 'uppercase',
-            }}
-          >
-            {line}
-          </div>
-        );
-      }
-
-      // Regular lyric line
-      return (
-        <div
-          key={idx}
-          style={{
-            marginBottom: 6,
-            lineHeight: 1.7,
-            color: '#e5e7eb',
-          }}
-        >
-          {line}
-        </div>
-      );
     });
   };
 
@@ -597,32 +548,47 @@ export default function SongSheetPage({
               />
             </IonButton>
 
-            <div
+            {/* Tappable header card */}
+            <button
+              type="button"
+              onClick={() => {
+                triggerHaptic();
+                if (detailsRef.current) {
+                  detailsRef.current.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'start',
+                  });
+                }
+              }}
+              onTouchStart={() => setPressedButton('header')}
+              onTouchEnd={() => setPressedButton(null)}
+              onTouchCancel={() => setPressedButton(null)}
+              onMouseDown={() => setPressedButton('header')}
+              onMouseUp={() => setPressedButton(null)}
+              onMouseLeave={() => setPressedButton(null)}
               style={{
                 flex: 1,
                 minWidth: 0,
-                background: 'rgba(255, 255, 255, 0.04)',
-                border: '1px solid rgba(255, 255, 255, 0.08)',
+                background:
+                  pressedButton === 'header'
+                    ? 'rgba(244, 114, 182, 0.16)'
+                    : 'rgba(255, 255, 255, 0.04)',
+                border:
+                  pressedButton === 'header'
+                    ? '1px solid rgba(244, 114, 182, 0.4)'
+                    : '1px solid rgba(255, 255, 255, 0.08)',
                 borderRadius: 14,
                 padding: '10px 14px',
                 display: 'flex',
                 alignItems: 'center',
                 gap: 12,
+                cursor: 'pointer',
+                transition: 'all 100ms ease-out',
+                transform:
+                  pressedButton === 'header' ? 'scale(0.98)' : 'scale(1)',
               }}
             >
-              {/* Pink dot */}
-              <div
-                style={{
-                  width: 10,
-                  height: 10,
-                  borderRadius: '50%',
-                  background: '#f472b6',
-                  flexShrink: 0,
-                  boxShadow: '0 0 8px rgba(244, 114, 182, 0.4)',
-                }}
-              />
-
-              <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
                 <span
                   style={{
                     fontSize: 18,
@@ -637,12 +603,35 @@ export default function SongSheetPage({
                 >
                   {song.title}
                 </span>
-                <span style={{ fontSize: 12, color: '#6b7280' }}>
-                  {song.origin === 'cover' ? 'Cover' : 'Original'}
+
+                {/* origin + band */}
+                <span
+                  style={{
+                    fontSize: 12,
+                    color: '#6b7280',
+                    display: 'block',
+                  }}
+                >
+                  {song.origin === 'cover' && song.original_artist
+                    ? `Cover of ${song.original_artist}`
+                    : song.origin === 'cover'
+                    ? 'Cover'
+                    : 'Original'}
                   {song.band_name && ` • ${song.band_name}`}
                 </span>
+
+                {/* Tap for details helper text */}
+                <span
+                  style={{
+                    fontSize: 11,
+                    color: pressedButton === 'header' ? '#f9a8d4' : '#4b5563',
+                    marginTop: 2,
+                  }}
+                >
+                  Tap for details
+                </span>
               </div>
-            </div>
+            </button>
 
             {onEdit && isAdmin && (
               <IonButton
@@ -686,12 +675,14 @@ export default function SongSheetPage({
               display: 'flex',
               gap: 10,
               marginBottom: 16,
+              flexWrap: 'wrap',
             }}
           >
             {song.default_key && (
               <div
                 style={{
-                  flex: 1,
+                  flex: '1 1 calc(50% - 5px)',
+                  minWidth: 120,
                   background: 'rgba(244, 114, 182, 0.08)',
                   border: '1px solid rgba(244, 114, 182, 0.2)',
                   borderRadius: 14,
@@ -723,7 +714,8 @@ export default function SongSheetPage({
             {song.default_bpm && (
               <div
                 style={{
-                  flex: 1,
+                  flex: '1 1 calc(50% - 5px)',
+                  minWidth: 120,
                   background: 'rgba(244, 114, 182, 0.08)',
                   border: '1px solid rgba(244, 114, 182, 0.2)',
                   borderRadius: 14,
@@ -751,123 +743,42 @@ export default function SongSheetPage({
                 </div>
               </div>
             )}
-          </div>
 
-          {/* Lyrics Section */}
-          <div
-            style={{
-              background:
-                'linear-gradient(135deg, rgba(30, 41, 59, 0.4) 0%, rgba(15, 23, 42, 0.3) 100%)',
-              border: '1px solid rgba(71, 85, 105, 0.3)',
-              borderRadius: 20,
-              padding: 20,
-              marginBottom: 16,
-            }}
-          >
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                marginBottom: 16,
-              }}
-            >
+            {song.duration && (
               <div
                 style={{
+                  flex: '1 1 calc(50% - 5px)',
+                  minWidth: 120,
+                  background: 'rgba(244, 114, 182, 0.08)',
+                  border: '1px solid rgba(244, 114, 182, 0.2)',
+                  borderRadius: 14,
+                  padding: '12px 16px',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: 8,
+                  gap: 10,
                 }}
               >
                 <IonIcon
-                  icon={documentTextOutline}
-                  style={{ fontSize: 18, color: '#f472b6' }}
+                  icon={timeOutline}
+                  style={{ fontSize: 20, color: '#f472b6' }}
                 />
-                <span
-                  style={{
-                    fontSize: 13,
-                    fontWeight: 700,
-                    color: '#9ca3af',
-                    textTransform: 'uppercase',
-                    letterSpacing: 0.5,
-                  }}
-                >
-                  Lyrics
-                </span>
-              </div>
-
-              {isAdmin && (
-                <button
-                  onClick={() =>
-                    handleButtonPress('editLyrics', () => {
-                      setEditLyricsText(song.lyrics || '');
-                      setShowEditLyrics(true);
-                    })
-                  }
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    padding: '8px 14px',
-                    borderRadius: 20,
-                    border: '1px solid rgba(244, 114, 182, 0.4)',
-                    background: 'rgba(244, 114, 182, 0.15)',
-                    color: '#f472b6',
-                    fontSize: 13,
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    transition: 'all 100ms ease-out',
-                    transform:
-                      pressedButton === 'editLyrics'
-                        ? 'scale(0.95)'
-                        : 'scale(1)',
-                  }}
-                >
-                  <IonIcon
-                    icon={song.lyrics ? createOutline : addOutline}
-                    style={{ fontSize: 16 }}
-                  />
-                  {song.lyrics ? 'Edit' : 'Add'}
-                </button>
-              )}
-            </div>
-
-            {song.lyrics ? (
-              <div style={{ fontSize: 15 }}>{renderLyrics(song.lyrics)}</div>
-            ) : (
-              <div
-                style={{
-                  padding: '32px 16px',
-                  textAlign: 'center',
-                }}
-              >
-                <IonIcon
-                  icon={documentTextOutline}
-                  style={{
-                    fontSize: 40,
-                    color: '#374151',
-                    marginBottom: 12,
-                  }}
-                />
-                <p style={{ margin: 0, fontSize: 14, color: '#6b7280' }}>
-                  No lyrics added yet
-                </p>
-                {isAdmin && (
-                  <p
-                    style={{
-                      margin: '8px 0 0',
-                      fontSize: 12,
-                      color: '#4b5563',
-                    }}
+                <div>
+                  <div
+                    style={{ fontSize: 11, color: '#6b7280', marginBottom: 2 }}
                   >
-                    Tap "Add" to add lyrics for this song
-                  </p>
-                )}
+                    DURATION
+                  </div>
+                  <div
+                    style={{ fontSize: 18, fontWeight: 700, color: '#f472b6' }}
+                  >
+                    {formatDuration(song.duration)}
+                  </div>
+                </div>
               </div>
             )}
           </div>
 
-          {/* Comments Section (Band Notes) */}
+          {/* Band Notes Section (Comments) */}
           <div
             style={{
               background:
@@ -1159,40 +1070,38 @@ export default function SongSheetPage({
                     letterSpacing: 0.5,
                   }}
                 >
-                  Recordings
+                  Links
                 </span>
               </div>
 
-              {isAdmin && (
-                <button
-                  onClick={() =>
-                    handleButtonPress('addRecording', () =>
-                      setShowAddRecording(true)
-                    )
-                  }
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    padding: '8px 14px',
-                    borderRadius: 20,
-                    border: '1px solid rgba(244, 114, 182, 0.4)',
-                    background: 'rgba(244, 114, 182, 0.15)',
-                    color: '#f472b6',
-                    fontSize: 13,
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    transition: 'all 100ms ease-out',
-                    transform:
-                      pressedButton === 'addRecording'
-                        ? 'scale(0.95)'
-                        : 'scale(1)',
-                  }}
-                >
-                  <IonIcon icon={addOutline} style={{ fontSize: 16 }} />
-                  Add
-                </button>
-              )}
+              <button
+                onClick={() =>
+                  handleButtonPress('addRecording', () =>
+                    setShowAddRecording(true)
+                  )
+                }
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '8px 14px',
+                  borderRadius: 20,
+                  border: '1px solid rgba(244, 114, 182, 0.4)',
+                  background: 'rgba(244, 114, 182, 0.15)',
+                  color: '#f472b6',
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  transition: 'all 100ms ease-out',
+                  transform:
+                    pressedButton === 'addRecording'
+                      ? 'scale(0.95)'
+                      : 'scale(1)',
+                }}
+              >
+                <IonIcon icon={addOutline} style={{ fontSize: 16 }} />
+                Add
+              </button>
             </div>
 
             {recordings.length > 0 ? (
@@ -1299,7 +1208,7 @@ export default function SongSheetPage({
                   }}
                 />
                 <p style={{ margin: 0, fontSize: 14, color: '#6b7280' }}>
-                  No recordings linked yet
+                  No links added yet
                 </p>
                 <p
                   style={{
@@ -1314,124 +1223,6 @@ export default function SongSheetPage({
             )}
           </div>
         </div>
-
-        {/* Edit Lyrics Modal */}
-        <IonModal
-          isOpen={showEditLyrics}
-          onDidDismiss={() => {
-            if (!savingLyrics) {
-              setShowEditLyrics(false);
-            }
-          }}
-        >
-          <IonContent
-            style={{
-              '--background': 'rgba(8, 8, 12, 0.98)',
-            }}
-          >
-            <div
-              style={{
-                padding: 20,
-                height: '100%',
-                display: 'flex',
-                flexDirection: 'column',
-              }}
-            >
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  marginBottom: 16,
-                }}
-              >
-                <h2
-                  style={{
-                    margin: 0,
-                    fontSize: 22,
-                    fontWeight: 800,
-                    color: '#F9FAFB',
-                  }}
-                >
-                  {song.lyrics ? 'Edit Lyrics' : 'Add Lyrics'}
-                </h2>
-                <button
-                  onClick={() => setShowEditLyrics(false)}
-                  disabled={savingLyrics}
-                  style={{
-                    padding: '8px 16px',
-                    borderRadius: 20,
-                    border: '1px solid rgba(148, 163, 184, 0.3)',
-                    background: 'transparent',
-                    color: '#9ca3af',
-                    fontSize: 14,
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                  }}
-                >
-                  Cancel
-                </button>
-              </div>
-
-              <div
-                style={{
-                  padding: '12px 16px',
-                  borderRadius: 12,
-                  background: 'rgba(244, 114, 182, 0.1)',
-                  border: '1px solid rgba(244, 114, 182, 0.2)',
-                  marginBottom: 16,
-                  fontSize: 13,
-                  color: '#d1d5db',
-                  lineHeight: 1.5,
-                }}
-              >
-                <strong style={{ color: '#f472b6' }}>💡 Tip:</strong> Use ALL
-                CAPS for section headers (like VERSE, CHORUS, BRIDGE) and
-                they'll be styled automatically.
-              </div>
-
-              <textarea
-                value={editLyricsText}
-                onChange={(e) => setEditLyricsText(e.target.value)}
-                placeholder="Enter lyrics here..."
-                style={{
-                  flex: 1,
-                  width: '100%',
-                  padding: 16,
-                  borderRadius: 14,
-                  border: '1px solid rgba(244, 114, 182, 0.3)',
-                  background: 'rgba(15, 23, 42, 0.8)',
-                  color: '#F9FAFB',
-                  fontSize: 15,
-                  lineHeight: 1.7,
-                  resize: 'none',
-                  outline: 'none',
-                  fontFamily: 'inherit',
-                }}
-              />
-
-              <button
-                onClick={handleSaveLyrics}
-                disabled={savingLyrics}
-                style={{
-                  width: '100%',
-                  marginTop: 16,
-                  padding: '16px',
-                  borderRadius: 14,
-                  border: 'none',
-                  background: '#f472b6',
-                  color: '#000',
-                  fontSize: 16,
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  opacity: savingLyrics ? 0.7 : 1,
-                }}
-              >
-                {savingLyrics ? 'Saving…' : 'Save Lyrics'}
-              </button>
-            </div>
-          </IonContent>
-        </IonModal>
 
         {/* Add Recording Modal */}
         <IonModal
@@ -1479,7 +1270,7 @@ export default function SongSheetPage({
                     color: '#F9FAFB',
                   }}
                 >
-                  Add Recording
+                  Add Link
                 </h3>
 
                 <div style={{ marginBottom: 16 }}>
@@ -1499,7 +1290,7 @@ export default function SongSheetPage({
                   <input
                     value={newRecordingLabel}
                     onChange={(e) => setNewRecordingLabel(e.target.value)}
-                    placeholder="e.g. Studio Recording, Live at Venue"
+                    placeholder="e.g. Original Recording, Tutorial, Our Version"
                     style={{
                       width: '100%',
                       borderRadius: 12,

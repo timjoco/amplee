@@ -1,24 +1,24 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { Capacitor, PluginListenerHandle } from '@capacitor/core';
+import { Capacitor } from '@capacitor/core';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { Keyboard } from '@capacitor/keyboard';
-import {
-  IonIcon,
-  IonItem,
-  IonList,
-  IonSpinner,
-  IonText,
-  IonTextarea,
-} from '@ionic/react';
+import { IonIcon, IonItem, IonList, IonSpinner, IonText } from '@ionic/react';
 import { send as sendIcon } from 'ionicons/icons';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
+import { SongPickerModal } from '../SongPickerModal';
+import AvatarImageMobile from '../ui/AvatarImageMobile';
+import {
+  ComposerInput,
+  SongTagData,
+  hasContent,
+  serializeMessage,
+} from './Chat/ComposerInput';
 import { MessageActionSheet } from './Chat/MessageActionSheet';
 import { MessageBodyWithLinks } from './Chat/MessageBodyWithLinks';
 import { ReactionBarMobile } from './Chat/ReactionBar/ReactionBarMobile';
-
-import AvatarImageMobile from '../ui/AvatarImageMobile';
 
 type ProfileLite = {
   id: string;
@@ -52,30 +52,43 @@ type LinkPreview = {
 
 export default function ChatTabMobile({
   eventId,
+  bandId,
   isAdmin,
 }: {
   eventId: string;
+  bandId?: string;
   isAdmin: boolean;
 }) {
+  const navigate = useNavigate();
+
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [loading, setLoading] = useState(true);
-  const [input, setInput] = useState('');
+
   const [myUserId, setMyUserId] = useState<string | null>(null);
   const [activeMessageId, setActiveMessageId] = useState<string | null>(null);
   const [sheetMessageId, setSheetMessageId] = useState<string | null>(null);
-  const [keyboardOffset, setKeyboardOffset] = useState(0);
+
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMoreMessages, setHasMoreMessages] = useState(true);
   const [reactions, setReactions] = useState<
     Record<string, Record<string, number>>
   >({});
-
   const [myReactions, setMyReactions] = useState<
     Record<string, Record<string, true>>
   >({});
   const [linkPreviews, setLinkPreviews] = useState<Record<string, LinkPreview>>(
     {}
   );
+
+  // Song picker state
+  const [songPickerOpen, setSongPickerOpen] = useState(false);
+
+  // Tag songs in chat state
+  const [inputText, setInputText] = useState('');
+  const [songTags, setSongTags] = useState<SongTagData[]>([]);
+
+  // iOS keyboard height for lifting the composer
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   const didInitialScrollRef = useRef(false);
   const userRef = useRef<any | null>(null);
@@ -88,23 +101,27 @@ export default function ChatTabMobile({
 
   const INITIAL_LOAD_COUNT = 50;
   const MESSAGES_PER_PAGE = 50;
-  const MAX_KEYBOARD_SHIFT = 65;
   const MOVE_THRESHOLD_PX = 12;
 
-  // Mirror the latest messages into a ref so non-React code (infinite scroll,
-  // realtime subscriptions) can always read current messages without causing re-renders.
+  const isNative = Capacitor.isNativePlatform();
+  const platform = isNative ? Capacitor.getPlatform() : 'web';
+  const isAndroid = platform === 'android';
+  const isIOS = platform === 'ios';
+
+  const keyboardOpen = keyboardHeight > 0;
+
+  const NAV_OFFSET = isAndroid ? 50 : 8;
+  const IOS_ACCESSORY_OFFSET = 35;
+
+  // Mirror latest messages into ref
   const messagesRef = useRef<ChatMsg[]>([]);
   messagesRef.current = messages;
 
-  // Extract all HTTP/HTTPS URLs from a message body so we can decide
-  // whether to generate link previews for that message.
   const extractLinks = useCallback((text: string): string[] => {
     const urlRegex = /(https?:\/\/[^\s]+)/g;
     return text.match(urlRegex) || [];
   }, []);
 
-  // Fetch basic Open Graph metadata for a single URL (title, description, image)
-  // so we can render a lightweight preview card under chat messages.
   const fetchLinkPreview = useCallback(
     async (url: string): Promise<LinkPreview | null> => {
       try {
@@ -138,12 +155,8 @@ export default function ChatTabMobile({
     []
   );
 
-  // Given a single message, decide if it needs a link preview and fetch it once.
-  // This is called at the "edges" (initial load, pagination, realtime inserts)
-  // instead of in a useEffect over all messages to avoid extra re-renders.
   const fetchPreviewForMessage = useCallback(
     async (message: ChatMsg) => {
-      // Guard: only fetch once per message id
       if (fetchedPreviewsRef.current.has(message.id)) return;
 
       const links = extractLinks(message.body);
@@ -163,7 +176,6 @@ export default function ChatTabMobile({
     [extractLinks, fetchLinkPreview]
   );
 
-  // Fire a small haptic combo on native to reinforce important interactions.
   const triggerHaptic = useCallback(async () => {
     if (Capacitor.getPlatform() === 'web') return;
     try {
@@ -174,24 +186,28 @@ export default function ChatTabMobile({
     }
   }, []);
 
-  // Check if the user is already near the bottom so we don’t auto-scroll while they’re reading history.
   const isNearBottom = useCallback(() => {
     const el = scrollContainerRef.current;
     if (!el) return true;
     return el.scrollHeight - el.scrollTop - el.clientHeight < 150;
   }, []);
 
-  // Only scroll to the latest message when appropriate (e.g. sending/receiving), not on every render.
   const smartScrollToBottom = useCallback(
     (behavior: ScrollBehavior = 'smooth') => {
-      if (isNearBottom()) {
+      const container = scrollContainerRef.current;
+      if (!container) return;
+      if (!isNearBottom()) return;
+
+      if (isAndroid) {
+        // Avoid scrollIntoView weirdness on Android
+        container.scrollTop = container.scrollHeight;
+      } else {
         bottomRef.current?.scrollIntoView({ behavior, block: 'end' });
       }
     },
-    [isNearBottom]
+    [isNearBottom, isAndroid]
   );
 
-  // Start tracking a press for long-press detection and remember where it began.
   const handlePressStart = useCallback(
     (
       id: string,
@@ -225,7 +241,6 @@ export default function ChatTabMobile({
     [triggerHaptic]
   );
 
-  // Cancel the long-press if the user moves their finger too far (treat as a scroll, not a hold).
   const handlePressMove = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
     if (!pressStartRef.current || longPressTimeoutRef.current == null) return;
     if (e.touches.length !== 1) return;
@@ -241,7 +256,6 @@ export default function ChatTabMobile({
     }
   }, []);
 
-  // Clear any pending long-press timeout once the finger/mouse is lifted.
   const handlePressEnd = useCallback(() => {
     if (longPressTimeoutRef.current != null) {
       window.clearTimeout(longPressTimeoutRef.current);
@@ -250,7 +264,6 @@ export default function ChatTabMobile({
     pressStartRef.current = null;
   }, []);
 
-  // Format message timestamps in a consistent, local “hh:mm am/pm” style.
   const timeFmt = useMemo(
     () =>
       new Intl.DateTimeFormat('en-US', {
@@ -262,10 +275,63 @@ export default function ChatTabMobile({
     []
   );
 
-  // Convenience flag for “is there anything non-whitespace in the composer?”
-  const hasInput = input.trim().length > 0;
+  const hasInput = hasContent(inputText, songTags);
 
-  // Fetching external data on mount
+  const handleSongTrigger = useCallback(() => {
+    setSongPickerOpen(true);
+  }, []);
+
+  const handleSongSelect = useCallback(
+    (song: { id: string; title: string }) => {
+      setSongTags((prev) => [...prev, { id: song.id, title: song.title }]);
+      setSongPickerOpen(false);
+    },
+    []
+  );
+
+  const handleSongPickerClose = useCallback(() => {
+    setSongPickerOpen(false);
+  }, []);
+
+  const handleSongNavigate = useCallback(
+    (songId: string) => {
+      navigate(`/bands/${bandId}/songs/${songId}`);
+    },
+    [bandId, navigate]
+  );
+
+  useEffect(() => {
+    if (!isNative || !isIOS) return;
+
+    let showSub: any;
+    let hideSub: any;
+
+    (async () => {
+      try {
+        showSub = await Keyboard.addListener(
+          'keyboardWillShow',
+          ({ keyboardHeight: kh }) => {
+            const base = kh ?? 0;
+            // Just store the raw keyboard height here
+            setKeyboardHeight(base);
+          }
+        );
+
+        hideSub = await Keyboard.addListener('keyboardWillHide', () => {
+          setKeyboardHeight(0);
+        });
+      } catch (e) {
+        console.warn('[ios keyboard listeners error]', e);
+      }
+    })();
+
+    return () => {
+      showSub?.remove?.();
+      hideSub?.remove?.();
+    };
+  }, [isNative, isIOS]);
+
+  // Fetch current user
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -280,66 +346,6 @@ export default function ChatTabMobile({
       alive = false;
     };
   }, []);
-
-  // Subscribing to external system (realtime reactions)
-  useEffect(() => {
-    const ch = supabase
-      .channel(`event:${eventId}:reactions`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'event_message_reactions' },
-        (payload) => {
-          const base = (payload.new ??
-            payload.old) as Partial<ReactionRow> | null;
-          if (!base || typeof base.message_id !== 'number') return;
-
-          const mid = String(base.message_id);
-
-          const hasMessage = messagesRef.current.some((m) => m.id === mid);
-          if (!hasMessage) return;
-
-          const me = userRef.current?.id as string | undefined;
-
-          // 🔑 Important: ignore my own events because toggleReaction already handled them
-          if (me && base.user_id === me) {
-            return;
-          }
-
-          if (payload.eventType === 'INSERT') {
-            const row = payload.new as ReactionRow;
-            const emoji = row.emoji;
-
-            setReactions((prev) => {
-              const curr = { ...(prev[mid] || {}) };
-              curr[emoji] = (curr[emoji] || 0) + 1;
-              return { ...prev, [mid]: curr };
-            });
-
-            // no need to touch myReactions here; for "me" we short-circuit above
-          }
-
-          if (payload.eventType === 'DELETE') {
-            const row = payload.old as ReactionRow;
-            const emoji = row.emoji;
-
-            setReactions((prev) => {
-              const curr = { ...(prev[mid] || {}) };
-              const nextCount = Math.max(0, (curr[emoji] || 1) - 1);
-              if (nextCount <= 0) delete curr[emoji];
-              else curr[emoji] = nextCount;
-              return { ...prev, [mid]: curr };
-            });
-
-            // also no need to change myReactions here for "me"
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(ch);
-    };
-  }, [eventId]);
 
   const loadReactionsFor = useCallback(async (messageIds: string[]) => {
     const numericIds = messageIds.map(Number).filter(Number.isFinite);
@@ -379,7 +385,6 @@ export default function ChatTabMobile({
     setMyReactions((prev) => ({ ...prev, ...mine }));
   }, []);
 
-  // Now stable because messagesRef updates during render
   const loadMoreMessages = useCallback(async () => {
     if (loadingMore || !hasMoreMessages || messagesRef.current.length === 0) {
       return;
@@ -435,16 +440,20 @@ export default function ChatTabMobile({
     const ids = reversed.map((m) => m.id);
     if (ids.length) {
       void loadReactionsFor(ids);
-      // fetch link previews for older messages too
       reversed.forEach((msg) => {
         void fetchPreviewForMessage(msg);
       });
     }
 
     setLoadingMore(false);
-  }, [eventId, loadingMore, hasMoreMessages, loadReactionsFor]);
+  }, [
+    eventId,
+    loadingMore,
+    hasMoreMessages,
+    loadReactionsFor,
+    fetchPreviewForMessage,
+  ]);
 
-  // Use ref for callback to prevent listener recreation
   const handleScrollRef = useRef<(() => void) | null>(null);
 
   handleScrollRef.current = useCallback(() => {
@@ -456,7 +465,6 @@ export default function ChatTabMobile({
     }
   }, [loadMoreMessages]);
 
-  // Only runs once, uses ref for callback
   useEffect(() => {
     const el = scrollContainerRef.current;
     if (!el) return;
@@ -468,7 +476,7 @@ export default function ChatTabMobile({
     };
   }, []);
 
-  // Fetching external data on mount
+  // Initial messages load
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -517,7 +525,6 @@ export default function ChatTabMobile({
       const ids = reversed.map((m) => m.id);
       if (ids.length) {
         void loadReactionsFor(ids);
-        //  Fetch previews for initial messages
         reversed.forEach((msg) => {
           void fetchPreviewForMessage(msg);
         });
@@ -529,7 +536,7 @@ export default function ChatTabMobile({
     };
   }, [eventId, loadReactionsFor, fetchPreviewForMessage]);
 
-  // DOM manipulation after render
+  // Initial scroll to bottom
   useEffect(() => {
     if (!loading && !didInitialScrollRef.current && messages.length > 0) {
       didInitialScrollRef.current = true;
@@ -543,7 +550,7 @@ export default function ChatTabMobile({
     }
   }, [loading, messages.length]);
 
-  //  Subscribing to external system (realtime inserts)
+  // Realtime inserts
   useEffect(() => {
     const ch = supabase
       .channel(`event:${eventId}:insert`)
@@ -597,7 +604,6 @@ export default function ChatTabMobile({
             return [...prev, enriched];
           });
 
-          // ✅ REFACTOR: Fetch preview for new message here
           void fetchPreviewForMessage(enriched);
 
           smartScrollToBottom('smooth');
@@ -610,13 +616,17 @@ export default function ChatTabMobile({
     };
   }, [eventId, smartScrollToBottom, fetchPreviewForMessage]);
 
-  // Subscribing to external system (realtime reactions)
+  // Realtime reactions
   useEffect(() => {
-    const ch = supabase
+    const channel = supabase
       .channel(`event:${eventId}:reactions`)
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'event_message_reactions' },
+        {
+          event: '*',
+          schema: 'public',
+          table: 'event_message_reactions',
+        },
         (payload) => {
           const base = (payload.new ??
             payload.old) as Partial<ReactionRow> | null;
@@ -627,6 +637,12 @@ export default function ChatTabMobile({
           const hasMessage = messagesRef.current.some((m) => m.id === mid);
           if (!hasMessage) return;
 
+          const me = userRef.current?.id as string | undefined;
+
+          if (me && base.user_id === me) {
+            return;
+          }
+
           if (payload.eventType === 'INSERT') {
             const row = payload.new as ReactionRow;
             const emoji = row.emoji;
@@ -636,14 +652,6 @@ export default function ChatTabMobile({
               curr[emoji] = (curr[emoji] || 0) + 1;
               return { ...prev, [mid]: curr };
             });
-
-            const me = userRef.current?.id as string | undefined;
-            if (me && row.user_id === me) {
-              setMyReactions((prev) => ({
-                ...prev,
-                [mid]: { ...(prev[mid] || {}), [emoji]: true as const },
-              }));
-            }
           }
 
           if (payload.eventType === 'DELETE') {
@@ -657,52 +665,15 @@ export default function ChatTabMobile({
               else curr[emoji] = nextCount;
               return { ...prev, [mid]: curr };
             });
-
-            const me = userRef.current?.id as string | undefined;
-            if (me && row.user_id === me) {
-              setMyReactions((prev) => {
-                const mine = { ...(prev[mid] || {}) };
-                delete mine[emoji];
-                return { ...prev, [mid]: mine };
-              });
-            }
           }
         }
       )
       .subscribe();
 
     return () => {
-      supabase.removeChannel(ch);
+      supabase.removeChannel(channel);
     };
   }, [eventId]);
-
-  // Platform-specific event subscription
-  useEffect(() => {
-    if (Capacitor.getPlatform() === 'web') return;
-
-    let showSub: PluginListenerHandle | null = null;
-    let hideSub: PluginListenerHandle | null = null;
-
-    const setup = async () => {
-      showSub = await Keyboard.addListener('keyboardWillShow', (info) => {
-        const height = info.keyboardHeight ?? 0;
-        setKeyboardOffset(height);
-
-        setTimeout(() => smartScrollToBottom('smooth'), 80);
-      });
-
-      hideSub = await Keyboard.addListener('keyboardWillHide', () => {
-        setKeyboardOffset(0);
-      });
-    };
-
-    void setup();
-
-    return () => {
-      showSub?.remove();
-      hideSub?.remove();
-    };
-  }, [smartScrollToBottom]);
 
   const toggleReaction = useCallback(
     async (messageId: string, emoji: string) => {
@@ -779,13 +750,18 @@ export default function ChatTabMobile({
   );
 
   const send = useCallback(async () => {
-    const body = input.trim();
-    if (!body) return;
+    if (!hasContent(inputText, songTags)) return;
 
     const user = userRef.current;
     if (!user) return;
 
-    setInput('');
+    const body = serializeMessage(inputText, songTags);
+
+    const previousText = inputText;
+    const previousTags = songTags;
+
+    setInputText('');
+    setSongTags([]);
 
     const userId = user.id as string;
 
@@ -829,9 +805,10 @@ export default function ChatTabMobile({
           m.id === optimisticId ? { ...m, status: 'failed' as const } : m
         )
       );
-      setInput(body);
+      setInputText(previousText);
+      setSongTags(previousTags);
     }
-  }, [input, eventId, smartScrollToBottom]);
+  }, [inputText, songTags, eventId, smartScrollToBottom]);
 
   const isEmpty = !loading && messages.length === 0;
 
@@ -851,7 +828,6 @@ export default function ChatTabMobile({
     ? messages.find((m) => m.id === activeMessageId) ?? null
     : null;
 
-  // handlers for Message Action Sheet modal
   const handleMessageActionClose = useCallback(() => {
     setActiveMessageId(null);
   }, []);
@@ -906,15 +882,6 @@ export default function ChatTabMobile({
         display: 'flex',
         flexDirection: 'column',
         background: '#050509',
-
-        transform:
-          keyboardOffset > 0
-            ? `translateY(-${Math.min(
-                Math.max(keyboardOffset - 20, 0),
-                MAX_KEYBOARD_SHIFT
-              )}px)`
-            : 'none',
-        transition: 'transform 160ms ease-out',
       }}
     >
       <div
@@ -1304,6 +1271,7 @@ export default function ChatTabMobile({
                             body={m.body}
                             preview={linkPreviews[m.id]}
                             status={m.status}
+                            onSongNavigate={handleSongNavigate}
                           />
 
                           <ReactionBarMobile
@@ -1323,6 +1291,7 @@ export default function ChatTabMobile({
           </IonList>
         )}
       </div>
+
       {sheetMsg && (
         <MessageActionSheet
           open={!!activeMessageId}
@@ -1335,13 +1304,27 @@ export default function ChatTabMobile({
           onEdit={handleMessageEdit}
         />
       )}
+
+      <SongPickerModal
+        isOpen={songPickerOpen}
+        bandId={bandId}
+        onClose={handleSongPickerClose}
+        onSelect={handleSongSelect}
+      />
+
+      {/* Composer + send button */}
       <div
         style={{
           borderTop: '1px solid rgba(60, 61, 68, 0.25)',
-          paddingBottom: 'calc(env(safe-area-inset-bottom) + 8px)',
+          paddingBottom: `calc(env(safe-area-inset-bottom, 0px) + ${
+            NAV_OFFSET + // normal bottom nav / baseline padding
+            (keyboardHeight || 0) + // actual keyboard height
+            (isIOS && keyboardOpen ? IOS_ACCESSORY_OFFSET - 70 : 0) // only when iOS keyboard is up
+          }px)`,
           width: '100%',
           marginInline: 0,
           backdropFilter: 'blur(10px)',
+          transition: 'padding-bottom 150ms ease-out',
         }}
       >
         <div
@@ -1354,35 +1337,16 @@ export default function ChatTabMobile({
             gap: 8,
           }}
         >
-          <div
-            style={{
-              flex: 1,
-              minHeight: 44,
-              borderRadius: 12,
-              background: 'rgba(52, 211, 153, 0.04))',
-              border: '1px solid rgba(60, 61, 68, 0.89)',
-              paddingInline: 14,
-              display: 'flex',
-              alignItems: 'center',
-              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.4)',
-            }}
-          >
-            <IonTextarea
-              value={input}
-              placeholder="Message the band…"
-              autoGrow={false}
-              rows={1}
-              onIonInput={(e) => setInput(e.detail.value ?? '')}
-              onFocus={() => {
-                setTimeout(() => smartScrollToBottom('smooth'), 120);
-              }}
-              style={{
-                '--color': '#e5e7eb',
-                '--placeholder-color': '#9ca3af',
-                fontSize: '16px',
-              }}
-            />
-          </div>
+          <ComposerInput
+            value={inputText}
+            songTags={songTags}
+            placeholder="Message… (type @songs to tag)"
+            onValueChange={setInputText}
+            onSongTagsChange={setSongTags}
+            onSongTrigger={handleSongTrigger}
+            onFocus={() => setTimeout(() => smartScrollToBottom('smooth'), 120)}
+            onSubmit={send}
+          />
 
           <button
             type="button"

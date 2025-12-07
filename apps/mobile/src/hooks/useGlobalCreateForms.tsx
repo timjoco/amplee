@@ -158,9 +158,13 @@ export function useNewEventForm(opts: {
   const [checkingConflicts, setCheckingConflicts] = useState(false);
 
   useEffect(() => {
-    // Any time band or start changes, treat as fresh attempt
+    if (!bandId || !starts) {
+      setConflicts([]);
+      setCheckingConflicts(false);
+      return;
+    }
+    // If user edits band or date after seeing conflicts, treat this as a fresh attempt
     setConflicts([]);
-    setSameDayEvents([]);
     setCheckingConflicts(false);
   }, [bandId, starts]);
 

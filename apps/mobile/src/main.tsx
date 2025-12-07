@@ -37,7 +37,6 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <IonApp>
       <BrowserRouter>
         <App />
-        {/* Fixed bottom nav, no FAB */}
         <MobileBottomNav />
       </BrowserRouter>
     </IonApp>

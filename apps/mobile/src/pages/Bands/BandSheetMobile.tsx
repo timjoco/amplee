@@ -22,6 +22,7 @@ import {
 } from 'ionicons/icons';
 import * as React from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import BandAvailabilityWidget from '../../components/Bands/BandAvailabilityWidget';
 import BandSettingsSheetMobile from '../../components/Bands/BandSheetModal';
 import AvatarImageMobile from '../../components/ui/AvatarImageMobile';
 import { supabase } from '../../lib/supabase';
@@ -56,6 +57,9 @@ export default function BandSheetMobile() {
   const [proposalsCount, setProposalsCount] = React.useState(0);
 
   const [rosterMembers, setRosterMembers] = React.useState<any[]>([]);
+
+  const isAndroid =
+    Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android';
 
   const triggerHaptic = React.useCallback(async () => {
     if (Capacitor.getPlatform() === 'web') return;
@@ -146,17 +150,17 @@ export default function BandSheetMobile() {
         setBandAvatarUrl(band.avatar_url ?? null);
         setBandAvatarUpdatedAt(band.updated_at ?? null);
 
-        // ADD THIS: Fetch roster members with availability
+        // Fetch roster members (availability removed - now using calendar system)
         const { data: members } = await supabase
           .from('band_members')
           .select(
             `
-          id,
+          user_id,
           profile:profiles!inner(
             id,
             display_name,
-            full_name,
-            availability:profile_availability(status)
+            first_name,
+            last_name
           )
         `
           )
@@ -166,24 +170,18 @@ export default function BandSheetMobile() {
         if (!alive) return;
 
         if (members) {
-          const formattedMembers = members.map((m: any) => ({
-            id: m.id,
-            display_name: m.profile.display_name,
-            full_name: m.profile.full_name,
-            availabilityStatus: m.profile.availability?.[0]?.status || 'open',
-            availabilityColor:
-              m.profile.availability?.[0]?.status === 'open'
-                ? '#34d399'
-                : m.profile.availability?.[0]?.status === 'limited'
-                ? '#fbbf24'
-                : '#f87171',
-            availabilityLabel:
-              m.profile.availability?.[0]?.status === 'open'
-                ? 'Available'
-                : m.profile.availability?.[0]?.status === 'limited'
-                ? 'Limited'
-                : 'Unavailable',
-          }));
+          const formattedMembers = members.map((m: any) => {
+            const fullName = [m.profile?.first_name, m.profile?.last_name]
+              .filter(Boolean)
+              .join(' ');
+
+            return {
+              id: m.id,
+              display_name: m.profile.display_name,
+              full_name: fullName,
+              // Availability removed - now using calendar-based system
+            };
+          });
           setRosterMembers(formattedMembers);
         }
 
@@ -418,9 +416,16 @@ export default function BandSheetMobile() {
       <IonContent
         fullscreen
         scrollY={true}
-        style={{
-          '--background': 'linear-gradient(180deg, #050509 0%, #020109 100%)',
-        }}
+        // 👇 key part: give the content extra bottom padding so it scrolls above the native nav + Amplee nav
+        style={
+          {
+            '--background': 'linear-gradient(180deg, #050509 0%, #020109 100%)',
+            // enough room for Android system nav + your custom bottom nav
+            '--padding-bottom': isAndroid
+              ? 'calc(env(safe-area-inset-bottom) + 110px)'
+              : 'calc(env(safe-area-inset-bottom) + 72px)',
+          } as React.CSSProperties
+        }
       >
         {loading ? (
           <div
@@ -441,7 +446,7 @@ export default function BandSheetMobile() {
         ) : (
           <div
             style={{
-              padding: '20px 16px 40px',
+              padding: '20px 16px 24px', // was 40px, we shifted that into --padding-bottom
               maxWidth: '600px',
               margin: '0 auto',
             }}
@@ -602,6 +607,7 @@ export default function BandSheetMobile() {
                 </div>
               </button>
             )}
+
             <div
               style={{
                 display: 'grid',
@@ -610,6 +616,8 @@ export default function BandSheetMobile() {
                 marginBottom: '16px',
               }}
             >
+              {/* ROW 1: Availability & Events */}
+
               {/* EVENTS CARD */}
               {eventsCount > 0 ? (
                 <button
@@ -623,66 +631,57 @@ export default function BandSheetMobile() {
                     background:
                       'linear-gradient(135deg, rgba(30, 41, 59, 0.4) 0%, rgba(15, 23, 42, 0.3) 100%)',
                     border: '1px solid rgba(71, 85, 105, 0.3)',
-                    borderRadius: 16,
-                    padding: '12px 14px',
+                    borderRadius: 20,
+                    padding: '16px 14px',
                     display: 'flex',
                     flexDirection: 'column',
                     cursor: 'pointer',
                     textAlign: 'left',
                     position: 'relative',
+                    minHeight: 130,
                     transform:
                       pressedButton === 'events' ? 'scale(0.97)' : 'scale(1)',
                     transition:
                       'transform 120ms ease-out, box-shadow 120ms ease-out',
-                    // minHeight: 120,
                   }}
                 >
+                  <IonIcon
+                    icon={chevronForwardOutline}
+                    style={{
+                      position: 'absolute',
+                      top: 16,
+                      right: 14,
+                      fontSize: 18,
+                      color: 'rgba(148, 163, 184, 0.6)',
+                      opacity: 0.7,
+                    }}
+                  />
                   <div
                     style={{
                       display: 'flex',
                       alignItems: 'center',
-                      justifyContent: 'space-between',
-                      marginBottom: 6,
+                      gap: 8,
+                      marginBottom: 8,
                     }}
                   >
                     <IonIcon
-                      icon={chevronForwardOutline}
-                      style={{
-                        position: 'absolute',
-                        top: 12,
-                        right: 12,
-                        fontSize: 18,
-                        color: 'rgba(148, 163, 184, 0.6)',
-                        opacity: 0.7,
-                      }}
+                      icon={calendarOutline}
+                      style={{ fontSize: 20, color: '#34d399' }}
                     />
-                    <div
+                    <span
                       style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 8,
-                        marginBottom: 6,
+                        fontSize: 11,
+                        color: '#9ca3af',
+                        textTransform: 'uppercase',
+                        letterSpacing: 0.5,
+                        fontWeight: 700,
                       }}
                     >
-                      <IonIcon
-                        icon={calendarOutline}
-                        style={{ fontSize: 20, color: '#34d399' }}
-                      />
-                      <span
-                        style={{
-                          fontSize: 11,
-                          color: '#9ca3af',
-                          textTransform: 'uppercase',
-                          letterSpacing: 0.5,
-                          fontWeight: 700,
-                        }}
-                      >
-                        Events
-                      </span>
-                    </div>
+                      Events
+                    </span>
                   </div>
 
-                  <div style={{ marginTop: 6 }}>
+                  <div style={{ marginTop: 'auto' }}>
                     <div
                       style={{
                         fontSize: 28,
@@ -694,12 +693,7 @@ export default function BandSheetMobile() {
                     >
                       {eventsCount}
                     </div>
-                    <div
-                      style={{
-                        fontSize: 12,
-                        color: '#9ca3af',
-                      }}
-                    >
+                    <div style={{ fontSize: 12, color: '#9ca3af' }}>
                       {eventsCount === 1 ? 'event' : 'events'}
                     </div>
                   </div>
@@ -736,7 +730,7 @@ export default function BandSheetMobile() {
                     style={{
                       position: 'absolute',
                       top: 16,
-                      right: 16,
+                      right: 14,
                       fontSize: 18,
                       color: 'rgba(148, 163, 184, 0.6)',
                       opacity: 0.7,
@@ -746,8 +740,8 @@ export default function BandSheetMobile() {
                     style={{
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '8px',
-                      marginBottom: '12px',
+                      gap: 8,
+                      marginBottom: 8,
                     }}
                   >
                     <IonIcon
@@ -767,7 +761,6 @@ export default function BandSheetMobile() {
                     </span>
                   </div>
 
-                  {/* Description */}
                   <div
                     style={{
                       fontSize: 12,
@@ -775,10 +768,12 @@ export default function BandSheetMobile() {
                       opacity: 0.9,
                     }}
                   >
-                    All shows & practices
+                    Shows & practices
                   </div>
                 </button>
               )}
+
+              {/* ROW 2: Proposals & Library */}
 
               {/* PROPOSALS CARD */}
               {proposalsCount > 0 ? (
@@ -793,68 +788,59 @@ export default function BandSheetMobile() {
                     background:
                       'linear-gradient(135deg, rgba(30, 41, 59, 0.4) 0%, rgba(15, 23, 42, 0.3) 100%)',
                     border: '1px solid rgba(71, 85, 105, 0.3)',
-                    borderRadius: 16,
-                    padding: '12px 14px',
+                    borderRadius: 20,
+                    padding: '16px 14px',
                     display: 'flex',
                     flexDirection: 'column',
                     cursor: 'pointer',
                     textAlign: 'left',
                     position: 'relative',
+                    minHeight: 130,
                     transform:
                       pressedButton === 'proposals'
                         ? 'scale(0.97)'
                         : 'scale(1)',
                     transition:
                       'transform 120ms ease-out, box-shadow 120ms ease-out',
-                    // minHeight: 120,
                   }}
                 >
+                  <IonIcon
+                    icon={chevronForwardOutline}
+                    style={{
+                      position: 'absolute',
+                      top: 16,
+                      right: 14,
+                      fontSize: 18,
+                      color: 'rgba(148, 163, 184, 0.6)',
+                      opacity: 0.7,
+                    }}
+                  />
                   <div
                     style={{
                       display: 'flex',
                       alignItems: 'center',
-                      justifyContent: 'space-between',
-                      marginBottom: 6,
+                      gap: 8,
+                      marginBottom: 8,
                     }}
                   >
                     <IonIcon
-                      icon={chevronForwardOutline}
-                      style={{
-                        position: 'absolute',
-                        top: 12,
-                        right: 12,
-                        fontSize: 18,
-                        color: 'rgba(148, 163, 184, 0.6)',
-                        opacity: 0.7,
-                      }}
+                      icon={clipboardOutline}
+                      style={{ fontSize: 20, color: '#f59e0b' }}
                     />
-                    <div
+                    <span
                       style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 8,
-                        marginBottom: 6,
+                        fontSize: 11,
+                        color: '#9ca3af',
+                        textTransform: 'uppercase',
+                        letterSpacing: 0.5,
+                        fontWeight: 700,
                       }}
                     >
-                      <IonIcon
-                        icon={clipboardOutline}
-                        style={{ fontSize: 20, color: '#f59e0b' }}
-                      />
-                      <span
-                        style={{
-                          fontSize: 11,
-                          color: '#9ca3af',
-                          textTransform: 'uppercase',
-                          letterSpacing: 0.5,
-                          fontWeight: 700,
-                        }}
-                      >
-                        Proposals
-                      </span>
-                    </div>
+                      Proposals
+                    </span>
                   </div>
 
-                  <div style={{ marginTop: 6 }}>
+                  <div style={{ marginTop: 'auto' }}>
                     <div
                       style={{
                         fontSize: 28,
@@ -866,12 +852,7 @@ export default function BandSheetMobile() {
                     >
                       {proposalsCount}
                     </div>
-                    <div
-                      style={{
-                        fontSize: 12,
-                        color: '#9ca3af',
-                      }}
-                    >
+                    <div style={{ fontSize: 12, color: '#9ca3af' }}>
                       {proposalsCount === 1 ? 'proposal' : 'proposals'}
                     </div>
                   </div>
@@ -895,6 +876,7 @@ export default function BandSheetMobile() {
                     gap: 10,
                     cursor: 'pointer',
                     textAlign: 'left',
+                    minHeight: 130,
                     position: 'relative',
                     transform:
                       pressedButton === 'proposals'
@@ -909,7 +891,7 @@ export default function BandSheetMobile() {
                     style={{
                       position: 'absolute',
                       top: 16,
-                      right: 16,
+                      right: 14,
                       fontSize: 18,
                       color: 'rgba(148, 163, 184, 0.6)',
                       opacity: 0.7,
@@ -919,8 +901,8 @@ export default function BandSheetMobile() {
                     style={{
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '8px',
-                      marginBottom: '12px',
+                      gap: 8,
+                      marginBottom: 8,
                     }}
                   >
                     <IonIcon
@@ -951,6 +933,19 @@ export default function BandSheetMobile() {
                   </div>
                 </button>
               )}
+
+              {/* AVAILABILITY CARD */}
+              <BandAvailabilityWidget
+                bandId={bandId}
+                members={rosterMembers.map((m) => ({
+                  id: m.profile?.id,
+                  name: m.display_name || m.full_name,
+                  role: null,
+                }))}
+                pressedButton={pressedButton}
+                handleButtonPress={handleButtonPress}
+              />
+
               {/* Library Card */}
               <button
                 type="button"
@@ -1021,9 +1016,11 @@ export default function BandSheetMobile() {
                     opacity: 0.9,
                   }}
                 >
-                  Songs &amp; Setlists
+                  Songs & Setlists
                 </div>
               </button>
+
+              {/* ROW 3: Roster & Public Profile */}
 
               {/* Roster Card */}
               <button
@@ -1063,8 +1060,6 @@ export default function BandSheetMobile() {
                     opacity: 0.7,
                   }}
                 />
-
-                {/* icon + title inline */}
                 <div
                   style={{
                     display: 'flex',
@@ -1097,7 +1092,7 @@ export default function BandSheetMobile() {
                     opacity: 0.9,
                   }}
                 >
-                  Manage band members
+                  Band members
                 </div>
               </button>
 
@@ -1171,7 +1166,7 @@ export default function BandSheetMobile() {
                     opacity: 0.9,
                   }}
                 >
-                  Bio, socials &amp; music links
+                  Bio, socials & links
                 </div>
               </button>
             </div>

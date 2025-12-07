@@ -1,5 +1,7 @@
+import { Capacitor } from '@capacitor/core';
 import { IonIcon } from '@ionic/react';
 import { add, person } from 'ionicons/icons';
+
 import * as React from 'react';
 import { FiHome } from 'react-icons/fi';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -16,6 +18,8 @@ const AVATAR_BUCKET = 'profile-avatars';
 export default function MobileBottomNav() {
   const nav = useNavigate();
   const { pathname } = useLocation();
+  const isAndroid =
+    Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android';
 
   const [profile, setProfile] = React.useState<MiniProfile | null>(null);
 
@@ -58,7 +62,6 @@ export default function MobileBottomNav() {
       const session = sessionData?.session;
 
       if (!session) {
-        // User logged out - clear profile
         if (alive) setProfile(null);
         return;
       }
@@ -71,19 +74,16 @@ export default function MobileBottomNav() {
       await fetchProfile(session.user.id, fallbackName);
     };
 
-    // Initial fetch
-    handleAuthChange();
+    void handleAuthChange();
 
-    // Listen for auth state changes (login, logout, token refresh)
     const { data: authListener } = supabase.auth.onAuthStateChange(
       (event, _session) => {
-        // Re-fetch on sign in, sign out, or user update
         if (
           event === 'SIGNED_IN' ||
           event === 'SIGNED_OUT' ||
           event === 'USER_UPDATED'
         ) {
-          handleAuthChange();
+          void handleAuthChange();
         }
       }
     );
@@ -120,15 +120,10 @@ export default function MobileBottomNav() {
     ) ||
     /^\/bands\/[^/]+\/events\/[^/]+\/settings\/?$/.test(pathname) ||
     /^\/event\/[^/]+\/?$/.test(pathname) ||
-    // band settings
     /^\/bands\/[^/]+\/settings\/?$/i.test(pathname) ||
-    // band public profile
     /^\/bands\/[^/]+\/public\/?$/i.test(pathname) ||
-    // proposal detail
     /^\/bands\/[^/]+\/proposals\/[^/]+$/.test(pathname) ||
-    // song library
     /^\/bands\/[^/]+\/songs\/?$/.test(pathname) ||
-    // song sheet
     /^\/bands\/[^/]+\/songs\/[^/]+\/?$/.test(pathname);
 
   if (hidden) return null;
@@ -149,7 +144,9 @@ export default function MobileBottomNav() {
         right: 0,
         bottom: 0,
         zIndex: 1000,
-        paddingBottom: 'max(env(safe-area-inset-bottom), 8px)',
+        paddingBottom: isAndroid
+          ? 'calc(env(safe-area-inset-bottom, 0px) + 40px)'
+          : 'calc(env(safe-area-inset-bottom, 0px) + 8px)',
         background:
           'linear-gradient(180deg, rgba(8,8,12,0.9), rgba(8,8,12,0.98))',
         borderTop: '1px solid rgba(255,255,255,0.08)',
@@ -163,7 +160,7 @@ export default function MobileBottomNav() {
           display: 'grid',
           gridTemplateColumns: '1fr 1fr 1fr',
           alignItems: 'center',
-          height: 64,
+          height: 68,
           maxWidth: 640,
           margin: '0 auto',
         }}

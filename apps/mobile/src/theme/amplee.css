@@ -6,6 +6,7 @@
   --amplee-primary: #9b87f5;
   --amplee-primary-ink: #191525;
   --amplee-border: rgba(255, 255, 255, 0.12);
+  --app-safe-area-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 html,

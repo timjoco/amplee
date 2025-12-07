@@ -25,14 +25,6 @@ type ProfileRow = {
   avatar_url: string | null;
 };
 
-type AvailabilityStatus = 'open' | 'limited' | 'unavailable';
-
-type AvailabilityRow = {
-  status: AvailabilityStatus;
-  status_note: string | null;
-  away_until: string | null; // 'YYYY-MM-DD'
-};
-
 function computeDisplayName(
   row: ProfileRow | null,
   authUser: any | null
@@ -61,16 +53,6 @@ export default function Profile() {
   const [authUser, setAuthUser] = React.useState<any | null>(null);
 
   const [logoutAlertOpen, setLogoutAlertOpen] = React.useState(false);
-
-  const [availability, setAvailability] =
-    React.useState<AvailabilityRow | null>(null);
-  const [savingAvailability, setSavingAvailability] = React.useState(false);
-  const [availabilityError, setAvailabilityError] = React.useState<
-    string | null
-  >(null);
-  const [availabilitySaved, setAvailabilitySaved] = React.useState<
-    string | null
-  >(null);
 
   React.useEffect(() => {
     let alive = true;
@@ -101,7 +83,7 @@ export default function Profile() {
         return;
       }
 
-      const uid = user.id; // 👈 uid is defined here and used below
+      const uid = user.id;
 
       // Load profile
       const { data, error: profErr } = await supabase
@@ -137,26 +119,6 @@ export default function Profile() {
         avatar_url: data?.avatar_url ?? null,
       });
 
-      // Load availability for this profile
-      const { data: avail, error: availErr } = await supabase
-        .from('profile_availability')
-        .select('status, status_note, away_until')
-        .eq('profile_id', uid)
-        .maybeSingle();
-
-      if (!alive) return;
-
-      if (availErr) {
-        console.error(availErr);
-        // don't kill the page if this fails
-      }
-
-      setAvailability({
-        status: (avail?.status as AvailabilityStatus) ?? 'open',
-        status_note: avail?.status_note ?? null,
-        away_until: avail?.away_until ?? null,
-      });
-
       setLoading(false);
     })();
 
@@ -179,56 +141,6 @@ export default function Profile() {
       nav('/login');
     }
   };
-
-  const handleSaveAvailability = async () => {
-    if (!profile?.id) return;
-
-    if (!availability) {
-      return;
-    }
-
-    setSavingAvailability(true);
-    setAvailabilityError(null);
-    setAvailabilitySaved(null);
-
-    try {
-      const { error: upsertErr } = await supabase
-        .from('profile_availability')
-        .upsert(
-          {
-            profile_id: profile.id,
-            status: availability.status,
-            status_note: availability.status_note
-              ? availability.status_note.trim()
-              : null,
-            away_until: availability.away_until || null,
-          },
-          { onConflict: 'profile_id' }
-        );
-
-      if (upsertErr) throw upsertErr;
-
-      setAvailabilitySaved('Availability updated');
-    } catch (err: any) {
-      console.error(err);
-      setAvailabilityError(err.message ?? 'Unable to save availability.');
-    } finally {
-      setSavingAvailability(false);
-    }
-  };
-
-  function statusLabel(status: AvailabilityStatus): string {
-    switch (status) {
-      case 'open':
-        return 'Usually available';
-      case 'limited':
-        return 'Sometimes available';
-      case 'unavailable':
-        return 'Not taking gigs';
-      default:
-        return 'Usually available';
-    }
-  }
 
   return (
     <IonPage>
@@ -335,8 +247,6 @@ export default function Profile() {
               padding: '0 16px 32px',
             }}
           >
-            {/* Header */}
-
             {/* Avatar Card */}
             <div
               style={{
@@ -490,7 +400,7 @@ export default function Profile() {
                     lineHeight: 1.3,
                   }}
                 >
-                  Availability
+                  My Availability
                 </h3>
                 <p
                   style={{
@@ -499,7 +409,7 @@ export default function Profile() {
                     color: '#9ca3af',
                   }}
                 >
-                  Status, notes & away dates
+                  Mark dates you're unavailable
                 </p>
               </div>
               <IonIcon

@@ -8,7 +8,7 @@ export default function BandSongsRouteMobile() {
 
   if (!bandId) return null;
 
-  // this is the page for the list of all songs
+  // this is the route for the list of all songs
   return (
     <SongListPage
       bandId={bandId}

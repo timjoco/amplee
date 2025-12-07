@@ -5,9 +5,10 @@ import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import MobileBottomNav from './components/Nav/MobileBottomNav';
 import { useSession } from './hooks/useSession';
 
-import { Capacitor, type PluginListenerHandle } from '@capacitor/core';
-import { Keyboard, KeyboardResize } from '@capacitor/keyboard';
+import { Capacitor } from '@capacitor/core';
+import { Keyboard } from '@capacitor/keyboard';
 import AuthCallback from './pages/AuthCallback';
+import BandAvailabilityPage from './pages/Bands/BandAvailabilityPage';
 import BandEventsPage from './pages/Bands/BandEventsPage';
 import BandLibraryPage from './pages/Bands/BandLibraryPage';
 import BandProposalsPage from './pages/Bands/BandProposalsPage';
@@ -31,7 +32,7 @@ import InviteBandMobile from './pages/InviteBandMobile';
 import Login from './pages/Login';
 import OnboardingPageMobile from './pages/OnboardingPageMobile';
 import Profile from './pages/Profile';
-import ProfileAvailabilityPage from './pages/ProfileAvailability';
+import ProfileAvailability from './pages/ProfileAvailability';
 import ProfileBasics from './pages/ProfileBasics';
 import ProposedGigSheetMobile from './pages/ProposedGigSheetMobile';
 import SetlistTemplateEditorMobile from './pages/SetlistTemplateEditorMobile';
@@ -48,49 +49,59 @@ export default function App() {
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
 
-    let showSub: PluginListenerHandle | undefined;
-    let hideSub: PluginListenerHandle | undefined;
+    let showSub: any;
+    let hideSub: any;
 
-    const setup = async () => {
+    (async () => {
       try {
-        await Keyboard.setResizeMode({ mode: KeyboardResize.None });
+        const platform = Capacitor.getPlatform();
 
-        const kbWithAccessory = Keyboard as unknown as {
-          setAccessoryBarVisible?: (opts: {
-            isVisible: boolean;
-          }) => Promise<void>;
-        };
+        if (platform === 'ios') {
+          showSub = await Keyboard.addListener(
+            'keyboardWillShow',
+            ({ keyboardHeight }) => {
+              const h = keyboardHeight ?? 0;
 
-        if (typeof kbWithAccessory.setAccessoryBarVisible === 'function') {
-          await kbWithAccessory.setAccessoryBarVisible({ isVisible: true });
+              document.documentElement.style.setProperty(
+                '--kb-height',
+                `${h}px`
+              );
+              document.body.classList.add('kb-open');
+            }
+          );
+
+          hideSub = await Keyboard.addListener('keyboardWillHide', () => {
+            document.documentElement.style.setProperty('--kb-height', '0px');
+            document.body.classList.remove('kb-open');
+          });
+        } else {
+          // Android: didShow/didHide
+          showSub = await Keyboard.addListener(
+            'keyboardDidShow',
+            ({ keyboardHeight }) => {
+              const h = keyboardHeight ?? 0;
+
+              document.documentElement.style.setProperty(
+                '--kb-height',
+                `${h}px`
+              );
+              document.body.classList.add('kb-open');
+            }
+          );
+
+          hideSub = await Keyboard.addListener('keyboardDidHide', () => {
+            document.documentElement.style.setProperty('--kb-height', '0px');
+            document.body.classList.remove('kb-open');
+          });
         }
-
-        // Keyboard listeners
-        showSub = await Keyboard.addListener(
-          'keyboardWillShow',
-          ({ keyboardHeight }) => {
-            document.body.classList.add('keyboard-open');
-            document.documentElement.style.setProperty(
-              '--keyboard-height',
-              `${keyboardHeight}px`
-            );
-          }
-        );
-
-        hideSub = await Keyboard.addListener('keyboardWillHide', () => {
-          document.body.classList.remove('keyboard-open');
-          document.documentElement.style.removeProperty('--keyboard-height');
-        });
-      } catch (error) {
-        console.warn('[Keyboard setup error]', error);
+      } catch (e) {
+        console.warn('[global keyboard listeners error]', e);
       }
-    };
-
-    void setup();
+    })();
 
     return () => {
-      showSub?.remove();
-      hideSub?.remove();
+      showSub?.remove?.();
+      hideSub?.remove?.();
     };
   }, []);
 
@@ -203,7 +214,11 @@ export default function App() {
             <Route path="/profile/basics" element={<ProfileBasics />} />
             <Route
               path="/profile/availability"
-              element={<ProfileAvailabilityPage />}
+              element={<ProfileAvailability />}
+            />
+            <Route
+              path="/bands/:bandId/availability"
+              element={<BandAvailabilityPage />}
             />
 
             {/* default redirects */}

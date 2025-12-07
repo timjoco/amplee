@@ -19,6 +19,7 @@ import {
   upsertLastMsg,
 } from '../../lib/cache/eventInboxCache';
 import { supabase } from '../../lib/supabase';
+import { MessageBodyWithLinks } from './Chat/MessageBodyWithLinks';
 
 type LastMsg = { event_id: string; body: string; created_at: string };
 
@@ -501,10 +502,8 @@ export default function EventInboxListMobile({
       {rows.map((e) => {
         const when = getRelativeTime(e.starts_at);
         const lm = lastMsgs[e.id];
-        const preview =
-          lm?.body ||
-          e.location ||
-          `${e.type === 'show' ? 'Show' : 'Practice'}`;
+        const fallbackPreview =
+          e.location || `${e.type === 'show' ? 'Show' : 'Practice'}`;
         const band = e.bands;
         const isPressed = pressedId === e.id;
         const isHovered = hoveredId === e.id;
@@ -631,8 +630,8 @@ export default function EventInboxListMobile({
                 )}
               </div>
 
-              {/* Preview text */}
-              <p
+              {/* Preview text / last message */}
+              <div
                 style={{
                   margin: 0,
                   fontSize: 13,
@@ -641,10 +640,30 @@ export default function EventInboxListMobile({
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
                   lineHeight: 1.4,
+                  opacity: 0.7, // <-- slightly muted to indicate preview
                 }}
               >
-                {preview}
-              </p>
+                {lm?.body ? (
+                  <div
+                    style={{
+                      display: 'inline-block',
+                      maxWidth: '100%',
+                      opacity: 0.9, // keep content readable but still a bit softer than full chat
+                    }}
+                  >
+                    <MessageBodyWithLinks
+                      body={lm.body}
+                      preview={undefined}
+                      status={undefined}
+                      onSongNavigate={(songId) =>
+                        nav(`/bands/${e.band_id}/songs/${songId}`)
+                      }
+                    />
+                  </div>
+                ) : (
+                  fallbackPreview
+                )}
+              </div>
             </div>
           </div>
         );

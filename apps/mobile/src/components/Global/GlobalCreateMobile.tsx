@@ -59,9 +59,9 @@ interface Orb {
 }
 
 type Conflict = {
-  profileId: string;
-  name: string;
-  reason: string;
+  profileId?: string;
+  name?: string | null;
+  reason?: string | null;
   awayUntil?: string | null;
   statusNote?: string | null;
 };
@@ -73,6 +73,66 @@ type SameDayEvent = {
 };
 
 // ─────────────────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────────────────
+
+const normalizeConflicts = (rows: any[] | undefined | null): Conflict[] =>
+  (rows ?? []).map((row, idx) => {
+    // Try to find a nested profile-ish object
+    const nestedProfile =
+      row.profile ??
+      row.profiles ??
+      row.member_profile ??
+      row.member?.profile ??
+      row.user ??
+      null;
+
+    const rawName =
+      row.name ??
+      row.memberName ??
+      row.profile_name ??
+      row.display_name ??
+      row.full_name ??
+      nestedProfile?.display_name ??
+      nestedProfile?.full_name ??
+      nestedProfile?.name ??
+      null;
+
+    return {
+      profileId:
+        row.profileId ??
+        row.memberId ??
+        row.profile_id ??
+        row.member_id ??
+        row.user_id ??
+        nestedProfile?.id ??
+        `conflict-${idx}`,
+      name: rawName,
+      reason: row.reason ?? row.status ?? null,
+      awayUntil: row.awayUntil ?? row.away_until ?? null,
+      statusNote: row.statusNote ?? row.status_note ?? null,
+    };
+  });
+
+const mergeLocalBands = (a: BandLite[], b: BandLite[]) => {
+  const map = new Map<string, BandLite>();
+  [...a, ...b].forEach((x) =>
+    map.set(x.id, map.get(x.id) ? { ...map.get(x.id)!, ...x } : x)
+  );
+  return Array.from(map.values()).sort((x, y) => x.name.localeCompare(y.name));
+};
+
+const mapBands = (rows: any[] | null | undefined): BandLite[] =>
+  (rows ?? [])
+    .map((r: any) => r?.bands)
+    .filter(Boolean)
+    .map((b: any) => ({
+      id: String(b.id),
+      name: String(b.name ?? ''),
+      avatar_url: b.avatar_url ?? null,
+    }));
+
+// ─────────────────────────────────────────────────────────────
 // Event Warnings Component (Availability + Same-day events)
 // ─────────────────────────────────────────────────────────────
 
@@ -80,19 +140,20 @@ function EventWarnings({
   conflicts,
   sameDayEvents,
 }: {
-  conflicts: Conflict[];
+  conflicts: any[];
   sameDayEvents: SameDayEvent[];
 }) {
   const [expandedSection, setExpandedSection] = useState<
     'conflicts' | 'sameDay' | null
   >(null);
 
-  const hasConflicts = conflicts.length > 0;
+  const normalizedConflicts: Conflict[] = normalizeConflicts(conflicts);
+  const hasConflicts = normalizedConflicts.length > 0;
   const hasSameDayEvents = sameDayEvents.length > 0;
 
   if (!hasConflicts && !hasSameDayEvents) return null;
 
-  const totalWarnings = conflicts.length + sameDayEvents.length;
+  const totalWarnings = normalizedConflicts.length + sameDayEvents.length;
 
   const formatReason = (c: Conflict) => {
     if (c.reason === 'status_unavailable') return 'marked as unavailable';
@@ -208,8 +269,8 @@ function EventWarnings({
                 color: '#fde68a',
               }}
             >
-              {conflicts.length} member{conflicts.length > 1 ? 's' : ''} may not
-              be available
+              {normalizedConflicts.length} member
+              {normalizedConflicts.length > 1 ? 's' : ''} may not be available
             </span>
             <IonIcon
               icon={
@@ -231,78 +292,83 @@ function EventWarnings({
                 gap: 6,
               }}
             >
-              {conflicts.map((c) => (
-                <div
-                  key={c.profileId}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'flex-start',
-                    gap: 10,
-                    padding: '8px 10px',
-                    borderRadius: 10,
-                    background: 'rgba(0, 0, 0, 0.2)',
-                  }}
-                >
-                  {/* Avatar placeholder */}
+              {normalizedConflicts.map((c, idx) => {
+                const safeName = (c.name ?? '').trim() || 'Unknown';
+                const key = c.profileId ?? `conflict-${idx}`;
+
+                return (
                   <div
+                    key={key}
                     style={{
-                      width: 26,
-                      height: 26,
-                      borderRadius: '50%',
-                      background:
-                        'linear-gradient(135deg, rgba(251, 191, 36, 0.3) 0%, rgba(245, 158, 11, 0.2) 100%)',
                       display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexShrink: 0,
+                      alignItems: 'flex-start',
+                      gap: 10,
+                      padding: '8px 10px',
+                      borderRadius: 10,
+                      background: 'rgba(0, 0, 0, 0.2)',
                     }}
                   >
-                    <span
+                    {/* Avatar placeholder */}
+                    <div
                       style={{
-                        fontSize: 10,
-                        fontWeight: 700,
-                        color: '#fde68a',
+                        width: 26,
+                        height: 26,
+                        borderRadius: '50%',
+                        background:
+                          'linear-gradient(135deg, rgba(251, 191, 36, 0.3) 0%, rgba(245, 158, 11, 0.2) 100%)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0,
                       }}
                     >
-                      {c.name.charAt(0).toUpperCase()}
-                    </span>
-                  </div>
+                      <span
+                        style={{
+                          fontSize: 10,
+                          fontWeight: 700,
+                          color: '#fde68a',
+                        }}
+                      >
+                        {safeName.charAt(0).toUpperCase()}
+                      </span>
+                    </div>
 
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div
-                      style={{
-                        fontSize: 13,
-                        fontWeight: 600,
-                        color: '#fef3c7',
-                        marginBottom: 2,
-                      }}
-                    >
-                      {c.name}
-                    </div>
-                    <div
-                      style={{
-                        fontSize: 11,
-                        color: 'rgba(254, 243, 199, 0.6)',
-                        lineHeight: 1.4,
-                      }}
-                    >
-                      {formatReason(c)}
-                      {c.statusNote && (
-                        <span
-                          style={{
-                            display: 'block',
-                            marginTop: 2,
-                            fontStyle: 'italic',
-                            color: 'rgba(254, 243, 199, 0.5)',
-                          }}
-                        >
-                          "{c.statusNote}"
-                        </span>
-                      )}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div
+                        style={{
+                          fontSize: 13,
+                          fontWeight: 600,
+                          color: '#fef3c7',
+                          marginBottom: 2,
+                        }}
+                      >
+                        {safeName}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 11,
+                          color: 'rgba(254, 243, 199, 0.6)',
+                          lineHeight: 1.4,
+                        }}
+                      >
+                        {formatReason(c)}
+                        {c.statusNote && (
+                          <span
+                            style={{
+                              display: 'block',
+                              marginTop: 2,
+                              fontStyle: 'italic',
+                              color: 'rgba(254, 243, 199, 0.5)',
+                            }}
+                          >
+                            "{c.statusNote}"
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -434,28 +500,6 @@ function EventWarnings({
 }
 
 // ─────────────────────────────────────────────────────────────
-// Helpers
-// ─────────────────────────────────────────────────────────────
-
-const mergeLocalBands = (a: BandLite[], b: BandLite[]) => {
-  const map = new Map<string, BandLite>();
-  [...a, ...b].forEach((x) =>
-    map.set(x.id, map.get(x.id) ? { ...map.get(x.id)!, ...x } : x)
-  );
-  return Array.from(map.values()).sort((x, y) => x.name.localeCompare(y.name));
-};
-
-const mapBands = (rows: any[] | null | undefined): BandLite[] =>
-  (rows ?? [])
-    .map((r: any) => r?.bands)
-    .filter(Boolean)
-    .map((b: any) => ({
-      id: String(b.id),
-      name: String(b.name ?? ''),
-      avatar_url: b.avatar_url ?? null,
-    }));
-
-// ─────────────────────────────────────────────────────────────
 // Main Component
 // ─────────────────────────────────────────────────────────────
 
@@ -577,14 +621,33 @@ export default function GlobalCreateMobile({
         kind?: string;
         type?: string;
         bandId?: string;
+        startsAt?: string; // full ISO
+        date?: string; // optional "YYYY-MM-DD" fallback
       }>;
 
       const detail = custom.detail || {};
       const kind = detail.kind ?? detail.type;
 
+      // clear prior errors / event fields when opening
+      setError(null);
+
       if (kind === 'event') {
         setStep('newEvent');
-        if (detail.bandId) eventForm.setBandId(detail.bandId);
+
+        if (detail.bandId) {
+          eventForm.setBandId(detail.bandId);
+        }
+
+        if (detail.startsAt) {
+          // trust the precomputed ISO
+          eventForm.setStarts(detail.startsAt);
+        } else if (detail.date) {
+          // legacy/fallback: build a time from date-only
+          const dt = new Date(`${detail.date}T20:00:00`);
+          if (!Number.isNaN(+dt)) {
+            eventForm.setStarts(dt.toISOString());
+          }
+        }
       } else if (kind === 'song') {
         setStep('newSong');
         if (detail.bandId) songForm.setBandId(detail.bandId);
@@ -682,7 +745,8 @@ export default function GlobalCreateMobile({
 
   const handleSubmitCreateEvent = useCallback(async () => {
     const bypass =
-      eventForm.conflicts?.length > 0 || eventForm.sameDayEvents?.length > 0;
+      (eventForm.conflicts?.length || 0) > 0 ||
+      (eventForm.sameDayEvents?.length || 0) > 0;
     const id = await eventForm.submit(
       bypass ? { bypassConflicts: true } : undefined
     );

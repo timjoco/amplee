@@ -1,4 +1,5 @@
 import { memo } from 'react';
+import { parseSongTags } from '../../SongTag';
 
 type LinkPreview = {
   title?: string;
@@ -11,12 +12,48 @@ interface MessageBodyWithLinksProps {
   body: string;
   preview?: LinkPreview;
   status?: 'sending' | 'sent' | 'failed';
+  onSongNavigate?: (songId: string) => void;
 }
 
 export const MessageBodyWithLinks = memo<MessageBodyWithLinksProps>(
-  ({ body, preview, status }) => {
+  ({ body, preview, status, onSongNavigate }) => {
     const urlRegex = /(https?:\/\/[^\s]+)/g;
-    const parts = body.split(urlRegex);
+
+    const renderContent = () => {
+      const songParsed = parseSongTags(body, onSongNavigate);
+
+      return songParsed.map((segment, segmentIndex) => {
+        // If it's a JSX element (SongTag), render it directly
+        if (typeof segment !== 'string') {
+          return segment;
+        }
+
+        // For string segments, parse URLs
+        const parts = segment.split(urlRegex);
+
+        return parts.map((part, partIndex) => {
+          if (part.match(urlRegex)) {
+            return (
+              <a
+                key={`${segmentIndex}-${partIndex}`}
+                href={part}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  color: '#60A5FA',
+                  textDecoration: 'underline',
+                }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                {part}
+              </a>
+            );
+          }
+
+          return <span key={`${segmentIndex}-${partIndex}`}>{part}</span>;
+        });
+      });
+    };
 
     return (
       <div>
@@ -29,26 +66,7 @@ export const MessageBodyWithLinks = memo<MessageBodyWithLinksProps>(
             opacity: status === 'failed' ? 0.5 : 1,
           }}
         >
-          {parts.map((part, i) => {
-            if (part.match(urlRegex)) {
-              return (
-                <a
-                  key={i}
-                  href={part}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{
-                    color: '#60A5FA',
-                    textDecoration: 'underline',
-                  }}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  {part}
-                </a>
-              );
-            }
-            return <span key={i}>{part}</span>;
-          })}
+          {renderContent()}
         </div>
 
         {preview && (

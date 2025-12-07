@@ -8,11 +8,7 @@ import {
   IonSpinner,
   IonToolbar,
 } from '@ionic/react';
-import {
-  calendarOutline,
-  chevronBackOutline,
-  informationCircleOutline,
-} from 'ionicons/icons';
+import { chevronBackOutline, informationCircleOutline } from 'ionicons/icons';
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
@@ -88,7 +84,7 @@ export default function BandRosterPage() {
           setBandName(band.name);
         }
 
-        // Get roster members with availability
+        // Get roster members (availability removed - now using calendar system)
         const { data: rosterData, error: rosterErr } = await supabase
           .from('band_members')
           .select(
@@ -112,24 +108,10 @@ export default function BandRosterPage() {
         if (!alive) return;
 
         if (rosterData) {
-          // Now fetch availability for each user
-          const userIds = rosterData.map((m: any) => m.user_id).filter(Boolean);
-
-          const { data: availabilityData } = await supabase
-            .from('profile_availability')
-            .select('profile_id, status, status_note, away_until')
-            .in('profile_id', userIds);
-
-          // Create a map of availability by profile_id
-          const availabilityMap = new Map(
-            availabilityData?.map((a: any) => [a.profile_id, a]) || []
-          );
-
           const formattedMembers: RosterMember[] = rosterData.map((m: any) => {
             const profile = Array.isArray(m.profiles)
               ? m.profiles[0]
               : m.profiles;
-            const availability = availabilityMap.get(m.user_id);
 
             return {
               id: m.id,
@@ -138,13 +120,7 @@ export default function BandRosterPage() {
               display_name: profile?.display_name || null,
               role: m.role,
               avatar_url: profile?.avatar_url || null,
-              availability: availability
-                ? {
-                    status: availability.status as AvailabilityStatus,
-                    status_note: availability.status_note,
-                    away_until: availability.away_until,
-                  }
-                : null,
+              availability: null, // Removed - now using calendar-based system
             };
           });
           setMembers(formattedMembers);
@@ -314,7 +290,8 @@ export default function BandRosterPage() {
                   margin: 0,
                 }}
               >
-                Member availability helps when you're picking dates for events.
+                View your band members and their roles. Check availability
+                through the Availability widget on the band page.
               </p>
             </div>
 
@@ -327,10 +304,6 @@ export default function BandRosterPage() {
               }}
             >
               {members.map((member) => {
-                const availability = member.availability;
-                const status = availability?.status || 'open';
-                const config = STATUS_CONFIG[status];
-
                 // Create full name
                 const fullName = [member.first_name, member.last_name]
                   .filter(Boolean)
@@ -359,10 +332,6 @@ export default function BandRosterPage() {
                         display: 'flex',
                         alignItems: 'center',
                         gap: 12,
-                        marginBottom:
-                          availability?.status_note || availability?.away_until
-                            ? 12
-                            : 0,
                       }}
                     >
                       {/* Avatar placeholder */}
@@ -424,85 +393,7 @@ export default function BandRosterPage() {
                           {member.role}
                         </div>
                       </div>
-
-                      {/* Status badge */}
-                      <div
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 6,
-                          padding: '6px 12px',
-                          borderRadius: 20,
-                          background: config.bgColor,
-                          border: `1px solid ${config.borderColor}`,
-                          flexShrink: 0,
-                        }}
-                      >
-                        <div
-                          style={{
-                            width: 6,
-                            height: 6,
-                            borderRadius: '50%',
-                            background: config.color,
-                          }}
-                        />
-                        <span
-                          style={{
-                            fontSize: 12,
-                            fontWeight: 600,
-                            color: config.color,
-                          }}
-                        >
-                          {config.label}
-                        </span>
-                      </div>
                     </div>
-
-                    {/* Additional availability details */}
-                    {(availability?.status_note ||
-                      availability?.away_until) && (
-                      <div
-                        style={{
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: 6,
-                          paddingTop: 12,
-                          borderTop: '1px solid rgba(255, 255, 255, 0.06)',
-                        }}
-                      >
-                        {availability.away_until && (
-                          <div
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: 6,
-                              fontSize: 12,
-                              color: 'rgba(255, 255, 255, 0.6)',
-                            }}
-                          >
-                            <IonIcon
-                              icon={calendarOutline}
-                              style={{ fontSize: 12 }}
-                            />
-                            <span>
-                              Back {formatAwayDate(availability.away_until)}
-                            </span>
-                          </div>
-                        )}
-                        {availability.status_note && (
-                          <div
-                            style={{
-                              fontSize: 12,
-                              color: 'rgba(255, 255, 255, 0.6)',
-                              fontStyle: 'italic',
-                              paddingLeft: availability.away_until ? 18 : 0,
-                            }}
-                          >
-                            "{availability.status_note}"
-                          </div>
-                        )}
-                      </div>
-                    )}
                   </div>
                 );
               })}

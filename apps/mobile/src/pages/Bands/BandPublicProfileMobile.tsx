@@ -17,9 +17,6 @@ import {
   chevronBackOutline,
   globeOutline,
   linkOutline,
-  logoFacebook,
-  logoInstagram,
-  logoTiktok,
   musicalNotesOutline,
 } from 'ionicons/icons';
 import { useCallback, useEffect, useState } from 'react';
@@ -40,42 +37,28 @@ type BandProfileRow = {
   public_avatar_enabled: boolean;
 };
 
-type StreamingLinks = {
-  website?: string | null;
-  spotify?: string | null;
-  apple_music?: string | null;
-  soundcloud?: string | null;
-  bandcamp?: string | null;
-  youtube?: string | null;
-  instagram?: string | null;
-  tiktok?: string | null;
-  facebook?: string | null;
-  x?: string | null;
-};
-
 const glassCardStyle = {
-  background:
-    'linear-gradient(135deg, rgba(15,23,42,0.6) 0%, rgba(15,23,42,0.4) 100%)',
-  backdropFilter: 'blur(20px)',
-  WebkitBackdropFilter: 'blur(20px)',
-  borderRadius: 24,
-  border: '1px solid rgba(139,92,246,0.15)',
-  boxShadow: '0 8px 32px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)',
+  background: 'rgba(30, 31, 34, 0.6)',
+  backdropFilter: 'blur(12px)',
+  WebkitBackdropFilter: 'blur(12px)',
+  borderRadius: 20,
+  border: '1px solid rgba(255, 255, 255, 0.06)',
+  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.4)',
 };
 
 const inputContainerStyle = {
-  background: 'rgba(15,23,42,0.5)',
-  borderRadius: 14,
-  border: '1px solid rgba(71,85,105,0.4)',
-  padding: '12px 16px',
-  marginBottom: 12,
+  background: 'rgba(15, 23, 42, 0.5)',
+  borderRadius: 12,
+  border: '1px solid rgba(71, 85, 105, 0.4)',
+  padding: '12px 14px',
+  marginBottom: 10,
   transition: 'all 0.2s ease',
 };
 
 const inputLabelStyle = {
-  fontSize: 11,
-  fontWeight: 600,
-  color: '#9ca3af',
+  fontSize: 10,
+  fontWeight: 700,
+  color: '#94a3b8',
   textTransform: 'uppercase' as const,
   letterSpacing: 0.8,
   marginBottom: 6,
@@ -88,7 +71,7 @@ const inputStyle = {
   border: 'none',
   outline: 'none',
   fontSize: 15,
-  color: '#f3f4f6',
+  color: '#e2e8f0',
   fontWeight: 500,
 };
 
@@ -107,6 +90,7 @@ export default function BandPublicProfileMobile() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [toastMessage, setToastMessage] = useState('');
   const [toastOpen, setToastOpen] = useState(false);
   const [myRole, setMyRole] = useState<MembershipRole>('member');
 
@@ -118,17 +102,21 @@ export default function BandPublicProfileMobile() {
   const [city, setCity] = useState('');
   const [stateVal, setStateVal] = useState('');
 
-  const [websiteUrl, setWebsiteUrl] = useState('');
+  // Music links
   const [spotifyUrl, setSpotifyUrl] = useState('');
   const [appleMusicUrl, setAppleMusicUrl] = useState('');
-  const [soundcloudUrl, setSoundcloudUrl] = useState('');
   const [bandcampUrl, setBandcampUrl] = useState('');
-  const [youtubeUrl, setYoutubeUrl] = useState('');
+  const [tidalUrl, setTidalUrl] = useState('');
+  const [soundcloudUrl, setSoundcloudUrl] = useState('');
+  const [youtubeMusicUrl, setYoutubeMusicUrl] = useState('');
 
+  // Social links
+  const [facebookUrl, setFacebookUrl] = useState('');
   const [instagramUrl, setInstagramUrl] = useState('');
   const [tiktokUrl, setTiktokUrl] = useState('');
-  const [facebookUrl, setFacebookUrl] = useState('');
   const [xUrl, setXUrl] = useState('');
+  const [youtubeUrl, setYoutubeUrl] = useState('');
+  const [websiteUrl, setWebsiteUrl] = useState('');
 
   const triggerHaptic = useCallback(async () => {
     if (Capacitor.getPlatform() === 'web') return;
@@ -210,37 +198,31 @@ export default function BandPublicProfileMobile() {
         setStateVal(b.state ?? '');
         setPublicSlug(b.public_slug ?? null);
 
-        const links = b.streaming_links;
+        // Parse links array
+        const links = Array.isArray(b.streaming_links) ? b.streaming_links : [];
 
-        // Handle array format (new)
-        if (Array.isArray(links)) {
-          const findLink = (type: string) =>
-            links.find((l: any) => l.type?.toLowerCase() === type)?.url || '';
+        const findLink = (type: string) => {
+          const link = links.find(
+            (l: any) => l.type?.toLowerCase() === type.toLowerCase()
+          );
+          return link?.url || '';
+        };
 
-          setSpotifyUrl(findLink('spotify'));
-          setAppleMusicUrl(findLink('apple') || findLink('applemusic'));
-          setYoutubeUrl(findLink('youtube'));
-          setSoundcloudUrl(findLink('soundcloud'));
-          setBandcampUrl(findLink('bandcamp'));
-          setWebsiteUrl(findLink('website') || findLink('site'));
-          setInstagramUrl(findLink('instagram'));
-          setTiktokUrl(findLink('tiktok'));
-          setFacebookUrl(findLink('facebook'));
-          setXUrl(findLink('twitter') || findLink('x'));
-        } else if (links && typeof links === 'object') {
-          // Handle old flat object format
-          const l = links as StreamingLinks;
-          setWebsiteUrl(l.website ?? '');
-          setSpotifyUrl(l.spotify ?? '');
-          setAppleMusicUrl(l.apple_music ?? '');
-          setSoundcloudUrl(l.soundcloud ?? '');
-          setBandcampUrl(l.bandcamp ?? '');
-          setYoutubeUrl(l.youtube ?? '');
-          setInstagramUrl(l.instagram ?? '');
-          setTiktokUrl(l.tiktok ?? '');
-          setFacebookUrl(l.facebook ?? '');
-          setXUrl(l.x ?? '');
-        }
+        // Set music links
+        setSpotifyUrl(findLink('spotify'));
+        setAppleMusicUrl(findLink('apple') || findLink('applemusic'));
+        setBandcampUrl(findLink('bandcamp'));
+        setTidalUrl(findLink('tidal'));
+        setSoundcloudUrl(findLink('soundcloud'));
+        setYoutubeMusicUrl(findLink('youtube') || findLink('youtubemusic'));
+
+        // Set social links
+        setFacebookUrl(findLink('facebook'));
+        setInstagramUrl(findLink('instagram'));
+        setTiktokUrl(findLink('tiktok'));
+        setXUrl(findLink('twitter') || findLink('x'));
+        setYoutubeUrl(findLink('youtube'));
+        setWebsiteUrl(findLink('website') || findLink('site'));
 
         const { data: bandGenres, error: bandGenresErr } = await supabase
           .from('band_genres')
@@ -268,33 +250,11 @@ export default function BandPublicProfileMobile() {
     };
   }, [bandId]);
 
-  const handleOpenPublicPage = async () => {
-    if (!publicSlug) return;
-    triggerHaptic();
-
-    const url = `https://amplee.app/b/${publicSlug}`;
-
-    try {
-      if (Capacitor.getPlatform() === 'web') {
-        window.open(url, '_blank', 'noopener,noreferrer');
-      } else {
-        await Browser.open({ url });
-      }
-    } catch (e) {
-      console.warn('[BandPublicProfileMobile] open public page error', e);
-    }
-  };
-
   const handleSave = async () => {
-    if (!bandId) return;
-    if (myRole !== 'admin') {
-      setError('Only band admins can edit the public profile.');
-      return;
-    }
-
-    triggerHaptic();
+    if (!bandId || myRole !== 'admin') return;
 
     try {
+      triggerHaptic();
       setSaving(true);
       setError(null);
 
@@ -308,18 +268,20 @@ export default function BandPublicProfileMobile() {
         slugToUse = `${baseSlug}-${Math.random().toString(36).substring(2, 6)}`;
       }
 
-      // Transform links into array format for the public page
-      const linksArray = [
+      // Build links array
+      const allLinks = [
         { url: spotifyUrl, type: 'spotify', label: 'Spotify' },
         { url: appleMusicUrl, type: 'apple', label: 'Apple Music' },
-        { url: youtubeUrl, type: 'youtube', label: 'YouTube' },
-        { url: soundcloudUrl, type: 'soundcloud', label: 'SoundCloud' },
         { url: bandcampUrl, type: 'bandcamp', label: 'Bandcamp' },
-        { url: websiteUrl, type: 'website', label: 'Website' },
+        { url: tidalUrl, type: 'tidal', label: 'Tidal' },
+        { url: soundcloudUrl, type: 'soundcloud', label: 'SoundCloud' },
+        { url: youtubeMusicUrl, type: 'youtube', label: 'YouTube Music' },
+        { url: facebookUrl, type: 'facebook', label: 'Facebook' },
         { url: instagramUrl, type: 'instagram', label: 'Instagram' },
         { url: tiktokUrl, type: 'tiktok', label: 'TikTok' },
-        { url: facebookUrl, type: 'facebook', label: 'Facebook' },
         { url: xUrl, type: 'twitter', label: 'X' },
+        { url: youtubeUrl, type: 'youtube', label: 'YouTube' },
+        { url: websiteUrl, type: 'website', label: 'Website' },
       ].filter((link) => link.url && link.url.trim().length > 0);
 
       const { error: updateErr } = await supabase
@@ -328,7 +290,7 @@ export default function BandPublicProfileMobile() {
           public_bio: publicBio || null,
           city: city || null,
           state: stateVal || null,
-          streaming_links: linksArray,
+          streaming_links: allLinks,
           public_slug: slugToUse,
           is_public: true,
           public_avatar_enabled: true,
@@ -354,6 +316,7 @@ export default function BandPublicProfileMobile() {
 
       if (genresErr) throw genresErr;
 
+      setToastMessage('Profile saved ✨');
       setToastOpen(true);
     } catch (e: any) {
       console.error('[BandPublicProfileMobile] save error', e);
@@ -363,71 +326,97 @@ export default function BandPublicProfileMobile() {
     }
   };
 
+  const handleOpenPublicPage = async () => {
+    if (!publicSlug) return;
+    triggerHaptic();
+
+    const url = `https://amplee.app/b/${publicSlug}`;
+
+    try {
+      if (Capacitor.getPlatform() === 'web') {
+        window.open(url, '_blank', 'noopener,noreferrer');
+      } else {
+        await Browser.open({ url });
+      }
+    } catch (e) {
+      console.warn('[BandPublicProfileMobile] open public page error', e);
+    }
+  };
+
   return (
     <IonPage>
       <IonHeader translucent>
         <IonToolbar
           style={{
-            '--background': 'rgba(8,8,12,0.98)',
-            borderBottom: '0.5px solid rgba(255,255,255,0.06)',
+            '--background': 'rgba(8, 8, 12, 0.98)',
+            borderBottom: '0.5px solid rgba(255, 255, 255, 0.06)',
           }}
         >
           <div
             style={{
               display: 'flex',
               alignItems: 'center',
+              justifyContent: 'space-between',
               padding: '16px',
               gap: 12,
             }}
           >
-            <button
-              type="button"
-              onClick={() => {
-                triggerHaptic();
-                navigate(`/bands/${bandId}`);
-              }}
+            <div
               style={{
-                background: 'transparent',
-                border: 'none',
-                padding: 6,
-                margin: 0,
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer',
-                flexShrink: 0,
+                gap: 12,
+                flex: 1,
               }}
             >
-              <IonIcon
-                icon={chevronBackOutline}
-                style={{ color: '#9ca3af', fontSize: 22 }}
-              />
-            </button>
-
-            <div style={{ flex: 1 }}>
-              <h1
+              <button
+                type="button"
+                onClick={() => {
+                  triggerHaptic();
+                  navigate(`/bands/${bandId}`);
+                }}
                 style={{
-                  fontSize: 28,
-                  fontWeight: 800,
-                  color: '#F9FAFB',
+                  background: 'transparent',
+                  border: 'none',
+                  padding: 6,
                   margin: 0,
-                  letterSpacing: '-0.8px',
-                  lineHeight: 1.15,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  flexShrink: 0,
                 }}
               >
-                Public Profile
-              </h1>
-              {bandName && (
-                <div
+                <IonIcon
+                  icon={chevronBackOutline}
+                  style={{ color: '#94a3b8', fontSize: 22 }}
+                />
+              </button>
+
+              <div style={{ flex: 1 }}>
+                <h1
                   style={{
-                    fontSize: 13,
-                    color: '#9ca3af',
-                    marginTop: 4,
+                    fontSize: 20,
+                    fontWeight: 700,
+                    color: '#e2e8f0',
+                    margin: 0,
+                    letterSpacing: -0.5,
                   }}
                 >
-                  {bandName}
-                </div>
-              )}
+                  Public Profile
+                </h1>
+                {bandName && (
+                  <div
+                    style={{
+                      fontSize: 12,
+                      color: '#64748b',
+                      marginTop: 2,
+                    }}
+                  >
+                    {bandName}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </IonToolbar>
@@ -461,7 +450,7 @@ export default function BandPublicProfileMobile() {
               width: '80%',
               height: '60%',
               background:
-                'radial-gradient(circle, rgba(139,92,246,0.15) 0%, transparent 70%)',
+                'radial-gradient(circle, rgba(139, 92, 246, 0.12) 0%, transparent 70%)',
               filter: 'blur(60px)',
             }}
           />
@@ -473,7 +462,7 @@ export default function BandPublicProfileMobile() {
               width: '60%',
               height: '50%',
               background:
-                'radial-gradient(circle, rgba(236,72,153,0.1) 0%, transparent 70%)',
+                'radial-gradient(circle, rgba(236, 72, 153, 0.08) 0%, transparent 70%)',
               filter: 'blur(80px)',
             }}
           />
@@ -496,7 +485,7 @@ export default function BandPublicProfileMobile() {
                 height: 32,
               }}
             />
-            <p style={{ color: '#9ca3af', fontSize: 14 }}>Loading profile...</p>
+            <p style={{ color: '#94a3b8', fontSize: 14 }}>Loading profile...</p>
           </div>
         ) : error ? (
           <div style={{ padding: 24 }}>
@@ -504,7 +493,7 @@ export default function BandPublicProfileMobile() {
               style={{
                 ...glassCardStyle,
                 padding: 20,
-                borderColor: 'rgba(239,68,68,0.3)',
+                borderColor: 'rgba(239, 68, 68, 0.3)',
               }}
             >
               <IonText color="danger">
@@ -522,7 +511,7 @@ export default function BandPublicProfileMobile() {
               margin: '0 auto',
               display: 'flex',
               flexDirection: 'column',
-              gap: 20,
+              gap: 16,
             }}
           >
             {/* Public page URL card */}
@@ -532,50 +521,49 @@ export default function BandPublicProfileMobile() {
                 onClick={handleOpenPublicPage}
                 style={{
                   background:
-                    'linear-gradient(135deg, rgba(139,92,246,0.2) 0%, rgba(236,72,153,0.15) 100%)',
+                    'linear-gradient(135deg, rgba(139, 92, 246, 0.15) 0%, rgba(236, 72, 153, 0.1) 100%)',
                   backdropFilter: 'blur(20px)',
                   WebkitBackdropFilter: 'blur(20px)',
-                  borderRadius: 20,
-                  border: '1px solid rgba(139,92,246,0.3)',
-                  padding: '18px 20px',
+                  borderRadius: 16,
+                  border: '1px solid rgba(139, 92, 246, 0.25)',
+                  padding: '16px 18px',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: 14,
+                  gap: 12,
                   cursor: 'pointer',
                   textAlign: 'left',
-                  boxShadow:
-                    '0 8px 32px rgba(139,92,246,0.15), inset 0 1px 0 rgba(255,255,255,0.1)',
+                  boxShadow: '0 4px 16px rgba(139, 92, 246, 0.12)',
                   transition: 'all 0.2s ease',
                   width: '100%',
                 }}
               >
                 <div
                   style={{
-                    width: 48,
-                    height: 48,
-                    borderRadius: 14,
+                    width: 44,
+                    height: 44,
+                    borderRadius: 12,
                     background:
                       'linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    boxShadow: '0 4px 16px rgba(139,92,246,0.4)',
+                    boxShadow: '0 4px 12px rgba(139, 92, 246, 0.3)',
                     flexShrink: 0,
                   }}
                 >
                   <IonIcon
                     icon={globeOutline}
-                    style={{ fontSize: 24, color: '#fff' }}
+                    style={{ fontSize: 22, color: '#fff' }}
                   />
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <p
                     style={{
-                      fontSize: 11,
+                      fontSize: 10,
                       color: '#c4b5fd',
                       margin: 0,
                       textTransform: 'uppercase',
-                      letterSpacing: 1,
+                      letterSpacing: 0.8,
                       fontWeight: 700,
                     }}
                   >
@@ -583,8 +571,8 @@ export default function BandPublicProfileMobile() {
                   </p>
                   <p
                     style={{
-                      fontSize: 15,
-                      color: '#f3f4f6',
+                      fontSize: 14,
+                      color: '#e2e8f0',
                       margin: '4px 0 0',
                       fontWeight: 600,
                       overflow: 'hidden',
@@ -597,29 +585,28 @@ export default function BandPublicProfileMobile() {
                 </div>
                 <IonIcon
                   icon={checkmarkCircleOutline}
-                  style={{ fontSize: 22, color: '#34d399', flexShrink: 0 }}
+                  style={{ fontSize: 20, color: '#34d399', flexShrink: 0 }}
                 />
               </button>
             ) : (
               <div
                 style={{
                   ...glassCardStyle,
-                  padding: '18px 20px',
+                  padding: '16px 18px',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: 14,
-                  borderColor: 'rgba(251,191,36,0.2)',
-                  background:
-                    'linear-gradient(135deg, rgba(251,191,36,0.1) 0%, rgba(251,191,36,0.05) 100%)',
+                  gap: 12,
+                  borderColor: 'rgba(251, 191, 36, 0.2)',
+                  background: 'rgba(251, 191, 36, 0.05)',
                 }}
               >
                 <div
                   style={{
-                    width: 48,
-                    height: 48,
-                    borderRadius: 14,
-                    background: 'rgba(251,191,36,0.15)',
-                    border: '1px solid rgba(251,191,36,0.3)',
+                    width: 44,
+                    height: 44,
+                    borderRadius: 12,
+                    background: 'rgba(251, 191, 36, 0.15)',
+                    border: '1px solid rgba(251, 191, 36, 0.25)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -628,14 +615,14 @@ export default function BandPublicProfileMobile() {
                 >
                   <IonIcon
                     icon={globeOutline}
-                    style={{ fontSize: 24, color: '#fbbf24' }}
+                    style={{ fontSize: 22, color: '#fbbf24' }}
                   />
                 </div>
                 <div style={{ flex: 1 }}>
                   <p
                     style={{
-                      fontSize: 14,
-                      color: '#fbbf24',
+                      fontSize: 13,
+                      color: '#fde68a',
                       margin: 0,
                       fontWeight: 600,
                     }}
@@ -644,25 +631,41 @@ export default function BandPublicProfileMobile() {
                   </p>
                   <p
                     style={{
-                      fontSize: 12,
-                      color: '#9ca3af',
+                      fontSize: 11,
+                      color: '#94a3b8',
                       margin: '4px 0 0',
                     }}
                   >
-                    Save your profile to create one
+                    Fill in your info and save
                   </p>
                 </div>
               </div>
             )}
 
-            {/* Bio & Genres Section */}
-            <div style={{ ...glassCardStyle, padding: 20 }}>
+            {/* Non-admin notice */}
+            {myRole !== 'admin' && (
+              <div
+                style={{
+                  ...glassCardStyle,
+                  padding: 14,
+                  textAlign: 'center',
+                  borderColor: 'rgba(251, 191, 36, 0.2)',
+                }}
+              >
+                <p style={{ color: '#94a3b8', fontSize: 12, margin: 0 }}>
+                  Only band admins can edit the public profile
+                </p>
+              </div>
+            )}
+
+            {/* Bio & Identity Section */}
+            <div style={{ ...glassCardStyle, padding: 18 }}>
               <div
                 style={{
                   display: 'flex',
                   alignItems: 'center',
                   gap: 10,
-                  marginBottom: 18,
+                  marginBottom: 16,
                 }}
               >
                 <div
@@ -670,7 +673,7 @@ export default function BandPublicProfileMobile() {
                     width: 32,
                     height: 32,
                     borderRadius: 10,
-                    background: 'rgba(139,92,246,0.15)',
+                    background: 'rgba(139, 92, 246, 0.15)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -683,11 +686,11 @@ export default function BandPublicProfileMobile() {
                 </div>
                 <h2
                   style={{
-                    fontSize: 16,
+                    fontSize: 15,
                     fontWeight: 700,
-                    color: '#f3f4f6',
+                    color: '#e2e8f0',
                     margin: 0,
-                    letterSpacing: -0.2,
+                    letterSpacing: -0.3,
                   }}
                 >
                   Bio & Identity
@@ -702,6 +705,7 @@ export default function BandPublicProfileMobile() {
                   placeholder="Tell people who you are, what you sound like..."
                   style={textareaStyle}
                   rows={4}
+                  disabled={myRole !== 'admin'}
                 />
               </div>
 
@@ -713,10 +717,11 @@ export default function BandPublicProfileMobile() {
                   onChange={(e) => setGenres(e.target.value)}
                   placeholder="Indie rock, Americana, Folk"
                   style={inputStyle}
+                  disabled={myRole !== 'admin'}
                 />
               </div>
 
-              <div style={{ display: 'flex', gap: 12 }}>
+              <div style={{ display: 'flex', gap: 10 }}>
                 <div style={{ ...inputContainerStyle, flex: 1 }}>
                   <label style={inputLabelStyle}>City</label>
                   <input
@@ -725,9 +730,10 @@ export default function BandPublicProfileMobile() {
                     onChange={(e) => setCity(e.target.value)}
                     placeholder="Kansas City"
                     style={inputStyle}
+                    disabled={myRole !== 'admin'}
                   />
                 </div>
-                <div style={{ ...inputContainerStyle, width: 100 }}>
+                <div style={{ ...inputContainerStyle, width: 90 }}>
                   <label style={inputLabelStyle}>State</label>
                   <input
                     type="text"
@@ -735,19 +741,20 @@ export default function BandPublicProfileMobile() {
                     onChange={(e) => setStateVal(e.target.value)}
                     placeholder="MO"
                     style={inputStyle}
+                    disabled={myRole !== 'admin'}
                   />
                 </div>
               </div>
             </div>
 
             {/* Music Links Section */}
-            <div style={{ ...glassCardStyle, padding: 20 }}>
+            <div style={{ ...glassCardStyle, padding: 18 }}>
               <div
                 style={{
                   display: 'flex',
                   alignItems: 'center',
                   gap: 10,
-                  marginBottom: 18,
+                  marginBottom: 16,
                 }}
               >
                 <div
@@ -755,7 +762,7 @@ export default function BandPublicProfileMobile() {
                     width: 32,
                     height: 32,
                     borderRadius: 10,
-                    background: 'rgba(52,211,153,0.15)',
+                    background: 'rgba(52, 211, 153, 0.15)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -768,11 +775,11 @@ export default function BandPublicProfileMobile() {
                 </div>
                 <h2
                   style={{
-                    fontSize: 16,
+                    fontSize: 15,
                     fontWeight: 700,
-                    color: '#f3f4f6',
+                    color: '#e2e8f0',
                     margin: 0,
-                    letterSpacing: -0.2,
+                    letterSpacing: -0.3,
                   }}
                 >
                   Music Links
@@ -787,6 +794,7 @@ export default function BandPublicProfileMobile() {
                   onChange={(e) => setSpotifyUrl(e.target.value)}
                   placeholder="https://open.spotify.com/artist/..."
                   style={inputStyle}
+                  disabled={myRole !== 'admin'}
                 />
               </div>
 
@@ -798,17 +806,31 @@ export default function BandPublicProfileMobile() {
                   onChange={(e) => setAppleMusicUrl(e.target.value)}
                   placeholder="https://music.apple.com/..."
                   style={inputStyle}
+                  disabled={myRole !== 'admin'}
                 />
               </div>
 
               <div style={inputContainerStyle}>
-                <label style={inputLabelStyle}>YouTube</label>
+                <label style={inputLabelStyle}>Bandcamp</label>
                 <input
                   type="url"
-                  value={youtubeUrl}
-                  onChange={(e) => setYoutubeUrl(e.target.value)}
-                  placeholder="https://youtube.com/..."
+                  value={bandcampUrl}
+                  onChange={(e) => setBandcampUrl(e.target.value)}
+                  placeholder="https://yourband.bandcamp.com"
                   style={inputStyle}
+                  disabled={myRole !== 'admin'}
+                />
+              </div>
+
+              <div style={inputContainerStyle}>
+                <label style={inputLabelStyle}>Tidal</label>
+                <input
+                  type="url"
+                  value={tidalUrl}
+                  onChange={(e) => setTidalUrl(e.target.value)}
+                  placeholder="https://tidal.com/..."
+                  style={inputStyle}
+                  disabled={myRole !== 'admin'}
                 />
               </div>
 
@@ -820,29 +842,31 @@ export default function BandPublicProfileMobile() {
                   onChange={(e) => setSoundcloudUrl(e.target.value)}
                   placeholder="https://soundcloud.com/..."
                   style={inputStyle}
+                  disabled={myRole !== 'admin'}
                 />
               </div>
 
-              <div style={{ ...inputContainerStyle, marginBottom: 0 }}>
-                <label style={inputLabelStyle}>Bandcamp</label>
+              <div style={inputContainerStyle}>
+                <label style={inputLabelStyle}>YouTube Music</label>
                 <input
                   type="url"
-                  value={bandcampUrl}
-                  onChange={(e) => setBandcampUrl(e.target.value)}
-                  placeholder="https://yourband.bandcamp.com/"
+                  value={youtubeMusicUrl}
+                  onChange={(e) => setYoutubeMusicUrl(e.target.value)}
+                  placeholder="https://music.youtube.com/..."
                   style={inputStyle}
+                  disabled={myRole !== 'admin'}
                 />
               </div>
             </div>
 
-            {/* Socials Section */}
-            <div style={{ ...glassCardStyle, padding: 20 }}>
+            {/* Social Links Section */}
+            <div style={{ ...glassCardStyle, padding: 18 }}>
               <div
                 style={{
                   display: 'flex',
                   alignItems: 'center',
                   gap: 10,
-                  marginBottom: 18,
+                  marginBottom: 16,
                 }}
               >
                 <div
@@ -850,7 +874,7 @@ export default function BandPublicProfileMobile() {
                     width: 32,
                     height: 32,
                     borderRadius: 10,
-                    background: 'rgba(244,114,182,0.15)',
+                    background: 'rgba(244, 114, 182, 0.15)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -863,15 +887,75 @@ export default function BandPublicProfileMobile() {
                 </div>
                 <h2
                   style={{
-                    fontSize: 16,
+                    fontSize: 15,
                     fontWeight: 700,
-                    color: '#f3f4f6',
+                    color: '#e2e8f0',
                     margin: 0,
-                    letterSpacing: -0.2,
+                    letterSpacing: -0.3,
                   }}
                 >
                   Socials & Website
                 </h2>
+              </div>
+
+              <div style={inputContainerStyle}>
+                <label style={inputLabelStyle}>Instagram</label>
+                <input
+                  type="url"
+                  value={instagramUrl}
+                  onChange={(e) => setInstagramUrl(e.target.value)}
+                  placeholder="https://instagram.com/..."
+                  style={inputStyle}
+                  disabled={myRole !== 'admin'}
+                />
+              </div>
+
+              <div style={inputContainerStyle}>
+                <label style={inputLabelStyle}>TikTok</label>
+                <input
+                  type="url"
+                  value={tiktokUrl}
+                  onChange={(e) => setTiktokUrl(e.target.value)}
+                  placeholder="https://tiktok.com/@..."
+                  style={inputStyle}
+                  disabled={myRole !== 'admin'}
+                />
+              </div>
+
+              <div style={inputContainerStyle}>
+                <label style={inputLabelStyle}>Facebook</label>
+                <input
+                  type="url"
+                  value={facebookUrl}
+                  onChange={(e) => setFacebookUrl(e.target.value)}
+                  placeholder="https://facebook.com/..."
+                  style={inputStyle}
+                  disabled={myRole !== 'admin'}
+                />
+              </div>
+
+              <div style={inputContainerStyle}>
+                <label style={inputLabelStyle}>X (Twitter)</label>
+                <input
+                  type="url"
+                  value={xUrl}
+                  onChange={(e) => setXUrl(e.target.value)}
+                  placeholder="https://x.com/..."
+                  style={inputStyle}
+                  disabled={myRole !== 'admin'}
+                />
+              </div>
+
+              <div style={inputContainerStyle}>
+                <label style={inputLabelStyle}>YouTube</label>
+                <input
+                  type="url"
+                  value={youtubeUrl}
+                  onChange={(e) => setYoutubeUrl(e.target.value)}
+                  placeholder="https://youtube.com/@..."
+                  style={inputStyle}
+                  disabled={myRole !== 'admin'}
+                />
               </div>
 
               <div style={inputContainerStyle}>
@@ -882,141 +966,48 @@ export default function BandPublicProfileMobile() {
                   onChange={(e) => setWebsiteUrl(e.target.value)}
                   placeholder="https://yourband.com"
                   style={inputStyle}
-                />
-              </div>
-
-              <div style={inputContainerStyle}>
-                <label style={inputLabelStyle}>
-                  <IonIcon
-                    icon={logoInstagram}
-                    style={{
-                      fontSize: 14,
-                      marginRight: 6,
-                      verticalAlign: 'middle',
-                    }}
-                  />
-                  Instagram
-                </label>
-                <input
-                  type="url"
-                  value={instagramUrl}
-                  onChange={(e) => setInstagramUrl(e.target.value)}
-                  placeholder="https://instagram.com/yourband"
-                  style={inputStyle}
-                />
-              </div>
-
-              <div style={inputContainerStyle}>
-                <label style={inputLabelStyle}>
-                  <IonIcon
-                    icon={logoTiktok}
-                    style={{
-                      fontSize: 14,
-                      marginRight: 6,
-                      verticalAlign: 'middle',
-                    }}
-                  />
-                  TikTok
-                </label>
-                <input
-                  type="url"
-                  value={tiktokUrl}
-                  onChange={(e) => setTiktokUrl(e.target.value)}
-                  placeholder="https://www.tiktok.com/@yourband"
-                  style={inputStyle}
-                />
-              </div>
-
-              <div style={inputContainerStyle}>
-                <label style={inputLabelStyle}>
-                  <IonIcon
-                    icon={logoFacebook}
-                    style={{
-                      fontSize: 14,
-                      marginRight: 6,
-                      verticalAlign: 'middle',
-                    }}
-                  />
-                  Facebook
-                </label>
-                <input
-                  type="url"
-                  value={facebookUrl}
-                  onChange={(e) => setFacebookUrl(e.target.value)}
-                  placeholder="https://facebook.com/yourband"
-                  style={inputStyle}
-                />
-              </div>
-
-              <div style={{ ...inputContainerStyle, marginBottom: 0 }}>
-                <label style={inputLabelStyle}>X / Twitter</label>
-                <input
-                  type="url"
-                  value={xUrl}
-                  onChange={(e) => setXUrl(e.target.value)}
-                  placeholder="https://x.com/yourband"
-                  style={inputStyle}
+                  disabled={myRole !== 'admin'}
                 />
               </div>
             </div>
 
-            {/* Save Button */}
-            {myRole === 'admin' ? (
+            {/* Save button */}
+            {myRole === 'admin' && (
               <button
                 type="button"
                 onClick={handleSave}
                 disabled={saving}
                 style={{
                   width: '100%',
-                  padding: '18px 24px',
-                  borderRadius: 16,
+                  padding: '16px 20px',
+                  borderRadius: 14,
                   border: 'none',
                   background: saving
-                    ? 'rgba(139,92,246,0.3)'
-                    : 'linear-gradient(135deg, #8b5cf6 0%, #a855f7 50%, #ec4899 100%)',
+                    ? 'rgba(139, 92, 246, 0.5)'
+                    : 'linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%)',
                   color: '#fff',
-                  fontSize: 16,
+                  fontSize: 15,
                   fontWeight: 700,
                   cursor: saving ? 'not-allowed' : 'pointer',
-                  boxShadow: saving
-                    ? 'none'
-                    : '0 8px 32px rgba(139,92,246,0.4), inset 0 1px 0 rgba(255,255,255,0.2)',
-                  transition: 'all 0.2s ease',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  gap: 10,
+                  gap: 8,
+                  boxShadow: '0 4px 16px rgba(139, 92, 246, 0.3)',
+                  transition: 'all 0.2s ease',
                 }}
               >
                 {saving ? (
                   <>
                     <IonSpinner
-                      style={{
-                        '--color': '#fff',
-                        width: 20,
-                        height: 20,
-                      }}
+                      style={{ '--color': '#fff', width: 18, height: 18 }}
                     />
                     Saving...
                   </>
-                ) : publicSlug ? (
-                  'Save Public Profile'
                 ) : (
-                  'Create Public Page'
+                  'Save Profile'
                 )}
               </button>
-            ) : (
-              <div
-                style={{
-                  ...glassCardStyle,
-                  padding: 16,
-                  textAlign: 'center',
-                }}
-              >
-                <p style={{ color: '#9ca3af', fontSize: 13, margin: 0 }}>
-                  Only band admins can edit the public profile.
-                </p>
-              </div>
             )}
 
             {/* Visit public page button */}
@@ -1026,12 +1017,12 @@ export default function BandPublicProfileMobile() {
                 onClick={handleOpenPublicPage}
                 style={{
                   width: '100%',
-                  padding: '16px 24px',
-                  borderRadius: 16,
-                  border: '1px solid rgba(139,92,246,0.3)',
-                  background: 'rgba(139,92,246,0.1)',
+                  padding: '14px 20px',
+                  borderRadius: 14,
+                  border: '1px solid rgba(139, 92, 246, 0.25)',
+                  background: 'rgba(139, 92, 246, 0.1)',
                   color: '#a78bfa',
-                  fontSize: 15,
+                  fontSize: 14,
                   fontWeight: 600,
                   cursor: 'pointer',
                   display: 'flex',
@@ -1041,7 +1032,7 @@ export default function BandPublicProfileMobile() {
                   transition: 'all 0.2s ease',
                 }}
               >
-                <IonIcon icon={globeOutline} style={{ fontSize: 20 }} />
+                <IonIcon icon={globeOutline} style={{ fontSize: 18 }} />
                 Visit Public Page
               </button>
             )}
@@ -1051,14 +1042,14 @@ export default function BandPublicProfileMobile() {
         <IonToast
           isOpen={toastOpen}
           onDidDismiss={() => setToastOpen(false)}
-          message="Public profile updated ✨"
-          duration={1800}
+          message={toastMessage}
+          duration={2000}
           position="bottom"
           style={{
-            '--background': 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
-            '--color': '#f3f4f6',
-            '--border-radius': '16px',
-            '--box-shadow': '0 8px 32px rgba(0,0,0,0.4)',
+            '--background': 'rgba(30, 31, 34, 0.95)',
+            '--color': '#e2e8f0',
+            '--border-radius': '14px',
+            '--box-shadow': '0 8px 32px rgba(0, 0, 0, 0.4)',
           }}
         />
       </IonContent>

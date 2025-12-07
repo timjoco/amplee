@@ -127,7 +127,11 @@ export default function EventChatPageMobile() {
             Loading chat…
           </div>
         ) : (
-          <ChatTabMobile eventId={eventId} isAdmin={isAdmin} />
+          <ChatTabMobile
+            eventId={eventId}
+            isAdmin={isAdmin}
+            bandId={event?.band_id}
+          />
         )}
       </IonContent>
     </IonPage>

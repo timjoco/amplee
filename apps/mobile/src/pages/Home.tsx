@@ -115,7 +115,41 @@ export default function Home() {
             backdropFilter: 'blur(20px) saturate(180%)',
             WebkitBackdropFilter: 'blur(20px) saturate(180%)',
           }}
-        ></IonToolbar>
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '12px 16px',
+              gap: 8,
+            }}
+          >
+            {/* <img
+              src={logo}
+              alt="Amplee"
+              style={{
+                width: 28,
+                height: 28,
+                objectFit: 'contain',
+              }}
+            /> */}
+            <span
+              style={{
+                fontSize: 20,
+                fontWeight: 800,
+                letterSpacing: '-0.02em',
+                background:
+                  'linear-gradient(135deg, #c084fc 0%, #9333ea 50%, #7c3aed 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text',
+              }}
+            >
+              amplee
+            </span>
+          </div>
+        </IonToolbar>
       </IonHeader>
 
       <IonContent
