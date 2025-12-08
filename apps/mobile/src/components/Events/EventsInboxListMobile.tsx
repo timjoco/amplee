@@ -208,21 +208,27 @@ export default function EventInboxListMobile({
       }
     }
 
-    const missingIds = sorted
-      .map((e) => e.id)
-      .filter((id) => !lastMsgsRef.current[id]);
+    const targetIds = sorted.map((e) => e.id);
 
-    if (missingIds.length) {
+    if (targetIds.length) {
       const { data: msgs } = await supabase
         .from('event_messages')
         .select('event_id, body, created_at')
-        .in('event_id', missingIds)
+        .in('event_id', targetIds)
         .order('created_at', { ascending: false })
         .limit(1000);
 
       const map: Record<string, LastMsg> = {};
+
       for (const m of msgs ?? []) {
-        if (!map[m.event_id]) map[m.event_id] = m as LastMsg;
+        const existing = map[m.event_id];
+        // keep the newest per event_id
+        if (
+          !existing ||
+          new Date(m.created_at) > new Date(existing.created_at)
+        ) {
+          map[m.event_id] = m as LastMsg;
+        }
       }
 
       setLastMsgs((prev) => ({ ...prev, ...map }));
@@ -499,7 +505,7 @@ export default function EventInboxListMobile({
 
   return (
     <div style={{ paddingBlock: 4 }}>
-      {rows.map((e) => {
+      {rows.map((e, index) => {
         const when = getRelativeTime(e.starts_at);
         const lm = lastMsgs[e.id];
         const fallbackPreview =
@@ -507,6 +513,7 @@ export default function EventInboxListMobile({
         const band = e.bands;
         const isPressed = pressedId === e.id;
         const isHovered = hoveredId === e.id;
+        const isLast = index === rows.length - 1;
 
         const avatarSrc = band?.id ? getAvatarSigned(band.id) : undefined;
         if (!avatarSrc && band?.id && band.avatar_url) {
@@ -517,43 +524,66 @@ export default function EventInboxListMobile({
         }
 
         return (
+          // Update the row's onClick to handle the press state visually
           <div
             key={e.id}
             onClick={() => openEvent(e.band_id, e.id)}
             onMouseEnter={() => setHoveredId(e.id)}
-            onMouseLeave={() => setHoveredId(null)}
-            onTouchStart={(ev) => handlePressStart(e.id, ev)}
+            onMouseLeave={() => {
+              setHoveredId(null);
+              setPressedId(null); // Clear press on mouse leave
+            }}
+            onTouchStart={(ev) => {
+              setPressedId(e.id); // Immediate highlight on touch
+              handlePressStart(e.id, ev);
+            }}
             onTouchMove={handlePressMove}
-            onTouchEnd={handlePressEnd}
-            onTouchCancel={handlePressEnd}
-            onMouseDown={(ev) => handlePressStart(e.id, ev)}
-            onMouseUp={handlePressEnd}
+            onTouchEnd={() => {
+              handlePressEnd();
+              // Keep highlight briefly during navigation
+              setTimeout(() => setPressedId(null), 150);
+            }}
+            onTouchCancel={() => {
+              handlePressEnd();
+              setPressedId(null);
+            }}
+            onMouseDown={(ev) => {
+              setPressedId(e.id); // Immediate highlight on click
+              handlePressStart(e.id, ev);
+            }}
+            onMouseUp={() => {
+              handlePressEnd();
+              setTimeout(() => setPressedId(null), 150);
+            }}
             style={{
               display: 'flex',
               alignItems: 'center',
               gap: 12,
-              padding: '10px 12px',
-              marginInline: 4,
-              borderRadius: 8,
+              padding: '16px 12px',
+              marginInline: 0,
+              borderRadius: 12, // Slightly more rounded like iMessage
               cursor: 'pointer',
+              // iMessage-style highlight: gray overlay on press
               background: isPressed
-                ? 'rgba(52, 211, 153, 0.1)'
+                ? 'rgba(142, 142, 147, 0.18)' // iOS system gray highlight
                 : isHovered
-                ? 'rgba(255, 255, 255, 0.03)'
+                ? 'rgba(255, 255, 255, 0.04)'
                 : 'transparent',
-              transform: isPressed ? 'scale(0.98)' : 'scale(1)',
-              transition: 'all 100ms ease-out',
+              // No scale transform - iMessage doesn't scale
+              transition: 'background 80ms ease-out',
             }}
           >
-            {/* Avatar */}
+            {/* Avatar – bigger and closer to edge */}
             {showAvatars && (
               <IonAvatar
                 style={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: 12,
+                  width: 48,
+                  height: 48,
+                  borderRadius: 14,
                   overflow: 'hidden',
                   flexShrink: 0,
+                  // small nudge left visually (optional)
+                  marginLeft: 4,
                 }}
               >
                 {avatarSrc ? (
@@ -572,13 +602,22 @@ export default function EventInboxListMobile({
               </IonAvatar>
             )}
 
-            <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
+            {/* Text + underline area */}
+            <div
+              style={{
+                flex: 1,
+                minWidth: 0,
+                overflow: 'hidden',
+                paddingBottom: 8,
+                // underline from text to end of row (not under avatar)
+              }}
+            >
               <div
                 style={{
                   display: 'flex',
                   alignItems: 'center',
                   gap: 8,
-                  marginBottom: 2,
+                  marginBottom: 4,
                 }}
               >
                 <span
@@ -630,36 +669,31 @@ export default function EventInboxListMobile({
                 )}
               </div>
 
-              {/* Preview text / last message */}
+              {/* Preview text / last message – TWO lines now */}
               <div
                 style={{
                   margin: 0,
                   fontSize: 13,
-                  color: 'rgba(148, 163, 184, 0.7)',
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
                   lineHeight: 1.4,
-                  opacity: 0.7, // <-- slightly muted to indicate preview
+                  // Changed from single line truncation to two lines
+                  display: '-webkit-box',
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: 'vertical',
+                  overflow: 'hidden',
+                  // Removed: whiteSpace: 'nowrap', textOverflow: 'ellipsis'
+                  color: 'rgba(148, 163, 184, 0.8)',
                 }}
               >
                 {lm?.body ? (
-                  <div
-                    style={{
-                      display: 'inline-block',
-                      maxWidth: '100%',
-                      opacity: 0.9, // keep content readable but still a bit softer than full chat
-                    }}
-                  >
-                    <MessageBodyWithLinks
-                      body={lm.body}
-                      preview={undefined}
-                      status={undefined}
-                      onSongNavigate={(songId) =>
-                        nav(`/bands/${e.band_id}/songs/${songId}`)
-                      }
-                    />
-                  </div>
+                  <MessageBodyWithLinks
+                    body={lm.body}
+                    preview={undefined}
+                    status={undefined}
+                    variant="preview"
+                    onSongNavigate={(songId) =>
+                      nav(`/bands/${e.band_id}/songs/${songId}`)
+                    }
+                  />
                 ) : (
                   fallbackPreview
                 )}

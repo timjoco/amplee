@@ -139,6 +139,8 @@ export default function EventDateTimePicker({
             border: '1px solid rgba(139, 92, 246, 0.3)',
             padding: 24,
             boxShadow: '0 20px 50px rgba(0, 0, 0, 0.8)',
+            overflow: 'hidden',
+            boxSizing: 'border-box',
           }}
         >
           {/* Header */}
@@ -268,6 +270,8 @@ export default function EventDateTimePicker({
               onChange={(e) => setDateValue(e.target.value)}
               style={{
                 width: '100%',
+                maxWidth: '100%', // Prevent overflow
+                boxSizing: 'border-box', // Include padding/border in width
                 padding: 14,
                 borderRadius: 12,
                 border: '1px solid rgba(139, 92, 246, 0.3)',
@@ -276,6 +280,8 @@ export default function EventDateTimePicker({
                 fontSize: 15,
                 fontWeight: 600,
                 fontFamily: 'inherit',
+                WebkitAppearance: 'none', // Reset iOS styling
+                appearance: 'none',
               }}
             />
           </div>
@@ -304,6 +310,8 @@ export default function EventDateTimePicker({
               onChange={(e) => setTimeValue(e.target.value)}
               style={{
                 width: '100%',
+                maxWidth: '100%', // Prevent overflow
+                boxSizing: 'border-box', // Include padding/border in width
                 padding: 14,
                 borderRadius: 12,
                 border: '1px solid rgba(139, 92, 246, 0.3)',
@@ -312,6 +320,8 @@ export default function EventDateTimePicker({
                 fontSize: 15,
                 fontWeight: 600,
                 fontFamily: 'inherit',
+                WebkitAppearance: 'none', // Reset iOS styling
+                appearance: 'none',
               }}
             />
           </div>

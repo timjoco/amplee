@@ -13,14 +13,19 @@ interface MessageBodyWithLinksProps {
   preview?: LinkPreview;
   status?: 'sending' | 'sent' | 'failed';
   onSongNavigate?: (songId: string) => void;
+  variant?: 'full' | 'preview'; // 👈 NEW
 }
 
 export const MessageBodyWithLinks = memo<MessageBodyWithLinksProps>(
-  ({ body, preview, status, onSongNavigate }) => {
+  ({ body, preview, status, onSongNavigate, variant = 'full' }) => {
     const urlRegex = /(https?:\/\/[^\s]+)/g;
 
     const renderContent = () => {
-      const songParsed = parseSongTags(body, onSongNavigate);
+      // 🔑 In preview mode, don't wire up song navigation
+      const songParsed = parseSongTags(
+        body,
+        variant === 'preview' ? undefined : onSongNavigate
+      );
 
       return songParsed.map((segment, segmentIndex) => {
         // If it's a JSX element (SongTag), render it directly
@@ -55,21 +60,24 @@ export const MessageBodyWithLinks = memo<MessageBodyWithLinksProps>(
       });
     };
 
+    const isPreview = variant === 'preview';
+
     return (
       <div>
         <div
           style={{
-            fontSize: 16,
-            whiteSpace: 'pre-wrap',
+            fontSize: isPreview ? 'inherit' : 16,
+            whiteSpace: isPreview ? 'normal' : 'pre-wrap',
             wordBreak: 'break-word',
-            color: 'rgba(237,235,255,0.92)',
+            color: isPreview ? 'inherit' : 'rgba(237,235,255,0.92)',
             opacity: status === 'failed' ? 0.5 : 1,
           }}
         >
           {renderContent()}
         </div>
 
-        {preview && (
+        {/* Keep link preview only for full chat, not inbox preview */}
+        {preview && !isPreview && (
           <div
             onClick={(e) => {
               e.stopPropagation();

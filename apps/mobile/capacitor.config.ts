@@ -4,12 +4,14 @@ const config: CapacitorConfig = {
   appId: 'app.amplee',
   appName: 'Amplee',
   webDir: 'dist',
+  ios: {
+    scrollEnabled: false,
+  },
   // server: { url: 'http://192.168.1.119:5173/', cleartext: true },
   plugins: {
     Keyboard: {
-      // Let the OS resize the webview natively when keyboard shows
-      resize: 'native',
-      resizeOnFullScreen: true,
+      resize: 'none',
+      scrollPadding: false,
     },
   },
 };

@@ -74,16 +74,51 @@ export function parseSongTags(
       parts.push(text.slice(lastIndex, match.index));
     }
 
-    // Add song tag component
+    // Add song tag component or static chip based on whether navigation is enabled
     const [, songId, title] = match;
-    parts.push(
-      <SongTag
-        key={`song-${match.index}`}
-        songId={songId}
-        title={title}
-        onNavigate={onNavigate}
-      />
-    );
+
+    if (onNavigate) {
+      // Interactive version for chat
+      parts.push(
+        <SongTag
+          key={`song-${match.index}`}
+          songId={songId}
+          title={title}
+          onNavigate={onNavigate}
+        />
+      );
+    } else {
+      // Non-interactive version for previews - no stopPropagation, no cursor pointer
+      parts.push(
+        <span
+          key={`song-${match.index}`}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 4,
+            background: 'rgba(236, 72, 153, 0.12)',
+            border: '1px solid rgba(236, 72, 153, 0.35)',
+            borderRadius: 6,
+            padding: '2px 8px 2px 6px',
+            margin: '0 2px',
+            color: '#EC4899',
+            fontSize: 13,
+            fontWeight: 600,
+            verticalAlign: 'middle',
+            // No cursor pointer, no hover effects
+          }}
+        >
+          <IonIcon
+            icon={musicalNotes}
+            style={{
+              fontSize: 12,
+              opacity: 0.9,
+            }}
+          />
+          {title}
+        </span>
+      );
+    }
 
     lastIndex = match.index + match[0].length;
   }

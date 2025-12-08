@@ -1,11 +1,18 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Capacitor } from '@capacitor/core';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { Keyboard } from '@capacitor/keyboard';
 import { IonIcon, IonItem, IonList, IonSpinner, IonText } from '@ionic/react';
 import { send as sendIcon } from 'ionicons/icons';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent,
+  type TouchEvent,
+} from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { SongPickerModal } from '../SongPickerModal';
@@ -50,6 +57,10 @@ type LinkPreview = {
   url: string;
 };
 
+// iOS keyboard animation curve
+const IOS_KEYBOARD_TRANSITION =
+  'padding-bottom 280ms cubic-bezier(0.17, 0.59, 0.4, 0.77)';
+
 export default function ChatTabMobile({
   eventId,
   bandId,
@@ -87,7 +98,7 @@ export default function ChatTabMobile({
   const [inputText, setInputText] = useState('');
   const [songTags, setSongTags] = useState<SongTagData[]>([]);
 
-  // iOS keyboard height for lifting the composer
+  // Keyboard state
   const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   const didInitialScrollRef = useRef(false);
@@ -105,22 +116,74 @@ export default function ChatTabMobile({
 
   const isNative = Capacitor.isNativePlatform();
   const platform = isNative ? Capacitor.getPlatform() : 'web';
-  const isAndroid = platform === 'android';
   const isIOS = platform === 'ios';
+  const isAndroid = platform === 'android';
 
-  const keyboardOpen = keyboardHeight > 0;
-
-  const NAV_OFFSET = isAndroid ? 50 : 8;
-  const IOS_ACCESSORY_OFFSET = 35;
+  // Base offset when keyboard is closed
+  const BASE_NAV_OFFSET = isAndroid ? 50 : 8;
 
   // Mirror latest messages into ref
   const messagesRef = useRef<ChatMsg[]>([]);
   messagesRef.current = messages;
 
+  // Keyboard listeners
+  useEffect(() => {
+    if (!isNative) return;
+
+    let showSub: any;
+    let hideSub: any;
+
+    (async () => {
+      try {
+        if (isIOS) {
+          // 🔑 On iOS, let Native resize + CSS safe area handle layout.
+          // We don't need keyboardHeight at all for positioning.
+          return;
+        }
+
+        // Android: use didShow/didHide
+        showSub = await Keyboard.addListener('keyboardDidShow', (info) => {
+          setKeyboardHeight(info.keyboardHeight);
+        });
+        hideSub = await Keyboard.addListener('keyboardDidHide', () => {
+          setKeyboardHeight(0);
+        });
+      } catch (e) {
+        console.warn('[keyboard listeners error]', e);
+      }
+    })();
+
+    return () => {
+      showSub?.remove?.();
+      hideSub?.remove?.();
+    };
+  }, [isNative, isIOS]);
+
+  // Calculate composer bottom padding
+  const composerPaddingBottom = useMemo(() => {
+    // iOS: webview is resized natively by the keyboard.
+    // Just stay above the home indicator.
+    if (isIOS) {
+      return 'calc(env(safe-area-inset-bottom, 0px) + 8px)';
+    }
+
+    // Android: when keyboard is open, keep a small fixed gap
+    if (isAndroid && keyboardHeight > 0) {
+      return 8;
+    }
+
+    // Keyboard closed (Android/web): safe area + bottom nav offset
+    return `calc(env(safe-area-inset-bottom, 0px) + ${BASE_NAV_OFFSET}px)`;
+  }, [isIOS, isAndroid, keyboardHeight, BASE_NAV_OFFSET]);
+
   const extractLinks = useCallback((text: string): string[] => {
     const urlRegex = /(https?:\/\/[^\s]+)/g;
     return text.match(urlRegex) || [];
   }, []);
+
+  useEffect(() => {
+    console.log('[keyboard debug]', { keyboardHeight });
+  }, [keyboardHeight]);
 
   const fetchLinkPreview = useCallback(
     async (url: string): Promise<LinkPreview | null> => {
@@ -199,7 +262,6 @@ export default function ChatTabMobile({
       if (!isNearBottom()) return;
 
       if (isAndroid) {
-        // Avoid scrollIntoView weirdness on Android
         container.scrollTop = container.scrollHeight;
       } else {
         bottomRef.current?.scrollIntoView({ behavior, block: 'end' });
@@ -208,12 +270,17 @@ export default function ChatTabMobile({
     [isNearBottom, isAndroid]
   );
 
+  // Scroll to bottom when keyboard opens
+  useEffect(() => {
+    if (keyboardHeight > 0) {
+      setTimeout(() => smartScrollToBottom('smooth'), 50);
+    }
+  }, [keyboardHeight, smartScrollToBottom]);
+
   const handlePressStart = useCallback(
     (
       id: string,
-      e:
-        | React.TouchEvent<HTMLDivElement>
-        | React.MouseEvent<HTMLDivElement, MouseEvent>
+      e: TouchEvent<HTMLDivElement> | MouseEvent<HTMLDivElement>
     ) => {
       if (longPressTimeoutRef.current != null) {
         window.clearTimeout(longPressTimeoutRef.current);
@@ -222,12 +289,15 @@ export default function ChatTabMobile({
       let clientX = 0;
       let clientY = 0;
 
-      if ('touches' in e && e.touches.length > 0) {
-        clientX = e.touches[0].clientX;
-        clientY = e.touches[0].clientY;
+      if ('touches' in e && 'changedTouches' in e) {
+        const touchEvent = e as TouchEvent<HTMLDivElement>;
+        if (touchEvent.touches.length > 0) {
+          clientX = touchEvent.touches[0].clientX;
+          clientY = touchEvent.touches[0].clientY;
+        }
       } else if ('clientX' in e) {
-        clientX = e.clientX;
-        clientY = e.clientY;
+        clientX = (e as MouseEvent<HTMLDivElement>).clientX;
+        clientY = (e as MouseEvent<HTMLDivElement>).clientY;
       }
 
       pressStartRef.current = { x: clientX, y: clientY };
@@ -241,7 +311,7 @@ export default function ChatTabMobile({
     [triggerHaptic]
   );
 
-  const handlePressMove = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+  const handlePressMove = useCallback((e: TouchEvent<HTMLDivElement>) => {
     if (!pressStartRef.current || longPressTimeoutRef.current == null) return;
     if (e.touches.length !== 1) return;
 
@@ -299,37 +369,6 @@ export default function ChatTabMobile({
     },
     [bandId, navigate]
   );
-
-  useEffect(() => {
-    if (!isNative || !isIOS) return;
-
-    let showSub: any;
-    let hideSub: any;
-
-    (async () => {
-      try {
-        showSub = await Keyboard.addListener(
-          'keyboardWillShow',
-          ({ keyboardHeight: kh }) => {
-            const base = kh ?? 0;
-            // Just store the raw keyboard height here
-            setKeyboardHeight(base);
-          }
-        );
-
-        hideSub = await Keyboard.addListener('keyboardWillHide', () => {
-          setKeyboardHeight(0);
-        });
-      } catch (e) {
-        console.warn('[ios keyboard listeners error]', e);
-      }
-    })();
-
-    return () => {
-      showSub?.remove?.();
-      hideSub?.remove?.();
-    };
-  }, [isNative, isIOS]);
 
   // Fetch current user
   useEffect(() => {
@@ -1316,15 +1355,12 @@ export default function ChatTabMobile({
       <div
         style={{
           borderTop: '1px solid rgba(60, 61, 68, 0.25)',
-          paddingBottom: `calc(env(safe-area-inset-bottom, 0px) + ${
-            NAV_OFFSET + // normal bottom nav / baseline padding
-            (keyboardHeight || 0) + // actual keyboard height
-            (isIOS && keyboardOpen ? IOS_ACCESSORY_OFFSET - 70 : 0) // only when iOS keyboard is up
-          }px)`,
+          paddingBottom: composerPaddingBottom,
           width: '100%',
           marginInline: 0,
           backdropFilter: 'blur(10px)',
-          transition: 'padding-bottom 150ms ease-out',
+          // iOS keyboard animation sync
+          transition: isIOS ? IOS_KEYBOARD_TRANSITION : 'none',
         }}
       >
         <div
@@ -1340,7 +1376,7 @@ export default function ChatTabMobile({
           <ComposerInput
             value={inputText}
             songTags={songTags}
-            placeholder="Message… (type @songs to tag)"
+            placeholder="Message the band..."
             onValueChange={setInputText}
             onSongTagsChange={setSongTags}
             onSongTrigger={handleSongTrigger}

@@ -1,12 +1,12 @@
 // app.tsx
-import { useEffect } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 
 import MobileBottomNav from './components/Nav/MobileBottomNav';
 import { useSession } from './hooks/useSession';
 
 import { Capacitor } from '@capacitor/core';
-import { Keyboard } from '@capacitor/keyboard';
+import { Keyboard, KeyboardResize } from '@capacitor/keyboard';
+import { useEffect } from 'react';
 import AuthCallback from './pages/AuthCallback';
 import BandAvailabilityPage from './pages/Bands/BandAvailabilityPage';
 import BandEventsPage from './pages/Bands/BandEventsPage';
@@ -43,66 +43,22 @@ export default function App() {
   const { loading, session } = useSession();
   const { pathname } = useLocation();
 
-  /* ------------------------------------------------------------
-     MOBILE KEYBOARD HANDLING (MUST RUN BEFORE ANY CONDITIONAL RETURNS)
-  ------------------------------------------------------------- */
   useEffect(() => {
-    if (!Capacitor.isNativePlatform()) return;
+    const setupKeyboard = async () => {
+      if (Capacitor.getPlatform() === 'ios') {
+        try {
+          // Use default/native resize behavior
+          await Keyboard.setResizeMode({ mode: KeyboardResize.Native });
 
-    let showSub: any;
-    let hideSub: any;
-
-    (async () => {
-      try {
-        const platform = Capacitor.getPlatform();
-
-        if (platform === 'ios') {
-          showSub = await Keyboard.addListener(
-            'keyboardWillShow',
-            ({ keyboardHeight }) => {
-              const h = keyboardHeight ?? 0;
-
-              document.documentElement.style.setProperty(
-                '--kb-height',
-                `${h}px`
-              );
-              document.body.classList.add('kb-open');
-            }
-          );
-
-          hideSub = await Keyboard.addListener('keyboardWillHide', () => {
-            document.documentElement.style.setProperty('--kb-height', '0px');
-            document.body.classList.remove('kb-open');
-          });
-        } else {
-          // Android: didShow/didHide
-          showSub = await Keyboard.addListener(
-            'keyboardDidShow',
-            ({ keyboardHeight }) => {
-              const h = keyboardHeight ?? 0;
-
-              document.documentElement.style.setProperty(
-                '--kb-height',
-                `${h}px`
-              );
-              document.body.classList.add('kb-open');
-            }
-          );
-
-          hideSub = await Keyboard.addListener('keyboardDidHide', () => {
-            document.documentElement.style.setProperty('--kb-height', '0px');
-            document.body.classList.remove('kb-open');
-          });
+          // Optional: control scroll behavior
+          await Keyboard.setScroll({ isDisabled: false });
+        } catch (e) {
+          console.warn('[keyboard setup error]', e);
         }
-      } catch (e) {
-        console.warn('[global keyboard listeners error]', e);
       }
-    })();
-
-    return () => {
-      showSub?.remove?.();
-      hideSub?.remove?.();
     };
+
+    void setupKeyboard();
   }, []);
 
   if (loading) return null;
