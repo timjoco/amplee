@@ -8,7 +8,7 @@ import {
   IonSpinner,
   IonText,
 } from '@ionic/react';
-import { locationOutline, personOutline } from 'ionicons/icons';
+import { atOutline, locationOutline, personOutline } from 'ionicons/icons';
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
@@ -30,6 +30,7 @@ export default function OnboardingPageMobile() {
   const [userId, setUserId] = useState<string | null>(null);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
+  const [displayName, setDisplayName] = useState('');
   const [location, setLocation] = useState('');
 
   useEffect(() => {
@@ -69,7 +70,7 @@ export default function OnboardingPageMobile() {
 
         const { data: profile, error: pErr } = await supabase
           .from('profiles')
-          .select('first_name, last_name,  location, onboarded')
+          .select('first_name, last_name, display_name, location, onboarded')
           .eq('id', user.id)
           .maybeSingle();
 
@@ -89,6 +90,7 @@ export default function OnboardingPageMobile() {
         }
 
         if (profile?.last_name) setLastName(profile.last_name);
+        if (profile?.display_name) setDisplayName(profile.display_name);
         if (profile?.location) setLocation(profile.location);
       } catch (e: any) {
         if (active) {
@@ -106,6 +108,20 @@ export default function OnboardingPageMobile() {
     };
   }, [nav, next]);
 
+  // Auto-generate display name suggestion when first/last name changes
+  useEffect(() => {
+    if (!displayName && (firstName || lastName)) {
+      const suggested = [firstName, lastName]
+        .filter(Boolean)
+        .map((n) => n.trim())
+        .join(' ');
+      // Only suggest, don't override if user has typed something
+      if (suggested && !displayName) {
+        // We don't auto-set, let user choose
+      }
+    }
+  }, [firstName, lastName, displayName]);
+
   const handleSubmit = async () => {
     if (!userId) return;
     if (!firstName.trim()) {
@@ -117,11 +133,20 @@ export default function OnboardingPageMobile() {
       setSaving(true);
       setError(null);
 
+      // Generate display name if not provided
+      const finalDisplayName =
+        displayName.trim() ||
+        [firstName, lastName]
+          .filter(Boolean)
+          .map((n) => n.trim())
+          .join(' ');
+
       const { error: upErr } = await supabase.from('profiles').upsert(
         {
           id: userId,
           first_name: firstName.trim(),
           last_name: lastName.trim() || null,
+          display_name: finalDisplayName || null,
           location: location.trim() || null,
           onboarded: true,
         },
@@ -139,7 +164,7 @@ export default function OnboardingPageMobile() {
 
   const isBusy = loading || saving;
 
-  const inputStyle = {
+  const inputStyle: React.CSSProperties = {
     width: '100%',
     padding: '14px 16px',
     paddingLeft: 44,
@@ -406,6 +431,66 @@ export default function OnboardingPageMobile() {
                           }}
                         />
                       </div>
+                    </div>
+
+                    {/* Display Name */}
+                    <div>
+                      <label
+                        style={{
+                          display: 'block',
+                          marginBottom: 8,
+                          fontSize: 13,
+                          fontWeight: 600,
+                          color: 'rgba(255,255,255,0.7)',
+                        }}
+                      >
+                        Display name{' '}
+                        <span style={{ opacity: 0.5 }}>
+                          (how others see you)
+                        </span>
+                      </label>
+                      <div style={{ position: 'relative' }}>
+                        <IonIcon
+                          icon={atOutline}
+                          style={{
+                            position: 'absolute',
+                            left: 14,
+                            top: '50%',
+                            transform: 'translateY(-50%)',
+                            fontSize: 18,
+                            color: 'rgba(139, 92, 246, 0.7)',
+                            pointerEvents: 'none',
+                          }}
+                        />
+                        <input
+                          type="text"
+                          value={displayName}
+                          onChange={(e) => setDisplayName(e.target.value)}
+                          placeholder={
+                            firstName || lastName
+                              ? [firstName, lastName].filter(Boolean).join(' ')
+                              : 'Stage name, nickname, etc.'
+                          }
+                          style={inputStyle}
+                          onFocus={(e) =>
+                            Object.assign(e.target.style, inputFocusStyle)
+                          }
+                          onBlur={(e) => {
+                            e.target.style.borderColor =
+                              'rgba(139, 92, 246, 0.3)';
+                            e.target.style.boxShadow = 'none';
+                          }}
+                        />
+                      </div>
+                      <p
+                        style={{
+                          margin: '6px 0 0',
+                          fontSize: 12,
+                          color: 'rgba(255,255,255,0.4)',
+                        }}
+                      >
+                        Leave blank to use your full name
+                      </p>
                     </div>
 
                     {/* Location */}

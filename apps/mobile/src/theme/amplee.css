@@ -303,3 +303,25 @@ ion-toast.amplee-toast-success {
   --button-color: #a7f3d0;
   --button-color-activated: #ecfdf5;
 }
+
+/* ─────────────────────────────────────────────
+   Global touch + zoom behavior (mobile)
+   ───────────────────────────────────────────── */
+
+/* Reduce weird gestures / double-tap stuff */
+html,
+body,
+#root,
+ion-app {
+  touch-action: manipulation; /* prefer taps, not gestures */
+  overscroll-behavior: contain; /* avoid rubber-band scroll chaining */
+}
+
+/* Stop iOS from zooming the whole page when focusing inputs */
+input,
+textarea,
+select,
+ion-input,
+ion-textarea {
+  font-size: 16px !important; /* iOS won't auto-zoom ≥ 16px */
+}

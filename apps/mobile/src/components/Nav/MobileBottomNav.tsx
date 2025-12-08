@@ -115,6 +115,7 @@ export default function MobileBottomNav() {
     pathname.startsWith('/invite/') ||
     pathname.startsWith('/profile') ||
     pathname.startsWith('/profile/basics') ||
+    pathname.startsWith('/onboarding') || // Add this line
     /^\/bands\/[^/]+\/events\/[^/]+(\/(chat|rollcall|setlist|notes|files))?\/?$/.test(
       pathname
     ) ||
