@@ -10,6 +10,7 @@ import {
   IonSpinner,
   IonText,
   IonToast,
+  IonToggle,
   IonToolbar,
 } from '@ionic/react';
 import {
@@ -33,6 +34,7 @@ import {
   logoTiktok,
   logoTwitter,
   logoYoutube,
+  mailOutline,
   moonOutline,
   musicalNotesOutline,
   reorderThreeOutline,
@@ -73,7 +75,10 @@ type BandProfileRow = {
   embedded_video_url: string | null;
   gallery_images: string[] | null;
   public_theme: string | null;
+  contact_email: string | null;
+  public_allow_contact: boolean | null;
 };
+
 type LinkItem = {
   id: string;
   type: string;
@@ -770,6 +775,9 @@ export default function BandPublicProfileMobile() {
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const [publicTheme, setPublicTheme] = useState<BandThemeStyle>('cosmic');
 
+  const [contactEmail, setContactEmail] = useState('');
+  const [allowContact, setAllowContact] = useState(true);
+
   const isAdmin = myRole === 'admin';
 
   // Computed
@@ -863,7 +871,7 @@ export default function BandPublicProfileMobile() {
         const { data: band, error: bandErr } = await supabase
           .from('bands')
           .select(
-            `id, name, avatar_url, public_bio, city, state, public_slug, is_public, public_avatar_enabled, embedded_video_url, gallery_images, public_theme`
+            `id, name, avatar_url, public_bio, city, state, public_slug, is_public, public_avatar_enabled, embedded_video_url, gallery_images, public_theme, contact_email, public_allow_contact`
           )
           .eq('id', bandId)
           .maybeSingle();
@@ -885,6 +893,13 @@ export default function BandPublicProfileMobile() {
         setEmbeddedVideoUrl(b.embedded_video_url ?? '');
         setGalleryImages(b.gallery_images ?? []);
         setPublicTheme(normalizeTheme(b.public_theme));
+        setContactEmail(b.contact_email ?? '');
+        setAllowContact(
+          b.public_allow_contact === null ||
+            b.public_allow_contact === undefined
+            ? true
+            : b.public_allow_contact
+        );
 
         // Fetch streaming links from band_streaming_links table
         const { data: streamingLinksData, error: streamingLinksErr } =
@@ -1036,6 +1051,10 @@ export default function BandPublicProfileMobile() {
         slugToUse = `${baseSlug}-${Math.random().toString(36).substring(2, 6)}`;
       }
 
+      const trimmedContactEmail = contactEmail.trim();
+      const allowContactFinal =
+        trimmedContactEmail.length > 0 ? allowContact : false;
+
       // Update band basic info (without streaming_links - those go to separate table)
       const { error: updateErr } = await supabase
         .from('bands')
@@ -1049,6 +1068,8 @@ export default function BandPublicProfileMobile() {
           embedded_video_url: embeddedVideoUrl.trim() || null,
           gallery_images: galleryImages.length > 0 ? galleryImages : null,
           public_theme: publicTheme,
+          contact_email: trimmedContactEmail || null,
+          public_allow_contact: allowContactFinal,
         })
         .eq('id', bandId);
 
@@ -1733,6 +1754,81 @@ export default function BandPublicProfileMobile() {
                   />
                 </div>
               </div>
+            </CollapsibleSection>
+
+            {/* Contact & Inquiries */}
+            <CollapsibleSection
+              title="Contact & Inquiries"
+              icon={mailOutline}
+              iconColor="#22c55e"
+              defaultOpen={false}
+            >
+              <InputField
+                label="Contact email"
+                value={contactEmail}
+                onChange={setContactEmail}
+                placeholder="band@gmail.com"
+                type="text"
+                disabled={!isAdmin}
+                icon={<IonIcon icon={mailOutline} style={{ fontSize: 12 }} />}
+              />
+
+              <div
+                style={{
+                  marginTop: 16,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 12,
+                }}
+              >
+                <div>
+                  <p
+                    style={{
+                      margin: 0,
+                      fontSize: 13,
+                      color: '#e4e4e7',
+                      fontWeight: 600,
+                    }}
+                  >
+                    Allow contact form
+                  </p>
+                  <p
+                    style={{
+                      margin: '4px 0 0',
+                      fontSize: 12,
+                      color: '#71717a',
+                      maxWidth: 260,
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    Show a contact form on your public page and send messages to
+                    this email.
+                  </p>
+                </div>
+                <IonToggle
+                  checked={allowContact}
+                  onIonChange={(e) => setAllowContact(e.detail.checked)}
+                  disabled={!isAdmin || !contactEmail.trim()}
+                  style={{
+                    '--handle-background': '#09090b',
+                    '--background-checked': '#22c55e',
+                    '--background': 'rgba(63,63,70,0.8)',
+                  }}
+                />
+              </div>
+
+              {!contactEmail.trim() && (
+                <p
+                  style={{
+                    marginTop: 8,
+                    fontSize: 11,
+                    color: '#f97316',
+                  }}
+                >
+                  Add an email to enable the contact form.
+                </p>
+              )}
             </CollapsibleSection>
 
             {/* Music Links Section */}

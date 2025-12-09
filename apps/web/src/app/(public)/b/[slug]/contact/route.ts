@@ -12,6 +12,8 @@ export async function POST(
     const { slug } = params;
     const { name, email, message } = await req.json();
 
+    console.log('[contact] incoming', { slug, name, email });
+
     if (!name || !email || !message) {
       return NextResponse.json(
         { error: 'Please fill in all fields' },
@@ -21,23 +23,27 @@ export async function POST(
 
     const supabase = await supabaseServer();
 
-    // 1) Find band by slug (include contact_email!)
     const { data: band, error: bandError } = await supabase
       .from('bands')
       .select('id, name, contact_email')
       .eq('public_slug', slug)
       .single();
 
+    console.log('[contact] loaded band', {
+      bandId: band?.id,
+      name: band?.name,
+      contact_email: band?.contact_email,
+    });
+
     if (bandError || !band) {
+      console.error('[contact] bandError', bandError);
       return NextResponse.json({ error: 'Band not found' }, { status: 404 });
     }
 
-    // 2) Optional: current user
     const {
       data: { user },
     } = await supabase.auth.getUser();
 
-    // 3) Save the contact message
     const { error: insertError } = await supabase
       .from('band_contact_messages')
       .insert({
@@ -57,7 +63,12 @@ export async function POST(
       );
     }
 
-    // 4) Best-effort email to band's Gmail
+    console.log('[contact] message saved; attempting email', {
+      hasContactEmail: !!band.contact_email,
+      hasResendKey: !!RESEND_API_KEY,
+      from: FROM,
+    });
+
     if (band.contact_email && RESEND_API_KEY) {
       try {
         const subject = `New message about ${band.name} via Amplee`;
@@ -88,19 +99,27 @@ export async function POST(
             subject,
             html,
             text,
-            reply_to: email, // 👈 replying in Gmail goes back to sender
+            reply_to: email,
           }),
         });
 
+        const bodyText = await r.text();
+        console.log('[contact] resend response', r.status, bodyText);
+
         if (!r.ok) {
-          const text = await r.text();
-          console.error('[contact email error]', text);
-          // don't throw — DB insert already succeeded
+          console.error('[contact email error]', bodyText);
         }
       } catch (e) {
         console.error('[contact email send exception]', e);
-        // swallow; we don't want to break the user experience
       }
+    } else {
+      console.warn(
+        '[contact] skipping email – missing contact_email or RESEND_API_KEY',
+        {
+          contact_email: band.contact_email,
+          hasResendKey: !!RESEND_API_KEY,
+        }
+      );
     }
 
     return NextResponse.json({ ok: true });
