@@ -7,7 +7,12 @@ export const dynamic = 'force-dynamic';
 
 // ---- CORS setup ----
 const PROD_ORIGIN = 'https://amplee.app';
-const ALLOWED_ORIGINS = [PROD_ORIGIN, 'http://localhost:5173'];
+const ALLOWED_ORIGINS = [
+  PROD_ORIGIN,
+  'http://localhost:5173',
+  'capacitor://localhost', // iOS Capacitor
+  'http://localhost', // Android WebView
+];
 
 function addCorsHeaders(req: NextRequest, res: NextResponse) {
   const origin = req.headers.get('origin') || '';
@@ -149,6 +154,8 @@ export async function POST(req: NextRequest, ctx: { params: any }) {
       );
     }
 
+    // Only enforce email match if the invite has a specific email
+    // Link-based invites (email: null) can be accepted by anyone
     if (
       invite.email &&
       authedEmail &&
@@ -218,6 +225,7 @@ export async function POST(req: NextRequest, ctx: { params: any }) {
       NextResponse.json({
         ok: true,
         band_id: invite.band_id,
+        bandId: invite.band_id, // Include both for compatibility
         role: invite.role ?? 'member',
       })
     );

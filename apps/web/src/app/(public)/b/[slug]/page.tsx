@@ -101,6 +101,8 @@ export default async function Page(props: {
   const { slug } = await props.params;
   const supabase = await supabaseServer();
 
+  const DEFAULT_BAND_AVATAR = '/images/default-band-avatar.png';
+
   const isUUID =
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
       slug
@@ -213,7 +215,10 @@ export default async function Page(props: {
   const band: BandData = {
     id: bandRow.id,
     name: bandRow.name,
-    avatar_url: bandRow.avatar_url ?? undefined,
+    avatar_url:
+      (bandRow.avatar_url && bandRow.avatar_url.trim().length > 0
+        ? bandRow.avatar_url
+        : DEFAULT_BAND_AVATAR) ?? DEFAULT_BAND_AVATAR,
     bio: bandRow.public_bio ?? bandRow.bio ?? undefined,
     location: locationString,
     genres: genres.length > 0 ? genres : undefined,

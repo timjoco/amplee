@@ -12,8 +12,12 @@ export const dynamic = 'force-dynamic';
 const PROD_ORIGIN = 'https://amplee.app';
 
 // Origins allowed to call this endpoint from a browser
-const ALLOWED_ORIGINS = [PROD_ORIGIN, 'http://localhost:5173'];
-
+const ALLOWED_ORIGINS = [
+  PROD_ORIGIN,
+  'http://localhost:5173',
+  'capacitor://localhost', // iOS Capacitor
+  'http://localhost', // Android WebView
+];
 function createCorsResponse(
   req: NextRequest,
   body: any,

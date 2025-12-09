@@ -8,11 +8,13 @@ export const dynamic = 'force-dynamic';
 
 // ---- CORS setup ----
 
-// Production domain (your API host)
 const PROD_ORIGIN = 'https://amplee.app';
-
-// Origins we want to allow to call these APIs from the browser
-const ALLOWED_ORIGINS = [PROD_ORIGIN, 'http://localhost:5173'];
+const ALLOWED_ORIGINS = [
+  PROD_ORIGIN,
+  'http://localhost:5173',
+  'capacitor://localhost',
+  'http://localhost', // Android WebView
+];
 
 function addCorsHeaders(req: NextRequest, res: NextResponse) {
   const origin = req.headers.get('origin') || '';
@@ -20,7 +22,6 @@ function addCorsHeaders(req: NextRequest, res: NextResponse) {
   if (ALLOWED_ORIGINS.includes(origin)) {
     res.headers.set('Access-Control-Allow-Origin', origin);
   } else {
-    // Fallback – keep API usable for non-browser clients
     res.headers.set('Access-Control-Allow-Origin', PROD_ORIGIN);
   }
 
@@ -28,7 +29,7 @@ function addCorsHeaders(req: NextRequest, res: NextResponse) {
     'Access-Control-Allow-Headers',
     'Content-Type, Authorization'
   );
-  res.headers.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.headers.set('Access-Control-Max-Age', '86400');
 
   return res;
@@ -63,9 +64,20 @@ export async function GET(req: NextRequest, ctx: { params: any }) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
 
+    // Fetch invite WITH band name
     const { data: invite, error } = await supabaseAdmin
       .from('band_invitations')
-      .select('token, status, role, band_id, created_at, email')
+      .select(
+        `
+        token, 
+        status, 
+        role, 
+        band_id, 
+        created_at, 
+        email,
+        bands ( name )
+      `
+      )
       .eq('token', token)
       .maybeSingle();
 
@@ -85,6 +97,9 @@ export async function GET(req: NextRequest, ctx: { params: any }) {
       );
     }
 
+    // Extract band name from the joined data
+    const bandName = (invite.bands as any)?.name || null;
+
     return addCorsHeaders(
       req,
       NextResponse.json({
@@ -97,6 +112,7 @@ export async function GET(req: NextRequest, ctx: { params: any }) {
           email: invite.email,
           created_at: invite.created_at,
           accepted: invite.status === 'accepted',
+          bandName: bandName,
         },
       })
     );

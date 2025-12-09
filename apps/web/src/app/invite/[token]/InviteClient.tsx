@@ -20,8 +20,17 @@ export default function InviteClient({ token }: { token: string }) {
   const [loading, setLoading] = useState(true);
   const [invite, setInvite] = useState<InvitePreview | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
   const supabase = useMemo(() => supabaseBrowser(), []);
 
+  // Detect mobile (for the "Open in app" button)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const ua = window.navigator.userAgent || '';
+    setIsMobile(/iPhone|iPad|iPod|Android/i.test(ua));
+  }, []);
+
+  // Load invite preview
   useEffect(() => {
     let mounted = true;
 
@@ -50,21 +59,26 @@ export default function InviteClient({ token }: { token: string }) {
     };
   }, [token]);
 
+  // 🔗 Open dev app via custom scheme
+  const handleOpenInApp = () => {
+    if (!token) return;
+    const appUrl = `amplee://invite/${encodeURIComponent(token)}`;
+    window.location.href = appUrl;
+  };
+
+  // Existing continue flow (web accept)
   const onContinue = async () => {
     setError(null);
     setLoading(true);
 
-    // 1) Are we signed in?
     const { data } = await supabase.auth.getSession();
     if (!data.session) {
-      // send to login with return url back to this invite page
       router.replace(
         `/login?redirect=${encodeURIComponent(`/invite/${token}`)}`
       );
       return;
     }
 
-    // 2) If email mismatch, show guard
     const sessionEmail = (data.session.user.email ?? '').toLowerCase();
     const inviteEmail = (invite?.email ?? '').toLowerCase();
     if (inviteEmail && sessionEmail && inviteEmail !== sessionEmail) {
@@ -75,7 +89,6 @@ export default function InviteClient({ token }: { token: string }) {
       return;
     }
 
-    // 3) Accept
     const res = await fetch(
       `/api/invites/${encodeURIComponent(token)}/accept`,
       {
@@ -94,7 +107,6 @@ export default function InviteClient({ token }: { token: string }) {
     }
     const { bandId } = await res.json();
 
-    // 4) Decide where to go: minimal invite onboarding if needed
     const { data: userRes } = await supabase.auth.getUser();
     if (!userRes.user) {
       router.replace('/login');
@@ -134,12 +146,63 @@ export default function InviteClient({ token }: { token: string }) {
         {invite.inviterEmail ? `by ${invite.inviterEmail}` : ''} to join as{' '}
         <b>{invite.role ?? 'member'}</b>.
       </p>
+
       {invite.status !== 'pending' ? (
         <p style={{ color: 'crimson' }}>
           This invite is <b>{invite.status}</b>.
         </p>
       ) : (
-        <button onClick={onContinue}>Continue</button>
+        <>
+          {isMobile && (
+            <>
+              <button
+                onClick={handleOpenInApp}
+                style={{
+                  display: 'block',
+                  width: '100%',
+                  marginBottom: 12,
+                  padding: '10px 16px',
+                  borderRadius: 999,
+                  border: 'none',
+                  background:
+                    'linear-gradient(135deg, rgba(147,51,234,1), rgba(88,28,135,1))',
+                  color: '#fff',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >
+                Open in Amplee app (dev)
+              </button>
+              <div
+                style={{
+                  textAlign: 'center',
+                  fontSize: 12,
+                  color: '#6b7280',
+                  marginBottom: 8,
+                }}
+              >
+                or continue in browser
+              </div>
+            </>
+          )}
+
+          <button
+            onClick={onContinue}
+            style={{
+              display: 'block',
+              width: '100%',
+              padding: '10px 16px',
+              borderRadius: 999,
+              border: '1px solid rgba(148,163,184,0.5)',
+              background: 'transparent',
+              color: '#e5e7eb',
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            Continue in browser
+          </button>
+        </>
       )}
     </div>
   );
