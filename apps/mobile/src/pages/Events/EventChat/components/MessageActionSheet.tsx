@@ -4,7 +4,6 @@ import { IonIcon } from '@ionic/react';
 import { copyOutline, trashOutline } from 'ionicons/icons';
 import { memo, useEffect, useState } from 'react';
 
-// Type definitions (these match your ChatTabMobile types)
 type ProfileLite = {
   id: string;
   display_name?: string | null;
@@ -53,6 +52,7 @@ const REACTION_EMOJIS = [
 const neon = 'rgba(168,85,247,0.9)';
 const darkCard = 'rgba(10,10,20,0.96)';
 
+// this is the popup when tap and hold a message
 export const MessageActionSheet = memo<MessageActionSheetProps>(
   ({
     open,

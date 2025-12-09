@@ -9,8 +9,8 @@ import {
 } from '@ionic/react';
 import { chatbubblesOutline, chevronBackOutline } from 'ionicons/icons';
 import { useNavigate, useParams } from 'react-router-dom';
-import ChatTabMobile from '../../components/Events/ChatTabMobile';
-import { useEventShell } from '../../hooks/useEventShell';
+import { useEventShell } from '../../../hooks/useEventShell';
+import ChatTabMobile from './ChatTabMobile';
 
 type RouteParams = {
   eventId: string;

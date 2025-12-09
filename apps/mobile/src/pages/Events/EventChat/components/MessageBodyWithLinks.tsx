@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { parseSongTags } from '../../SongTag';
+import { parseSongTags } from '../../../../components/SongTag';
 
 type LinkPreview = {
   title?: string;

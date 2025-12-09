@@ -19,7 +19,7 @@ import {
   upsertLastMsg,
 } from '../../lib/cache/eventInboxCache';
 import { supabase } from '../../lib/supabase';
-import { MessageBodyWithLinks } from './Chat/MessageBodyWithLinks';
+import { MessageBodyWithLinks } from '../../pages/Events/EventChat/components/MessageBodyWithLinks';
 
 type LastMsg = { event_id: string; body: string; created_at: string };
 
@@ -378,15 +378,41 @@ export default function EventInboxListMobile({
   const getAvatar = useCallback(
     async (bandId: string, path: string | null | undefined) => {
       if (!showAvatars || !bandId || !path) return undefined;
+
+      // 1. Use cached signed URL if we already have one
       const cached = getAvatarSigned(bandId);
       if (cached) return cached;
+
+      // 2. If "path" is already a full URL, don't try to sign it.
+      if (path.startsWith('http://') || path.startsWith('https://')) {
+        // cache it so we don't keep running this on every render
+        setAvatarSigned(bandId, path, 60 * 60);
+        return path;
+      }
+
+      // 3. Normalize relative path for the `band-avatars` bucket
+      //    so we don't accidentally send "band-avatars/band-avatars/..."
+      let normalizedPath = path;
+      if (normalizedPath.startsWith('band-avatars/')) {
+        normalizedPath = normalizedPath.slice('band-avatars/'.length);
+      }
+
       const { data, error } = await supabase.storage
-        .from('band-avatars')
-        .createSignedUrl(path, 60 * 60);
+        .from('band-avatars') // ✅ correct bucket
+        .createSignedUrl(normalizedPath, 60 * 60);
+
       if (!error && data?.signedUrl) {
         setAvatarSigned(bandId, data.signedUrl, 60 * 60);
         return data.signedUrl;
       }
+
+      console.warn('[event inbox] avatar signed url error', {
+        bandId,
+        path,
+        normalizedPath,
+        error,
+      });
+
       return undefined;
     },
     [showAvatars]

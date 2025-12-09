@@ -34,8 +34,11 @@ export default function AvatarImageMobile({
   useEffect(() => {
     let cancelled = false;
 
-    // if caller already has a URL, just use that and skip storage
-    if (srcGuess) {
+    const isFullUrl = (value: string | null | undefined) =>
+      !!value && (value.startsWith('http://') || value.startsWith('https://'));
+
+    // 1) If caller already has a usable URL, just use that and skip storage
+    if (srcGuess && isFullUrl(srcGuess)) {
       setUrl(srcGuess);
       return;
     }
@@ -45,6 +48,14 @@ export default function AvatarImageMobile({
       return;
     }
 
+    // 2) If avatarPath itself is a full URL, also use it directly
+    if (isFullUrl(avatarPath)) {
+      setUrl(avatarPath);
+      return;
+    }
+
+    // 3) avatarPath is a relative path inside the bucket → sign it
+
     const key = buildKey(bucket, avatarPath, updatedAt);
     const cached = avatarUrlCache.get(key);
     if (cached) {
@@ -53,12 +64,23 @@ export default function AvatarImageMobile({
     }
 
     (async () => {
+      // Optional: normalize if you ever accidentally store "bucket/bucket/..."
+      let normalizedPath = avatarPath;
+      if (normalizedPath.startsWith(`${bucket}/`)) {
+        normalizedPath = normalizedPath.slice(bucket.length + 1);
+      }
+
       const { data, error } = await supabase.storage
         .from(bucket)
-        .createSignedUrl(avatarPath, 60 * 60 * 24); // 24h
+        .createSignedUrl(normalizedPath, 60 * 60 * 24); // ✅ number, 24h
 
       if (error) {
-        console.warn('[avatar signedUrl error]', error);
+        console.warn('[avatar signedUrl error]', {
+          error,
+          bucket,
+          avatarPath,
+          normalizedPath,
+        });
         if (!cancelled) setUrl(null);
         return;
       }

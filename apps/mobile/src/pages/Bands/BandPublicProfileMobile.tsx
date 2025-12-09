@@ -20,7 +20,8 @@ import {
   cloudUploadOutline,
   contrastOutline,
   copyOutline,
-  flashOutline,
+  cubeOutline,
+  flowerOutline,
   globeOutline,
   imageOutline,
   linkOutline,
@@ -32,9 +33,12 @@ import {
   logoTiktok,
   logoTwitter,
   logoYoutube,
+  moonOutline,
   musicalNotesOutline,
   reorderThreeOutline,
   sparklesOutline,
+  sunnyOutline,
+  terminalOutline,
   trashOutline,
   videocamOutline,
 } from 'ionicons/icons';
@@ -46,6 +50,15 @@ import { supabase } from '../../lib/supabase';
 // TYPES
 // ============================================
 type MembershipRole = 'admin' | 'member';
+
+type BandThemeStyle =
+  | 'cosmic'
+  | 'cosmic-light'
+  | 'matrix'
+  | 'blocky'
+  | 'modest'
+  | 'modest-dark'
+  | 'sakura';
 
 type BandProfileRow = {
   id: string;
@@ -70,6 +83,83 @@ type LinkItem = {
   color: string;
   category: 'music' | 'social';
 };
+
+// Theme configuration
+type ThemeConfig = {
+  id: BandThemeStyle;
+  name: string;
+  description: string;
+  icon: string;
+  gradient: string;
+  accentColor: string;
+  checkColor: string;
+};
+
+const THEME_CONFIGS: ThemeConfig[] = [
+  {
+    id: 'cosmic',
+    name: 'Cosmic',
+    description: 'Animated gradients, glassmorphism, neon glows',
+    icon: sparklesOutline,
+    gradient: 'linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%)',
+    accentColor: 'rgba(139, 92, 246, 0.6)',
+    checkColor: '#a78bfa',
+  },
+  {
+    id: 'cosmic-light',
+    name: 'Cosmic Light',
+    description: 'Same spacey vibes on a bright background',
+    icon: sunnyOutline,
+    gradient: 'linear-gradient(135deg, #A78BFA 0%, #F472B6 100%)',
+    accentColor: 'rgba(167, 139, 250, 0.6)',
+    checkColor: '#a78bfa',
+  },
+  {
+    id: 'matrix',
+    name: 'Matrix',
+    description: 'Terminal vibes, falling code, hacker aesthetic',
+    icon: terminalOutline,
+    gradient: 'linear-gradient(135deg, #00FF00 0%, #00AA00 100%)',
+    accentColor: 'rgba(0, 255, 0, 0.6)',
+    checkColor: '#00FF00',
+  },
+  {
+    id: 'blocky',
+    name: 'Blocky',
+    description: 'Blocky design, hard shadows, neon accents',
+    icon: cubeOutline,
+    gradient: 'linear-gradient(135deg, #FF2E6C 0%, #00D4FF 100%)',
+    accentColor: 'rgba(255, 46, 108, 0.6)',
+    checkColor: '#FF2E6C',
+  },
+  {
+    id: 'sakura',
+    name: 'Sakura',
+    description: 'Cherry blossom petals, soft pinks, spring vibes',
+    icon: flowerOutline,
+    gradient: 'linear-gradient(135deg, #F472B6 0%, #FBCFE8 100%)',
+    accentColor: 'rgba(244, 114, 182, 0.6)',
+    checkColor: '#F472B6',
+  },
+  {
+    id: 'modest',
+    name: 'Modest',
+    description: 'Clean and minimal, professional light theme',
+    icon: contrastOutline,
+    gradient: 'linear-gradient(135deg, #737373 0%, #525252 100%)',
+    accentColor: 'rgba(115, 115, 115, 0.6)',
+    checkColor: '#a1a1aa',
+  },
+  {
+    id: 'modest-dark',
+    name: 'Modest Dark',
+    description: 'Same clean aesthetic, dark mode',
+    icon: moonOutline,
+    gradient: 'linear-gradient(135deg, #525252 0%, #404040 100%)',
+    accentColor: 'rgba(82, 82, 82, 0.6)',
+    checkColor: '#a1a1aa',
+  },
+];
 
 // ============================================
 // CONSTANTS
@@ -555,6 +645,92 @@ const DraggableLinkItem: React.FC<{
   );
 };
 
+// Theme Selection Button Component
+const ThemeButton: React.FC<{
+  config: ThemeConfig;
+  isSelected: boolean;
+  onSelect: () => void;
+  disabled: boolean;
+}> = ({ config, isSelected, onSelect, disabled }) => {
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      disabled={disabled}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 14,
+        padding: 14,
+        borderRadius: 14,
+        border: isSelected
+          ? `2px solid ${config.accentColor}`
+          : '1px solid rgba(63, 63, 70, 0.4)',
+        background: isSelected
+          ? `linear-gradient(135deg, ${config.accentColor.replace(
+              '0.6',
+              '0.15'
+            )} 0%, ${config.accentColor.replace('0.6', '0.05')} 100%)`
+          : 'rgba(9, 9, 11, 0.5)',
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        opacity: disabled ? 0.5 : 1,
+        transition: 'all 0.2s ease',
+        textAlign: 'left',
+        width: '100%',
+      }}
+    >
+      <div
+        style={{
+          width: 48,
+          height: 48,
+          borderRadius: 12,
+          background: config.gradient,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+          boxShadow: `0 4px 16px ${config.accentColor.replace('0.6', '0.3')}`,
+        }}
+      >
+        <IonIcon
+          icon={config.icon}
+          style={{
+            fontSize: 24,
+            color: config.id === 'matrix' ? '#000' : '#fff',
+          }}
+        />
+      </div>
+      <div style={{ flex: 1 }}>
+        <p
+          style={{
+            margin: 0,
+            fontSize: 15,
+            fontWeight: 700,
+            color: '#f4f4f5',
+          }}
+        >
+          {config.name}
+        </p>
+        <p
+          style={{
+            margin: '4px 0 0',
+            fontSize: 12,
+            color: '#71717a',
+          }}
+        >
+          {config.description}
+        </p>
+      </div>
+      {isSelected && (
+        <IonIcon
+          icon={checkmarkCircleOutline}
+          style={{ fontSize: 24, color: config.checkColor }}
+        />
+      )}
+    </button>
+  );
+};
+
 // ============================================
 // MAIN COMPONENT
 // ============================================
@@ -592,9 +768,7 @@ export default function BandPublicProfileMobile() {
   const [uploadingGallery, setUploadingGallery] = useState(false);
 
   const galleryInputRef = useRef<HTMLInputElement>(null);
-  const [publicTheme, setPublicTheme] = useState<
-    'cosmic' | 'mystical' | 'plain'
-  >('cosmic');
+  const [publicTheme, setPublicTheme] = useState<BandThemeStyle>('cosmic');
 
   const isAdmin = myRole === 'admin';
 
@@ -629,6 +803,26 @@ export default function BandPublicProfileMobile() {
     },
     []
   );
+
+  // Normalize theme from DB value
+  const normalizeTheme = (value: string | null): BandThemeStyle => {
+    const v = value?.toLowerCase();
+    if (
+      v === 'cosmic' ||
+      v === 'cosmic-light' ||
+      v === 'matrix' ||
+      v === 'blocky' ||
+      v === 'modest' ||
+      v === 'modest-dark' ||
+      v === 'sakura'
+    ) {
+      return v;
+    }
+    // Legacy mappings
+    if (v === 'blockyal') return 'blocky';
+    if (v === 'plain') return 'modest';
+    return 'cosmic';
+  };
 
   // Load data
   useEffect(() => {
@@ -690,9 +884,7 @@ export default function BandPublicProfileMobile() {
         setPublicSlug(b.public_slug ?? null);
         setEmbeddedVideoUrl(b.embedded_video_url ?? '');
         setGalleryImages(b.gallery_images ?? []);
-        setPublicTheme(
-          (b.public_theme as 'cosmic' | 'mystical' | 'plain') ?? 'cosmic'
-        );
+        setPublicTheme(normalizeTheme(b.public_theme));
 
         // Fetch streaming links from band_streaming_links table
         const { data: streamingLinksData, error: streamingLinksErr } =
@@ -856,7 +1048,7 @@ export default function BandPublicProfileMobile() {
           public_avatar_enabled: true,
           embedded_video_url: embeddedVideoUrl.trim() || null,
           gallery_images: galleryImages.length > 0 ? galleryImages : null,
-          public_theme: publicTheme, // Add this
+          public_theme: publicTheme,
         })
         .eq('id', bandId);
 
@@ -1012,6 +1204,12 @@ export default function BandPublicProfileMobile() {
   const handleRemoveGalleryImage = (index: number) => {
     triggerHaptic();
     setGalleryImages((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleThemeSelect = (theme: BandThemeStyle) => {
+    if (!isAdmin) return;
+    triggerHaptic();
+    setPublicTheme(theme);
   };
 
   return (
@@ -1909,223 +2107,15 @@ export default function BandPublicProfileMobile() {
                   gap: 10,
                 }}
               >
-                {/* Cosmic Theme */}
-                <button
-                  type="button"
-                  onClick={() => isAdmin && setPublicTheme('cosmic')}
-                  disabled={!isAdmin}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 14,
-                    padding: 14,
-                    borderRadius: 14,
-                    border:
-                      publicTheme === 'cosmic'
-                        ? '2px solid rgba(139, 92, 246, 0.6)'
-                        : '1px solid rgba(63, 63, 70, 0.4)',
-                    background:
-                      publicTheme === 'cosmic'
-                        ? 'linear-gradient(135deg, rgba(139, 92, 246, 0.15) 0%, rgba(236, 72, 153, 0.1) 100%)'
-                        : 'rgba(9, 9, 11, 0.5)',
-                    cursor: isAdmin ? 'pointer' : 'not-allowed',
-                    opacity: isAdmin ? 1 : 0.5,
-                    transition: 'all 0.2s ease',
-                    textAlign: 'left',
-                  }}
-                >
-                  <div
-                    style={{
-                      width: 48,
-                      height: 48,
-                      borderRadius: 12,
-                      background:
-                        'linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexShrink: 0,
-                      boxShadow: '0 4px 16px rgba(139, 92, 246, 0.3)',
-                    }}
-                  >
-                    <IonIcon
-                      icon={sparklesOutline}
-                      style={{ fontSize: 24, color: '#fff' }}
-                    />
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <p
-                      style={{
-                        margin: 0,
-                        fontSize: 15,
-                        fontWeight: 700,
-                        color: '#f4f4f5',
-                      }}
-                    >
-                      Cosmic
-                    </p>
-                    <p
-                      style={{
-                        margin: '4px 0 0',
-                        fontSize: 12,
-                        color: '#71717a',
-                      }}
-                    >
-                      Animated gradients, glassmorphism, neon glows
-                    </p>
-                  </div>
-                  {publicTheme === 'cosmic' && (
-                    <IonIcon
-                      icon={checkmarkCircleOutline}
-                      style={{ fontSize: 24, color: '#a78bfa' }}
-                    />
-                  )}
-                </button>
-
-                {/* Neon Theme */}
-                <button
-                  type="button"
-                  onClick={() => isAdmin && setPublicTheme('mystical')}
-                  disabled={!isAdmin}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 14,
-                    padding: 14,
-                    borderRadius: 14,
-                    border:
-                      publicTheme === 'mystical'
-                        ? '2px solid rgba(52, 211, 153, 0.6)'
-                        : '1px solid rgba(63, 63, 70, 0.4)',
-                    background:
-                      publicTheme === 'mystical'
-                        ? 'linear-gradient(135deg, rgba(52, 211, 153, 0.15) 0%, rgba(16, 185, 129, 0.1) 100%)'
-                        : 'rgba(9, 9, 11, 0.5)',
-                    cursor: isAdmin ? 'pointer' : 'not-allowed',
-                    opacity: isAdmin ? 1 : 0.5,
-                    transition: 'all 0.2s ease',
-                    textAlign: 'left',
-                  }}
-                >
-                  <div
-                    style={{
-                      width: 48,
-                      height: 48,
-                      borderRadius: 12,
-                      background:
-                        'linear-gradient(135deg, #34D399 0%, #10B981 100%)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexShrink: 0,
-                      boxShadow: '0 4px 16px rgba(52, 211, 153, 0.3)',
-                    }}
-                  >
-                    <IonIcon
-                      icon={flashOutline}
-                      style={{ fontSize: 24, color: '#fff' }}
-                    />
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <p
-                      style={{
-                        margin: 0,
-                        fontSize: 15,
-                        fontWeight: 700,
-                        color: '#f4f4f5',
-                      }}
-                    >
-                      Neon
-                    </p>
-                    <p
-                      style={{
-                        margin: '4px 0 0',
-                        fontSize: 12,
-                        color: '#71717a',
-                      }}
-                    >
-                      Bold neon accents, dark background, high contrast
-                    </p>
-                  </div>
-                  {publicTheme === 'mystical' && (
-                    <IonIcon
-                      icon={checkmarkCircleOutline}
-                      style={{ fontSize: 24, color: '#34D399' }}
-                    />
-                  )}
-                </button>
-
-                {/* Plain Theme */}
-                <button
-                  type="button"
-                  onClick={() => isAdmin && setPublicTheme('plain')}
-                  disabled={!isAdmin}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 14,
-                    padding: 14,
-                    borderRadius: 14,
-                    border:
-                      publicTheme === 'plain'
-                        ? '2px solid rgba(161, 161, 170, 0.6)'
-                        : '1px solid rgba(63, 63, 70, 0.4)',
-                    background:
-                      publicTheme === 'plain'
-                        ? 'rgba(39, 39, 42, 0.5)'
-                        : 'rgba(9, 9, 11, 0.5)',
-                    cursor: isAdmin ? 'pointer' : 'not-allowed',
-                    opacity: isAdmin ? 1 : 0.5,
-                    transition: 'all 0.2s ease',
-                    textAlign: 'left',
-                  }}
-                >
-                  <div
-                    style={{
-                      width: 48,
-                      height: 48,
-                      borderRadius: 12,
-                      background:
-                        'linear-gradient(135deg, #52525b 0%, #3f3f46 100%)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexShrink: 0,
-                    }}
-                  >
-                    <IonIcon
-                      icon={contrastOutline}
-                      style={{ fontSize: 24, color: '#a1a1aa' }}
-                    />
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <p
-                      style={{
-                        margin: 0,
-                        fontSize: 15,
-                        fontWeight: 700,
-                        color: '#f4f4f5',
-                      }}
-                    >
-                      Plain
-                    </p>
-                    <p
-                      style={{
-                        margin: '4px 0 0',
-                        fontSize: 12,
-                        color: '#71717a',
-                      }}
-                    >
-                      Clean and simple, minimal effects, professional
-                    </p>
-                  </div>
-                  {publicTheme === 'plain' && (
-                    <IonIcon
-                      icon={checkmarkCircleOutline}
-                      style={{ fontSize: 24, color: '#a1a1aa' }}
-                    />
-                  )}
-                </button>
+                {THEME_CONFIGS.map((config) => (
+                  <ThemeButton
+                    key={config.id}
+                    config={config}
+                    isSelected={publicTheme === config.id}
+                    onSelect={() => handleThemeSelect(config.id)}
+                    disabled={!isAdmin}
+                  />
+                ))}
               </div>
             </CollapsibleSection>
 

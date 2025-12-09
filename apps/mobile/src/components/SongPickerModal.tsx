@@ -46,25 +46,14 @@ export function SongPickerModal({
   const [searchQuery, setSearchQuery] = useState('');
 
   // Fetch songs when modal opens
-  // In SongPickerModal.tsx, update the useEffect:
-
   useEffect(() => {
-    console.log('[SongPickerModal] useEffect triggered', { isOpen, bandId });
-
     if (!isOpen || !bandId) {
-      console.log(
-        '[SongPickerModal] bailing early - isOpen:',
-        isOpen,
-        'bandId:',
-        bandId
-      );
       return;
     }
 
     let alive = true;
 
     const fetchSongs = async () => {
-      console.log('[SongPickerModal] starting fetch...');
       setLoading(true);
 
       const { data, error } = await supabase
@@ -72,8 +61,6 @@ export function SongPickerModal({
         .select('id, title, original_artist, origin, default_key, default_bpm')
         .eq('band_id', bandId)
         .order('title', { ascending: true });
-
-      console.log('[SongPickerModal] fetch result:', { data, error });
 
       if (!alive) return;
 

@@ -15,9 +15,6 @@ import { Capacitor } from '@capacitor/core';
 import { Keyboard, KeyboardResize } from '@capacitor/keyboard';
 import { useEffect } from 'react';
 
-// 🔹 NEW: Framer Motion
-import { motion } from 'framer-motion';
-
 import AuthCallback from './pages/AuthCallback';
 import BandAvailabilityPage from './pages/Bands/BandAvailabilityPage';
 import BandEventsPage from './pages/Bands/BandEventsPage';
@@ -30,7 +27,7 @@ import BandSettingsMobile from './pages/Bands/BandSettingsMobile';
 import BandSheetMobile from './pages/Bands/BandSheetMobile';
 import BandSongListRouteMobile from './pages/Bands/BandSongListRouteMobile';
 import BandSongSheetRouteMobile from './pages/Bands/BandSongSheetRouteMobile';
-import EventChatPageMobile from './pages/Events/EventChatPageMobile';
+import EventChatPageMobile from './pages/Events/EventChat/EventChatPageMobile';
 import EventFilesPageMobile from './pages/Events/EventFilesPageMobile';
 import EventNotesPageMobile from './pages/Events/EventNotesPageMobile';
 import EventRollCallPageMobile from './pages/Events/EventRollCallPageMobile';
@@ -50,25 +47,9 @@ import SetlistTemplateEditorMobile from './pages/SetlistTemplateEditorMobile';
 import VerifyEmail from './pages/VerifyEmail';
 import GlobalCreateHost from './shared/GlobalCreateHost';
 
-// 🔹 NEW: simple page transition wrapper
-const PageTransition: React.FC<{ children: React.ReactNode }> = ({
-  children,
-}) => (
-  <motion.div
-    style={{ height: '100%' }}
-    initial={{ x: 40, opacity: 0 }}
-    animate={{ x: 0, opacity: 1 }}
-    exit={{ x: -40, opacity: 0 }}
-    transition={{ duration: 0.2, ease: 'easeOut' }}
-  >
-    {children}
-  </motion.div>
-);
-
 export default function App() {
   const { loading, session } = useSession();
-  const location = useLocation();
-  const { pathname } = location;
+  const { pathname } = useLocation();
   const navigate = useNavigate();
 
   // iOS keyboard behavior
@@ -76,7 +57,10 @@ export default function App() {
     const setupKeyboard = async () => {
       if (Capacitor.getPlatform() === 'ios') {
         try {
+          // Use default/native resize behavior
           await Keyboard.setResizeMode({ mode: KeyboardResize.Native });
+
+          // Optional: control scroll behavior
           await Keyboard.setScroll({ isDisabled: false });
         } catch (e) {
           console.warn('[keyboard setup error]', e);
@@ -122,180 +106,67 @@ export default function App() {
 
   return (
     <>
-      <Routes location={location} key={pathname}>
+      <Routes>
         {/* public */}
-        <Route
-          path="/auth/callback"
-          element={
-            <PageTransition>
-              <AuthCallback />
-            </PageTransition>
-          }
-        />
-        <Route
-          path="/verify-email"
-          element={
-            <PageTransition>
-              <VerifyEmail />
-            </PageTransition>
-          }
-        />
-        <Route
-          path="/invite/:token"
-          element={
-            <PageTransition>
-              <Invite />
-            </PageTransition>
-          }
-        />
+        <Route path="/auth/callback" element={<AuthCallback />} />
+        <Route path="/verify-email" element={<VerifyEmail />} />
+        <Route path="/invite/:token" element={<Invite />} />
 
         {!session ? (
           <>
             {/* NOT authed: only login flow */}
-            <Route
-              path="/login"
-              element={
-                <PageTransition>
-                  <Login />
-                </PageTransition>
-              }
-            />
+            <Route path="/login" element={<Login />} />
             <Route path="/" element={<Navigate to="/login" replace />} />
             <Route path="*" element={<Navigate to="/login" replace />} />
           </>
         ) : (
           <>
             {/* authed home */}
-            <Route
-              path="/home"
-              element={
-                <PageTransition>
-                  <Home />
-                </PageTransition>
-              }
-            />
-            <Route
-              path="/onboarding"
-              element={
-                <PageTransition>
-                  <OnboardingPageMobile />
-                </PageTransition>
-              }
-            />
+            <Route path="/home" element={<Home />} />
+            <Route path="/onboarding" element={<OnboardingPageMobile />} />
 
             {/* BAND ROUTES*/}
-            <Route
-              path="/bands/:id"
-              element={
-                <PageTransition>
-                  <BandSheetMobile />
-                </PageTransition>
-              }
-            />
-            <Route
-              path="/bands/:bandId"
-              element={
-                <PageTransition>
-                  <BandSheetMobile />
-                </PageTransition>
-              }
-            />
-            <Route
-              path="/invite"
-              element={
-                <PageTransition>
-                  <InviteBandMobile />
-                </PageTransition>
-              }
-            />
-            <Route
-              path="/bands/:bandId/events"
-              element={
-                <PageTransition>
-                  <BandEventsPage />
-                </PageTransition>
-              }
-            />
+            <Route path="/bands/:id" element={<BandSheetMobile />} />
+            <Route path="/bands/:bandId" element={<BandSheetMobile />} />
+            <Route path="/invite" element={<InviteBandMobile />} />
+            <Route path="/bands/:bandId/events" element={<BandEventsPage />} />
             <Route
               path="/bands/:bandId/public"
-              element={
-                <PageTransition>
-                  <BandPublicProfileMobile />
-                </PageTransition>
-              }
+              element={<BandPublicProfileMobile />}
             />
             <Route
               path="/bands/:bandId/proposals"
-              element={
-                <PageTransition>
-                  <BandProposalsPage />
-                </PageTransition>
-              }
+              element={<BandProposalsPage />}
             />
             <Route
               path="/bands/:bandId/library"
-              element={
-                <PageTransition>
-                  <BandLibraryPage />
-                </PageTransition>
-              }
+              element={<BandLibraryPage />}
             />
-            <Route
-              path="/bands/:bandId/roster"
-              element={
-                <PageTransition>
-                  <BandRosterPage />
-                </PageTransition>
-              }
-            />
+            <Route path="/bands/:bandId/roster" element={<BandRosterPage />} />
             <Route
               path="/bands/:bandId/settings"
-              element={
-                <PageTransition>
-                  <BandSettingsMobile />
-                </PageTransition>
-              }
+              element={<BandSettingsMobile />}
             />
             <Route
               path="/bands/:bandId/proposals/:proposalId"
-              element={
-                <PageTransition>
-                  <ProposedGigSheetMobile />
-                </PageTransition>
-              }
+              element={<ProposedGigSheetMobile />}
             />
 
             <Route
               path="/bands/:bandId/setlists"
-              element={
-                <PageTransition>
-                  <BandSetlistPageMobile />
-                </PageTransition>
-              }
+              element={<BandSetlistPageMobile />}
             />
             <Route
               path="/bands/:bandId/setlists/:setlistId"
-              element={
-                <PageTransition>
-                  <SetlistTemplateEditorMobile />
-                </PageTransition>
-              }
+              element={<SetlistTemplateEditorMobile />}
             />
             <Route
               path="/bands/:bandId/songs"
-              element={
-                <PageTransition>
-                  <BandSongListRouteMobile />
-                </PageTransition>
-              }
+              element={<BandSongListRouteMobile />}
             />
             <Route
               path="/bands/:bandId/songs/:songId"
-              element={
-                <PageTransition>
-                  <BandSongSheetRouteMobile />
-                </PageTransition>
-              }
+              element={<BandSongSheetRouteMobile />}
             />
 
             {/* --- EVENT ROUTES --- */}
@@ -303,93 +174,43 @@ export default function App() {
             {/* event hub sheet */}
             <Route
               path="/bands/:bandId/events/:eventId"
-              element={
-                <PageTransition>
-                  <EventSheetMobile />
-                </PageTransition>
-              }
+              element={<EventSheetMobile />}
             />
             <Route
               path="/bands/:bandId/events/:eventId/rollcall"
-              element={
-                <PageTransition>
-                  <EventRollCallPageMobile />
-                </PageTransition>
-              }
+              element={<EventRollCallPageMobile />}
             />
             <Route
               path="/bands/:bandId/events/:eventId/chat"
-              element={
-                <PageTransition>
-                  <EventChatPageMobile />
-                </PageTransition>
-              }
+              element={<EventChatPageMobile />}
             />
             <Route
               path="/bands/:bandId/events/:eventId/setlist"
-              element={
-                <PageTransition>
-                  <EventSetlistPageMobile />
-                </PageTransition>
-              }
+              element={<EventSetlistPageMobile />}
             />
             <Route
               path="/bands/:bandId/events/:eventId/notes"
-              element={
-                <PageTransition>
-                  <EventNotesPageMobile />
-                </PageTransition>
-              }
+              element={<EventNotesPageMobile />}
             />
             <Route
               path="/bands/:bandId/events/:eventId/files"
-              element={
-                <PageTransition>
-                  <EventFilesPageMobile />
-                </PageTransition>
-              }
+              element={<EventFilesPageMobile />}
             />
             <Route
               path="/bands/:bandId/events/:eventId/settings"
-              element={
-                <PageTransition>
-                  <EventSettingsMobile />
-                </PageTransition>
-              }
+              element={<EventSettingsMobile />}
             />
 
             {/* profile routes */}
-            <Route
-              path="/profile"
-              element={
-                <PageTransition>
-                  <Profile />
-                </PageTransition>
-              }
-            />
-            <Route
-              path="/profile/basics"
-              element={
-                <PageTransition>
-                  <ProfileBasics />
-                </PageTransition>
-              }
-            />
+            <Route path="/profile" element={<Profile />} />
+            <Route path="/profile/basics" element={<ProfileBasics />} />
             <Route
               path="/profile/availability"
-              element={
-                <PageTransition>
-                  <ProfileAvailability />
-                </PageTransition>
-              }
+              element={<ProfileAvailability />}
             />
             <Route
               path="/bands/:bandId/availability"
-              element={
-                <PageTransition>
-                  <BandAvailabilityPage />
-                </PageTransition>
-              }
+              element={<BandAvailabilityPage />}
             />
 
             {/* default redirects */}
