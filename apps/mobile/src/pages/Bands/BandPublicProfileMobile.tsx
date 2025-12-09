@@ -1835,7 +1835,7 @@ export default function BandPublicProfileMobile() {
             <CollapsibleSection
               title="Music Links"
               icon={musicalNotesOutline}
-              iconColor="#22c55e"
+              iconColor="#ec4899"
               badge={musicLinks.filter((l) => l.url.trim()).length || undefined}
               defaultOpen={false}
             >
@@ -1872,7 +1872,7 @@ export default function BandPublicProfileMobile() {
             <CollapsibleSection
               title="Socials & Website"
               icon={linkOutline}
-              iconColor="#f472b6"
+              iconColor="#a78bfa"
               badge={
                 socialLinks.filter((l) => l.url.trim()).length || undefined
               }
@@ -1911,7 +1911,7 @@ export default function BandPublicProfileMobile() {
             <CollapsibleSection
               title="Band Gallery"
               icon={imageOutline}
-              iconColor="#f472b6"
+              iconColor="#22c55e"
               badge={
                 galleryImages.length > 0
                   ? `${galleryImages.length}/4`
@@ -2054,7 +2054,7 @@ export default function BandPublicProfileMobile() {
             <CollapsibleSection
               title="Featured Video"
               icon={videocamOutline}
-              iconColor="#8b5cf6"
+              iconColor="#ec4899"
               badge={videoEmbedPreview ? '1' : undefined}
               defaultOpen={false}
             >
