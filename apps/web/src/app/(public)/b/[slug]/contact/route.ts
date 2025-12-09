@@ -1,18 +1,16 @@
 import { supabaseServer } from '@/lib/supabaseServer';
 import { NextRequest, NextResponse } from 'next/server';
 
-const RESEND_API_KEY = process.env.RESEND_API_KEY;
-const FROM = process.env.MAIL_FROM ?? 'Amplee <noreply@amplee.app>';
+export const runtime = 'nodejs'; // keep this if you already added it
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { slug: string } }
+  context: { params: Promise<{ slug: string }> }
 ) {
   try {
-    const { slug } = params;
-    const { name, email, message } = await req.json();
+    const { slug } = await context.params; // 👈 params is now awaited
 
-    console.log('[contact] incoming', { slug, name, email });
+    const { name, email, message } = await req.json();
 
     if (!name || !email || !message) {
       return NextResponse.json(
@@ -29,14 +27,7 @@ export async function POST(
       .eq('public_slug', slug)
       .single();
 
-    console.log('[contact] loaded band', {
-      bandId: band?.id,
-      name: band?.name,
-      contact_email: band?.contact_email,
-    });
-
     if (bandError || !band) {
-      console.error('[contact] bandError', bandError);
       return NextResponse.json({ error: 'Band not found' }, { status: 404 });
     }
 
@@ -63,11 +54,8 @@ export async function POST(
       );
     }
 
-    console.log('[contact] message saved; attempting email', {
-      hasContactEmail: !!band.contact_email,
-      hasResendKey: !!RESEND_API_KEY,
-      from: FROM,
-    });
+    const RESEND_API_KEY = process.env.RESEND_API_KEY;
+    const FROM = process.env.MAIL_FROM ?? 'Amplee <noreply@amplee.app>';
 
     if (band.contact_email && RESEND_API_KEY) {
       try {
@@ -103,23 +91,13 @@ export async function POST(
           }),
         });
 
-        const bodyText = await r.text();
-        console.log('[contact] resend response', r.status, bodyText);
-
         if (!r.ok) {
+          const bodyText = await r.text();
           console.error('[contact email error]', bodyText);
         }
       } catch (e) {
         console.error('[contact email send exception]', e);
       }
-    } else {
-      console.warn(
-        '[contact] skipping email – missing contact_email or RESEND_API_KEY',
-        {
-          contact_email: band.contact_email,
-          hasResendKey: !!RESEND_API_KEY,
-        }
-      );
     }
 
     return NextResponse.json({ ok: true });

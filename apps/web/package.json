@@ -35,6 +35,8 @@
     "@types/node": "^20.19.21",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@typescript-eslint/eslint-plugin": "8",
+    "@typescript-eslint/parser": "8",
     "autoprefixer": "^10.4.22",
     "eslint": "^9",
     "eslint-config-next": "15.5.3",
