@@ -18,8 +18,9 @@ import {
   chevronDownOutline,
   chevronUpOutline,
   cloudUploadOutline,
+  contrastOutline,
   copyOutline,
-  eyeOutline,
+  flashOutline,
   globeOutline,
   imageOutline,
   linkOutline,
@@ -35,6 +36,7 @@ import {
   reorderThreeOutline,
   sparklesOutline,
   trashOutline,
+  videocamOutline,
 } from 'ionicons/icons';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -55,8 +57,10 @@ type BandProfileRow = {
   public_slug: string | null;
   is_public: boolean;
   public_avatar_enabled: boolean;
+  embedded_video_url: string | null;
+  gallery_images: string[] | null;
+  public_theme: string | null;
 };
-
 type LinkItem = {
   id: string;
   type: string;
@@ -551,247 +555,6 @@ const DraggableLinkItem: React.FC<{
   );
 };
 
-// Mini Preview Card Component
-const MiniPreviewCard: React.FC<{
-  bandName: string;
-  avatarUrl: string | null;
-  bio: string;
-  location: string;
-  genres: string;
-  links: LinkItem[];
-}> = ({ bandName, avatarUrl, bio, location, genres, links }) => {
-  const activeLinks = links.filter((l) => l.url.trim());
-
-  return (
-    <div
-      style={{
-        background:
-          'linear-gradient(135deg, rgba(24, 24, 27, 0.9) 0%, rgba(9, 9, 11, 0.95) 100%)',
-        backdropFilter: 'blur(20px)',
-        WebkitBackdropFilter: 'blur(20px)',
-        borderRadius: 24,
-        border: '1px solid rgba(255, 255, 255, 0.08)',
-        padding: 20,
-        position: 'relative',
-        overflow: 'hidden',
-      }}
-    >
-      {/* Gradient orbs */}
-      <div
-        style={{
-          position: 'absolute',
-          top: '-30%',
-          right: '-20%',
-          width: '60%',
-          height: '60%',
-          background:
-            'radial-gradient(circle, rgba(139, 92, 246, 0.15) 0%, transparent 70%)',
-          filter: 'blur(40px)',
-          pointerEvents: 'none',
-        }}
-      />
-      <div
-        style={{
-          position: 'absolute',
-          bottom: '-20%',
-          left: '-10%',
-          width: '50%',
-          height: '50%',
-          background:
-            'radial-gradient(circle, rgba(236, 72, 153, 0.1) 0%, transparent 70%)',
-          filter: 'blur(40px)',
-          pointerEvents: 'none',
-        }}
-      />
-
-      {/* Preview label */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-          marginBottom: 16,
-          position: 'relative',
-        }}
-      >
-        <IonIcon icon={eyeOutline} style={{ fontSize: 14, color: '#71717a' }} />
-        <span
-          style={{
-            fontSize: 11,
-            color: '#71717a',
-            fontWeight: 600,
-            textTransform: 'uppercase',
-            letterSpacing: '0.5px',
-          }}
-        >
-          Live Preview
-        </span>
-      </div>
-
-      {/* Preview content */}
-      <div
-        style={{
-          position: 'relative',
-          display: 'flex',
-          gap: 16,
-          alignItems: 'flex-start',
-        }}
-      >
-        {/* Avatar */}
-        <div
-          style={{
-            width: 72,
-            height: 72,
-            borderRadius: 16,
-            background: avatarUrl
-              ? `url(${avatarUrl}) center/cover`
-              : 'linear-gradient(135deg, #3f3f46 0%, #27272a 100%)',
-            border: '2px solid rgba(255, 255, 255, 0.1)',
-            flexShrink: 0,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          {!avatarUrl && (
-            <IonIcon
-              icon={musicalNotesOutline}
-              style={{ fontSize: 28, color: '#52525b' }}
-            />
-          )}
-        </div>
-
-        {/* Info */}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <h4
-            style={{
-              margin: 0,
-              fontSize: 18,
-              fontWeight: 800,
-              color: '#fafafa',
-              letterSpacing: '-0.5px',
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-            }}
-          >
-            {bandName || 'Your Band Name'}
-          </h4>
-
-          {location && (
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 4,
-                marginTop: 4,
-              }}
-            >
-              <IonIcon
-                icon={locationOutline}
-                style={{ fontSize: 12, color: '#ec4899' }}
-              />
-              <span style={{ fontSize: 12, color: '#a1a1aa' }}>{location}</span>
-            </div>
-          )}
-
-          {genres && (
-            <div
-              style={{
-                display: 'flex',
-                gap: 6,
-                flexWrap: 'wrap',
-                marginTop: 8,
-              }}
-            >
-              {genres
-                .split(',')
-                .slice(0, 3)
-                .map((genre, i) => (
-                  <span
-                    key={i}
-                    style={{
-                      padding: '3px 8px',
-                      borderRadius: 6,
-                      background: 'rgba(139, 92, 246, 0.15)',
-                      color: '#a78bfa',
-                      fontSize: 10,
-                      fontWeight: 600,
-                    }}
-                  >
-                    {genre.trim()}
-                  </span>
-                ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Bio preview */}
-      {bio && (
-        <p
-          style={{
-            margin: '16px 0 0',
-            fontSize: 13,
-            color: '#a1a1aa',
-            lineHeight: 1.6,
-            display: '-webkit-box',
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: 'vertical',
-            overflow: 'hidden',
-            position: 'relative',
-          }}
-        >
-          {bio}
-        </p>
-      )}
-
-      {/* Links preview */}
-      {activeLinks.length > 0 && (
-        <div
-          style={{ display: 'flex', gap: 8, marginTop: 16, flexWrap: 'wrap' }}
-        >
-          {activeLinks.slice(0, 5).map((link) => (
-            <div
-              key={link.id}
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: 10,
-                background: `${link.color}15`,
-                border: `1px solid ${link.color}30`,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <PlatformIcon icon={link.icon} size={16} color={link.color} />
-            </div>
-          ))}
-          {activeLinks.length > 5 && (
-            <div
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: 10,
-                background: 'rgba(113, 113, 122, 0.15)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: 11,
-                fontWeight: 600,
-                color: '#71717a',
-              }}
-            >
-              +{activeLinks.length - 5}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-};
-
 // ============================================
 // MAIN COMPONENT
 // ============================================
@@ -823,6 +586,15 @@ export default function BandPublicProfileMobile() {
   const [links, setLinks] = useState<LinkItem[]>([]);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+
+  const [embeddedVideoUrl, setEmbeddedVideoUrl] = useState('');
+  const [galleryImages, setGalleryImages] = useState<string[]>([]);
+  const [uploadingGallery, setUploadingGallery] = useState(false);
+
+  const galleryInputRef = useRef<HTMLInputElement>(null);
+  const [publicTheme, setPublicTheme] = useState<
+    'cosmic' | 'mystical' | 'plain'
+  >('cosmic');
 
   const isAdmin = myRole === 'admin';
 
@@ -897,7 +669,7 @@ export default function BandPublicProfileMobile() {
         const { data: band, error: bandErr } = await supabase
           .from('bands')
           .select(
-            `id, name, avatar_url, public_bio, city, state, public_slug, is_public, public_avatar_enabled`
+            `id, name, avatar_url, public_bio, city, state, public_slug, is_public, public_avatar_enabled, embedded_video_url, gallery_images, public_theme`
           )
           .eq('id', bandId)
           .maybeSingle();
@@ -916,6 +688,11 @@ export default function BandPublicProfileMobile() {
         setCity(b.city ?? '');
         setStateVal(b.state ?? '');
         setPublicSlug(b.public_slug ?? null);
+        setEmbeddedVideoUrl(b.embedded_video_url ?? '');
+        setGalleryImages(b.gallery_images ?? []);
+        setPublicTheme(
+          (b.public_theme as 'cosmic' | 'mystical' | 'plain') ?? 'cosmic'
+        );
 
         // Fetch streaming links from band_streaming_links table
         const { data: streamingLinksData, error: streamingLinksErr } =
@@ -1077,6 +854,9 @@ export default function BandPublicProfileMobile() {
           public_slug: slugToUse,
           is_public: true,
           public_avatar_enabled: true,
+          embedded_video_url: embeddedVideoUrl.trim() || null,
+          gallery_images: galleryImages.length > 0 ? galleryImages : null,
+          public_theme: publicTheme, // Add this
         })
         .eq('id', bandId);
 
@@ -1165,6 +945,73 @@ export default function BandPublicProfileMobile() {
     } catch (e) {
       console.warn('[BandPublicProfileMobile] copy link error', e);
     }
+  };
+
+  const getVideoEmbedUrl = useCallback((url: string): string | null => {
+    if (!url.trim()) return null;
+
+    // YouTube patterns
+    const youtubeMatch = url.match(
+      /(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/
+    );
+    if (youtubeMatch) {
+      return `https://www.youtube.com/embed/${youtubeMatch[1]}`;
+    }
+
+    // Vimeo patterns
+    const vimeoMatch = url.match(
+      /(?:vimeo\.com\/(?:video\/)?|player\.vimeo\.com\/video\/)(\d+)/
+    );
+    if (vimeoMatch) {
+      return `https://player.vimeo.com/video/${vimeoMatch[1]}`;
+    }
+
+    return null;
+  }, []);
+
+  const videoEmbedPreview = useMemo(
+    () => getVideoEmbedUrl(embeddedVideoUrl),
+    [embeddedVideoUrl, getVideoEmbedUrl]
+  );
+
+  // Handle gallery image upload
+  const handleGalleryUpload = async (file: File) => {
+    if (!bandId || !isAdmin || galleryImages.length >= 4) return;
+
+    try {
+      setUploadingGallery(true);
+      triggerHaptic();
+
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${bandId}-gallery-${Date.now()}.${fileExt}`;
+      const filePath = `band-gallery/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('public-assets')
+        .upload(filePath, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage
+        .from('public-assets')
+        .getPublicUrl(filePath);
+
+      const newImageUrl = urlData.publicUrl;
+      setGalleryImages((prev) => [...prev, newImageUrl]);
+
+      setToastMessage('Photo added! 📸');
+      setToastOpen(true);
+    } catch (e: any) {
+      console.error('[BandPublicProfileMobile] gallery upload error', e);
+      setError(e?.message || 'Failed to upload photo.');
+    } finally {
+      setUploadingGallery(false);
+    }
+  };
+
+  const handleRemoveGalleryImage = (index: number) => {
+    triggerHaptic();
+    setGalleryImages((prev) => prev.filter((_, i) => i !== index));
   };
 
   return (
@@ -1534,22 +1381,12 @@ export default function BandPublicProfileMobile() {
               </div>
             )}
 
-            {/* Live Preview */}
-            <MiniPreviewCard
-              bandName={bandName}
-              avatarUrl={avatarUrl}
-              bio={publicBio}
-              location={location}
-              genres={genres}
-              links={links}
-            />
-
             {/* Avatar Upload Section */}
             <CollapsibleSection
               title="Band Image"
               icon={imageOutline}
               iconColor="#ec4899"
-              defaultOpen={true}
+              defaultOpen={false}
             >
               <div style={{ marginTop: 14 }}>
                 <input
@@ -1654,7 +1491,7 @@ export default function BandPublicProfileMobile() {
               title="Bio & Identity"
               icon={musicalNotesOutline}
               iconColor="#a78bfa"
-              defaultOpen={true}
+              defaultOpen={false}
             >
               <InputField
                 label="Public Bio"
@@ -1706,7 +1543,7 @@ export default function BandPublicProfileMobile() {
               icon={musicalNotesOutline}
               iconColor="#22c55e"
               badge={musicLinks.filter((l) => l.url.trim()).length || undefined}
-              defaultOpen={true}
+              defaultOpen={false}
             >
               <p
                 style={{
@@ -1774,6 +1611,522 @@ export default function BandPublicProfileMobile() {
                   />
                 );
               })}
+            </CollapsibleSection>
+
+            {/* Band Gallery Section */}
+            <CollapsibleSection
+              title="Band Gallery"
+              icon={imageOutline}
+              iconColor="#f472b6"
+              badge={
+                galleryImages.length > 0
+                  ? `${galleryImages.length}/4`
+                  : undefined
+              }
+              defaultOpen={false}
+            >
+              <p
+                style={{
+                  fontSize: 12,
+                  color: '#71717a',
+                  margin: '14px 0 10px',
+                  lineHeight: 1.5,
+                }}
+              >
+                Add up to 4 photos to showcase your band
+              </p>
+
+              <input
+                ref={galleryInputRef}
+                type="file"
+                accept="image/*"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleGalleryUpload(file);
+                  e.target.value = '';
+                }}
+                style={{ display: 'none' }}
+                disabled={!isAdmin || galleryImages.length >= 4}
+              />
+
+              {/* Gallery Grid */}
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(3, 1fr)',
+                  gap: 10,
+                }}
+              >
+                {galleryImages.map((img, index) => (
+                  <div
+                    key={index}
+                    style={{
+                      position: 'relative',
+                      aspectRatio: '1',
+                      borderRadius: 14,
+                      overflow: 'hidden',
+                      border: '1px solid rgba(244, 114, 182, 0.2)',
+                    }}
+                  >
+                    <img
+                      src={img}
+                      alt={`Gallery ${index + 1}`}
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover',
+                      }}
+                    />
+                    {isAdmin && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveGalleryImage(index)}
+                        style={{
+                          position: 'absolute',
+                          top: 6,
+                          right: 6,
+                          width: 28,
+                          height: 28,
+                          borderRadius: 8,
+                          background: 'rgba(0, 0, 0, 0.7)',
+                          backdropFilter: 'blur(8px)',
+                          border: '1px solid rgba(239, 68, 68, 0.3)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <IonIcon
+                          icon={trashOutline}
+                          style={{ fontSize: 14, color: '#ef4444' }}
+                        />
+                      </button>
+                    )}
+                  </div>
+                ))}
+
+                {/* Add Photo Button */}
+                {galleryImages.length < 4 && (
+                  <button
+                    type="button"
+                    onClick={() => galleryInputRef.current?.click()}
+                    disabled={!isAdmin || uploadingGallery}
+                    style={{
+                      aspectRatio: '1',
+                      borderRadius: 14,
+                      border: '2px dashed rgba(244, 114, 182, 0.3)',
+                      background: 'rgba(244, 114, 182, 0.05)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 6,
+                      cursor:
+                        isAdmin && !uploadingGallery
+                          ? 'pointer'
+                          : 'not-allowed',
+                      opacity: isAdmin ? 1 : 0.5,
+                      transition: 'all 0.2s ease',
+                    }}
+                  >
+                    {uploadingGallery ? (
+                      <IonSpinner
+                        style={{ '--color': '#f472b6', width: 24, height: 24 }}
+                      />
+                    ) : (
+                      <>
+                        <IonIcon
+                          icon={cloudUploadOutline}
+                          style={{ fontSize: 24, color: '#f472b6' }}
+                        />
+                        <span
+                          style={{
+                            fontSize: 11,
+                            color: '#f472b6',
+                            fontWeight: 600,
+                          }}
+                        >
+                          Add
+                        </span>
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
+            </CollapsibleSection>
+
+            {/* Embedded Video Section */}
+            <CollapsibleSection
+              title="Featured Video"
+              icon={videocamOutline}
+              iconColor="#8b5cf6"
+              badge={videoEmbedPreview ? '1' : undefined}
+              defaultOpen={false}
+            >
+              <p
+                style={{
+                  fontSize: 12,
+                  color: '#71717a',
+                  margin: '14px 0 6px',
+                  lineHeight: 1.5,
+                }}
+              >
+                Paste a YouTube or Vimeo link to feature a video on your page
+              </p>
+
+              <InputField
+                label="Video URL"
+                value={embeddedVideoUrl}
+                onChange={setEmbeddedVideoUrl}
+                placeholder="https://youtube.com/watch?v=... or https://vimeo.com/..."
+                type="url"
+                disabled={!isAdmin}
+                icon={<IonIcon icon={linkOutline} style={{ fontSize: 12 }} />}
+              />
+
+              {/* Video Preview */}
+              {videoEmbedPreview && (
+                <div
+                  style={{
+                    marginTop: 14,
+                    borderRadius: 14,
+                    overflow: 'hidden',
+                    border: '1px solid rgba(139, 92, 246, 0.2)',
+                    background: 'rgba(0, 0, 0, 0.3)',
+                  }}
+                >
+                  <div
+                    style={{
+                      position: 'relative',
+                      paddingBottom: '56.25%', // 16:9 aspect ratio
+                      height: 0,
+                    }}
+                  >
+                    <iframe
+                      src={videoEmbedPreview}
+                      title="Video preview"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                      style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        height: '100%',
+                        border: 'none',
+                      }}
+                    />
+                  </div>
+                  <div
+                    style={{
+                      padding: '10px 14px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      background: 'rgba(139, 92, 246, 0.08)',
+                      borderTop: '1px solid rgba(139, 92, 246, 0.15)',
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: 12,
+                        color: '#a78bfa',
+                        fontWeight: 600,
+                      }}
+                    >
+                      Video preview
+                    </span>
+                    {isAdmin && (
+                      <button
+                        type="button"
+                        onClick={() => setEmbeddedVideoUrl('')}
+                        style={{
+                          padding: '6px 12px',
+                          borderRadius: 8,
+                          background: 'rgba(239, 68, 68, 0.1)',
+                          border: '1px solid rgba(239, 68, 68, 0.2)',
+                          fontSize: 12,
+                          color: '#ef4444',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {embeddedVideoUrl && !videoEmbedPreview && (
+                <div
+                  style={{
+                    marginTop: 14,
+                    padding: 14,
+                    borderRadius: 12,
+                    background: 'rgba(251, 191, 36, 0.08)',
+                    border: '1px solid rgba(251, 191, 36, 0.2)',
+                  }}
+                >
+                  <p
+                    style={{
+                      fontSize: 13,
+                      color: '#fde68a',
+                      margin: 0,
+                      fontWeight: 500,
+                    }}
+                  >
+                    Couldn't parse video URL. Please use a standard YouTube or
+                    Vimeo link.
+                  </p>
+                </div>
+              )}
+            </CollapsibleSection>
+
+            {/* Theme Selection */}
+            <CollapsibleSection
+              title="Page Theme"
+              icon={sparklesOutline}
+              iconColor="#a78bfa"
+              defaultOpen={false}
+            >
+              <p
+                style={{
+                  fontSize: 12,
+                  color: '#71717a',
+                  margin: '14px 0 12px',
+                  lineHeight: 1.5,
+                }}
+              >
+                Choose how your public page looks to visitors
+              </p>
+
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 10,
+                }}
+              >
+                {/* Cosmic Theme */}
+                <button
+                  type="button"
+                  onClick={() => isAdmin && setPublicTheme('cosmic')}
+                  disabled={!isAdmin}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 14,
+                    padding: 14,
+                    borderRadius: 14,
+                    border:
+                      publicTheme === 'cosmic'
+                        ? '2px solid rgba(139, 92, 246, 0.6)'
+                        : '1px solid rgba(63, 63, 70, 0.4)',
+                    background:
+                      publicTheme === 'cosmic'
+                        ? 'linear-gradient(135deg, rgba(139, 92, 246, 0.15) 0%, rgba(236, 72, 153, 0.1) 100%)'
+                        : 'rgba(9, 9, 11, 0.5)',
+                    cursor: isAdmin ? 'pointer' : 'not-allowed',
+                    opacity: isAdmin ? 1 : 0.5,
+                    transition: 'all 0.2s ease',
+                    textAlign: 'left',
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 48,
+                      height: 48,
+                      borderRadius: 12,
+                      background:
+                        'linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0,
+                      boxShadow: '0 4px 16px rgba(139, 92, 246, 0.3)',
+                    }}
+                  >
+                    <IonIcon
+                      icon={sparklesOutline}
+                      style={{ fontSize: 24, color: '#fff' }}
+                    />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <p
+                      style={{
+                        margin: 0,
+                        fontSize: 15,
+                        fontWeight: 700,
+                        color: '#f4f4f5',
+                      }}
+                    >
+                      Cosmic
+                    </p>
+                    <p
+                      style={{
+                        margin: '4px 0 0',
+                        fontSize: 12,
+                        color: '#71717a',
+                      }}
+                    >
+                      Animated gradients, glassmorphism, neon glows
+                    </p>
+                  </div>
+                  {publicTheme === 'cosmic' && (
+                    <IonIcon
+                      icon={checkmarkCircleOutline}
+                      style={{ fontSize: 24, color: '#a78bfa' }}
+                    />
+                  )}
+                </button>
+
+                {/* Neon Theme */}
+                <button
+                  type="button"
+                  onClick={() => isAdmin && setPublicTheme('mystical')}
+                  disabled={!isAdmin}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 14,
+                    padding: 14,
+                    borderRadius: 14,
+                    border:
+                      publicTheme === 'mystical'
+                        ? '2px solid rgba(52, 211, 153, 0.6)'
+                        : '1px solid rgba(63, 63, 70, 0.4)',
+                    background:
+                      publicTheme === 'mystical'
+                        ? 'linear-gradient(135deg, rgba(52, 211, 153, 0.15) 0%, rgba(16, 185, 129, 0.1) 100%)'
+                        : 'rgba(9, 9, 11, 0.5)',
+                    cursor: isAdmin ? 'pointer' : 'not-allowed',
+                    opacity: isAdmin ? 1 : 0.5,
+                    transition: 'all 0.2s ease',
+                    textAlign: 'left',
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 48,
+                      height: 48,
+                      borderRadius: 12,
+                      background:
+                        'linear-gradient(135deg, #34D399 0%, #10B981 100%)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0,
+                      boxShadow: '0 4px 16px rgba(52, 211, 153, 0.3)',
+                    }}
+                  >
+                    <IonIcon
+                      icon={flashOutline}
+                      style={{ fontSize: 24, color: '#fff' }}
+                    />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <p
+                      style={{
+                        margin: 0,
+                        fontSize: 15,
+                        fontWeight: 700,
+                        color: '#f4f4f5',
+                      }}
+                    >
+                      Neon
+                    </p>
+                    <p
+                      style={{
+                        margin: '4px 0 0',
+                        fontSize: 12,
+                        color: '#71717a',
+                      }}
+                    >
+                      Bold neon accents, dark background, high contrast
+                    </p>
+                  </div>
+                  {publicTheme === 'mystical' && (
+                    <IonIcon
+                      icon={checkmarkCircleOutline}
+                      style={{ fontSize: 24, color: '#34D399' }}
+                    />
+                  )}
+                </button>
+
+                {/* Plain Theme */}
+                <button
+                  type="button"
+                  onClick={() => isAdmin && setPublicTheme('plain')}
+                  disabled={!isAdmin}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 14,
+                    padding: 14,
+                    borderRadius: 14,
+                    border:
+                      publicTheme === 'plain'
+                        ? '2px solid rgba(161, 161, 170, 0.6)'
+                        : '1px solid rgba(63, 63, 70, 0.4)',
+                    background:
+                      publicTheme === 'plain'
+                        ? 'rgba(39, 39, 42, 0.5)'
+                        : 'rgba(9, 9, 11, 0.5)',
+                    cursor: isAdmin ? 'pointer' : 'not-allowed',
+                    opacity: isAdmin ? 1 : 0.5,
+                    transition: 'all 0.2s ease',
+                    textAlign: 'left',
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 48,
+                      height: 48,
+                      borderRadius: 12,
+                      background:
+                        'linear-gradient(135deg, #52525b 0%, #3f3f46 100%)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0,
+                    }}
+                  >
+                    <IonIcon
+                      icon={contrastOutline}
+                      style={{ fontSize: 24, color: '#a1a1aa' }}
+                    />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <p
+                      style={{
+                        margin: 0,
+                        fontSize: 15,
+                        fontWeight: 700,
+                        color: '#f4f4f5',
+                      }}
+                    >
+                      Plain
+                    </p>
+                    <p
+                      style={{
+                        margin: '4px 0 0',
+                        fontSize: 12,
+                        color: '#71717a',
+                      }}
+                    >
+                      Clean and simple, minimal effects, professional
+                    </p>
+                  </div>
+                  {publicTheme === 'plain' && (
+                    <IonIcon
+                      icon={checkmarkCircleOutline}
+                      style={{ fontSize: 24, color: '#a1a1aa' }}
+                    />
+                  )}
+                </button>
+              </div>
             </CollapsibleSection>
 
             {/* Bottom spacer for fixed button */}

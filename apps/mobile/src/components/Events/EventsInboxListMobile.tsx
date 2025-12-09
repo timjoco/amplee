@@ -231,8 +231,23 @@ export default function EventInboxListMobile({
         }
       }
 
-      setLastMsgs((prev) => ({ ...prev, ...map }));
-      setLastMsgsBulk(map);
+      // 🔧 Replace lastMsgs for this list of events (respect deletes / no messages)
+      setLastMsgs((prev) => {
+        const next = { ...prev };
+        for (const id of targetIds) {
+          if (map[id]) {
+            next[id] = map[id];
+          } else {
+            delete next[id];
+          }
+        }
+        return next;
+      });
+
+      // Global cache for home screen
+      if (!bandId) {
+        setLastMsgsBulk(map);
+      }
     }
   }, [bandId, onLoaded, showAvatars]);
 
@@ -241,30 +256,124 @@ export default function EventInboxListMobile({
     void refreshEvents().finally(() => setLoading(false));
   }, [bandId, refreshEvents]);
 
+  // Helper: recompute the last visible message for an event
+  // Helper: recompute the last visible message for an event
+  const recomputeLastMessage = useCallback(
+    async (eventId: string) => {
+      if (!eventIdsRef.current.includes(eventId)) {
+        console.log(
+          '[inbox] recompute skipped, no such eventId in list',
+          eventId
+        );
+        return;
+      }
+
+      console.log('[inbox] recomputing last message for', eventId);
+
+      const { data, error } = await supabase
+        .from('event_messages')
+        .select('event_id, body, created_at')
+        // TODO: if you have soft delete (is_deleted / deleted_at), filter it here
+        // .is('deleted_at', null)
+        .eq('event_id', eventId)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (error) {
+        console.warn('[event inbox] failed to recompute last message', error);
+        return;
+      }
+
+      const next = (data?.[0] as LastMsg | undefined) ?? undefined;
+      console.log('[inbox] recompute result for', eventId, next);
+
+      setLastMsgs((prev) => {
+        const clone = { ...prev };
+        if (next) {
+          clone[eventId] = next;
+        } else {
+          delete clone[eventId];
+        }
+        return clone;
+      });
+
+      if (next) {
+        upsertLastMsg(next);
+      }
+    },
+    [] // supabase is a module-level singleton, safe to omit
+  );
+
   useEffect(() => {
     const ch = supabase
       .channel('dashboard:event-inbox')
+      // INSERT
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'event_messages' },
-        (payload: { new: LastMsg }) => {
+        (payload: any) => {
           const msg = payload.new as LastMsg;
+          console.log('[inbox] INSERT msg', msg);
+
           if (!eventIdsRef.current.includes(msg.event_id)) return;
-          upsertLastMsg(msg);
+
           setLastMsgs((prev) => {
             const cur = prev[msg.event_id];
             if (!cur || new Date(msg.created_at) > new Date(cur.created_at)) {
-              return { ...prev, [msg.event_id]: msg };
+              const next = { ...prev, [msg.event_id]: msg };
+              upsertLastMsg(msg);
+              return next;
             }
             return prev;
           });
         }
       )
+      // UPDATE
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'event_messages' },
+        (payload: any) => {
+          const row = payload.new;
+          const eventId = row.event_id as string | undefined;
+          console.log('[inbox] UPDATE msg', row);
+          if (!eventId) return;
+          void recomputeLastMessage(eventId);
+        }
+      )
+      // DELETE
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'event_messages' },
+        (payload: any) => {
+          const row = payload.old;
+          const eventId = row.event_id as string | undefined;
+          console.log('[inbox] DELETE msg', row);
+          if (!eventId) return;
+          void recomputeLastMessage(eventId);
+        }
+      )
       .subscribe();
+
     return () => {
       supabase.removeChannel(ch);
     };
-  }, []);
+  }, [recomputeLastMessage]);
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const custom = e as CustomEvent<{ eventId?: string }>;
+      const changedEventId = custom.detail?.eventId;
+      if (!changedEventId) return;
+
+      // Only recompute if this list actually includes that event
+      void recomputeLastMessage(changedEventId);
+    };
+
+    window.addEventListener('amplee:event-message-updated', handler);
+    return () => {
+      window.removeEventListener('amplee:event-message-updated', handler);
+    };
+  }, [recomputeLastMessage]);
 
   const getAvatar = useCallback(
     async (bandId: string, path: string | null | undefined) => {

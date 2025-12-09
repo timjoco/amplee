@@ -1,0 +1,22 @@
+{
+  "$schema": "https://capacitorjs.com/assets.schema.json",
+  "resources": {
+    "icon": {
+      "src": "public/assets/icon/logo-icon-dark.png",
+      "padding": 0
+    },
+    "splash": {
+      "src": "public/assets/icon/logo-transparent.png",
+      "background_color": "#050509",
+      "padding": 0.1
+    }
+  },
+  "platforms": {
+    "android": {
+      "path": "android"
+    },
+    "ios": {
+      "path": "ios"
+    }
+  }
+}

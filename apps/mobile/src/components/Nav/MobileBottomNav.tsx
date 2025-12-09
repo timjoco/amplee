@@ -21,6 +21,10 @@ export default function MobileBottomNav() {
   const isAndroid =
     Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android';
 
+  const ICON_SIZE = 22;
+  const CREATE_ICON_SIZE = 26;
+  const AVATAR_SIZE = 28;
+
   const [profile, setProfile] = React.useState<MiniProfile | null>(null);
 
   React.useEffect(() => {
@@ -115,7 +119,7 @@ export default function MobileBottomNav() {
     pathname.startsWith('/invite/') ||
     pathname.startsWith('/profile') ||
     pathname.startsWith('/profile/basics') ||
-    pathname.startsWith('/onboarding') || // Add this line
+    pathname.startsWith('/onboarding') ||
     /^\/bands\/[^/]+\/events\/[^/]+(\/(chat|rollcall|setlist|notes|files))?\/?$/.test(
       pathname
     ) ||
@@ -147,7 +151,7 @@ export default function MobileBottomNav() {
         zIndex: 1000,
         paddingBottom: isAndroid
           ? 'calc(env(safe-area-inset-bottom, 0px) + 40px)'
-          : 'calc(env(safe-area-inset-bottom, 0px) + 8px)',
+          : 'calc(env(safe-area-inset-bottom, 0px) + 12px)',
         background:
           'linear-gradient(180deg, rgba(8,8,12,0.9), rgba(8,8,12,0.98))',
         borderTop: '1px solid rgba(255,255,255,0.08)',
@@ -161,7 +165,7 @@ export default function MobileBottomNav() {
           display: 'grid',
           gridTemplateColumns: '1fr 1fr 1fr',
           alignItems: 'center',
-          height: 68,
+          height: 60,
           maxWidth: 640,
           margin: '0 auto',
         }}
@@ -173,7 +177,7 @@ export default function MobileBottomNav() {
             if (pathname !== '/home') nav('/home');
           }}
         >
-          <FiHome size={26} />
+          <FiHome size={ICON_SIZE} />
         </NavBtn>
 
         <NavBtn
@@ -185,7 +189,7 @@ export default function MobileBottomNav() {
           }}
           isPrimary
         >
-          <IonIcon icon={add} style={{ fontSize: 30 }} />
+          <IonIcon icon={add} style={{ fontSize: CREATE_ICON_SIZE }} />
         </NavBtn>
 
         <NavBtn
@@ -202,13 +206,13 @@ export default function MobileBottomNav() {
               name={profile.name}
               bucket={AVATAR_BUCKET}
               avatarPath={profile.avatarUrl ?? undefined}
-              size={32}
+              size={AVATAR_SIZE}
               style={{
                 borderWidth: selectedIndex === ACCOUNT_INDEX ? 2 : 1,
               }}
             />
           ) : (
-            <IonIcon icon={person} style={{ fontSize: 26 }} />
+            <IonIcon icon={person} style={{ fontSize: ICON_SIZE }} />
           )}
         </NavBtn>
       </div>
@@ -249,7 +253,7 @@ function NavBtn({
         width: '100%',
         display: 'grid',
         placeItems: 'center',
-        padding: '10px 8px',
+        padding: '6px 4px',
         color: baseColor,
       }}
     >
@@ -258,9 +262,9 @@ function NavBtn({
           display: 'grid',
           placeItems: 'center',
           transition: 'transform 150ms ease, background-color 150ms ease',
-          transform: selected ? 'scale(1.06)' : 'scale(1.02)',
+          transform: selected ? 'scale(1.04)' : 'scale(1.0)',
           borderRadius: 12,
-          padding: 4,
+          padding: 2,
           backgroundColor: 'transparent',
         }}
       >

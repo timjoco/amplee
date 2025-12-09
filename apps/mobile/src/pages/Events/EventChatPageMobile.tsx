@@ -114,6 +114,7 @@ export default function EventChatPageMobile() {
           ['--background' as any]: '#050509',
           ['--padding-top' as any]: '0px',
           ['--padding-bottom' as any]: '0px',
+          ['--keyboard-offset' as any]: '0px',
         }}
       >
         {loading || !eventId ? (

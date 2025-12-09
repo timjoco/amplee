@@ -20,17 +20,18 @@ interface ComposerInputProps {
   onSubmit?: () => void;
 }
 
-// iOS dark keyboard colors
-const IOS_KEYBOARD_BG = '#1C1C1E';
-const IOS_INPUT_BG = '#2C2C2E';
-const IOS_BORDER = '#3A3A3C';
+const GLASS_BG = 'rgba(16, 16, 16, 0.6)';
+const GLASS_BORDER = 'rgba(4, 47, 20, 0.2)';
+const GLASS_BORDER_FOCUS = 'rgba(34, 197, 94, 0.4)';
+const GREEN_PRIMARY = '#22C55E';
+const TEXT_PRIMARY = '#F8FAFC';
+const TEXT_SECONDARY = '#94A3B8';
 
-// Song tag colors (pink theme for music)
 const SONG_TAG_BG = 'rgba(236, 72, 153, 0.15)';
-const SONG_TAG_BORDER = 'rgba(236, 72, 153, 0.4)';
+const SONG_TAG_BORDER = 'rgba(236, 72, 153, 0.35)';
 const SONG_TAG_TEXT = '#F472B6';
+const SONG_TAG_ICON = '#EC4899';
 
-// Base height we want (to match the 47px send button)
 const BASE_HEIGHT = 47;
 
 export function ComposerInput({
@@ -97,21 +98,26 @@ export function ComposerInput({
 
   return (
     <div
+      className="composer-container"
       style={{
         flex: 1,
         minWidth: 0,
         minHeight: BASE_HEIGHT,
         maxHeight: hasTags ? 140 : BASE_HEIGHT,
-        borderRadius: 18,
-        border: `1px solid ${isIOS ? IOS_BORDER : 'rgba(15, 50, 98, 0.7)'}`,
-        background: isIOS ? IOS_INPUT_BG : 'rgba(15, 23, 42, 0.9)',
+        borderRadius: 20,
+        border: `1px solid ${GLASS_BORDER}`,
+        background: GLASS_BG,
+        backdropFilter: 'blur(16px)',
+        WebkitBackdropFilter: 'blur(16px)',
         display: 'flex',
         flexDirection: 'column',
         paddingInline: 14,
         paddingBlock: hasTags ? 8 : 0,
         boxSizing: 'border-box',
         overflow: 'hidden',
-        transition: 'max-height 150ms ease',
+        transition: 'all 200ms cubic-bezier(0.4, 0, 0.2, 1)',
+        boxShadow:
+          '0 4px 24px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
       }}
     >
       {/* Song Tags */}
@@ -130,21 +136,26 @@ export function ComposerInput({
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: 4,
-                paddingLeft: 8,
-                paddingRight: 4,
-                paddingBlock: 4,
-                borderRadius: 12,
+                gap: 6,
+                paddingLeft: 10,
+                paddingRight: 6,
+                paddingBlock: 5,
+                borderRadius: 14,
                 background: SONG_TAG_BG,
                 border: `1px solid ${SONG_TAG_BORDER}`,
+                backdropFilter: 'blur(8px)',
+                WebkitBackdropFilter: 'blur(8px)',
                 maxWidth: '100%',
+                boxShadow: '0 2px 8px rgba(34, 197, 94, 0.1)',
+                transition: 'all 150ms ease',
               }}
+              className="song-tag"
             >
               <IonIcon
                 icon={musicalNotes}
                 style={{
-                  fontSize: 12,
-                  color: SONG_TAG_TEXT,
+                  fontSize: 13,
+                  color: SONG_TAG_ICON,
                   flexShrink: 0,
                 }}
               />
@@ -157,6 +168,7 @@ export function ComposerInput({
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
                   maxWidth: 150,
+                  letterSpacing: '0.01em',
                 }}
               >
                 {tag.title}
@@ -168,17 +180,19 @@ export function ComposerInput({
                   display: 'inline-flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  padding: 0,
+                  padding: 2,
                   margin: 0,
                   border: 'none',
                   background: 'transparent',
                   cursor: 'pointer',
                   color: SONG_TAG_TEXT,
                   opacity: 0.7,
-                  transition: 'opacity 150ms ease',
+                  transition: 'all 150ms ease',
+                  borderRadius: '50%',
                 }}
+                className="tag-remove-btn"
               >
-                <IonIcon icon={closeCircle} style={{ fontSize: 16 }} />
+                <IonIcon icon={closeCircle} style={{ fontSize: 17 }} />
               </button>
             </div>
           ))}
@@ -218,9 +232,10 @@ export function ComposerInput({
               '--background': 'transparent',
               fontSize: 16,
               lineHeight: '36px',
-              color: '#F1F5F9', // slate-100 for readable text
+              color: TEXT_PRIMARY,
               display: 'flex',
               alignItems: 'center',
+              fontWeight: 400,
             } as React.CSSProperties
           }
           className="composer-textarea"
@@ -229,27 +244,76 @@ export function ComposerInput({
 
       <style>
         {`
+    .composer-container:focus-within {
+      border-color: ${GLASS_BORDER_FOCUS};
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12), 
+                  0 0 0 3px rgba(34, 197, 94, 0.08),
+                  inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    }
+.song-tag:hover {
+  background: rgba(236, 72, 153, 0.2);
+  border-color: rgba(236, 72, 153, 0.5);
+  box-shadow: 0 4px 12px rgba(236, 72, 153, 0.15);
+}
+
+.tag-remove-btn:hover {
+  opacity: 1;
+  background: rgba(236, 72, 153, 0.15);
+  transform: scale(1.05);
+}
+
+    .tag-remove-btn:active {
+      transform: scale(0.95);
+    }
+    
     .composer-textarea {
-      --placeholder-opacity: 0.6;
-      --placeholder-color: #94A3B8;
+      --placeholder-opacity: 0.5;
+      --placeholder-color: ${TEXT_SECONDARY};
     }
     
-    .composer-textarea textarea,
-    .composer-textarea .native-textarea {
-      height: 36px !important;
-      min-height: 36px !important;
-      max-height: 36px !important;
-      line-height: 36px !important;
-      padding: 0 !important;
-      margin: 0 !important;
-      resize: none !important;
-      overflow: hidden !important;
+.composer-textarea textarea,
+.composer-textarea .native-textarea {
+  height: auto !important;
+  min-height: 36px !important;
+  max-height: 72px !important; /* Allow 2 lines */
+  line-height: 20px !important; /* Smaller line-height = normal caret */
+  padding: 8px 0 !important; /* Vertical padding to center single line */
+  margin: 0 !important;
+  resize: none !important;
+  overflow-y: auto !important;
+  font-weight: 400 !important;
+  caret-color: ${GREEN_PRIMARY} !important;
+}
+
+.composer-textarea textarea::placeholder,
+.composer-textarea .native-textarea::placeholder {
+  line-height: 20px !important;
+  color: ${TEXT_SECONDARY} !important;
+  opacity: 0.5 !important;
+}
+    /* Green text selection */
+    .composer-textarea textarea::selection,
+    .composer-textarea .native-textarea::selection {
+      background-color: rgba(34, 197, 94, 0.3);
+      color: ${TEXT_PRIMARY};
     }
-    
-    .composer-textarea textarea::placeholder,
-    .composer-textarea .native-textarea::placeholder {
-      line-height: 36px !important;
-      color: #94A3B8 !important;
+
+    /* Smooth scrollbar for tags overflow */
+    .composer-container::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    .composer-container::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .composer-container::-webkit-scrollbar-thumb {
+      background: rgba(34, 197, 94, 0.3);
+      border-radius: 2px;
+    }
+
+    .composer-container::-webkit-scrollbar-thumb:hover {
+      background: rgba(34, 197, 94, 0.5);
     }
   `}
       </style>

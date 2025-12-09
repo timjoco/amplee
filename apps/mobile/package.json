@@ -10,7 +10,8 @@
     "cap": "cap",
     "sync": "cap sync",
     "ios": "cap open ios",
-    "android": "cap open android"
+    "android": "cap open android",
+    "cap:build": "vite build && cap sync"
   },
   "dependencies": {
     "@amplee/assets": "workspace:*",
@@ -28,6 +29,7 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@ionic/react": "^8.7.9",
     "@supabase/supabase-js": "^2.45.6",
+    "framer-motion": "^12.23.25",
     "history": "^5",
     "ionicons": "^8.0.13",
     "qrcode.react": "^4.2.0",

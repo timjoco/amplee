@@ -128,25 +128,25 @@ export default function ChatTabMobile({
 
   // Keyboard listeners
   useEffect(() => {
-    if (!isNative) return;
+    if (!isNative || isIOS) return; // Skip on iOS - it handles keyboard natively
 
-    let showSub: any;
-    let hideSub: any;
+    let willShowSub: any;
+    let willHideSub: any;
+    let didShowSub: any;
 
     (async () => {
       try {
-        if (isIOS) {
-          // 🔑 On iOS, let Native resize + CSS safe area handle layout.
-          // We don't need keyboardHeight at all for positioning.
-          return;
-        }
-
-        // Android: use didShow/didHide
-        showSub = await Keyboard.addListener('keyboardDidShow', (info) => {
+        willShowSub = await Keyboard.addListener('keyboardWillShow', (info) => {
           setKeyboardHeight(info.keyboardHeight);
         });
-        hideSub = await Keyboard.addListener('keyboardDidHide', () => {
+
+        willHideSub = await Keyboard.addListener('keyboardWillHide', () => {
           setKeyboardHeight(0);
+        });
+
+        // Fallback: Android sometimes doesn't fire willShow reliably
+        didShowSub = await Keyboard.addListener('keyboardDidShow', (info) => {
+          setKeyboardHeight((prev) => prev || info.keyboardHeight);
         });
       } catch (e) {
         console.warn('[keyboard listeners error]', e);
@@ -154,27 +154,21 @@ export default function ChatTabMobile({
     })();
 
     return () => {
-      showSub?.remove?.();
-      hideSub?.remove?.();
+      willShowSub?.remove?.();
+      willHideSub?.remove?.();
+      didShowSub?.remove?.();
     };
   }, [isNative, isIOS]);
 
-  // Calculate composer bottom padding
   const composerPaddingBottom = useMemo(() => {
-    // iOS: webview is resized natively by the keyboard.
-    // Just stay above the home indicator.
-    if (isIOS) {
-      return 'calc(env(safe-area-inset-bottom, 0px) + 8px)';
-    }
-
-    // Android: when keyboard is open, keep a small fixed gap
+    // Android: manually offset by keyboard height when open
     if (isAndroid && keyboardHeight > 0) {
-      return 8;
+      return keyboardHeight + 8;
     }
 
-    // Keyboard closed (Android/web): safe area + bottom nav offset
+    // iOS (native handling) + keyboard closed state
     return `calc(env(safe-area-inset-bottom, 0px) + ${BASE_NAV_OFFSET}px)`;
-  }, [isIOS, isAndroid, keyboardHeight, BASE_NAV_OFFSET]);
+  }, [isAndroid, keyboardHeight, BASE_NAV_OFFSET]);
 
   const extractLinks = useCallback((text: string): string[] => {
     const urlRegex = /(https?:\/\/[^\s]+)/g;
@@ -846,6 +840,13 @@ export default function ChatTabMobile({
       );
       setInputText(previousText);
       setSongTags(previousTags);
+    } else {
+      // 🔔 New message might now be the last-message preview for this event
+      window.dispatchEvent(
+        new CustomEvent('amplee:event-message-updated', {
+          detail: { eventId },
+        })
+      );
     }
   }, [inputText, songTags, eventId, smartScrollToBottom]);
 
@@ -874,16 +875,28 @@ export default function ChatTabMobile({
   const handleMessageDelete = useCallback(async () => {
     if (!activeMessageId || !canDelete) return;
     const id = activeMessageId;
+
+    // Optimistically remove from local chat
     setMessages((prev) => prev.filter((m) => m.id !== id));
+
     const { error } = await supabase
       .from('event_messages')
       .delete()
       .eq('id', id);
+
     if (error) {
       console.error('[chat delete error]', error);
+    } else {
+      // 🔔 Tell all inboxes that this event's messages changed
+      window.dispatchEvent(
+        new CustomEvent('amplee:event-message-updated', {
+          detail: { eventId },
+        })
+      );
     }
+
     setActiveMessageId(null);
-  }, [activeMessageId, canDelete]);
+  }, [activeMessageId, canDelete, eventId, supabase]);
 
   const handleMessageReact = useCallback(
     (emoji: string) => {
@@ -896,20 +909,31 @@ export default function ChatTabMobile({
   const handleMessageEdit = useCallback(
     (messageId: string, newBody: string) => {
       const id = messageId;
+
+      // Optimistically update message in this chat
       setMessages((prev) =>
         prev.map((m) => (m.id === id ? { ...m, body: newBody } : m))
       );
+
       void (async () => {
         const { error } = await supabase
           .from('event_messages')
           .update({ body: newBody })
           .eq('id', id);
+
         if (error) {
           console.error('[chat edit error]', error);
+        } else {
+          // 🔔 Notify inboxes that the latest message for this event may have changed
+          window.dispatchEvent(
+            new CustomEvent('amplee:event-message-updated', {
+              detail: { eventId },
+            })
+          );
         }
       })();
     },
-    []
+    [eventId, supabase]
   );
 
   return (
@@ -1359,8 +1383,9 @@ export default function ChatTabMobile({
           width: '100%',
           marginInline: 0,
           backdropFilter: 'blur(10px)',
-          // iOS keyboard animation sync
-          transition: isIOS ? IOS_KEYBOARD_TRANSITION : 'none',
+          transition: isAndroid
+            ? 'padding-bottom 280ms cubic-bezier(0.17, 0.59, 0.4, 0.77)'
+            : 'none',
         }}
       >
         <div
