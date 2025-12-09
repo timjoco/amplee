@@ -41,18 +41,47 @@ export default function BandAvatarCardMobile({
 
   useEffect(() => {
     let cancelled = false;
+
     (async () => {
       setSignErr(undefined);
       setSignedUrl(undefined);
+
       if (!currentPath) return;
 
-      const { data, error } = await supabase.storage
-        .from('band-avatars')
-        .createSignedUrl(currentPath, 3600);
+      // 👇 1) If currentPath is already a full URL, just use it directly
+      const isFullUrl =
+        currentPath.startsWith('http://') || currentPath.startsWith('https://');
 
-      if (!cancelled) {
-        if (error) setSignErr(error.message);
-        else setSignedUrl(data?.signedUrl);
+      if (isFullUrl) {
+        if (!cancelled) {
+          setSignedUrl(currentPath);
+        }
+        return;
+      }
+
+      // 👇 2) Otherwise treat it as a path inside band-avatars
+      // Normalize in case we accidentally stored "band-avatars/foo/bar.png"
+      let normalizedPath = currentPath;
+      if (normalizedPath.startsWith(`${BAND_AVATAR_BUCKET}/`)) {
+        normalizedPath = normalizedPath.slice(BAND_AVATAR_BUCKET.length + 1);
+      }
+
+      const { data, error } = await supabase.storage
+        .from(BAND_AVATAR_BUCKET)
+        .createSignedUrl(normalizedPath, 3600);
+
+      if (cancelled) return;
+
+      if (error) {
+        console.warn('[BandAvatarCardMobile] signed URL error:', {
+          error,
+          currentPath,
+          normalizedPath,
+        });
+        setSignErr(error.message);
+        setSignedUrl(undefined);
+      } else {
+        setSignedUrl(data?.signedUrl);
       }
     })();
 

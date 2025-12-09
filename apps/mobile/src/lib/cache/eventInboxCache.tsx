@@ -15,7 +15,8 @@ export type EventRow = {
   bands: { id: string; name: string; avatar_url: string | null } | null;
 };
 
-type AvatarEntry = { path: string; signedUrl?: string; exp?: number };
+// 🔧 allow null path
+type AvatarEntry = { path: string | null; signedUrl?: string; exp?: number };
 
 type CacheShape = {
   events: EventRow[];
@@ -24,7 +25,9 @@ type CacheShape = {
   updatedAt: number; // ms
 };
 
-const STORAGE_KEY = 'amplee:eventInbox:v1';
+// 🔧 bump key to flush old bad data (optional but recommended)
+const STORAGE_KEY = 'amplee:eventInbox:v2';
+
 export const EVENTS_TTL_MS = 2 * 60 * 1000;
 let cache: CacheShape = { events: [], lastMsgs: {}, avatars: {}, updatedAt: 0 };
 
@@ -67,10 +70,30 @@ export function setLastMsgsBulk(map: Record<string, LastMsg>) {
   saveStorage();
 }
 
+// 🔧 PATH-AWARE: reset signedUrl when the path changes
 export function setAvatarPath(bandId: string, path: string | null) {
-  if (!path) return;
-  const prev = cache.avatars[bandId] ?? {};
-  cache.avatars[bandId] = { ...prev, path };
+  // no path → drop avatar entry entirely
+  if (!path) {
+    if (cache.avatars[bandId]) {
+      delete cache.avatars[bandId];
+      saveStorage();
+    }
+    return;
+  }
+
+  const prev = cache.avatars[bandId];
+
+  // If path is unchanged, keep the existing signedUrl
+  if (prev && prev.path === path) {
+    return;
+  }
+
+  // Path changed → clear signedUrl so it will be recomputed
+  cache.avatars[bandId] = {
+    path,
+    signedUrl: undefined,
+    exp: 0,
+  };
   saveStorage();
 }
 
@@ -79,16 +102,32 @@ export function setAvatarSigned(
   signedUrl: string,
   ttlSeconds: number
 ) {
-  const prev = cache.avatars[bandId] ?? {};
+  const prev = cache.avatars[bandId];
   const exp = Date.now() + ttlSeconds * 1000 - 3_000;
-  cache.avatars[bandId] = { ...prev, signedUrl, exp };
+
+  cache.avatars[bandId] = {
+    path: prev?.path ?? null,
+    signedUrl,
+    exp,
+  };
   saveStorage();
 }
 
 export function getAvatarSigned(bandId: string): string | undefined {
   const a = cache.avatars[bandId];
   if (!a?.signedUrl) return undefined;
-  if (!a.exp || Date.now() > a.exp) return undefined;
+
+  if (!a.exp || Date.now() > a.exp) {
+    // expired → clear signedUrl but keep path
+    cache.avatars[bandId] = {
+      path: a.path ?? null,
+      signedUrl: undefined,
+      exp: 0,
+    };
+    saveStorage();
+    return undefined;
+  }
+
   return a.signedUrl;
 }
 

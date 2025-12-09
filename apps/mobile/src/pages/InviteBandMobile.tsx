@@ -21,6 +21,7 @@ import {
   copyOutline,
   mailOutline,
   personAddOutline,
+  refreshOutline,
 } from 'ionicons/icons';
 import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -46,12 +47,14 @@ export default function InviteBandMobile() {
 
   const [bandName, setBandName] = React.useState<string>('Band');
   const [isAdmin, setIsAdmin] = React.useState(false);
+  const [userId, setUserId] = React.useState<string | null>(null);
 
   const [mode, setMode] = React.useState<InviteMode>('email');
   const [emailInput, setEmailInput] = React.useState('');
   const [emails, setEmails] = React.useState<string[]>([]);
   const [sendingInvites, setSendingInvites] = React.useState(false);
   const [inviteLink, setInviteLink] = React.useState<string | null>(null);
+  const [generatingLink, setGeneratingLink] = React.useState(false);
   const [copied, setCopied] = React.useState(false);
   const [showSentToast, setShowSentToast] = React.useState(false);
 
@@ -77,6 +80,8 @@ export default function InviteBandMobile() {
         if (cancelled) return;
         if (userErr) throw userErr;
         if (!user) throw new Error('You must be signed in.');
+
+        setUserId(user.id);
 
         const { error: ensureErr } = await supabase.rpc('ensure_profile');
         if (cancelled) return;
@@ -115,8 +120,8 @@ export default function InviteBandMobile() {
         setBandName(band.name || 'Band');
         setIsAdmin(true);
 
-        // Generate invite link with proper domain
-        await generateInviteLink();
+        // Generate invite link (creates a DB record)
+        await generateInviteLink(user.id);
       } catch (e: any) {
         if (cancelled) return;
         console.error('[InviteBandMobile] load error', e);
@@ -135,11 +140,61 @@ export default function InviteBandMobile() {
     };
   }, [bandId]);
 
-  // ---------- GENERATE INVITE LINK ----------
-  async function generateInviteLink() {
-    const domain = 'https://amplee.app';
-    const link = `${domain}/invite?band=${bandId}`;
-    setInviteLink(link);
+  // ---------- GENERATE INVITE LINK (creates DB record) ----------
+  async function generateInviteLink(inviterId?: string) {
+    if (!bandId) return;
+
+    try {
+      setGeneratingLink(true);
+      setErr(null);
+
+      const inviterUserId = inviterId || userId;
+      if (!inviterUserId) {
+        console.error('[InviteBandMobile] No user ID available');
+        setErr('Not signed in');
+        return;
+      }
+
+      // Ensure profile exists BEFORE creating invite (handles FK constraint)
+      const { error: ensureErr } = await supabase.rpc('ensure_profile');
+      if (ensureErr) {
+        console.error('[InviteBandMobile] ensure_profile error:', ensureErr);
+        // Continue anyway - profile might already exist
+      }
+
+      // Create a shareable invite record (no email - anyone with link can use it)
+      const { data: invite, error } = await supabase
+        .from('band_invitations')
+        .insert({
+          band_id: bandId,
+          invited_by: inviterUserId,
+          email: null,
+          role: 'member',
+          status: 'pending',
+        })
+        .select('token')
+        .single();
+
+      if (error) {
+        console.error('[InviteBandMobile] Failed to create invite:', error);
+        setErr('Failed to generate invite link');
+        return;
+      }
+
+      const link = `https://amplee.app/invite/${invite.token}`;
+      setInviteLink(link);
+      console.log('[InviteBandMobile] Generated invite link:', link);
+    } catch (e: any) {
+      console.error('[InviteBandMobile] generateInviteLink error:', e);
+      setErr(e?.message || 'Failed to generate link');
+    } finally {
+      setGeneratingLink(false);
+    }
+  }
+
+  // ---------- REGENERATE LINK (creates new invite) ----------
+  async function regenerateInviteLink() {
+    await generateInviteLink();
   }
 
   // ---------- EMAIL HELPERS ----------
@@ -173,11 +228,8 @@ export default function InviteBandMobile() {
       if (!session) throw new Error('Not signed in');
 
       const role: 'member' = 'member';
-
-      const base =
-        import.meta.env.VITE_API_BASE?.replace(/\/+$/, '') ||
-        import.meta.env.VITE_APP_URL?.replace(/\/+$/, '') ||
-        '';
+      const base = 'https://amplee.app';
+      console.log('[InviteBandMobile] api base =', base);
 
       for (const em of emails) {
         const res = await fetch(`${base}/api/bands/${bandId}/invite`, {
@@ -447,6 +499,8 @@ export default function InviteBandMobile() {
                   border: '1px solid rgba(148,163,184,0.35)',
                   display: 'flex',
                   alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 8,
                 }}
               >
                 <span
@@ -456,16 +510,36 @@ export default function InviteBandMobile() {
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
                     whiteSpace: 'nowrap',
+                    flex: 1,
                   }}
                 >
-                  {inviteLink || 'Generating link…'}
+                  {generatingLink
+                    ? 'Generating link…'
+                    : inviteLink || 'No link generated'}
                 </span>
+                {inviteLink && !generatingLink && (
+                  <IonButton
+                    fill="clear"
+                    size="small"
+                    onClick={regenerateInviteLink}
+                    style={{
+                      '--padding-start': '6px',
+                      '--padding-end': '6px',
+                      minHeight: 28,
+                    }}
+                  >
+                    <IonIcon
+                      icon={refreshOutline}
+                      style={{ fontSize: 16, color: '#9ca3af' }}
+                    />
+                  </IonButton>
+                )}
               </div>
 
               <IonButton
                 expand="block"
                 onClick={copyInviteLink}
-                disabled={!inviteLink}
+                disabled={!inviteLink || generatingLink}
                 style={{
                   '--background': copied
                     ? 'rgba(34,197,94,0.9)'

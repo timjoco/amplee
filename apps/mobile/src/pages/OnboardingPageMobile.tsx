@@ -48,7 +48,13 @@ export default function OnboardingPageMobile() {
         if (uErr) throw uErr;
         if (!user) {
           if (active) {
-            nav(`/login?next=${encodeURIComponent('/onboarding')}`, {
+            // Preserve where we eventually want to land (next),
+            // by asking login to send us back to this exact onboarding URL.
+            const onboardingUrl = `/onboarding?next=${encodeURIComponent(
+              next
+            )}`;
+
+            nav(`/login?next=${encodeURIComponent(onboardingUrl)}`, {
               replace: true,
             });
           }

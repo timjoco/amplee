@@ -6,27 +6,49 @@ type CachedUrl = {
 
 const cache = new Map<string, CachedUrl>();
 
+function isFullUrl(value: string | null | undefined): boolean {
+  return (
+    !!value && (value.startsWith('http://') || value.startsWith('https://'))
+  );
+}
+
 export async function getAvatarUrl(
   bucket: string,
   path: string | null | undefined
 ): Promise<string | null> {
   if (!bucket || !path) return null;
 
-  const key = `${bucket}:${path}`;
+  // 0) If it's already a full URL, just use it
+  if (isFullUrl(path)) {
+    return path;
+  }
 
-  // 1) In-memory cache
+  // 1) Normalize path so we don't send "bucket/bucket/..."
+  let normalizedPath = path;
+  if (normalizedPath.startsWith(`${bucket}/`)) {
+    normalizedPath = normalizedPath.slice(bucket.length + 1);
+  }
+
+  const key = `${bucket}:${normalizedPath}`;
+
+  // 2) In-memory cache
   const cached = cache.get(key);
   if (cached) {
     return cached.url;
   }
 
-  // 2) Fetch signed URL from Supabase once
+  // 3) Fetch signed URL from Supabase once
   const { data, error } = await supabase.storage
     .from(bucket)
-    .createSignedUrl(path, 60 * 60 * 24 * 7);
+    .createSignedUrl(normalizedPath, 60 * 60 * 24 * 7); // 7 days
 
   if (error || !data?.signedUrl) {
-    console.warn('[avatar signedUrl error]', error);
+    console.warn('[avatar signedUrl error]', {
+      error,
+      bucket,
+      rawPath: path,
+      normalizedPath,
+    });
     return null;
   }
 

@@ -308,6 +308,47 @@ const PlatformIcon: React.FC<{
   }
 };
 
+// Section Divider Component
+const SectionDivider: React.FC<{ label: string }> = ({ label }) => (
+  <div
+    style={{
+      display: 'flex',
+      alignItems: 'center',
+      gap: 12,
+      margin: '8px 0 4px',
+    }}
+  >
+    <div
+      style={{
+        flex: 1,
+        height: 1,
+        background:
+          'linear-gradient(90deg, transparent 0%, rgba(113, 113, 122, 0.3) 50%, transparent 100%)',
+      }}
+    />
+    <span
+      style={{
+        fontSize: 11,
+        fontWeight: 700,
+        color: '#52525b',
+        textTransform: 'uppercase',
+        letterSpacing: '1.2px',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      {label}
+    </span>
+    <div
+      style={{
+        flex: 1,
+        height: 1,
+        background:
+          'linear-gradient(90deg, transparent 0%, rgba(113, 113, 122, 0.3) 50%, transparent 100%)',
+      }}
+    />
+  </div>
+);
+
 // Collapsible Section Component
 const CollapsibleSection: React.FC<{
   title: string;
@@ -1600,6 +1641,11 @@ export default function BandPublicProfileMobile() {
               </div>
             )}
 
+            {/* ============================================ */}
+            {/* BASICS SECTION */}
+            {/* ============================================ */}
+            <SectionDivider label="Basics" />
+
             {/* Avatar Upload Section */}
             <CollapsibleSection
               title="Band Image"
@@ -1756,6 +1802,11 @@ export default function BandPublicProfileMobile() {
               </div>
             </CollapsibleSection>
 
+            {/* ============================================ */}
+            {/* CONNECT SECTION */}
+            {/* ============================================ */}
+            <SectionDivider label="Connect" />
+
             {/* Contact & Inquiries */}
             <CollapsibleSection
               title="Contact & Inquiries"
@@ -1906,6 +1957,11 @@ export default function BandPublicProfileMobile() {
                 );
               })}
             </CollapsibleSection>
+
+            {/* ============================================ */}
+            {/* MEDIA SECTION */}
+            {/* ============================================ */}
+            <SectionDivider label="Media" />
 
             {/* Band Gallery Section */}
             <CollapsibleSection
@@ -2177,6 +2233,11 @@ export default function BandPublicProfileMobile() {
                 </div>
               )}
             </CollapsibleSection>
+
+            {/* ============================================ */}
+            {/* APPEARANCE SECTION */}
+            {/* ============================================ */}
+            <SectionDivider label="Appearance" />
 
             {/* Theme Selection */}
             <CollapsibleSection

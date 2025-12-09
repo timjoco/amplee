@@ -15,6 +15,7 @@ import { Capacitor } from '@capacitor/core';
 import { Keyboard, KeyboardResize } from '@capacitor/keyboard';
 import { useEffect } from 'react';
 
+import { useDeepLinks } from './hooks/useDeepLinks';
 import AuthCallback from './pages/AuthCallback';
 import BandAvailabilityPage from './pages/Bands/BandAvailabilityPage';
 import BandEventsPage from './pages/Bands/BandEventsPage';
@@ -96,6 +97,8 @@ export default function App() {
       sub.then((h) => h.remove());
     };
   }, [navigate, pathname]);
+
+  useDeepLinks();
 
   if (loading) return null;
 
