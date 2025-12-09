@@ -117,7 +117,6 @@ export function StreamingIcon({ platform, size = 20 }: IconProps) {
 export function SocialIcon({ platform, size = 20 }: IconProps) {
   const key = platform.toLowerCase();
 
-  // We can keep this simple; you already style the button color.
   if (key === 'instagram') {
     return (
       <svg
@@ -175,7 +174,30 @@ export function SocialIcon({ platform, size = 20 }: IconProps) {
     );
   }
 
-  // Fallback: simple circle + link-ish bar
+  // 👇 NEW: YouTube as a social icon (red rounded TV + play)
+  if (key === 'youtube') {
+    return (
+      <svg
+        width={size}
+        height={size}
+        viewBox="0 0 24 24"
+        style={{ display: 'block' }}
+      >
+        <rect
+          x="2.5"
+          y="7"
+          width="19"
+          height="10"
+          rx="3"
+          ry="3"
+          fill="currentColor"
+        />
+        <path d="M11 9.6L15 12L11 14.4V9.6Z" fill="white" />
+      </svg>
+    );
+  }
+
+  // Fallback: simple circle + bar
   return (
     <svg
       width={size}

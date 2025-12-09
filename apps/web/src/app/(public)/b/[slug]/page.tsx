@@ -181,11 +181,32 @@ export default async function Page(props: {
       ? `${bandRow.city}, ${bandRow.state}`
       : bandRow.city ?? bandRow.state ?? undefined);
 
+  // Normalize theme to one of the four valid options
   const normalizeTheme = (
     value: string | null
-  ): 'cosmic' | 'mystical' | 'plain' => {
+  ):
+    | 'cosmic'
+    | 'cosmic-light'
+    | 'matrix'
+    | 'blocky'
+    | 'modest'
+    | 'modest-dark'
+    | 'sakura' => {
     const v = value?.toLowerCase();
-    if (v === 'cosmic' || v === 'mystical' || v === 'plain') return v;
+    if (
+      v === 'cosmic' ||
+      v === 'cosmic-light' ||
+      v === 'matrix' ||
+      v === 'blocky' ||
+      v === 'modest' ||
+      v === 'modest-dark' ||
+      v === 'sakura'
+    ) {
+      return v;
+    }
+    // Legacy mappings
+    if (v === 'mystical') return 'blocky';
+    if (v === 'plain') return 'modest';
     return 'cosmic';
   };
 
@@ -271,7 +292,6 @@ export default async function Page(props: {
     'youtube-music',
     'youtube music',
     'youtubemusic',
-    'youtube',
     'soundcloud',
     'bandcamp',
     'tidal',
@@ -279,6 +299,7 @@ export default async function Page(props: {
   ]);
 
   const socialPlatforms = new Set([
+    'youtube',
     'instagram',
     'facebook',
     'twitter',

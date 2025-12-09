@@ -1,7 +1,5 @@
 'use client';
 
-'use client';
-
 import {
   CalendarMonth,
   Check,
@@ -128,6 +126,8 @@ export default function BandPublicPage({
   const [videos] = useState<Video[]>(initialData?.videos ?? []);
   const [loading] = useState(!initialData);
 
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+
   const [contactOpen, setContactOpen] = useState(false);
   const [photoViewerOpen, setPhotoViewerOpen] = useState(false);
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
@@ -150,13 +150,32 @@ export default function BandPublicPage({
     (initialData?.band?.public_theme as BandThemeStyle) ??
     'cosmic';
 
-  const { theme, themeMode, showAnimatedBackground, getCardStyle } =
-    useBandPublicTheme(themeStyle);
+  const {
+    theme,
+    themeMode,
+    showAnimatedBackground,
+    getCardStyle,
+    getBackgroundStyle,
+    getAccentColors,
+  } = useBandPublicTheme(themeStyle);
+
+  const handleCloseEventDialog = () => setSelectedEvent(null);
 
   const upcomingEvents = events.filter((e) => new Date(e.date) >= new Date());
   const displayEvents = showAllEvents
     ? upcomingEvents
     : upcomingEvents.slice(0, 3);
+
+  const formatEventDateTime = (iso: string) => {
+    const d = new Date(iso);
+    return d.toLocaleString(undefined, {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+  };
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -171,7 +190,12 @@ export default function BandPublicPage({
     };
   };
 
+  // Theme-aware platform colors
   const getPlatformColor = (platform: string) => {
+    if (themeStyle === 'matrix') return '#00FF00';
+    if (themeStyle === 'modest') return '#525252';
+    if (themeStyle === 'modest-dark') return '#a3a3a3';
+
     const colors: Record<string, string> = {
       spotify: '#1DB954',
       apple: '#FA2D48',
@@ -183,11 +207,15 @@ export default function BandPublicPage({
   };
 
   const getSocialColor = (platform: string) => {
+    if (themeStyle === 'matrix') return '#00FF00';
+    if (themeStyle === 'modest') return '#525252';
+    if (themeStyle === 'modest-dark') return '#a3a3a3';
+
     const colors: Record<string, string> = {
       instagram: '#E1306C',
       facebook: '#1877F2',
       twitter: '#1DA1F2',
-      x: '#000000',
+      x: themeMode === 'dark' ? '#FFFFFF' : '#000000',
       website: theme.palette.primary.main,
       site: theme.palette.primary.main,
       linktree: '#43E660',
@@ -196,8 +224,478 @@ export default function BandPublicPage({
     return colors[platform.toLowerCase()] || theme.palette.primary.main;
   };
 
+  // Theme-specific button styles
+  const getPrimaryButtonStyle = () => {
+    switch (themeStyle) {
+      case 'matrix':
+        return {
+          background: '#00FF00',
+          color: '#000000',
+          border: '1px solid #00FF00',
+          borderRadius: '4px',
+          boxShadow: '0 0 20px rgba(0, 255, 0, 0.4)',
+          '&:hover': {
+            background: '#00CC00',
+            boxShadow:
+              '0 0 30px rgba(0, 255, 0, 0.6), 0 0 60px rgba(0, 255, 0, 0.3)',
+          },
+        };
+      case 'blocky':
+        return {
+          background: '#FF2E6C',
+          color: '#FFFFFF',
+          border: '2px solid #0a0a0a',
+          borderRadius: '4px',
+          boxShadow: '4px 4px 0px #0a0a0a',
+          '&:hover': {
+            background: '#E6295F',
+            transform: 'translate(-2px, -2px)',
+            boxShadow: '6px 6px 0px #0a0a0a',
+          },
+        };
+      case 'modest':
+        return {
+          background: '#404040',
+          color: '#FFFFFF',
+          borderRadius: '6px',
+          boxShadow: 'none',
+          '&:hover': {
+            background: '#525252',
+            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
+          },
+        };
+      case 'modest-dark':
+        return {
+          background: '#f5f5f5',
+          color: '#171717',
+          borderRadius: '6px',
+          boxShadow: 'none',
+          '&:hover': {
+            background: '#e5e5e5',
+            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
+          },
+        };
+      case 'cosmic-light':
+        return {
+          background: 'linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%)',
+          backdropFilter: 'blur(12px)',
+          border: '1px solid rgba(139, 92, 246, 0.3)',
+          borderRadius: '16px',
+          boxShadow:
+            '0 8px 32px rgba(139, 92, 246, 0.25), 0 0 40px rgba(236, 72, 153, 0.15)',
+          '&:hover': {
+            transform: 'translateY(-3px) scale(1.02)',
+            boxShadow:
+              '0 12px 40px rgba(139, 92, 246, 0.35), 0 0 60px rgba(236, 72, 153, 0.2)',
+          },
+        };
+      case 'sakura':
+        return {
+          background: 'linear-gradient(135deg, #F472B6 0%, #FB7185 100%)',
+          border: '1px solid rgba(244, 114, 182, 0.3)',
+          borderRadius: '24px',
+          boxShadow: '0 8px 24px rgba(244, 114, 182, 0.3)',
+          '&:hover': {
+            transform: 'translateY(-3px) scale(1.02)',
+            boxShadow: '0 12px 32px rgba(244, 114, 182, 0.4)',
+          },
+        };
+      case 'cosmic':
+      default:
+        return {
+          background: 'linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%)',
+          backdropFilter: 'blur(12px)',
+          border: '1px solid rgba(139, 92, 246, 0.3)',
+          borderRadius: '16px',
+          boxShadow:
+            '0 8px 32px rgba(139, 92, 246, 0.4), 0 0 60px rgba(236, 72, 153, 0.2)',
+          '&:hover': {
+            transform: 'translateY(-3px) scale(1.02)',
+            boxShadow:
+              '0 12px 40px rgba(139, 92, 246, 0.5), 0 0 80px rgba(236, 72, 153, 0.3)',
+          },
+        };
+    }
+  };
+
+  const getSecondaryButtonStyle = () => {
+    switch (themeStyle) {
+      case 'matrix':
+        return {
+          background: 'transparent',
+          color: '#00FF00',
+          border: '1px solid #00FF00',
+          borderRadius: '4px',
+          '&:hover': {
+            background: 'rgba(0, 255, 0, 0.1)',
+            boxShadow: '0 0 20px rgba(0, 255, 0, 0.3)',
+          },
+        };
+      case 'blocky':
+        return {
+          background: '#FFFFFF',
+          color: '#0a0a0a',
+          border: '2px solid #0a0a0a',
+          borderRadius: '4px',
+          boxShadow: '3px 3px 0px #0a0a0a',
+          '&:hover': {
+            background: '#0a0a0a',
+            color: '#FFFFFF',
+            transform: 'translate(-2px, -2px)',
+            boxShadow: '5px 5px 0px #0a0a0a',
+          },
+        };
+      case 'modest':
+        return {
+          background: 'transparent',
+          color: '#525252',
+          border: '1px solid #d4d4d4',
+          borderRadius: '6px',
+          '&:hover': {
+            borderColor: '#a3a3a3',
+            background: '#fafafa',
+          },
+        };
+      case 'modest-dark':
+        return {
+          background: 'transparent',
+          color: '#a3a3a3',
+          border: '1px solid #525252',
+          borderRadius: '6px',
+          '&:hover': {
+            borderColor: '#737373',
+            background: '#333333',
+          },
+        };
+      case 'cosmic-light':
+        return {
+          background: alpha(theme.palette.background.paper, 0.5),
+          backdropFilter: 'blur(12px)',
+          border: `1px solid ${alpha('#34D399', 0.4)}`,
+          borderRadius: '16px',
+          color: '#10B981',
+          '&:hover': {
+            border: `1px solid ${alpha('#34D399', 0.7)}`,
+            transform: 'translateY(-3px)',
+            boxShadow:
+              '0 8px 32px rgba(52, 211, 153, 0.2), 0 0 40px rgba(52, 211, 153, 0.1)',
+          },
+        };
+      case 'sakura':
+        return {
+          background: 'rgba(255, 255, 255, 0.7)',
+          backdropFilter: 'blur(12px)',
+          border: '2px solid #F9A8D4',
+          borderRadius: '24px',
+          color: '#BE185D',
+          '&:hover': {
+            border: '2px solid #F472B6',
+            transform: 'translateY(-2px)',
+            boxShadow: '0 6px 20px rgba(244, 114, 182, 0.2)',
+          },
+        };
+      case 'cosmic':
+      default:
+        return {
+          background: alpha(theme.palette.background.paper, 0.3),
+          backdropFilter: 'blur(12px)',
+          border: `1px solid ${alpha('#34D399', 0.4)}`,
+          borderRadius: '16px',
+          color: '#34D399',
+          '&:hover': {
+            border: `1px solid ${alpha('#34D399', 0.7)}`,
+            transform: 'translateY(-3px)',
+            boxShadow:
+              '0 8px 32px rgba(52, 211, 153, 0.3), 0 0 50px rgba(52, 211, 153, 0.15)',
+          },
+        };
+    }
+  };
+
+  // Theme-specific link button styles
+  const getLinkButtonStyle = (color: string) => {
+    switch (themeStyle) {
+      case 'matrix':
+        return {
+          background: 'transparent',
+          border: '1px solid #00FF00',
+          borderRadius: '4px',
+          color: '#00FF00',
+          '&:hover': {
+            background: 'rgba(0, 255, 0, 0.15)',
+            boxShadow: '0 0 15px rgba(0, 255, 0, 0.4)',
+          },
+        };
+      case 'blocky':
+        return {
+          background: '#FFFFFF',
+          border: '2px solid #0a0a0a',
+          borderRadius: '4px',
+          color: '#0a0a0a',
+          boxShadow: '3px 3px 0px #0a0a0a',
+          '&:hover': {
+            transform: 'translate(-2px, -2px)',
+            boxShadow: '5px 5px 0px #0a0a0a',
+          },
+        };
+      case 'modest':
+        return {
+          background: '#FFFFFF',
+          border: '1px solid #e5e5e5',
+          borderRadius: '6px',
+          color: '#525252',
+          '&:hover': {
+            borderColor: '#d4d4d4',
+            background: '#fafafa',
+          },
+        };
+      case 'modest-dark':
+        return {
+          background: '#262626',
+          border: '1px solid #404040',
+          borderRadius: '6px',
+          color: '#a3a3a3',
+          '&:hover': {
+            borderColor: '#525252',
+            background: '#333333',
+          },
+        };
+      case 'cosmic-light':
+        return {
+          background: `linear-gradient(135deg, ${alpha(color, 0.1)} 0%, ${alpha(
+            color,
+            0.03
+          )} 100%)`,
+          backdropFilter: 'blur(12px)',
+          border: `1px solid ${alpha(color, 0.3)}`,
+          borderRadius: '14px',
+          color: color,
+          '&:hover': {
+            border: `1px solid ${alpha(color, 0.5)}`,
+            transform: 'translateY(-3px)',
+            boxShadow: `0 8px 24px ${alpha(color, 0.2)}, 0 0 30px ${alpha(
+              color,
+              0.1
+            )}`,
+          },
+        };
+      case 'sakura':
+        return {
+          background: 'rgba(255, 255, 255, 0.8)',
+          border: `1px solid ${alpha(color, 0.3)}`,
+          borderRadius: '16px',
+          color: color,
+          '&:hover': {
+            border: `1px solid ${alpha(color, 0.5)}`,
+            transform: 'translateY(-2px)',
+            boxShadow: `0 6px 20px ${alpha(color, 0.2)}`,
+          },
+        };
+      case 'cosmic':
+      default:
+        return {
+          background: `linear-gradient(135deg, ${alpha(
+            color,
+            0.15
+          )} 0%, ${alpha(color, 0.05)} 100%)`,
+          backdropFilter: 'blur(12px)',
+          border: `1px solid ${alpha(color, 0.4)}`,
+          borderRadius: '14px',
+          color: color,
+          '&:hover': {
+            border: `1px solid ${alpha(color, 0.7)}`,
+            transform: 'translateY(-3px)',
+            boxShadow: `0 8px 24px ${alpha(color, 0.35)}, 0 0 40px ${alpha(
+              color,
+              0.2
+            )}`,
+          },
+        };
+    }
+  };
+
+  // Avatar glow style based on theme
+  const getAvatarGlowStyle = () => {
+    switch (themeStyle) {
+      case 'matrix':
+        return {
+          background: '#00FF00',
+          filter: 'blur(40px)',
+          opacity: 0.4,
+        };
+      case 'blocky':
+        return {
+          background: 'linear-gradient(135deg, #FF2E6C, #00D4FF)',
+          filter: 'blur(30px)',
+          opacity: 0.3,
+        };
+      case 'modest':
+      case 'modest-dark':
+        return {
+          display: 'none',
+        };
+      case 'cosmic-light':
+        return {
+          background: 'linear-gradient(135deg, #5865F2, #EB459E)',
+          filter: 'blur(40px)',
+          opacity: 0.25,
+        };
+      case 'sakura':
+        return {
+          background: 'linear-gradient(135deg, #F472B6, #FBCFE8)',
+          filter: 'blur(40px)',
+          opacity: 0.4,
+        };
+      case 'cosmic':
+      default:
+        return {
+          background: 'linear-gradient(135deg, #5865F2, #EB459E)',
+          filter: 'blur(40px)',
+          opacity: 0.4,
+        };
+    }
+  };
+
+  // Online indicator style based on theme
+  const getOnlineIndicatorStyle = () => {
+    switch (themeStyle) {
+      case 'matrix':
+        return {
+          bgcolor: '#00FF00',
+          boxShadow: '0 0 12px rgba(0, 255, 0, 0.8)',
+        };
+      case 'blocky':
+        return {
+          bgcolor: '#00D4FF',
+          boxShadow: 'none',
+          border: '3px solid #0a0a0a',
+        };
+      case 'modest':
+        return {
+          bgcolor: '#22c55e',
+          boxShadow: 'none',
+        };
+      case 'modest-dark':
+        return {
+          bgcolor: '#22c55e',
+          boxShadow: 'none',
+        };
+      case 'cosmic-light':
+        return {
+          bgcolor: '#57F287',
+          boxShadow: '0 0 8px rgba(87, 242, 135, 0.4)',
+        };
+      case 'sakura':
+        return {
+          bgcolor: '#86EFAC',
+          boxShadow: '0 0 8px rgba(134, 239, 172, 0.5)',
+        };
+      case 'cosmic':
+      default:
+        return {
+          bgcolor: '#57F287',
+          boxShadow: '0 0 12px rgba(87, 242, 135, 0.5)',
+        };
+    }
+  };
+
+  // Band name gradient based on theme
+  const getBandNameStyle = () => {
+    switch (themeStyle) {
+      case 'matrix':
+        return {
+          color: '#00FF00',
+          textShadow: '0 0 20px rgba(0, 255, 0, 0.5)',
+          WebkitTextFillColor: 'unset',
+        };
+      case 'blocky':
+        return {
+          color: '#0a0a0a',
+          WebkitTextFillColor: 'unset',
+        };
+      case 'modest':
+        return {
+          color: '#171717',
+          WebkitTextFillColor: 'unset',
+        };
+      case 'modest-dark':
+        return {
+          color: '#f5f5f5',
+          WebkitTextFillColor: 'unset',
+        };
+      case 'cosmic-light':
+        return {
+          background: 'linear-gradient(135deg, #5865F2 0%, #EB459E 100%)',
+          backgroundClip: 'text',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+        };
+      case 'sakura':
+        return {
+          background: 'linear-gradient(135deg, #BE185D 0%, #F472B6 100%)',
+          backgroundClip: 'text',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+        };
+      case 'cosmic':
+      default:
+        return {
+          background:
+            'linear-gradient(135deg, #fff 0%, rgba(255,255,255,0.8) 100%)',
+          backgroundClip: 'text',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+        };
+    }
+  };
+
+  // Date badge style based on theme
+  const getDateBadgeStyle = () => {
+    switch (themeStyle) {
+      case 'matrix':
+        return {
+          background: 'rgba(0, 255, 0, 0.1)',
+          border: '1px solid #00FF00',
+        };
+      case 'blocky':
+        return {
+          background: '#FFFFFF',
+          border: '2px solid #0a0a0a',
+          boxShadow: '2px 2px 0px #0a0a0a',
+        };
+      case 'modest':
+        return {
+          background: '#f5f5f5',
+          border: '1px solid #e5e5e5',
+        };
+      case 'modest-dark':
+        return {
+          background: '#333333',
+          border: '1px solid #404040',
+        };
+      case 'cosmic-light':
+        return {
+          background:
+            'linear-gradient(135deg, rgba(88, 101, 242, 0.1), rgba(235, 69, 158, 0.08))',
+        };
+      case 'sakura':
+        return {
+          background: 'rgba(244, 114, 182, 0.1)',
+          border: '1px solid rgba(244, 114, 182, 0.3)',
+        };
+      case 'cosmic':
+      default:
+        return {
+          background:
+            'linear-gradient(135deg, rgba(88, 101, 242, 0.15), rgba(235, 69, 158, 0.1))',
+        };
+    }
+  };
+
   const handleContactSubmit = async () => {
-    if (!contactForm.name || !contactForm.email || !contactForm.message) {
+    const { name, email, message } = contactForm;
+
+    if (!name || !email || !message) {
       setSnackbar({
         open: true,
         message: 'Please fill in all fields',
@@ -206,14 +704,33 @@ export default function BandPublicPage({
       return;
     }
 
-    // TODO: wire up actual contact submission
-    setSnackbar({
-      open: true,
-      message: 'Message sent successfully!',
-      severity: 'success',
-    });
-    setContactOpen(false);
-    setContactForm({ name: '', email: '', message: '' });
+    try {
+      const res = await fetch(`/b/${slug}/contact`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, message }),
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.error || 'Failed to send message');
+      }
+
+      setSnackbar({
+        open: true,
+        message: 'Message sent successfully!',
+        severity: 'success',
+      });
+      setContactOpen(false);
+      setContactForm({ name: '', email: '', message: '' });
+    } catch (err) {
+      console.error('[contact submit error]', err);
+      setSnackbar({
+        open: true,
+        message: 'Something went wrong sending your message',
+        severity: 'error',
+      });
+    }
   };
 
   const handleShare = async () => {
@@ -230,6 +747,63 @@ export default function BandPublicPage({
       await navigator.clipboard.writeText(url);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  // Share button style based on theme
+  const getShareButtonStyle = () => {
+    switch (themeStyle) {
+      case 'matrix':
+        return {
+          bgcolor: 'rgba(0, 0, 0, 0.8)',
+          border: '1px solid #00FF00',
+          borderRadius: '4px',
+          color: '#00FF00',
+          '&:hover': {
+            boxShadow: '0 0 15px rgba(0, 255, 0, 0.4)',
+          },
+        };
+      case 'blocky':
+        return {
+          bgcolor: '#FFFFFF',
+          border: '2px solid #0a0a0a',
+          borderRadius: '4px',
+          color: '#0a0a0a',
+          boxShadow: '3px 3px 0px #0a0a0a',
+        };
+      case 'modest':
+        return {
+          bgcolor: '#FFFFFF',
+          border: '1px solid #e5e5e5',
+          borderRadius: '8px',
+          color: '#525252',
+        };
+      case 'cosmic':
+      default:
+        return {
+          bgcolor: alpha(theme.palette.background.paper, 0.4),
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+          border: `1px solid ${alpha('#fff', 0.08)}`,
+          borderRadius: '20px',
+          boxShadow:
+            '0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
+        };
+    }
+  };
+
+  // Font imports based on theme
+  const getFontImport = () => {
+    switch (themeStyle) {
+      case 'matrix':
+        return `@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');`;
+      case 'blocky':
+        return `@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;900&display=swap');`;
+      case 'modest':
+        return `@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');`;
+      case 'cosmic':
+      default:
+        return `@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap');`;
     }
   };
 
@@ -287,19 +861,17 @@ export default function BandPublicPage({
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <style>
-        {`
-          @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap');
-        `}
-      </style>
+      <style>{getFontImport()}</style>
       <Box
         sx={{
           minHeight: '100vh',
           position: 'relative',
-          bgcolor: 'background.default',
+          ...getBackgroundStyle(),
         }}
       >
-        {showAnimatedBackground && <AnimatedBackground themeMode={themeMode} />}
+        {showAnimatedBackground && (
+          <AnimatedBackground themeMode={themeMode} themeStyle={themeStyle} />
+        )}
 
         {/* Fixed Controls */}
         <Box
@@ -315,16 +887,7 @@ export default function BandPublicPage({
           <Tooltip title={copied ? 'Copied!' : 'Share'}>
             <IconButton
               onClick={handleShare}
-              sx={{
-                bgcolor: alpha(theme.palette.background.paper, 0.4),
-                backdropFilter: 'blur(20px)',
-                WebkitBackdropFilter: 'blur(20px)',
-                border: `1px solid ${alpha('#fff', 0.08)}`,
-                borderRadius: '20px',
-                p: 3,
-                boxShadow:
-                  '0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
-              }}
+              sx={{ p: 1.5, ...getShareButtonStyle() }}
             >
               {copied ? <Check color="success" /> : <Share />}
             </IconButton>
@@ -345,12 +908,7 @@ export default function BandPublicPage({
               }}
             >
               {/* Avatar with glow */}
-              <Box
-                sx={{
-                  position: 'relative',
-                  mb: 4,
-                }}
-              >
+              <Box sx={{ position: 'relative', mb: 4 }}>
                 <Box
                   sx={{
                     position: 'absolute',
@@ -360,9 +918,7 @@ export default function BandPublicPage({
                     width: { xs: 160, md: 200 },
                     height: { xs: 160, md: 200 },
                     borderRadius: '50%',
-                    background: 'linear-gradient(135deg, #5865F2, #EB459E)',
-                    filter: 'blur(40px)',
-                    opacity: 0.4,
+                    ...getAvatarGlowStyle(),
                   }}
                 />
                 <Avatar
@@ -371,11 +927,21 @@ export default function BandPublicPage({
                   sx={{
                     width: { xs: 140, md: 180 },
                     height: { xs: 140, md: 180 },
-                    border: `4px solid ${alpha(
-                      theme.palette.background.paper,
-                      0.9
-                    )}`,
-                    boxShadow: `0 20px 60px ${alpha('#000', 0.3)}`,
+                    border:
+                      themeStyle === 'blocky'
+                        ? '4px solid #0a0a0a'
+                        : themeStyle === 'matrix'
+                        ? '2px solid #00FF00'
+                        : `4px solid ${alpha(
+                            theme.palette.background.paper,
+                            0.9
+                          )}`,
+                    boxShadow:
+                      themeStyle === 'matrix'
+                        ? '0 0 30px rgba(0, 255, 0, 0.3)'
+                        : themeStyle === 'blocky'
+                        ? '6px 6px 0px #0a0a0a'
+                        : `0 20px 60px ${alpha('#000', 0.3)}`,
                     position: 'relative',
                   }}
                 />
@@ -388,9 +954,8 @@ export default function BandPublicPage({
                     width: 28,
                     height: 28,
                     borderRadius: '50%',
-                    bgcolor: '#57F287',
                     border: `4px solid ${theme.palette.background.paper}`,
-                    boxShadow: '0 0 12px rgba(87, 242, 135, 0.5)',
+                    ...getOnlineIndicatorStyle(),
                   }}
                 />
               </Box>
@@ -400,15 +965,8 @@ export default function BandPublicPage({
                 variant="h1"
                 sx={{
                   fontSize: { xs: '2.5rem', md: '4rem' },
-                  color: 'text.primary',
                   mb: 1.5,
-                  background:
-                    themeMode === 'dark'
-                      ? 'linear-gradient(135deg, #fff 0%, rgba(255,255,255,0.8) 100%)'
-                      : 'linear-gradient(135deg, #1a1a1a 0%, #4a4a4a 100%)',
-                  backgroundClip: 'text',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
+                  ...getBandNameStyle(),
                 }}
               >
                 {band.name}
@@ -423,14 +981,42 @@ export default function BandPublicPage({
                     gap: 0.75,
                     px: 2,
                     py: 0.75,
-                    borderRadius: 2,
-                    bgcolor: alpha(theme.palette.background.paper, 0.6),
-                    backdropFilter: 'blur(8px)',
-                    border: `1px solid ${theme.palette.divider}`,
+                    borderRadius:
+                      themeStyle === 'blocky' || themeStyle === 'matrix'
+                        ? 1
+                        : 2,
+                    bgcolor:
+                      themeStyle === 'matrix'
+                        ? 'transparent'
+                        : themeStyle === 'blocky'
+                        ? '#FFFFFF'
+                        : alpha(theme.palette.background.paper, 0.6),
+                    backdropFilter:
+                      themeStyle === 'cosmic' ? 'blur(8px)' : undefined,
+                    border:
+                      themeStyle === 'matrix'
+                        ? '1px solid #00FF00'
+                        : themeStyle === 'blocky'
+                        ? '2px solid #0a0a0a'
+                        : `1px solid ${theme.palette.divider}`,
+                    boxShadow:
+                      themeStyle === 'blocky'
+                        ? '2px 2px 0px #0a0a0a'
+                        : undefined,
                     mb: 3,
                   }}
                 >
-                  <LocationOn sx={{ fontSize: 18, color: 'secondary.main' }} />
+                  <LocationOn
+                    sx={{
+                      fontSize: 18,
+                      color:
+                        themeStyle === 'matrix'
+                          ? '#00FF00'
+                          : themeStyle === 'blocky'
+                          ? '#FF2E6C'
+                          : 'secondary.main',
+                    }}
+                  />
                   <Typography
                     variant="body2"
                     color="text.secondary"
@@ -457,16 +1043,36 @@ export default function BandPublicPage({
                       key={i}
                       label={genre}
                       sx={{
-                        bgcolor: alpha(theme.palette.primary.main, 0.1),
-                        color: 'primary.main',
+                        bgcolor:
+                          themeStyle === 'matrix'
+                            ? 'transparent'
+                            : themeStyle === 'blocky'
+                            ? '#FFFFFF'
+                            : themeStyle === 'modest'
+                            ? '#f5f5f5'
+                            : alpha(theme.palette.primary.main, 0.1),
+                        color:
+                          themeStyle === 'matrix'
+                            ? '#00FF00'
+                            : themeStyle === 'blocky' || themeStyle === 'modest'
+                            ? '#0a0a0a'
+                            : 'primary.main',
                         fontWeight: 600,
-                        border: `1px solid ${alpha(
-                          theme.palette.primary.main,
-                          0.2
-                        )}`,
-                        '&:hover': {
-                          bgcolor: alpha(theme.palette.primary.main, 0.15),
-                        },
+                        border:
+                          themeStyle === 'matrix'
+                            ? '1px solid #00FF00'
+                            : themeStyle === 'blocky'
+                            ? '2px solid #0a0a0a'
+                            : themeStyle === 'modest'
+                            ? '1px solid #e5e5e5'
+                            : `1px solid ${alpha(
+                                theme.palette.primary.main,
+                                0.2
+                              )}`,
+                        boxShadow:
+                          themeStyle === 'blocky'
+                            ? '2px 2px 0px #0a0a0a'
+                            : undefined,
                       }}
                     />
                   ))}
@@ -503,61 +1109,21 @@ export default function BandPublicPage({
                   size="large"
                   startIcon={<Email />}
                   onClick={() => setContactOpen(true)}
-                  sx={
-                    themeStyle === 'plain'
-                      ? {
-                          px: 4,
-                          py: 1.5,
-                          fontSize: '1rem',
-                          fontWeight: 700,
-                          textTransform: 'none',
-                        }
-                      : {
-                          background:
-                            'linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%)',
-                          backdropFilter: 'blur(12px)',
-                          border: '1px solid rgba(139, 92, 246, 0.3)',
-                          borderRadius: '16px',
-                          px: 4,
-                          py: 1.5,
-                          fontSize: '1rem',
-                          fontWeight: 700,
-                          textTransform: 'none',
-                          position: 'relative',
-                          overflow: 'hidden',
-                          boxShadow:
-                            '0 8px 32px rgba(139, 92, 246, 0.4), 0 0 60px rgba(236, 72, 153, 0.2)',
-                          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                          '&::before': {
-                            content: '""',
-                            position: 'absolute',
-                            top: 0,
-                            left: '-100%',
-                            width: '200%',
-                            height: '100%',
-                            background:
-                              'linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent)',
-                            transition: 'left 0.5s ease',
-                          },
-                          '&:hover': {
-                            transform: 'translateY(-3px) scale(1.02)',
-                            boxShadow:
-                              '0 12px 40px rgba(139, 92, 246, 0.5), 0 0 80px rgba(236, 72, 153, 0.3)',
-                            '&::before': {
-                              left: '100%',
-                            },
-                          },
-                          '&:active': {
-                            transform: 'translateY(-1px) scale(1)',
-                          },
-                        }
-                  }
+                  sx={{
+                    px: 4,
+                    py: 1.5,
+                    fontSize: '1rem',
+                    fontWeight: 700,
+                    textTransform: 'none',
+                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                    ...getPrimaryButtonStyle(),
+                  }}
                 >
                   Get in Touch
                 </Button>
                 {upcomingEvents.length > 0 && (
                   <Button
-                    variant={themeStyle === 'plain' ? 'outlined' : 'outlined'}
+                    variant="outlined"
                     size="large"
                     startIcon={<CalendarMonth />}
                     onClick={() =>
@@ -565,52 +1131,15 @@ export default function BandPublicPage({
                         .getElementById('events')
                         ?.scrollIntoView({ behavior: 'smooth' })
                     }
-                    sx={
-                      themeStyle === 'plain'
-                        ? {
-                            px: 4,
-                            py: 1.5,
-                            fontSize: '1rem',
-                            fontWeight: 700,
-                            textTransform: 'none',
-                          }
-                        : {
-                            background: alpha(
-                              theme.palette.background.paper,
-                              0.3
-                            ),
-                            backdropFilter: 'blur(12px)',
-                            border: `1px solid ${alpha('#34D399', 0.4)}`,
-                            borderRadius: '16px',
-                            color: '#34D399',
-                            px: 4,
-                            py: 1.5,
-                            fontSize: '1rem',
-                            fontWeight: 700,
-                            textTransform: 'none',
-                            position: 'relative',
-                            overflow: 'hidden',
-                            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                            '&::before': {
-                              content: '""',
-                              position: 'absolute',
-                              inset: 0,
-                              background:
-                                'linear-gradient(135deg, rgba(52, 211, 153, 0.15) 0%, transparent 50%)',
-                              opacity: 0,
-                              transition: 'opacity 0.3s ease',
-                            },
-                            '&:hover': {
-                              border: `1px solid ${alpha('#34D399', 0.7)}`,
-                              transform: 'translateY(-3px)',
-                              boxShadow:
-                                '0 8px 32px rgba(52, 211, 153, 0.3), 0 0 50px rgba(52, 211, 153, 0.15)',
-                              '&::before': {
-                                opacity: 1,
-                              },
-                            },
-                          }
-                    }
+                    sx={{
+                      px: 4,
+                      py: 1.5,
+                      fontSize: '1rem',
+                      fontWeight: 700,
+                      textTransform: 'none',
+                      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                      ...getSecondaryButtonStyle(),
+                    }}
                   >
                     See Shows
                   </Button>
@@ -631,23 +1160,25 @@ export default function BandPublicPage({
             {/* Main Content */}
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               {/* STREAMING SECTION */}
+              {/* LISTEN NOW (Streaming) */}
               {streamingLinks.length > 0 && (
                 <Fade in timeout={800}>
-                  <Card
-                    sx={{
-                      ...getCardStyle(),
-                      p: 3,
-                    }}
-                  >
+                  <Card sx={{ ...getCardStyle(), p: 3 }}>
                     <SectionHeader
                       icon={<Headphones fontSize="small" />}
                       title="Listen Now"
+                      themeStyle={themeStyle}
                     />
                     <Box
                       sx={{
-                        display: 'flex',
+                        display: 'grid',
                         gap: 1.5,
-                        flexWrap: 'wrap',
+                        // ✅ Always at least 2 columns on mobile
+                        gridTemplateColumns: {
+                          xs: 'repeat(2, minmax(0, 1fr))',
+                          sm: 'repeat(2, minmax(0, 1fr))',
+                          md: 'repeat(3, minmax(0, 1fr))', // optional: more cols on larger
+                        },
                       }}
                     >
                       {streamingLinks.map((link, i) => {
@@ -666,53 +1197,15 @@ export default function BandPublicPage({
                               />
                             }
                             sx={{
-                              background: `linear-gradient(135deg, ${alpha(
-                                platformColor,
-                                0.15
-                              )} 0%, ${alpha(platformColor, 0.05)} 100%)`,
-                              backdropFilter: 'blur(12px)',
-                              border: `1px solid ${alpha(platformColor, 0.4)}`,
-                              borderRadius: '14px',
-                              color: platformColor,
                               fontWeight: 700,
                               fontSize: '0.85rem',
                               padding: '10px 20px',
                               textTransform: 'none',
-                              position: 'relative',
-                              overflow: 'hidden',
+                              width: '100%', // ✅ full width inside grid cell
+                              justifyContent: 'flex-start',
                               transition:
                                 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                              '&::before': {
-                                content: '""',
-                                position: 'absolute',
-                                top: 0,
-                                left: 0,
-                                right: 0,
-                                bottom: 0,
-                                background: `radial-gradient(circle at 50% 0%, ${alpha(
-                                  platformColor,
-                                  0.3
-                                )} 0%, transparent 70%)`,
-                                opacity: 0,
-                                transition: 'opacity 0.3s ease',
-                              },
-                              '&:hover': {
-                                border: `1px solid ${alpha(
-                                  platformColor,
-                                  0.7
-                                )}`,
-                                transform: 'translateY(-3px)',
-                                boxShadow: `0 8px 24px ${alpha(
-                                  platformColor,
-                                  0.35
-                                )}, 0 0 40px ${alpha(platformColor, 0.2)}`,
-                                '&::before': {
-                                  opacity: 1,
-                                },
-                              },
-                              '&:active': {
-                                transform: 'translateY(-1px)',
-                              },
+                              ...getLinkButtonStyle(platformColor),
                             }}
                           >
                             {link.platform.charAt(0).toUpperCase() +
@@ -728,21 +1221,21 @@ export default function BandPublicPage({
               {/* FOLLOW US (Social) */}
               {socialLinks.length > 0 && (
                 <Fade in timeout={900}>
-                  <Card
-                    sx={{
-                      ...getCardStyle(),
-                      p: 3,
-                    }}
-                  >
+                  <Card sx={{ ...getCardStyle(), p: 3 }}>
                     <SectionHeader
                       icon={<Share fontSize="small" />}
                       title="Follow Us"
+                      themeStyle={themeStyle}
                     />
                     <Box
                       sx={{
-                        display: 'flex',
+                        display: 'grid',
                         gap: 1.5,
-                        flexWrap: 'wrap',
+                        gridTemplateColumns: {
+                          xs: 'repeat(2, minmax(0, 1fr))',
+                          sm: 'repeat(2, minmax(0, 1fr))',
+                          md: 'repeat(3, minmax(0, 1fr))',
+                        },
                       }}
                     >
                       {socialLinks.map((link, i) => {
@@ -758,45 +1251,15 @@ export default function BandPublicPage({
                               <SocialIcon platform={link.platform} size={18} />
                             }
                             sx={{
-                              background: `linear-gradient(135deg, ${alpha(
-                                socialColor,
-                                0.12
-                              )} 0%, ${alpha(socialColor, 0.04)} 100%)`,
-                              backdropFilter: 'blur(12px)',
-                              border: `1px solid ${alpha(socialColor, 0.35)}`,
-                              borderRadius: '14px',
-                              color: socialColor,
                               fontWeight: 600,
                               fontSize: '0.85rem',
                               padding: '10px 18px',
                               textTransform: 'none',
-                              position: 'relative',
-                              overflow: 'hidden',
+                              width: '100%',
+                              justifyContent: 'flex-start',
                               transition:
                                 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                              '&::before': {
-                                content: '""',
-                                position: 'absolute',
-                                inset: 0,
-                                background: `linear-gradient(135deg, ${alpha(
-                                  socialColor,
-                                  0.2
-                                )} 0%, transparent 50%)`,
-                                opacity: 0,
-                                transition: 'opacity 0.3s ease',
-                              },
-                              '&:hover': {
-                                border: `1px solid ${alpha(socialColor, 0.6)}`,
-                                transform: 'translateY(-2px)',
-                                boxShadow: `0 6px 20px ${alpha(
-                                  socialColor,
-                                  0.3
-                                )}, 0 0 30px ${alpha(socialColor, 0.15)}`,
-                                color: socialColor,
-                                '&::before': {
-                                  opacity: 1,
-                                },
-                              },
+                              ...getLinkButtonStyle(socialColor),
                             }}
                           >
                             {link.platform.charAt(0).toUpperCase() +
@@ -812,16 +1275,12 @@ export default function BandPublicPage({
               {/* PHOTOS SECTION */}
               {photos.length > 0 && (
                 <Fade in timeout={1200}>
-                  <Card
-                    sx={{
-                      ...getCardStyle(),
-                      p: 3,
-                    }}
-                  >
+                  <Card sx={{ ...getCardStyle(), p: 3 }}>
                     <SectionHeader
                       icon={<PhotoLibrary fontSize="small" />}
                       title="Photos"
                       count={photos.length}
+                      themeStyle={themeStyle}
                     />
                     <Box
                       sx={{
@@ -841,12 +1300,28 @@ export default function BandPublicPage({
                           sx={{
                             position: 'relative',
                             paddingTop: '100%',
-                            borderRadius: 2,
+                            borderRadius:
+                              themeStyle === 'blocky' || themeStyle === 'matrix'
+                                ? 1
+                                : 2,
                             overflow: 'hidden',
                             cursor: 'pointer',
+                            border:
+                              themeStyle === 'matrix'
+                                ? '1px solid #00FF00'
+                                : themeStyle === 'blocky'
+                                ? '2px solid #0a0a0a'
+                                : undefined,
+                            boxShadow:
+                              themeStyle === 'blocky'
+                                ? '3px 3px 0px #0a0a0a'
+                                : undefined,
                             '&:hover': {
                               '& img': { transform: 'scale(1.1)' },
                               '& .overlay': { opacity: 1 },
+                              ...(themeStyle === 'matrix' && {
+                                boxShadow: '0 0 15px rgba(0, 255, 0, 0.4)',
+                              }),
                             },
                           }}
                         >
@@ -875,7 +1350,9 @@ export default function BandPublicPage({
                               right: 0,
                               bottom: 0,
                               background:
-                                'linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 50%)',
+                                themeStyle === 'matrix'
+                                  ? 'linear-gradient(to top, rgba(0,255,0,0.3) 0%, transparent 50%)'
+                                  : 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 50%)',
                               opacity: 0,
                               transition: 'opacity 0.3s ease',
                               display: 'flex',
@@ -886,7 +1363,13 @@ export default function BandPublicPage({
                             {photo.caption && (
                               <Typography
                                 variant="caption"
-                                sx={{ color: '#fff', fontWeight: 500 }}
+                                sx={{
+                                  color:
+                                    themeStyle === 'matrix'
+                                      ? '#00FF00'
+                                      : '#fff',
+                                  fontWeight: 500,
+                                }}
                               >
                                 {photo.caption}
                               </Typography>
@@ -902,15 +1385,11 @@ export default function BandPublicPage({
               {/* VIDEOS SECTION */}
               {videos.length > 0 && (
                 <Fade in timeout={1400}>
-                  <Card
-                    sx={{
-                      ...getCardStyle(),
-                      p: 3,
-                    }}
-                  >
+                  <Card sx={{ ...getCardStyle(), p: 3 }}>
                     <SectionHeader
                       icon={<PlayArrow fontSize="small" />}
                       title="Videos"
+                      themeStyle={themeStyle}
                     />
                     {videos.map((video) => (
                       <Box key={video.id}>
@@ -918,9 +1397,22 @@ export default function BandPublicPage({
                           sx={{
                             position: 'relative',
                             paddingTop: '56.25%',
-                            borderRadius: 2,
+                            borderRadius:
+                              themeStyle === 'blocky' || themeStyle === 'matrix'
+                                ? 1
+                                : 2,
                             overflow: 'hidden',
                             bgcolor: '#000',
+                            border:
+                              themeStyle === 'matrix'
+                                ? '1px solid #00FF00'
+                                : themeStyle === 'blocky'
+                                ? '2px solid #0a0a0a'
+                                : undefined,
+                            boxShadow:
+                              themeStyle === 'blocky'
+                                ? '4px 4px 0px #0a0a0a'
+                                : undefined,
                           }}
                         >
                           <iframe
@@ -957,17 +1449,12 @@ export default function BandPublicPage({
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               {upcomingEvents.length > 0 && (
                 <Fade in timeout={1000}>
-                  <Card
-                    id="events"
-                    sx={{
-                      ...getCardStyle(),
-                      p: 3,
-                    }}
-                  >
+                  <Card id="events" sx={{ ...getCardStyle(), p: 3 }}>
                     <SectionHeader
                       icon={<CalendarMonth fontSize="small" />}
                       title="Upcoming Shows"
                       count={upcomingEvents.length}
+                      themeStyle={themeStyle}
                     />
                     <Box
                       sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}
@@ -979,27 +1466,67 @@ export default function BandPublicPage({
                         return (
                           <Box
                             key={event.id}
+                            component="button"
+                            type="button"
+                            onClick={() => setSelectedEvent(event)}
                             sx={{
+                              textAlign: 'left',
+                              width: '100%',
+                              // ❌ remove this line:
+                              // border: 'none',
+                              background: 'transparent',
+                              cursor: 'pointer',
+
+                              // card styles
                               display: 'flex',
                               gap: 2,
                               p: 2,
-                              borderRadius: 2,
-                              bgcolor: alpha(
-                                theme.palette.background.paper,
-                                0.5
-                              ),
-                              border: `1px solid ${theme.palette.divider}`,
+                              borderRadius:
+                                themeStyle === 'blocky' ||
+                                themeStyle === 'matrix'
+                                  ? 1
+                                  : 2,
+                              bgcolor:
+                                themeStyle === 'matrix'
+                                  ? 'transparent'
+                                  : alpha(theme.palette.background.paper, 0.5),
+                              border:
+                                themeStyle === 'matrix'
+                                  ? '1px solid rgba(0, 255, 0, 0.3)'
+                                  : themeStyle === 'blocky'
+                                  ? '2px solid #0a0a0a'
+                                  : `1px solid ${theme.palette.divider}`,
+                              boxShadow:
+                                themeStyle === 'blocky'
+                                  ? '3px 3px 0px #0a0a0a'
+                                  : undefined,
                               transition: 'all 0.2s ease',
                               '&:hover': {
-                                bgcolor: alpha(
+                                bgcolor:
+                                  themeStyle === 'matrix'
+                                    ? 'rgba(0, 255, 0, 0.05)'
+                                    : alpha(theme.palette.primary.main, 0.05),
+                                borderColor:
+                                  themeStyle === 'matrix'
+                                    ? '#00FF00'
+                                    : alpha(theme.palette.primary.main, 0.3),
+                                transform:
+                                  themeStyle === 'blocky'
+                                    ? 'translate(-2px, -2px)'
+                                    : 'translateX(4px)',
+                                boxShadow:
+                                  themeStyle === 'blocky'
+                                    ? '5px 5px 0px #0a0a0a'
+                                    : themeStyle === 'matrix'
+                                    ? '0 0 15px rgba(0, 255, 0, 0.2)'
+                                    : undefined,
+                              },
+                              '&:focus-visible': {
+                                outline: `2px solid ${alpha(
                                   theme.palette.primary.main,
-                                  0.05
-                                ),
-                                borderColor: alpha(
-                                  theme.palette.primary.main,
-                                  0.3
-                                ),
-                                transform: 'translateX(4px)',
+                                  0.7
+                                )}`,
+                                outlineOffset: 2,
                               },
                             }}
                           >
@@ -1010,8 +1537,7 @@ export default function BandPublicPage({
                                 textAlign: 'center',
                                 p: 1,
                                 borderRadius: 1.5,
-                                background:
-                                  'linear-gradient(135deg, rgba(88, 101, 242, 0.15), rgba(235, 69, 158, 0.1))',
+                                ...getDateBadgeStyle(),
                               }}
                             >
                               <Typography
@@ -1020,7 +1546,12 @@ export default function BandPublicPage({
                                   display: 'block',
                                   textTransform: 'uppercase',
                                   fontWeight: 700,
-                                  color: 'primary.main',
+                                  color:
+                                    themeStyle === 'matrix'
+                                      ? '#00FF00'
+                                      : themeStyle === 'blocky'
+                                      ? '#FF2E6C'
+                                      : 'primary.main',
                                   fontSize: '0.65rem',
                                   letterSpacing: '0.05em',
                                 }}
@@ -1073,28 +1604,67 @@ export default function BandPublicPage({
                                   size="small"
                                   href={event.ticket_url}
                                   target="_blank"
+                                  onClick={(e) => e.stopPropagation()} // don't open dialog if they just want tickets
                                   endIcon={<OpenInNew sx={{ fontSize: 14 }} />}
                                   sx={{
                                     mt: 1,
                                     p: '4px 12px',
-                                    borderRadius: '10px',
+                                    borderRadius:
+                                      themeStyle === 'blocky' ||
+                                      themeStyle === 'matrix'
+                                        ? '4px'
+                                        : '10px',
                                     fontSize: '0.75rem',
                                     fontWeight: 700,
-                                    background:
-                                      'linear-gradient(135deg, rgba(236, 72, 153, 0.15) 0%, rgba(236, 72, 153, 0.05) 100%)',
-                                    border: '1px solid rgba(236, 72, 153, 0.3)',
-                                    color: '#EC4899',
                                     textTransform: 'none',
                                     transition: 'all 0.2s ease',
-                                    '&:hover': {
-                                      background:
-                                        'linear-gradient(135deg, rgba(236, 72, 153, 0.25) 0%, rgba(236, 72, 153, 0.1) 100%)',
-                                      border:
-                                        '1px solid rgba(236, 72, 153, 0.5)',
-                                      boxShadow:
-                                        '0 4px 16px rgba(236, 72, 153, 0.25)',
-                                      transform: 'translateY(-1px)',
-                                    },
+                                    ...(themeStyle === 'matrix'
+                                      ? {
+                                          background: 'transparent',
+                                          border: '1px solid #00FF00',
+                                          color: '#00FF00',
+                                          '&:hover': {
+                                            background: 'rgba(0, 255, 0, 0.1)',
+                                            boxShadow:
+                                              '0 0 10px rgba(0, 255, 0, 0.3)',
+                                          },
+                                        }
+                                      : themeStyle === 'blocky'
+                                      ? {
+                                          background: '#FF2E6C',
+                                          border: '2px solid #0a0a0a',
+                                          color: '#FFFFFF',
+                                          boxShadow: '2px 2px 0px #0a0a0a',
+                                          '&:hover': {
+                                            transform: 'translate(-1px, -1px)',
+                                            boxShadow: '3px 3px 0px #0a0a0a',
+                                          },
+                                        }
+                                      : themeStyle === 'modest'
+                                      ? {
+                                          background: '#404040',
+                                          border: 'none',
+                                          color: '#FFFFFF',
+                                          '&:hover': {
+                                            background: '#525252',
+                                          },
+                                        }
+                                      : {
+                                          background:
+                                            'linear-gradient(135deg, rgba(236, 72, 153, 0.15) 0%, rgba(236, 72, 153, 0.05) 100%)',
+                                          border:
+                                            '1px solid rgba(236, 72, 153, 0.3)',
+                                          color: '#EC4899',
+                                          '&:hover': {
+                                            background:
+                                              'linear-gradient(135deg, rgba(236, 72, 153, 0.25) 0%, rgba(236, 72, 153, 0.1) 100%)',
+                                            border:
+                                              '1px solid rgba(236, 72, 153, 0.5)',
+                                            boxShadow:
+                                              '0 4px 16px rgba(236, 72, 153, 0.25)',
+                                            transform: 'translateY(-1px)',
+                                          },
+                                        }),
                                   }}
                                 >
                                   Get Tickets
@@ -1144,7 +1714,14 @@ export default function BandPublicPage({
                 rel="noopener noreferrer"
                 sx={{
                   fontWeight: 700,
-                  background: 'linear-gradient(135deg, #8B5CF6, #EC4899)',
+                  background:
+                    themeStyle === 'matrix'
+                      ? '#00FF00'
+                      : themeStyle === 'blocky'
+                      ? 'linear-gradient(135deg, #FF2E6C, #00D4FF)'
+                      : themeStyle === 'modest'
+                      ? '#525252'
+                      : 'linear-gradient(135deg, #8B5CF6, #EC4899)',
                   backgroundClip: 'text',
                   WebkitBackgroundClip: 'text',
                   WebkitTextFillColor: 'transparent',
@@ -1168,9 +1745,23 @@ export default function BandPublicPage({
           fullWidth
           PaperProps={{
             sx: {
-              bgcolor: alpha(theme.palette.background.paper, 0.95),
+              bgcolor:
+                themeStyle === 'matrix'
+                  ? 'rgba(0, 0, 0, 0.95)'
+                  : alpha(theme.palette.background.paper, 0.95),
               backdropFilter: 'blur(20px)',
-              border: `1px solid ${theme.palette.divider}`,
+              border:
+                themeStyle === 'matrix'
+                  ? '1px solid #00FF00'
+                  : themeStyle === 'blocky'
+                  ? '2px solid #0a0a0a'
+                  : `1px solid ${theme.palette.divider}`,
+              boxShadow:
+                themeStyle === 'matrix'
+                  ? '0 0 30px rgba(0, 255, 0, 0.2)'
+                  : themeStyle === 'blocky'
+                  ? '8px 8px 0px #0a0a0a'
+                  : undefined,
             },
           }}
         >
@@ -1242,14 +1833,9 @@ export default function BandPublicPage({
               variant="contained"
               onClick={handleContactSubmit}
               startIcon={<Send />}
-              sx={
-                themeStyle === 'plain'
-                  ? undefined
-                  : {
-                      background:
-                        'linear-gradient(135deg, #5865F2 0%, #7289DA 100%)',
-                    }
-              }
+              sx={{
+                ...getPrimaryButtonStyle(),
+              }}
             >
               Send Message
             </Button>
@@ -1273,10 +1859,20 @@ export default function BandPublicPage({
                 position: 'absolute',
                 top: 8,
                 right: 8,
-                bgcolor: 'rgba(0,0,0,0.6)',
-                color: '#fff',
+                bgcolor:
+                  themeStyle === 'matrix'
+                    ? 'rgba(0,0,0,0.8)'
+                    : 'rgba(0,0,0,0.6)',
+                color: themeStyle === 'matrix' ? '#00FF00' : '#fff',
+                border:
+                  themeStyle === 'matrix' ? '1px solid #00FF00' : undefined,
                 zIndex: 1,
-                '&:hover': { bgcolor: 'rgba(0,0,0,0.8)' },
+                '&:hover': {
+                  bgcolor:
+                    themeStyle === 'matrix'
+                      ? 'rgba(0,0,0,0.9)'
+                      : 'rgba(0,0,0,0.8)',
+                },
               }}
             >
               <Close />
@@ -1290,7 +1886,20 @@ export default function BandPublicPage({
                   width: '100%',
                   maxHeight: '80vh',
                   objectFit: 'contain',
-                  borderRadius: 3,
+                  borderRadius:
+                    themeStyle === 'blocky' || themeStyle === 'matrix' ? 1 : 3,
+                  border:
+                    themeStyle === 'matrix'
+                      ? '2px solid #00FF00'
+                      : themeStyle === 'blocky'
+                      ? '4px solid #0a0a0a'
+                      : undefined,
+                  boxShadow:
+                    themeStyle === 'matrix'
+                      ? '0 0 30px rgba(0, 255, 0, 0.3)'
+                      : themeStyle === 'blocky'
+                      ? '8px 8px 0px #0a0a0a'
+                      : undefined,
                 }}
               />
             )}
@@ -1300,8 +1909,11 @@ export default function BandPublicPage({
                 sx={{
                   textAlign: 'center',
                   mt: 2,
-                  color: '#fff',
-                  textShadow: '0 2px 4px rgba(0,0,0,0.5)',
+                  color: themeStyle === 'matrix' ? '#00FF00' : '#fff',
+                  textShadow:
+                    themeStyle === 'matrix'
+                      ? '0 0 10px rgba(0, 255, 0, 0.5)'
+                      : '0 2px 4px rgba(0,0,0,0.5)',
                 }}
               >
                 {photos[selectedPhotoIndex].caption}
@@ -1322,7 +1934,13 @@ export default function BandPublicPage({
                 disabled={selectedPhotoIndex === 0}
                 onClick={() => setSelectedPhotoIndex((i) => Math.max(0, i - 1))}
                 sx={{
-                  bgcolor: 'rgba(255,255,255,0.15)',
+                  bgcolor:
+                    themeStyle === 'matrix'
+                      ? 'rgba(0,0,0,0.8)'
+                      : 'rgba(255,255,255,0.15)',
+                  color: themeStyle === 'matrix' ? '#00FF00' : '#fff',
+                  border:
+                    themeStyle === 'matrix' ? '1px solid #00FF00' : undefined,
                   backdropFilter: 'blur(8px)',
                 }}
               >
@@ -1330,8 +1948,11 @@ export default function BandPublicPage({
               </Button>
               <Typography
                 variant="body2"
-                color="#fff"
-                sx={{ minWidth: 60, textAlign: 'center' }}
+                sx={{
+                  minWidth: 60,
+                  textAlign: 'center',
+                  color: themeStyle === 'matrix' ? '#00FF00' : '#fff',
+                }}
               >
                 {selectedPhotoIndex + 1} / {photos.length}
               </Typography>
@@ -1345,7 +1966,13 @@ export default function BandPublicPage({
                   )
                 }
                 sx={{
-                  bgcolor: 'rgba(255,255,255,0.15)',
+                  bgcolor:
+                    themeStyle === 'matrix'
+                      ? 'rgba(0,0,0,0.8)'
+                      : 'rgba(255,255,255,0.15)',
+                  color: themeStyle === 'matrix' ? '#00FF00' : '#fff',
+                  border:
+                    themeStyle === 'matrix' ? '1px solid #00FF00' : undefined,
                   backdropFilter: 'blur(8px)',
                 }}
               >
@@ -1354,6 +1981,117 @@ export default function BandPublicPage({
             </Box>
           </Box>
         </Dialog>
+
+        {/* EVENT DETAILS DIALOG */}
+        {selectedEvent && (
+          <Dialog
+            open
+            onClose={handleCloseEventDialog}
+            fullWidth
+            maxWidth="xs"
+            PaperProps={{
+              sx: {
+                borderRadius: 3,
+                background:
+                  themeStyle === 'matrix'
+                    ? 'rgba(0, 0, 0, 0.95)'
+                    : alpha(theme.palette.background.paper, 0.98),
+                // 👇 only ONE border declaration
+                border:
+                  themeStyle === 'matrix'
+                    ? '1px solid #00FF00'
+                    : themeStyle === 'blocky'
+                    ? '2px solid #0a0a0a'
+                    : `1px solid ${theme.palette.divider}`,
+                boxShadow:
+                  themeStyle === 'matrix'
+                    ? '0 0 30px rgba(0, 255, 0, 0.4)'
+                    : themeStyle === 'blocky'
+                    ? '8px 8px 0px #0a0a0a'
+                    : '0 24px 80px rgba(15, 23, 42, 0.9)',
+              },
+            }}
+          >
+            <DialogTitle
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                pb: 1,
+              }}
+            >
+              <Box>
+                <Typography variant="h6" fontWeight={700}>
+                  {selectedEvent.title}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {formatEventDateTime(selectedEvent.date)}
+                </Typography>
+              </Box>
+              <IconButton size="small" onClick={handleCloseEventDialog}>
+                <Close />
+              </IconButton>
+            </DialogTitle>
+
+            <DialogContent>
+              <Box
+                sx={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 1.5,
+                  mt: 1,
+                }}
+              >
+                {selectedEvent.location && (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <LocationOn
+                      sx={{
+                        fontSize: 20,
+                        color:
+                          themeStyle === 'matrix'
+                            ? '#00FF00'
+                            : theme.palette.primary.main,
+                      }}
+                    />
+                    <Typography variant="body2">
+                      {selectedEvent.location}
+                    </Typography>
+                  </Box>
+                )}
+
+                {selectedEvent.venue && (
+                  <Typography variant="body2" color="text.secondary">
+                    Venue: {selectedEvent.venue}
+                  </Typography>
+                )}
+              </Box>
+            </DialogContent>
+
+            <DialogActions sx={{ px: 3, pb: 2 }}>
+              <Button
+                onClick={handleCloseEventDialog}
+                sx={{ color: 'text.secondary' }}
+              >
+                Close
+              </Button>
+
+              {selectedEvent.ticket_url && (
+                <Button
+                  variant="contained"
+                  href={selectedEvent.ticket_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  endIcon={<OpenInNew />}
+                  sx={{
+                    ...getPrimaryButtonStyle(),
+                  }}
+                >
+                  Get Tickets
+                </Button>
+              )}
+            </DialogActions>
+          </Dialog>
+        )}
 
         {/* SNACKBAR */}
         <Snackbar
@@ -1368,9 +2106,21 @@ export default function BandPublicPage({
             sx={{
               borderRadius: 2,
               bgcolor:
-                snackbar.severity === 'success' ? 'success.main' : 'error.main',
-              color: '#fff',
-              '& .MuiAlert-icon': { color: '#fff' },
+                snackbar.severity === 'success'
+                  ? themeStyle === 'matrix'
+                    ? '#00FF00'
+                    : 'success.main'
+                  : 'error.main',
+              color:
+                themeStyle === 'matrix' && snackbar.severity === 'success'
+                  ? '#000'
+                  : '#fff',
+              '& .MuiAlert-icon': {
+                color:
+                  themeStyle === 'matrix' && snackbar.severity === 'success'
+                    ? '#000'
+                    : '#fff',
+              },
             }}
           >
             {snackbar.message}
