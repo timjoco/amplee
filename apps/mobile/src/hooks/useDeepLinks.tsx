@@ -11,14 +11,28 @@ export function useDeepLinks() {
   useEffect(() => {
     let listener: PluginListenerHandle | undefined;
 
-    // Set up the listener and keep the handle
     App.addListener('appUrlOpen', (event: any) => {
+      console.log('[useDeepLinks] appUrlOpen:', event.url);
+
       try {
         const url = new URL(event.url);
 
-        // e.g. amplee://invite/<token>
+        // Handle Universal Links: https://amplee.app/invite/<token>
+        if (
+          url.hostname === 'amplee.app' &&
+          url.pathname.startsWith('/invite/')
+        ) {
+          const token = url.pathname.replace('/invite/', '');
+          if (token) {
+            console.log('[useDeepLinks] navigating to invite:', token);
+            nav(`/invite/${encodeURIComponent(token)}`);
+          }
+          return;
+        }
+
+        // Handle custom scheme: amplee://invite/<token> (fallback)
         if (url.hostname === 'invite') {
-          const token = url.pathname.replace(/^\/+/, ''); // strip leading /
+          const token = url.pathname.replace(/^\/+/, '');
           if (token) {
             nav(`/invite/${encodeURIComponent(token)}`);
           }
@@ -34,7 +48,6 @@ export function useDeepLinks() {
         console.error('[useDeepLinks] failed to add listener', err);
       });
 
-    // Cleanup: remove listener if we got one
     return () => {
       if (listener) {
         listener.remove();
