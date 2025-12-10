@@ -1,6 +1,6 @@
 // main.tsx
 import { App as CapApp } from '@capacitor/app';
-import { Browser } from '@capacitor/browser';
+import { Browser as CapBrowser } from '@capacitor/browser';
 import { IonApp, setupIonicReact } from '@ionic/react';
 import '@ionic/react/css/core.css';
 import '@ionic/react/css/display.css';
@@ -23,12 +23,23 @@ import MobileBottomNav from './components/Nav/MobileBottomNav';
 
 setupIonicReact();
 
+// Auth callback deep link
 CapApp.addListener('appUrlOpen', async ({ url }) => {
   if (url?.startsWith('app.amplee://auth/callback')) {
     try {
-      await Browser.close();
+      await CapBrowser.close();
     } catch {}
     await supabase.auth.getSession();
+  }
+});
+
+// Android hardware back button → go back in history (if possible)
+CapApp.addListener('backButton', ({ canGoBack }) => {
+  if (canGoBack) {
+    window.history.back();
+  } else {
+    // At root: you can either do nothing or eventually call CapApp.exitApp()
+    // For now, we just ignore it to avoid accidental exits.
   }
 });
 
