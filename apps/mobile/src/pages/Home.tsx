@@ -125,15 +125,6 @@ export default function Home() {
               gap: 8,
             }}
           >
-            {/* <img
-              src={logo}
-              alt="Amplee"
-              style={{
-                width: 28,
-                height: 28,
-                objectFit: 'contain',
-              }}
-            /> */}
             <span
               style={{
                 fontSize: 20,

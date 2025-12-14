@@ -5,6 +5,7 @@ type EventRow = {
   id: string;
   band_id: string;
   title: string;
+  notes: string | null;
 };
 
 export function useEventShell(eventId?: string) {
@@ -25,7 +26,7 @@ export function useEventShell(eventId?: string) {
 
       const { data: eventData, error: eventErr } = await supabase
         .from('events')
-        .select('id, band_id, title')
+        .select('id, band_id, title, notes')
         .eq('id', eventId)
         .single();
 

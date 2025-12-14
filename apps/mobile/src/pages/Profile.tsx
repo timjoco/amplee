@@ -211,7 +211,7 @@ export default function Profile() {
               height: '100%',
             }}
           >
-            <IonSpinner style={{ '--color': '#34d399' }} />
+            <IonSpinner style={{ '--color': '#f6f6f6ff' }} />
           </div>
         )}
 
