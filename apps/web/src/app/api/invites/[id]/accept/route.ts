@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -132,18 +131,73 @@ export async function POST(req: NextRequest, ctx: { params: any }) {
         )
       );
     }
+
     if (!invite) {
       return addCorsHeaders(
         req,
         NextResponse.json({ error: 'Invite not found' }, { status: 404 })
       );
     }
+
+    // ✅ Idempotent behavior:
+    // - pending: proceed (normal flow below)
+    // - accepted: return ok (don’t touch membership / role)
+    // - revoked/expired: error
+    if (invite.status === 'accepted') {
+      if (!invite.band_id || !isUuidLike(invite.band_id)) {
+        return addCorsHeaders(
+          req,
+          NextResponse.json(
+            { error: 'Invite has invalid band_id' },
+            { status: 400 }
+          )
+        );
+      }
+
+      const { data: existingMember, error: memErr } = await supabaseAdmin
+        .from('band_members')
+        .select('role')
+        .eq('band_id', invite.band_id)
+        .eq('user_id', authedUserId)
+        .maybeSingle();
+
+      if (memErr) {
+        return addCorsHeaders(
+          req,
+          NextResponse.json(
+            { error: `membership lookup failed: ${memErr.message}` },
+            { status: 400 }
+          )
+        );
+      }
+
+      const role = (existingMember?.role ?? invite.role ?? 'member') as
+        | 'admin'
+        | 'member';
+
+      return addCorsHeaders(
+        req,
+        NextResponse.json({
+          ok: true,
+          band_id: invite.band_id,
+          bandId: invite.band_id,
+          role,
+          alreadyMember: !!existingMember,
+          alreadyAccepted: true,
+        })
+      );
+    }
+
     if (invite.status !== 'pending') {
       return addCorsHeaders(
         req,
-        NextResponse.json({ error: 'Invite is not pending' }, { status: 400 })
+        NextResponse.json(
+          { error: `Invite is ${invite.status}` },
+          { status: 400 }
+        )
       );
     }
+
     if (!invite.band_id || !isUuidLike(invite.band_id)) {
       return addCorsHeaders(
         req,
@@ -185,24 +239,48 @@ export async function POST(req: NextRequest, ctx: { params: any }) {
     }
 
     // Upsert membership
-    const { error: upsertErr } = await supabaseAdmin
+    const { data: existingMember, error: memErr } = await supabaseAdmin
       .from('band_members')
-      .upsert(
-        {
-          band_id: invite.band_id,
-          user_id: authedUserId,
-          role: invite.role ?? 'member',
-        },
-        { onConflict: 'band_id,user_id' }
-      );
-    if (upsertErr) {
+      .select('role')
+      .eq('band_id', invite.band_id)
+      .eq('user_id', authedUserId)
+      .maybeSingle();
+
+    if (memErr) {
       return addCorsHeaders(
         req,
         NextResponse.json(
-          { error: `membership upsert failed: ${upsertErr.message}` },
+          { error: `membership lookup failed: ${memErr.message}` },
           { status: 400 }
         )
       );
+    }
+
+    let finalRole: 'admin' | 'member' = (invite.role ?? 'member') as any;
+    const alreadyMember = !!existingMember;
+
+    // 2) If already a member, keep their existing role (never downgrade)
+    if (existingMember?.role) {
+      finalRole = existingMember.role as any;
+    } else {
+      // 3) Not a member yet → insert membership
+      const { error: insErr } = await supabaseAdmin
+        .from('band_members')
+        .insert({
+          band_id: invite.band_id,
+          user_id: authedUserId,
+          role: finalRole,
+        });
+
+      if (insErr) {
+        return addCorsHeaders(
+          req,
+          NextResponse.json(
+            { error: `membership insert failed: ${insErr.message}` },
+            { status: 400 }
+          )
+        );
+      }
     }
 
     // Mark invite accepted
@@ -225,8 +303,9 @@ export async function POST(req: NextRequest, ctx: { params: any }) {
       NextResponse.json({
         ok: true,
         band_id: invite.band_id,
-        bandId: invite.band_id, // Include both for compatibility
-        role: invite.role ?? 'member',
+        bandId: invite.band_id,
+        role: finalRole,
+        alreadyMember,
       })
     );
   } catch (e) {

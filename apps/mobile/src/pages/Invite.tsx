@@ -1,13 +1,17 @@
 import {
   IonButton,
   IonContent,
-  IonHeader,
+  IonIcon,
   IonPage,
   IonSpinner,
-  IonText,
-  IonTitle,
-  IonToolbar,
 } from '@ionic/react';
+import {
+  alertCircleOutline,
+  checkmarkCircleOutline,
+  closeCircleOutline,
+  musicalNotesOutline,
+  timeOutline,
+} from 'ionicons/icons';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
@@ -38,7 +42,6 @@ type RawInviteResponse =
       };
     };
 
-// Normalize API response → InvitePreview shape
 function normalizeInvite(raw: RawInviteResponse): InvitePreview {
   if ('invite' in raw) {
     const { invite } = raw;
@@ -65,27 +68,16 @@ export default function Invite() {
   const [err, setErr] = useState<string | null>(null);
   const [accepting, setAccepting] = useState(false);
 
-  // Base URL for calling your Next API from mobile
   const apiBase = useMemo(() => {
     const envBase =
       import.meta.env.VITE_API_BASE?.replace(/\/+$/, '') ||
       import.meta.env.VITE_APP_URL?.replace(/\/+$/, '') ||
       '';
-
-    // Fallback for safety so mobile dev app still works if env is missing
     const base = envBase || 'https://amplee.app';
-
-    // Debug log to confirm where we're actually calling
-    // (shows up in Xcode / Android Studio console)
-    // eslint-disable-next-line no-console
     console.log('[InviteMobile] apiBase =', base);
-
     return base;
   }, []);
 
-  // ─────────────────────────────────────────
-  // Load invite preview
-  // ─────────────────────────────────────────
   useEffect(() => {
     if (!token) {
       setErr('Missing invite token.');
@@ -101,7 +93,6 @@ export default function Invite() {
 
       try {
         const url = `${apiBase}/api/invites/${encodeURIComponent(token)}`;
-        // eslint-disable-next-line no-console
         console.log('[InviteMobile] GET', url);
 
         const res = await fetch(url);
@@ -123,7 +114,6 @@ export default function Invite() {
           setLoading(false);
         }
       } catch (e: any) {
-        // eslint-disable-next-line no-console
         console.error('[InviteMobile] fetch error', e);
         if (!cancelled) {
           setErr(e?.message || 'Failed to load invite.');
@@ -137,9 +127,6 @@ export default function Invite() {
     };
   }, [token, apiBase]);
 
-  // ─────────────────────────────────────────
-  // Accept invite (with onboarding-aware redirect)
-  // ─────────────────────────────────────────
   const onContinue = async () => {
     if (!token || !invite || invite.status !== 'pending') return;
 
@@ -147,7 +134,6 @@ export default function Invite() {
     setAccepting(true);
 
     try {
-      // 1) Check session
       const { data, error } = await supabase.auth.getSession();
       if (error) throw error;
 
@@ -159,7 +145,6 @@ export default function Invite() {
         return;
       }
 
-      // 2) Email mismatch guard
       const sessionEmail = (data.session.user.email ?? '').toLowerCase();
       const inviteEmail = (invite.email ?? '').toLowerCase();
       if (inviteEmail && sessionEmail && inviteEmail !== sessionEmail) {
@@ -170,11 +155,9 @@ export default function Invite() {
         return;
       }
 
-      // 3) Accept via API
       const acceptUrl = `${apiBase}/api/invites/${encodeURIComponent(
         token
       )}/accept`;
-      // eslint-disable-next-line no-console
       console.log('[InviteMobile] POST', acceptUrl);
 
       const resp = await fetch(acceptUrl, {
@@ -185,7 +168,6 @@ export default function Invite() {
       if (!resp.ok) {
         const text = await resp.text();
 
-        // If backend returns 401/403, treat as "you need to login"
         if (resp.status === 401 || resp.status === 403) {
           navigate(
             `/login?redirect=${encodeURIComponent(`/invite/${token}`)}`,
@@ -208,7 +190,6 @@ export default function Invite() {
 
       const bandPath = `/bands/${encodeURIComponent(bandId)}`;
 
-      // 4) Check onboarding status
       const { data: userRes } = await supabase.auth.getUser();
       const user = userRes?.user;
       if (!user) {
@@ -226,21 +207,17 @@ export default function Invite() {
         .maybeSingle();
 
       if (pErr) {
-        // eslint-disable-next-line no-console
         console.warn('[InviteMobile] profile check error', pErr);
       }
 
       if (!profile || profile.onboarded === false) {
-        // New user / not onboarded → onboarding first, then band
         navigate(`/onboarding?next=${encodeURIComponent(bandPath)}`, {
           replace: true,
         });
       } else {
-        // Already onboarded → straight to band
         navigate(bandPath, { replace: true });
       }
     } catch (e: any) {
-      // eslint-disable-next-line no-console
       console.error('[InviteMobile] onContinue error', e);
       setErr(e?.message || 'Failed to accept invite.');
     } finally {
@@ -248,65 +225,322 @@ export default function Invite() {
     }
   };
 
-  // ─────────────────────────────────────────
-  // UI
-  // ─────────────────────────────────────────
+  const getStatusConfig = (status: string) => {
+    switch (status) {
+      case 'accepted':
+        return {
+          icon: checkmarkCircleOutline,
+          color: '#22c55e',
+          label: 'Already Accepted',
+        };
+      case 'revoked':
+        return {
+          icon: closeCircleOutline,
+          color: '#ef4444',
+          label: 'Revoked',
+        };
+      case 'expired':
+        return {
+          icon: timeOutline,
+          color: '#f59e0b',
+          label: 'Expired',
+        };
+      default:
+        return null;
+    }
+  };
+
   return (
     <IonPage>
-      <IonHeader>
-        <IonToolbar>
-          <IonTitle>Band Invite</IonTitle>
-        </IonToolbar>
-      </IonHeader>
-      <IonContent className="ion-padding">
-        {loading ? (
-          <div
-            style={{
-              height: '100%',
-              display: 'grid',
-              placeItems: 'center',
-            }}
-          >
-            <IonSpinner name="dots" />
-          </div>
-        ) : err ? (
-          <div>
-            <IonText color="danger">
-              <p>{err}</p>
-            </IonText>
-            <IonButton
-              expand="block"
-              onClick={() => navigate('/login', { replace: true })}
-              style={{ marginTop: 16 }}
+      <IonContent
+        fullscreen
+        style={{
+          '--background': '#0c0a14',
+        }}
+      >
+        <div
+          style={{
+            minHeight: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 24,
+            paddingTop: 'calc(env(safe-area-inset-top) + 24px)',
+            paddingBottom: 'calc(env(safe-area-inset-bottom) + 24px)',
+          }}
+        >
+          {loading ? (
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: 16,
+              }}
             >
-              Go to login
-            </IonButton>
-          </div>
-        ) : !invite ? null : (
-          <>
-            <h2>Join {invite.bandName || 'this band'}</h2>
-            <p>
-              You were invited{' '}
-              {invite.inviterEmail ? `by ${invite.inviterEmail}` : ''} to join
-              as <b>{invite.role ?? 'member'}</b>.
-            </p>
-            {invite.status !== 'pending' ? (
-              <IonText color="danger">
-                <p>
-                  This invite is <b>{invite.status}</b>.
-                </p>
-              </IonText>
-            ) : (
+              <IonSpinner
+                name="dots"
+                style={{ '--color': '#8b5cf6', transform: 'scale(1.5)' }}
+              />
+              <span style={{ color: 'rgba(156,163,175,0.7)', fontSize: 14 }}>
+                Loading invite…
+              </span>
+            </div>
+          ) : err ? (
+            <div
+              style={{
+                width: '100%',
+                maxWidth: 360,
+                textAlign: 'center',
+              }}
+            >
+              <div
+                style={{
+                  width: 64,
+                  height: 64,
+                  borderRadius: '50%',
+                  background: 'rgba(239,68,68,0.1)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  margin: '0 auto 20px',
+                }}
+              >
+                <IonIcon
+                  icon={alertCircleOutline}
+                  style={{ fontSize: 32, color: '#ef4444' }}
+                />
+              </div>
+
+              <h2
+                style={{
+                  margin: '0 0 12px',
+                  color: '#e5e7eb',
+                  fontSize: 20,
+                  fontWeight: 600,
+                }}
+              >
+                Something went wrong
+              </h2>
+
+              <p
+                style={{
+                  margin: '0 0 24px',
+                  color: 'rgba(156,163,175,0.9)',
+                  fontSize: 14,
+                  lineHeight: 1.5,
+                }}
+              >
+                {err}
+              </p>
+
               <IonButton
                 expand="block"
-                onClick={onContinue}
-                disabled={accepting}
+                onClick={() => navigate('/login', { replace: true })}
+                style={{
+                  '--background': '#7c3aed',
+                  '--background-hover': '#6d28d9',
+                  '--border-radius': '10px',
+                }}
               >
-                {accepting ? 'Joining…' : 'Join this band'}
+                Go to Login
               </IonButton>
-            )}
-          </>
-        )}
+            </div>
+          ) : !invite ? null : (
+            <div
+              style={{
+                width: '100%',
+                maxWidth: 360,
+                textAlign: 'center',
+              }}
+            >
+              {/* Band Icon */}
+              <div
+                style={{
+                  width: 80,
+                  height: 80,
+                  borderRadius: 20,
+                  background: 'rgba(139,92,246,0.15)',
+                  border: '1px solid rgba(139,92,246,0.3)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  margin: '0 auto 24px',
+                }}
+              >
+                <IonIcon
+                  icon={musicalNotesOutline}
+                  style={{ fontSize: 36, color: '#a78bfa' }}
+                />
+              </div>
+
+              {/* Invite Header */}
+              <h1
+                style={{
+                  margin: '0 0 8px',
+                  color: '#e5e7eb',
+                  fontSize: 24,
+                  fontWeight: 700,
+                }}
+              >
+                You're invited!
+              </h1>
+
+              <p
+                style={{
+                  margin: '0 0 24px',
+                  color: 'rgba(156,163,175,0.9)',
+                  fontSize: 15,
+                }}
+              >
+                Join{' '}
+                <strong style={{ color: '#e5e7eb' }}>
+                  {invite.bandName || 'this band'}
+                </strong>
+              </p>
+
+              {/* Invite Details Card */}
+              <div
+                style={{
+                  background: 'rgba(255,255,255,0.03)',
+                  border: '1px solid rgba(255,255,255,0.06)',
+                  borderRadius: 12,
+                  padding: 16,
+                  marginBottom: 24,
+                  textAlign: 'left',
+                }}
+              >
+                <div
+                  style={{
+                    display: 'grid',
+                    gap: 12,
+                    fontSize: 14,
+                    color: 'rgba(203,213,225,0.9)',
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <span style={{ color: 'rgba(156,163,175,0.7)' }}>Role</span>
+                    <span
+                      style={{
+                        background:
+                          invite.role === 'admin'
+                            ? 'rgba(139,92,246,0.2)'
+                            : 'rgba(34,197,94,0.2)',
+                        color: invite.role === 'admin' ? '#a78bfa' : '#4ade80',
+                        padding: '4px 10px',
+                        borderRadius: 6,
+                        fontSize: 12,
+                        fontWeight: 600,
+                        textTransform: 'capitalize',
+                      }}
+                    >
+                      {invite.role ?? 'Member'}
+                    </span>
+                  </div>
+
+                  {invite.inviterEmail && (
+                    <div
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                      }}
+                    >
+                      <span style={{ color: 'rgba(156,163,175,0.7)' }}>
+                        Invited by
+                      </span>
+                      <span>{invite.inviterEmail}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Status / Action */}
+              {invite.status !== 'pending' ? (
+                <div
+                  style={{
+                    background: 'rgba(255,255,255,0.03)',
+                    border: '1px solid rgba(255,255,255,0.06)',
+                    borderRadius: 12,
+                    padding: 20,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: 8,
+                  }}
+                >
+                  {(() => {
+                    const config = getStatusConfig(invite.status);
+                    if (!config) return null;
+                    return (
+                      <>
+                        <IonIcon
+                          icon={config.icon}
+                          style={{ fontSize: 32, color: config.color }}
+                        />
+                        <span
+                          style={{
+                            color: config.color,
+                            fontSize: 15,
+                            fontWeight: 600,
+                          }}
+                        >
+                          This invite has been {invite.status}
+                        </span>
+                      </>
+                    );
+                  })()}
+
+                  <IonButton
+                    fill="outline"
+                    onClick={() => navigate('/login', { replace: true })}
+                    style={{
+                      '--border-color': 'rgba(255,255,255,0.12)',
+                      '--color': 'rgba(156,163,175,0.9)',
+                      '--border-radius': '10px',
+                      marginTop: 8,
+                    }}
+                  >
+                    Go to Login
+                  </IonButton>
+                </div>
+              ) : (
+                <IonButton
+                  expand="block"
+                  onClick={onContinue}
+                  disabled={accepting}
+                  style={{
+                    '--background': '#7c3aed',
+                    '--background-hover': '#6d28d9',
+                    '--border-radius': '10px',
+                    '--padding-top': '14px',
+                    '--padding-bottom': '14px',
+                    fontWeight: 600,
+                  }}
+                >
+                  {accepting ? (
+                    <>
+                      <IonSpinner
+                        name="dots"
+                        style={{ marginRight: 8, width: 20, height: 20 }}
+                      />
+                      Joining…
+                    </>
+                  ) : (
+                    'Join Band'
+                  )}
+                </IonButton>
+              )}
+            </div>
+          )}
+        </div>
       </IonContent>
     </IonPage>
   );
