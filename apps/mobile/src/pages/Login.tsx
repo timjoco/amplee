@@ -275,58 +275,6 @@ export default function Login() {
           overflow: 'hidden',
         }}
       >
-        {/* Animated Background Orbs */}
-        {orbs.map((orb) => (
-          <div
-            key={orb.id}
-            className="amp-orb"
-            style={{
-              position: 'absolute',
-              width: `${orb.size}px`,
-              height: `${orb.size}px`,
-              left: `${orb.x}%`,
-              top: `${orb.y}%`,
-              background: `radial-gradient(circle, ${orb.color}, transparent)`,
-              borderRadius: '50%',
-              filter: 'blur(60px)',
-              opacity: orb.opacity,
-              animation: `ampFloat ${orb.duration}s infinite ease-in-out ${orb.delay}s`,
-              pointerEvents: 'none',
-              zIndex: 0,
-            }}
-          />
-        ))}
-
-        {/* Twinkling Stars */}
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            zIndex: 0,
-            pointerEvents: 'none',
-          }}
-        >
-          {Array.from({ length: 40 }).map((_, i) => (
-            <div
-              key={i}
-              className="amp-star"
-              style={{
-                position: 'absolute',
-                width: `${Math.random() * 3 + 1}px`,
-                height: `${Math.random() * 3 + 1}px`,
-                left: `${Math.random() * 100}%`,
-                top: `${Math.random() * 100}%`,
-                background: '#fff',
-                borderRadius: '50%',
-                animation: `ampTwinkle ${
-                  Math.random() * 3 + 2
-                }s infinite ease-in-out ${Math.random() * 3}s`,
-                opacity: Math.random() * 0.7 + 0.3,
-              }}
-            />
-          ))}
-        </div>
-
         {/* Main Content Container */}
         <div
           style={{

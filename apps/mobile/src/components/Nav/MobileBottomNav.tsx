@@ -152,8 +152,8 @@ export default function MobileBottomNav() {
         bottom: 0,
         zIndex: 1000,
         paddingBottom: isAndroid
-          ? 'calc(env(safe-area-inset-bottom, 0px) + 40px)'
-          : 'calc(env(safe-area-inset-bottom, 0px) + 12px)',
+          ? 'calc(env(safe-area-inset-bottom, 0px) + 2px)'
+          : 'calc(env(safe-area-inset-bottom, 0px))',
         background:
           'linear-gradient(180deg, rgba(8,8,12,0.9), rgba(8,8,12,0.98))',
         borderTop: '1px solid rgba(255,255,255,0.08)',

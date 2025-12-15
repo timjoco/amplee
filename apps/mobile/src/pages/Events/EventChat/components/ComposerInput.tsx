@@ -99,6 +99,7 @@ export function ComposerInput({
   return (
     <div
       className="composer-container"
+      onTouchStart={onFocus}
       style={{
         flex: 1,
         minWidth: 0,
@@ -215,7 +216,7 @@ export function ComposerInput({
           value={value}
           placeholder={placeholder}
           onIonInput={handleChange}
-          onFocus={handleFocus}
+          onIonFocus={handleFocus}
           onKeyDown={handleKeyDown}
           enterkeyhint="send"
           inputMode="text"

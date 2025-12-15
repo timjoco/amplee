@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { Capacitor } from '@capacitor/core';
 import {
   IonAlert,
   IonButton,
@@ -336,6 +337,9 @@ export default function BandSettingsMobile() {
   const [showDeleteToast, setShowDeleteToast] = useState(false);
 
   const trimmedBandName = bandName.trim();
+
+  const isAndroid =
+    Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android';
 
   useEffect(() => {
     if (!bandId) {
@@ -692,7 +696,12 @@ export default function BandSettingsMobile() {
           <div
             style={{
               padding: 16,
-              paddingBottom: 24,
+              paddingTop: `calc(16px + ${
+                isAndroid ? 'env(safe-area-inset-top, 0px)' : '0px'
+              })`,
+              paddingBottom: `calc(24px + env(safe-area-inset-bottom, 0px) + ${
+                isAndroid ? 18 : 0
+              }px)`,
               color: '#E5E7EB',
               display: 'flex',
               flexDirection: 'column',

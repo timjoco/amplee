@@ -25,7 +25,6 @@ type RosterMember = {
   role: string;
   avatar_url: string | null;
 
-  // Contact info (stored on profiles)
   contact_email?: string | null;
   phone?: string | null;
   instagram?: string | null;
@@ -39,9 +38,9 @@ type RosterMember = {
 
 type BandRoster = {
   id: string;
-  name: string;
+  title: string;
   created_at: string;
-  created_by: string;
+  created_by: string | null;
 };
 
 type RosterMemberLite = {
@@ -63,19 +62,16 @@ export default function BandRosterPage() {
   const [rosters, setRosters] = useState<BandRoster[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  // Roster expand + cache
   const [expandedRosterId, setExpandedRosterId] = useState<string | null>(null);
   const [rosterMembersByRosterId, setRosterMembersByRosterId] = useState<
     Record<string, RosterMemberLite[] | undefined>
   >({});
 
-  // Create roster modal
   const [showCreateRoster, setShowCreateRoster] = useState(false);
   const [creatingRoster, setCreatingRoster] = useState(false);
-  const [newRosterName, setNewRosterName] = useState('');
+  const [newRosterTitle, setNewRosterTitle] = useState('');
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
 
-  // ✅ Member sheet modal
   const [showMemberSheet, setShowMemberSheet] = useState(false);
   const [activeMember, setActiveMember] = useState<RosterMember | null>(null);
 
@@ -88,6 +84,44 @@ export default function BandRosterPage() {
     return m.display_name || full || 'Unknown';
   };
 
+  const selectedPreview = useMemo(() => {
+    const byId = new Map(members.map((m) => [m.user_id, m]));
+    return selectedUserIds
+      .map((id) => byId.get(id))
+      .filter(Boolean) as RosterMember[];
+  }, [members, selectedUserIds]);
+
+  // ✅ Current user + admin gate (derived from loaded members)
+  const [myUserId, setMyUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      const { data } = await supabase.auth.getUser();
+      if (!alive) return;
+      setMyUserId(data.user?.id ?? null);
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const isAdmin = useMemo(() => {
+    if (!myUserId) return false;
+    const me = members.find((m) => m.user_id === myUserId);
+    return me?.role === 'admin';
+  }, [members, myUserId]);
+
+  const adminUserIds = useMemo(
+    () => members.filter((m) => m.role === 'admin').map((m) => m.user_id),
+    [members]
+  );
+
+  const selectionHasAdmin = useMemo(() => {
+    const set = new Set(selectedUserIds);
+    return adminUserIds.some((id) => set.has(id));
+  }, [selectedUserIds, adminUserIds]);
+
   const toggleSelected = (userId: string) => {
     setSelectedUserIds((prev) =>
       prev.includes(userId)
@@ -95,13 +129,6 @@ export default function BandRosterPage() {
         : [...prev, userId]
     );
   };
-
-  const selectedPreview = useMemo(() => {
-    const byId = new Map(members.map((m) => [m.user_id, m]));
-    return selectedUserIds
-      .map((id) => byId.get(id))
-      .filter(Boolean) as RosterMember[];
-  }, [members, selectedUserIds]);
 
   useEffect(() => {
     let alive = true;
@@ -113,7 +140,6 @@ export default function BandRosterPage() {
         setLoading(true);
         setError(null);
 
-        // 1) Band info
         const { data: band, error: bandErr } = await supabase
           .from('bands')
           .select('name')
@@ -122,14 +148,13 @@ export default function BandRosterPage() {
         if (bandErr) throw bandErr;
         if (band) setBandName(band.name ?? '');
 
-        // 2) Band members + profiles (include contact fields)
         const { data: rosterData, error: rosterErr } = await supabase
           .from('band_members')
           .select(
             `
+        
               user_id,
               role,
-              user_id,
               created_at,
               profiles!band_memberships_user_id_fkey(
                 id,
@@ -163,11 +188,9 @@ export default function BandRosterPage() {
               display_name: profile?.display_name ?? null,
               role: m.role,
               avatar_url: profile?.avatar_url ?? null,
-
               contact_email: profile?.contact_email ?? null,
               phone: profile?.phone ?? null,
               instagram: profile?.instagram ?? null,
-
               availability: null,
             };
           }
@@ -175,10 +198,9 @@ export default function BandRosterPage() {
 
         setMembers(formattedMembers);
 
-        // 3) Saved rosters
         const { data: rostersData, error: rostersErr } = await supabase
           .from('band_rosters')
-          .select('id,name,created_at,created_by')
+          .select('id,created_at,created_by')
           .eq('band_id', bandId)
           .order('created_at', { ascending: false });
 
@@ -253,7 +275,6 @@ export default function BandRosterPage() {
       };
     });
 
-    // preserve roster ordering
     const byId = new Map(formatted.map((m) => [m.user_id, m]));
     const ordered = userIds
       .map((id) => byId.get(id))
@@ -262,16 +283,66 @@ export default function BandRosterPage() {
     setRosterMembersByRosterId((prev) => ({ ...prev, [rosterId]: ordered }));
   };
 
+  const openMemberSheet = (m: RosterMember) => {
+    setActiveMember(m);
+    setShowMemberSheet(true);
+  };
+
+  const copyText = async (txt: string) => {
+    try {
+      await navigator.clipboard.writeText(txt);
+    } catch (e) {
+      console.warn('[clipboard] failed', e);
+    }
+  };
+
+  const instagramUrl = (s: string) => {
+    const raw = s.trim();
+    if (!raw) return '';
+    if (raw.startsWith('http://') || raw.startsWith('https://')) return raw;
+    const handle = raw.startsWith('@') ? raw.slice(1) : raw;
+    return `https://instagram.com/${handle}`;
+  };
+
+  const beginCreateRoster = () => {
+    setError(null);
+
+    if (!isAdmin) {
+      setError('Only band admins can create rosters.');
+      return;
+    }
+
+    setNewRosterTitle('');
+
+    // ✅ Default selection includes all admins (prevents “no admin roster”)
+    // If you prefer “at least one admin” rather than all, you can just include your own admin id.
+    const defaultIds = Array.from(new Set([...adminUserIds]));
+    setSelectedUserIds(defaultIds);
+
+    setShowCreateRoster(true);
+  };
+
   const submitCreateRoster = async () => {
     if (!bandId) return;
 
-    const name = newRosterName.trim();
-    if (!name) {
-      setError('Enter a roster name.');
+    if (!isAdmin) {
+      setError('Only band admins can create rosters.');
+      return;
+    }
+
+    const title = newRosterTitle.trim();
+    if (!title) {
+      setError('Enter a roster title.');
       return;
     }
     if (selectedUserIds.length === 0) {
       setError('Select at least one member.');
+      return;
+    }
+
+    // ✅ Hard rule: roster must include an admin
+    if (!selectionHasAdmin) {
+      setError('Roster must include at least one admin.');
       return;
     }
 
@@ -289,10 +360,10 @@ export default function BandRosterPage() {
         .from('band_rosters')
         .insert({
           band_id: bandId,
-          name,
+          title,
           created_by: user.id,
         } as any)
-        .select('id,name,created_at,created_by')
+        .select('id,title,created_at,created_by')
         .single();
 
       if (rErr) throw rErr;
@@ -305,6 +376,7 @@ export default function BandRosterPage() {
       const { error: rmErr } = await supabase
         .from('band_roster_members')
         .insert(rows as any);
+
       if (rmErr) throw rmErr;
 
       setRosters((prev) => [roster as any, ...prev]);
@@ -320,7 +392,7 @@ export default function BandRosterPage() {
       setRosterMembersByRosterId((prev) => ({ ...prev, [roster.id]: lite }));
 
       setShowCreateRoster(false);
-      setNewRosterName('');
+      setNewRosterTitle('');
       setSelectedUserIds([]);
     } catch (e: any) {
       console.error('[submitCreateRoster]', e);
@@ -331,6 +403,11 @@ export default function BandRosterPage() {
   };
 
   const deleteRoster = async (rosterId: string) => {
+    if (!isAdmin) {
+      setError('Only band admins can delete rosters.');
+      return;
+    }
+
     try {
       setError(null);
       const { error: delErr } = await supabase
@@ -350,28 +427,6 @@ export default function BandRosterPage() {
       console.error('[deleteRoster]', e);
       setError(String(e?.message ?? 'Failed to delete roster'));
     }
-  };
-
-  const openMemberSheet = (m: RosterMember) => {
-    setActiveMember(m);
-    setShowMemberSheet(true);
-  };
-
-  const copyText = async (txt: string) => {
-    try {
-      await navigator.clipboard.writeText(txt);
-    } catch (e) {
-      console.warn('[clipboard] failed', e);
-    }
-  };
-
-  // Accepts either "@handle", "handle", or full url
-  const instagramUrl = (s: string) => {
-    const raw = s.trim();
-    if (!raw) return '';
-    if (raw.startsWith('http://') || raw.startsWith('https://')) return raw;
-    const handle = raw.startsWith('@') ? raw.slice(1) : raw;
-    return `https://instagram.com/${handle}`;
   };
 
   return (
@@ -420,6 +475,11 @@ export default function BandRosterPage() {
                   {bandName}
                 </div>
               )}
+              {myUserId && (
+                <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>
+                  {isAdmin ? 'Admin access' : 'Member access'}
+                </div>
+              )}
             </div>
           </div>
         </IonToolbar>
@@ -462,7 +522,6 @@ export default function BandRosterPage() {
               paddingBottom: '40px',
             }}
           >
-            {/* Info callout */}
             <div
               style={{
                 display: 'flex',
@@ -491,26 +550,39 @@ export default function BandRosterPage() {
                   margin: 0,
                 }}
               >
-                Tap a member to view their contact info.
+                Tap a member to view their contact info. Rosters are admin-only.
               </p>
             </div>
 
-            <IonButton
-              expand="block"
-              onClick={() => {
-                setError(null);
-                setNewRosterName('');
-                setSelectedUserIds([]);
-                setShowCreateRoster(true);
-              }}
-              style={{
-                marginBottom: 16,
-                '--background': 'rgba(147, 51, 234, 0.92)',
-                '--border-radius': '14px',
-              }}
-            >
-              Create Roster
-            </IonButton>
+            {/* ✅ ADMIN-ONLY create */}
+            {isAdmin ? (
+              <IonButton
+                expand="block"
+                onClick={beginCreateRoster}
+                style={{
+                  marginBottom: 16,
+                  '--background': 'rgba(147, 51, 234, 0.92)',
+                  '--border-radius': '14px',
+                }}
+              >
+                Create Roster
+              </IonButton>
+            ) : (
+              <div
+                style={{
+                  marginBottom: 16,
+                  padding: 12,
+                  borderRadius: 14,
+                  background: 'rgba(255,255,255,0.03)',
+                  border: '1px solid rgba(255,255,255,0.06)',
+                  color: '#9ca3af',
+                  fontSize: 13,
+                  lineHeight: 1.45,
+                }}
+              >
+                Only band admins can create or delete rosters.
+              </div>
+            )}
 
             {/* Saved Rosters */}
             <div style={{ marginBottom: 18 }}>
@@ -529,8 +601,7 @@ export default function BandRosterPage() {
                     fontSize: 13,
                   }}
                 >
-                  No rosters yet. Create one for “Full Band”, “Acoustic Duo”,
-                  etc.
+                  No rosters yet.
                 </div>
               ) : (
                 <div
@@ -586,7 +657,7 @@ export default function BandRosterPage() {
                             }}
                           >
                             <div style={{ fontWeight: 800, fontSize: 15 }}>
-                              {r.name}
+                              {r.title}
                             </div>
                             <div
                               style={{
@@ -599,25 +670,28 @@ export default function BandRosterPage() {
                             </div>
                           </button>
 
-                          <IonButton
-                            fill="clear"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              deleteRoster(r.id);
-                            }}
-                            style={{ margin: 0, minWidth: 0 }}
-                          >
-                            <span
-                              style={{
-                                color: '#ef4444',
-                                fontWeight: 700,
-                                fontSize: 12,
+                          {/* ✅ ADMIN-ONLY delete */}
+                          {isAdmin && (
+                            <IonButton
+                              fill="clear"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                deleteRoster(r.id);
                               }}
+                              style={{ margin: 0, minWidth: 0 }}
                             >
-                              Delete
-                            </span>
-                          </IonButton>
+                              <span
+                                style={{
+                                  color: '#ef4444',
+                                  fontWeight: 700,
+                                  fontSize: 12,
+                                }}
+                              >
+                                Delete
+                              </span>
+                            </IonButton>
+                          )}
                         </div>
 
                         {isOpen && (
@@ -842,6 +916,21 @@ export default function BandRosterPage() {
                     gap: 12,
                   }}
                 >
+                  {!isAdmin && (
+                    <div
+                      style={{
+                        background: 'rgba(239,68,68,0.10)',
+                        border: '1px solid rgba(239,68,68,0.25)',
+                        borderRadius: 14,
+                        padding: 12,
+                        color: '#fca5a5',
+                        fontSize: 13,
+                      }}
+                    >
+                      Only admins can create rosters.
+                    </div>
+                  )}
+
                   <div>
                     <div
                       style={{
@@ -850,11 +939,11 @@ export default function BandRosterPage() {
                         marginBottom: 8,
                       }}
                     >
-                      Roster name
+                      Roster title
                     </div>
                     <input
-                      value={newRosterName}
-                      onChange={(e) => setNewRosterName(e.target.value)}
+                      value={newRosterTitle}
+                      onChange={(e) => setNewRosterTitle(e.target.value)}
                       placeholder="e.g. Weekend Lineup"
                       style={{
                         width: '100%',
@@ -865,12 +954,28 @@ export default function BandRosterPage() {
                         color: '#f9fafb',
                         outline: 'none',
                       }}
+                      disabled={!isAdmin}
                     />
                   </div>
 
                   <div style={{ color: '#9ca3af', fontSize: 12, marginTop: 8 }}>
                     Select members ({selectedUserIds.length})
                   </div>
+
+                  {!selectionHasAdmin && (
+                    <div
+                      style={{
+                        background: 'rgba(251,191,36,0.08)',
+                        border: '1px solid rgba(251,191,36,0.25)',
+                        borderRadius: 14,
+                        padding: 12,
+                        color: '#fde68a',
+                        fontSize: 13,
+                      }}
+                    >
+                      This roster must include at least one admin.
+                    </div>
+                  )}
 
                   <div
                     style={{
@@ -886,7 +991,8 @@ export default function BandRosterPage() {
                       return (
                         <button
                           key={m.user_id}
-                          onClick={() => toggleSelected(m.user_id)}
+                          onClick={() => isAdmin && toggleSelected(m.user_id)}
+                          disabled={!isAdmin}
                           style={{
                             width: '100%',
                             display: 'flex',
@@ -902,6 +1008,7 @@ export default function BandRosterPage() {
                               : '1px solid rgba(255,255,255,0.06)',
                             color: '#f9fafb',
                             textAlign: 'left',
+                            opacity: isAdmin ? 1 : 0.6,
                           }}
                         >
                           <div
@@ -918,6 +1025,7 @@ export default function BandRosterPage() {
                           >
                             {name[0].toUpperCase()}
                           </div>
+
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div
                               style={{
@@ -984,9 +1092,11 @@ export default function BandRosterPage() {
                     <IonButton
                       expand="block"
                       disabled={
+                        !isAdmin ||
                         creatingRoster ||
-                        !newRosterName.trim() ||
-                        selectedUserIds.length === 0
+                        !newRosterTitle.trim() ||
+                        selectedUserIds.length === 0 ||
+                        !selectionHasAdmin
                       }
                       onClick={submitCreateRoster}
                       style={{
@@ -1006,7 +1116,7 @@ export default function BandRosterPage() {
               </IonContent>
             </IonModal>
 
-            {/* ✅ Member Sheet */}
+            {/* Member Sheet (unchanged from your version) */}
             <IonModal
               isOpen={showMemberSheet}
               onDidDismiss={() => {
@@ -1104,7 +1214,6 @@ export default function BandRosterPage() {
                         gap: 10,
                       }}
                     >
-                      {/* Email */}
                       {activeMember.contact_email ? (
                         <div
                           style={{
@@ -1165,7 +1274,6 @@ export default function BandRosterPage() {
                         </div>
                       ) : null}
 
-                      {/* Phone */}
                       {activeMember.phone ? (
                         <div
                           style={{
@@ -1224,7 +1332,6 @@ export default function BandRosterPage() {
                         </div>
                       ) : null}
 
-                      {/* Instagram */}
                       {activeMember.instagram ? (
                         <div
                           style={{
@@ -1287,7 +1394,6 @@ export default function BandRosterPage() {
                         </div>
                       ) : null}
 
-                      {/* Empty */}
                       {!activeMember.contact_email &&
                       !activeMember.phone &&
                       !activeMember.instagram ? (

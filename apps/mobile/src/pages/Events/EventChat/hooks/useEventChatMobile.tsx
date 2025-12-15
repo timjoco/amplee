@@ -102,15 +102,12 @@ export function useEventChatMobile({
       },
     });
 
-  // Scroll when keyboard opens or composer focuses
+  // Scroll when composer focuses
   const handleComposerFocus = useCallback(() => {
-    setTimeout(() => smartScrollToBottom('smooth'), 120);
+    console.log('[composer focus]');
+    smartScrollToBottom('smooth');
+    setTimeout(() => smartScrollToBottom('smooth'), 300);
   }, [smartScrollToBottom]);
-
-  if (keyboardHeight > 0) {
-    // NOTE: this is idempotent because keyboardHeight stays > 0 while open
-    setTimeout(() => smartScrollToBottom('smooth'), 50);
-  }
 
   const timeFmt = useMemo(
     () =>

@@ -3,6 +3,8 @@ import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { IonIcon } from '@ionic/react';
 import { copyOutline, trashOutline } from 'ionicons/icons';
 import { memo, useEffect, useState } from 'react';
+import { parseSongTags } from '../../../../components/SongTag';
+import { EditableMessageBody } from './EditableMessageBody';
 
 type ProfileLite = {
   id: string;
@@ -69,6 +71,9 @@ export const MessageActionSheet = memo<MessageActionSheetProps>(
     const [confirmingDelete, setConfirmingDelete] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
     const [draft, setDraft] = useState('');
+
+    const isAndroid =
+      Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android';
 
     useEffect(() => {
       if (!message) return;
@@ -183,7 +188,9 @@ export const MessageActionSheet = memo<MessageActionSheetProps>(
               dragStartY == null ? 'transform 160ms ease-out' : 'none',
             borderTopLeftRadius: 20,
             borderTopRightRadius: 20,
-            padding: '12px 16px 24px',
+            padding: `12px 16px calc(env(safe-area-inset-bottom, 0px) + ${
+              isAndroid ? 18 : 12
+            }px)`,
           }}
         >
           <div
@@ -250,32 +257,16 @@ export const MessageActionSheet = memo<MessageActionSheetProps>(
                 style={{
                   fontSize: 14,
                   color: '#EDE9FE',
-                  whiteSpace: 'nowrap',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
                 }}
               >
-                {body}
+                {parseSongTags(body)}
               </div>
             ) : (
               <>
-                <textarea
-                  value={draft}
-                  onChange={(e) => setDraft(e.target.value)}
-                  rows={4}
-                  autoFocus
-                  style={{
-                    width: '100%',
-                    borderRadius: 10,
-                    border: '1px solid rgba(148,163,184,0.8)',
-                    background: 'rgba(15,23,42,0.98)',
-                    color: '#E5E7EB',
-                    fontSize: 14,
-                    padding: 8,
-                    resize: 'none',
-                    outline: 'none',
-                  }}
-                />
+                <EditableMessageBody value={draft} onChange={setDraft} />
+
                 <div
                   style={{
                     display: 'flex',
@@ -300,6 +291,7 @@ export const MessageActionSheet = memo<MessageActionSheetProps>(
                   >
                     Cancel
                   </button>
+
                   <button
                     type="button"
                     onClick={handleSaveEdit}

@@ -11,7 +11,6 @@ import {
 import {
   alertCircleOutline,
   calendarOutline,
-  checkmarkOutline,
   chevronBackOutline,
   chevronDownOutline,
   chevronForwardOutline,
@@ -74,7 +73,7 @@ type SameDayEvent = {
 };
 
 // Invite selection types
-type InviteMode = 'full' | 'roster' | 'custom';
+type InviteMode = 'full' | 'roster';
 
 type RosterLite = {
   id: string;
@@ -885,8 +884,6 @@ export default function GlobalCreateMobile({
   const missingInviteSelection =
     (eventForm.inviteMode as InviteMode) === 'roster'
       ? !eventForm.selectedRosterId
-      : (eventForm.inviteMode as InviteMode) === 'custom'
-      ? (eventForm.selectedUserIds?.length || 0) === 0
       : false;
 
   return (
@@ -1258,25 +1255,6 @@ export default function GlobalCreateMobile({
                   >
                     Roster
                   </button>
-
-                  <button
-                    type="button"
-                    className={`gc-toggle-btn ${
-                      (eventForm.inviteMode as InviteMode) === 'custom'
-                        ? 'gc-toggle-btn-active-event'
-                        : 'gc-toggle-btn-inactive'
-                    }`}
-                    onClick={() => {
-                      triggerHaptic();
-                      eventForm.setInviteMode('custom');
-                      eventForm.setSelectedRosterId('');
-                      // Prefill all members when switching to custom
-                      const allIds = bandMembersForInvite.map((m) => m.user_id);
-                      eventForm.prefillAllMembers(allIds);
-                    }}
-                  >
-                    Custom
-                  </button>
                 </div>
 
                 {/* Full band mode - no list shown */}
@@ -1357,122 +1335,6 @@ export default function GlobalCreateMobile({
                         }}
                       >
                         Members from this roster will be invited.
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Custom mode - checklist */}
-                {(eventForm.inviteMode as InviteMode) === 'custom' && (
-                  <div
-                    style={{
-                      marginTop: 10,
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: 8,
-                    }}
-                  >
-                    {loadingInviteData ? (
-                      <div style={{ color: '#9ca3af', fontSize: 12 }}>
-                        Loading members…
-                      </div>
-                    ) : bandMembersForInvite.length === 0 ? (
-                      <div style={{ color: '#9ca3af', fontSize: 12 }}>
-                        No members found.
-                      </div>
-                    ) : (
-                      bandMembersForInvite.map((m) => {
-                        const checked = (
-                          eventForm.selectedUserIds ?? []
-                        ).includes(m.user_id);
-
-                        return (
-                          <button
-                            key={m.user_id}
-                            type="button"
-                            onClick={() => {
-                              triggerHaptic();
-                              eventForm.toggleSelectedUser(m.user_id);
-                            }}
-                            style={{
-                              width: '100%',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'space-between',
-                              gap: 12,
-                              padding: 12,
-                              borderRadius: 14,
-                              background: checked
-                                ? 'rgba(52, 211, 153, 0.12)'
-                                : 'rgba(255,255,255,0.03)',
-                              border: checked
-                                ? '1px solid rgba(52, 211, 153, 0.35)'
-                                : '1px solid rgba(255,255,255,0.08)',
-                              color: '#f9fafb',
-                              textAlign: 'left',
-                            }}
-                          >
-                            <div style={{ minWidth: 0 }}>
-                              <div
-                                style={{
-                                  fontWeight: 800,
-                                  fontSize: 13,
-                                  overflow: 'hidden',
-                                  textOverflow: 'ellipsis',
-                                  whiteSpace: 'nowrap',
-                                }}
-                              >
-                                {m.name}
-                              </div>
-                              <div
-                                style={{
-                                  fontSize: 12,
-                                  color: '#9ca3af',
-                                  textTransform: 'capitalize',
-                                }}
-                              >
-                                {m.role}
-                              </div>
-                            </div>
-
-                            <div
-                              style={{
-                                width: 22,
-                                height: 22,
-                                borderRadius: 6,
-                                border: checked
-                                  ? '1px solid rgba(52, 211, 153, 0.5)'
-                                  : '1px solid rgba(255,255,255,0.25)',
-                                background: checked
-                                  ? 'rgba(52, 211, 153, 0.2)'
-                                  : 'transparent',
-                                display: 'grid',
-                                placeItems: 'center',
-                                flexShrink: 0,
-                              }}
-                            >
-                              {checked && (
-                                <IonIcon
-                                  icon={checkmarkOutline}
-                                  style={{ fontSize: 14, color: '#34d399' }}
-                                />
-                              )}
-                            </div>
-                          </button>
-                        );
-                      })
-                    )}
-
-                    {(eventForm.selectedUserIds?.length || 0) > 0 && (
-                      <div
-                        style={{
-                          color: '#6ee7b7',
-                          fontSize: 12,
-                          marginTop: 4,
-                        }}
-                      >
-                        {eventForm.selectedUserIds.length} of{' '}
-                        {bandMembersForInvite.length} selected
                       </div>
                     )}
                   </div>

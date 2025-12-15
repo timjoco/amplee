@@ -1,3 +1,4 @@
+import { Capacitor } from '@capacitor/core';
 import {
   IonContent,
   IonIcon,
@@ -7,6 +8,7 @@ import {
   IonSpinner,
   IonText,
 } from '@ionic/react';
+
 import {
   calendarOutline,
   locationOutline,
@@ -51,6 +53,8 @@ export default function EventSheetModal({
   onTogglePublic,
   onGotoSettings,
 }: EventInfoModalProps) {
+  const isAndroid =
+    Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android';
   return (
     <IonModal
       isOpen={isOpen}
@@ -69,7 +73,9 @@ export default function EventSheetModal({
           style={{
             position: 'relative',
             padding: 16,
-            paddingBottom: 24,
+            paddingBottom: `calc(env(safe-area-inset-bottom, 0px) + ${
+              isAndroid ? 18 : 12
+            }px)`,
             height: '100%',
             color: '#E5E7EB',
             display: 'flex',
@@ -174,6 +180,9 @@ export default function EventSheetModal({
                   flex: 1,
                   overflowY: 'auto',
                   paddingRight: 2,
+                  paddingBottom: `calc(env(safe-area-inset-bottom, 0px) + ${
+                    isAndroid ? 18 : 12
+                  }px)`,
                 }}
               >
                 {/* EVENT OVERVIEW CARD */}

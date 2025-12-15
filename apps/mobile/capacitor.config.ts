@@ -10,8 +10,8 @@ const config: CapacitorConfig = {
   // server: { url: 'http://192.168.1.113:5173/', cleartext: true },
   plugins: {
     Keyboard: {
-      resize: 'none',
       scrollPadding: false,
+      resizeOnFullScreen: true,
     },
   },
 };

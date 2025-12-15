@@ -257,7 +257,6 @@ export default function EventSheetMobile() {
 
       <IonContent
         fullscreen
-        scrollY={true}
         style={{
           '--background': 'linear-gradient(180deg, #050509 0%, #020109 100%)',
         }}
@@ -290,8 +289,11 @@ export default function EventSheetMobile() {
               margin: '0 auto',
             }}
           >
-            <EventDetailsCard event={event} />
-
+            <EventDetailsCard
+              event={event}
+              inviteeTotal={inviteeTotal}
+              acceptedCount={attendanceStats.accepted}
+            />
             <EventChatCTA
               onPress={() =>
                 handleButtonPress('chat', () =>

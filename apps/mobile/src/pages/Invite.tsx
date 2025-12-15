@@ -4,6 +4,7 @@ import {
   IonIcon,
   IonPage,
   IonSpinner,
+  useIonRouter,
 } from '@ionic/react';
 import {
   alertCircleOutline,
@@ -14,7 +15,7 @@ import {
   timeOutline,
 } from 'ionicons/icons';
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 
 type InvitePreview = {
@@ -62,7 +63,7 @@ function normalizeInvite(raw: RawInviteResponse): InvitePreview {
 
 export default function Invite() {
   const { token } = useParams<{ token: string }>();
-  const navigate = useNavigate();
+  const ionRouter = useIonRouter();
 
   const [loading, setLoading] = useState(true);
   const [invite, setInvite] = useState<InvitePreview | null>(null);
@@ -141,9 +142,11 @@ export default function Invite() {
       // Not logged in - redirect to login with next param
       if (!data.session) {
         setAccepting(false);
-        navigate(`/login?next=${encodeURIComponent(`/invite/${token}`)}`, {
-          replace: true,
-        });
+        ionRouter.push(
+          `/login?next=${encodeURIComponent(`/invite/${token}`)}`,
+          'forward',
+          'replace'
+        );
         return;
       }
 
@@ -172,9 +175,11 @@ export default function Invite() {
 
         if (resp.status === 401 || resp.status === 403) {
           setAccepting(false);
-          navigate(`/login?next=${encodeURIComponent(`/invite/${token}`)}`, {
-            replace: true,
-          });
+          ionRouter.push(
+            `/login?next=${encodeURIComponent(`/invite/${token}`)}`,
+            'forward',
+            'replace'
+          );
           return;
         }
 
@@ -195,9 +200,11 @@ export default function Invite() {
       const user = userRes?.user;
       if (!user) {
         setAccepting(false);
-        navigate(`/login?next=${encodeURIComponent(`/invite/${token}`)}`, {
-          replace: true,
-        });
+        ionRouter.push(
+          `/login?next=${encodeURIComponent(`/invite/${token}`)}`,
+          'forward',
+          'replace'
+        );
         return;
       }
 
@@ -212,11 +219,13 @@ export default function Invite() {
       }
 
       if (!profile || profile.onboarded === false) {
-        navigate(`/onboarding?next=${encodeURIComponent(bandPath)}`, {
-          replace: true,
-        });
+        ionRouter.push(
+          `/onboarding?next=${encodeURIComponent(bandPath)}`,
+          'forward',
+          'replace'
+        );
       } else {
-        navigate(bandPath, { replace: true });
+        ionRouter.push(bandPath, 'forward', 'replace');
       }
     } catch (e: any) {
       console.error('[InviteMobile] onContinue error', e);
@@ -269,7 +278,7 @@ export default function Invite() {
         >
           <IonButton
             fill="clear"
-            onClick={() => navigate('/home', { replace: true })}
+            onClick={() => ionRouter.push('/home', 'back', 'replace')}
             style={{
               '--color': 'rgba(156,163,175,0.9)',
               '--padding-start': '8px',
@@ -359,7 +368,7 @@ export default function Invite() {
 
               <IonButton
                 expand="block"
-                onClick={() => navigate('/login', { replace: true })}
+                onClick={() => ionRouter.push('/login', 'forward', 'replace')}
                 style={{
                   '--background': '#7c3aed',
                   '--background-hover': '#6d28d9',
@@ -522,7 +531,7 @@ export default function Invite() {
 
                   <IonButton
                     fill="outline"
-                    onClick={() => navigate('/home', { replace: true })}
+                    onClick={() => ionRouter.push('/home', 'back', 'replace')}
                     style={{
                       '--border-color': 'rgba(255,255,255,0.12)',
                       '--color': 'rgba(156,163,175,0.9)',

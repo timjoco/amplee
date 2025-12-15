@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { Capacitor } from '@capacitor/core';
 import {
   IonContent,
   IonIcon,
@@ -54,6 +55,9 @@ export default function BandSheetModal({
 
   const [showsPlayed, setShowsPlayed] = useState<number | undefined>(undefined);
   const [yearsActive, setYearsActive] = useState<number | undefined>(undefined);
+
+  const isAndroid =
+    Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android';
 
   const refreshBandSummary = useCallback(
     async (reason: string) => {
@@ -228,7 +232,7 @@ export default function BandSheetModal({
     // realtime: refresh shows count when events change
     refreshBandSummary('initial');
 
-    // ✅ realtime: refresh shows count when events change
+    // realtime: refresh shows count when events change
     const channelName = `band:${bandId}:band_summary`;
     console.log('[BandSheetModal] subscribing', { channelName, bandId });
 
@@ -293,7 +297,9 @@ export default function BandSheetModal({
           style={{
             position: 'relative',
             padding: 16,
-            paddingBottom: 24,
+            paddingBottom: `calc(env(safe-area-inset-bottom, 0px) + ${
+              isAndroid ? 18 : 12
+            }px)`,
             height: '100%',
             color: '#e5e7eb',
             display: 'flex',

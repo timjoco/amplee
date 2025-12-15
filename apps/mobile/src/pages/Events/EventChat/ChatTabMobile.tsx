@@ -4,6 +4,7 @@ import { SongPickerModal } from '../../../components/SongPickerModal';
 import { MessageActionSheet } from '../EventChat/components/MessageActionSheet';
 import { ChatComposerBar } from './components/ChatComposerBar';
 import { ChatMessagesList } from './components/ChatMessagesList';
+import { useChatKeyboardPadding } from './hooks/useChatKeyboardPadding';
 import { useEventChatMobile } from './hooks/useEventChatMobile';
 
 function ChatTabMobileInner({
@@ -59,10 +60,12 @@ function ChatTabMobileInner({
     handleMessageEdit,
   } = useEventChatMobile({ eventId, bandId, isAdmin });
 
+  const { keyboardHeight } = useChatKeyboardPadding();
+
   return (
     <div
       style={{
-        position: 'relative',
+        position: 'sticky',
         height: '100%',
         minHeight: 0,
         display: 'flex',
@@ -78,6 +81,7 @@ function ChatTabMobileInner({
           overflowY: 'auto',
           WebkitOverflowScrolling: 'touch',
           padding: '8px 0 12px',
+          paddingBottom: isAndroid && keyboardHeight > 0 ? 80 : 12,
         }}
       >
         <ChatMessagesList

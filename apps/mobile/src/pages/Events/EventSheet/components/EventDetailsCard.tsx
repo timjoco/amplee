@@ -21,9 +21,19 @@ type Event = {
 
 type EventDetailsCardProps = {
   event: Event;
+
+  // ✅ NEW: roll call stats so we can compute booked state
+  inviteeTotal: number;
+  acceptedCount: number; // "in"
 };
 
-export default function EventDetailsCard({ event }: EventDetailsCardProps) {
+export default function EventDetailsCard({
+  event,
+  inviteeTotal,
+  acceptedCount,
+}: EventDetailsCardProps) {
+  const allConfirmed = inviteeTotal > 0 && acceptedCount >= inviteeTotal;
+
   const status = useMemo(() => {
     if (event.is_cancelled) {
       return {
@@ -32,19 +42,22 @@ export default function EventDetailsCard({ event }: EventDetailsCardProps) {
         icon: closeCircle,
       };
     }
-    if (event.is_booked) {
+
+    // ✅ treat as booked if DB says booked OR everyone is in
+    if (event.is_booked || allConfirmed) {
       return {
         label: 'Booked',
         color: '#6ee7b7',
         icon: checkmarkCircle,
       };
     }
+
     return {
       label: 'Pending',
       color: '#fde68a',
       icon: helpCircle,
     };
-  }, [event.is_cancelled, event.is_booked]);
+  }, [event.is_cancelled, event.is_booked, allConfirmed]);
 
   const timeUntilEvent = useMemo(() => {
     if (!event.starts_at) return null;
@@ -109,6 +122,7 @@ export default function EventDetailsCard({ event }: EventDetailsCardProps) {
               {status.label}
             </span>
           </div>
+
           <div
             style={{
               fontSize: 13,
@@ -116,6 +130,13 @@ export default function EventDetailsCard({ event }: EventDetailsCardProps) {
             }}
           >
             {event.type === 'practice' ? 'Practice Session' : 'Show'}
+            {/* optional helper line */}
+            {!event.is_cancelled && inviteeTotal > 0 && (
+              <>
+                {' • '}
+                {acceptedCount} / {inviteeTotal} in
+              </>
+            )}
           </div>
         </div>
 
@@ -149,27 +170,12 @@ export default function EventDetailsCard({ event }: EventDetailsCardProps) {
       </div>
 
       {/* Event Details */}
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 8,
-        }}
-      >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {event.starts_at && (
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 10,
-            }}
-          >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <IonIcon
               icon={calendarOutline}
-              style={{
-                fontSize: 18,
-                color: 'rgba(148, 163, 184, 0.8)',
-              }}
+              style={{ fontSize: 18, color: 'rgba(148, 163, 184, 0.8)' }}
             />
             <span style={{ fontSize: 14, color: '#e5e7eb' }}>
               {new Date(event.starts_at).toLocaleDateString('en-US', {
@@ -188,19 +194,10 @@ export default function EventDetailsCard({ event }: EventDetailsCardProps) {
         )}
 
         {event.location && (
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 10,
-            }}
-          >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <IonIcon
               icon={locationOutline}
-              style={{
-                fontSize: 18,
-                color: 'rgba(148, 163, 184, 0.8)',
-              }}
+              style={{ fontSize: 18, color: 'rgba(148, 163, 184, 0.8)' }}
             />
             <span style={{ fontSize: 14, color: '#e5e7eb' }}>
               {event.location}

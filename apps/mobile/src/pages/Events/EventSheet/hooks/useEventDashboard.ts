@@ -18,8 +18,8 @@ type EventRow = {
 };
 
 type AttendanceStats = {
-  accepted: number;
-  total: number; // NOTE: keep as "responders" if you want; we’ll use inviteeTotal for tiles/percent
+  accepted: number; // "in"
+  total: number; // responders / rows (we set to inviteeTotal for now)
 };
 
 type UseEventDashboardReturn = {
@@ -30,8 +30,8 @@ type UseEventDashboardReturn = {
 
   // Stats
   attendanceStats: AttendanceStats;
-  inviteeTotal: number; // ✅ NEW
-  attendancePercentage: number; // ✅ now computed from inviteeTotal
+  inviteeTotal: number;
+  attendancePercentage: number;
   setlistCount: number;
   filesCount: number;
   hasNotes: boolean;
@@ -40,6 +40,9 @@ type UseEventDashboardReturn = {
   setEvent: React.Dispatch<React.SetStateAction<EventRow | null>>;
   refreshAttendance: () => Promise<void>;
 };
+
+// ✅ Adjust this list to match exactly what your RSVP UI writes to event_members.status
+const YES_STATUSES = new Set(['accepted', 'going']);
 
 export function useEventDashboard(
   eventId?: string,
@@ -54,7 +57,7 @@ export function useEventDashboard(
     total: 0,
   });
 
-  const [inviteeTotal, setInviteeTotal] = useState(0); // ✅ NEW
+  const [inviteeTotal, setInviteeTotal] = useState(0);
   const [setlistCount, setSetlistCount] = useState(0);
   const [filesCount, setFilesCount] = useState(0);
 
@@ -67,46 +70,36 @@ export function useEventDashboard(
     const fetchEventData = async () => {
       setLoading(true);
 
-      const [
-        eventResult,
-        attendanceResult,
-        inviteesResult,
-        setlistResult,
-        filesResult,
-      ] = await Promise.all([
-        // Event data
-        supabase
-          .from('events_with_my_attendance')
-          .select(
-            'id, band_id, title, type, starts_at, ends_at, location, is_booked, is_cancelled, is_public, notes'
-          )
-          .eq('id', eventId)
-          .maybeSingle(),
+      const [eventResult, membersResult, setlistResult, filesResult] =
+        await Promise.all([
+          // Event data
+          supabase
+            .from('events_with_my_attendance')
+            .select(
+              'id, band_id, title, type, starts_at, ends_at, location, is_booked, is_cancelled, is_public, notes'
+            )
+            .eq('id', eventId)
+            .maybeSingle(),
 
-        // Attendance rows (responders)
-        supabase
-          .from('event_attendance')
-          .select('status')
-          .eq('event_id', eventId),
+          // ✅ Single source of truth for Roll Call:
+          // event_members rows define invitees, and status defines RSVP
+          supabase
+            .from('event_members')
+            .select('status')
+            .eq('event_id', eventId),
 
-        // ✅ Invitees count (true “invited”)
-        supabase
-          .from('event_members')
-          .select('user_id', { count: 'exact', head: true })
-          .eq('event_id', eventId),
+          // Setlist count
+          supabase
+            .from('event_setlist_items')
+            .select('id', { count: 'exact', head: true })
+            .eq('event_id', eventId),
 
-        // Setlist count
-        supabase
-          .from('event_setlist_items')
-          .select('id', { count: 'exact', head: true })
-          .eq('event_id', eventId),
-
-        // Files count
-        supabase
-          .from('event_files')
-          .select('id', { count: 'exact', head: true })
-          .eq('event_id', eventId),
-      ]);
+          // Files count
+          supabase
+            .from('event_files')
+            .select('id', { count: 'exact', head: true })
+            .eq('event_id', eventId),
+        ]);
 
       if (!alive) return;
 
@@ -130,25 +123,21 @@ export function useEventDashboard(
         setEvent(null);
       }
 
-      // Attendance responders
-      if (!attendanceResult.error && attendanceResult.data) {
-        const accepted = attendanceResult.data.filter(
-          (a: any) => a.status === 'accepted'
+      // ✅ Roll call stats from event_members
+      if (!membersResult.error && membersResult.data) {
+        const rows = membersResult.data as Array<{ status: string | null }>;
+        const accepted = rows.filter((r) =>
+          YES_STATUSES.has(String(r.status ?? ''))
         ).length;
 
+        setInviteeTotal(rows.length);
         setAttendanceStats({
           accepted,
-          total: attendanceResult.data.length,
+          total: rows.length,
         });
       } else {
-        setAttendanceStats({ accepted: 0, total: 0 });
-      }
-
-      // ✅ Invitees
-      if (!inviteesResult.error) {
-        setInviteeTotal(inviteesResult.count ?? 0);
-      } else {
         setInviteeTotal(0);
+        setAttendanceStats({ accepted: 0, total: 0 });
       }
 
       // Setlist count
@@ -199,7 +188,7 @@ export function useEventDashboard(
     };
   }, [bandId]);
 
-  // Real-time attendance updates (also refresh invitee count if memberships change)
+  // ✅ Real-time: refresh roll call stats when event_members changes
   useEffect(() => {
     if (!eventId) return;
 
@@ -210,42 +199,23 @@ export function useEventDashboard(
         {
           event: '*',
           schema: 'public',
-          table: 'event_attendance',
-          filter: `event_id=eq.${eventId}`,
-        },
-        async () => {
-          const { data: attendanceData, error: attErr } = await supabase
-            .from('event_attendance')
-            .select('status')
-            .eq('event_id', eventId);
-
-          if (!attErr && attendanceData) {
-            const accepted = attendanceData.filter(
-              (a: any) => a.status === 'accepted'
-            ).length;
-
-            setAttendanceStats({
-              accepted,
-              total: attendanceData.length,
-            });
-          }
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
           table: 'event_members',
           filter: `event_id=eq.${eventId}`,
         },
         async () => {
-          const { count, error } = await supabase
+          const { data, error } = await supabase
             .from('event_members')
-            .select('user_id', { count: 'exact', head: true })
+            .select('status')
             .eq('event_id', eventId);
 
-          if (!error) setInviteeTotal(count ?? 0);
+          if (!error && data) {
+            const accepted = data.filter((r: any) =>
+              YES_STATUSES.has(String(r.status ?? ''))
+            ).length;
+
+            setInviteeTotal(data.length);
+            setAttendanceStats({ accepted, total: data.length });
+          }
         }
       )
       .subscribe();
@@ -255,7 +225,6 @@ export function useEventDashboard(
     };
   }, [eventId]);
 
-  // ✅ Computed values
   const attendancePercentage = useMemo(() => {
     if (inviteeTotal === 0) return 0;
     return Math.round((attendanceStats.accepted / inviteeTotal) * 100);
@@ -265,29 +234,23 @@ export function useEventDashboard(
     return !!event?.notes && event.notes.trim().length > 0;
   }, [event?.notes]);
 
-  // Manual refresh function for attendance + invitees
+  // Manual refresh function for attendance + invitees (from event_members)
   const refreshAttendance = async () => {
     if (!eventId) return;
 
-    const [att, inv] = await Promise.all([
-      supabase
-        .from('event_attendance')
-        .select('status')
-        .eq('event_id', eventId),
-      supabase
-        .from('event_members')
-        .select('user_id', { count: 'exact', head: true })
-        .eq('event_id', eventId),
-    ]);
+    const { data, error } = await supabase
+      .from('event_members')
+      .select('status')
+      .eq('event_id', eventId);
 
-    if (!att.error && att.data) {
-      const accepted = att.data.filter(
-        (a: any) => a.status === 'accepted'
+    if (!error && data) {
+      const accepted = data.filter((r: any) =>
+        YES_STATUSES.has(String(r.status ?? ''))
       ).length;
-      setAttendanceStats({ accepted, total: att.data.length });
-    }
 
-    if (!inv.error) setInviteeTotal(inv.count ?? 0);
+      setInviteeTotal(data.length);
+      setAttendanceStats({ accepted, total: data.length });
+    }
   };
 
   return {
@@ -295,7 +258,7 @@ export function useEventDashboard(
     loading,
     isAdmin,
     attendanceStats,
-    inviteeTotal, // ✅ NEW
+    inviteeTotal,
     attendancePercentage,
     setlistCount,
     filesCount,

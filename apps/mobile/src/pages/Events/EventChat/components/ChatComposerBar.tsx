@@ -34,15 +34,32 @@ export function ChatComposerBar({
   onFocus,
   onSend,
 }: ChatComposerBarProps) {
+  const keyboardOpen =
+    isAndroid &&
+    typeof composerPaddingBottom === 'number' &&
+    composerPaddingBottom > 20;
+
   return (
     <div
       style={{
         borderTop: '1px solid rgba(60, 61, 68, 0.25)',
-        paddingBottom: composerPaddingBottom,
         width: '100%',
         marginInline: 0,
         backdropFilter: 'blur(10px)',
+        background: '#050509',
         transition: isAndroid ? IOS_KEYBOARD_TRANSITION : 'none',
+        ...(keyboardOpen
+          ? {
+              position: 'fixed' as const,
+              bottom: 0, // <-- pin to very bottom
+              left: 0,
+              right: 0,
+              zIndex: 100,
+              paddingBottom: composerPaddingBottom, // <-- push content up from bottom
+            }
+          : {
+              paddingBottom: composerPaddingBottom,
+            }),
       }}
     >
       <div

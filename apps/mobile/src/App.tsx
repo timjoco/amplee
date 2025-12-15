@@ -53,15 +53,20 @@ export default function App() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
 
-  // iOS keyboard behavior
   useEffect(() => {
     const setupKeyboard = async () => {
-      if (Capacitor.getPlatform() === 'ios') {
-        try {
-          // Use default/native resize behavior
-          await Keyboard.setResizeMode({ mode: KeyboardResize.Native });
+      const platform = Capacitor.getPlatform();
 
-          // Optional: control scroll behavior
+      if (platform === 'ios') {
+        try {
+          await Keyboard.setResizeMode({ mode: KeyboardResize.None });
+          await Keyboard.setScroll({ isDisabled: false });
+        } catch (e) {
+          console.warn('[keyboard setup error]', e);
+        }
+      } else if (platform === 'android') {
+        try {
+          await Keyboard.setResizeMode({ mode: KeyboardResize.None });
           await Keyboard.setScroll({ isDisabled: false });
         } catch (e) {
           console.warn('[keyboard setup error]', e);

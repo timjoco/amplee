@@ -12,11 +12,10 @@ export function useChatKeyboardPadding() {
 
   const [keyboardHeight, setKeyboardHeight] = useState(0);
 
-  const BASE_NAV_OFFSET = isAndroid ? 50 : 8;
+  const BASE_NAV_OFFSET = isAndroid ? 10 : 8;
 
-  // Keyboard listeners (Android only – iOS handled natively)
   useEffect(() => {
-    if (!isNative || isIOS) return;
+    if (!isNative) return;
 
     let willShowSub: any;
     let willHideSub: any;
@@ -45,14 +44,17 @@ export function useChatKeyboardPadding() {
       willHideSub?.remove?.();
       didShowSub?.remove?.();
     };
-  }, [isNative, isIOS]);
+  }, [isNative]);
 
   const composerPaddingBottom = useMemo(() => {
+    if (isIOS && keyboardHeight > 0) {
+      return 62;
+    }
     if (isAndroid && keyboardHeight > 0) {
-      return keyboardHeight + 8;
+      return 21; // 358 - 200 = 158
     }
     return `calc(env(safe-area-inset-bottom, 0px) + ${BASE_NAV_OFFSET}px)`;
-  }, [isAndroid, keyboardHeight, BASE_NAV_OFFSET]);
+  }, [isIOS, isAndroid, keyboardHeight, BASE_NAV_OFFSET]);
 
   return {
     composerPaddingBottom,
@@ -60,5 +62,11 @@ export function useChatKeyboardPadding() {
     isAndroid,
     isIOS,
     isNative,
+    debug: {
+      keyboardHeight,
+      composerPaddingBottom,
+      platform,
+      BASE_NAV_OFFSET,
+    },
   };
 }
