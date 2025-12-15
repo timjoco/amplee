@@ -4,7 +4,6 @@ import {
   IonIcon,
   IonPage,
   IonSpinner,
-  useIonRouter,
 } from '@ionic/react';
 import {
   alertCircleOutline,
@@ -15,7 +14,7 @@ import {
   timeOutline,
 } from 'ionicons/icons';
 import { useEffect, useMemo, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 
 type InvitePreview = {
@@ -63,7 +62,7 @@ function normalizeInvite(raw: RawInviteResponse): InvitePreview {
 
 export default function Invite() {
   const { token } = useParams<{ token: string }>();
-  const ionRouter = useIonRouter();
+  const nav = useNavigate();
 
   const [loading, setLoading] = useState(true);
   const [invite, setInvite] = useState<InvitePreview | null>(null);
@@ -129,6 +128,10 @@ export default function Invite() {
     };
   }, [token, apiBase]);
 
+  const gotoLogin = (t: string) => {
+    nav(`/login?next=${encodeURIComponent(`/invite/${t}`)}`, { replace: true });
+  };
+
   const onContinue = async () => {
     if (!token || !invite || invite.status !== 'pending') return;
 
@@ -142,11 +145,7 @@ export default function Invite() {
       // Not logged in - redirect to login with next param
       if (!data.session) {
         setAccepting(false);
-        ionRouter.push(
-          `/login?next=${encodeURIComponent(`/invite/${token}`)}`,
-          'forward',
-          'replace'
-        );
+        gotoLogin(token);
         return;
       }
 
@@ -175,11 +174,7 @@ export default function Invite() {
 
         if (resp.status === 401 || resp.status === 403) {
           setAccepting(false);
-          ionRouter.push(
-            `/login?next=${encodeURIComponent(`/invite/${token}`)}`,
-            'forward',
-            'replace'
-          );
+          gotoLogin(token);
           return;
         }
 
@@ -190,9 +185,7 @@ export default function Invite() {
 
       const acceptData = await resp.json();
       const bandId = acceptData.bandId || acceptData.band_id;
-      if (!bandId) {
-        throw new Error('Accept response missing bandId');
-      }
+      if (!bandId) throw new Error('Accept response missing bandId');
 
       const bandPath = `/bands/${encodeURIComponent(bandId)}`;
 
@@ -200,11 +193,7 @@ export default function Invite() {
       const user = userRes?.user;
       if (!user) {
         setAccepting(false);
-        ionRouter.push(
-          `/login?next=${encodeURIComponent(`/invite/${token}`)}`,
-          'forward',
-          'replace'
-        );
+        gotoLogin(token);
         return;
       }
 
@@ -214,18 +203,14 @@ export default function Invite() {
         .eq('id', user.id)
         .maybeSingle();
 
-      if (pErr) {
-        console.warn('[InviteMobile] profile check error', pErr);
-      }
+      if (pErr) console.warn('[InviteMobile] profile check error', pErr);
 
       if (!profile || profile.onboarded === false) {
-        ionRouter.push(
-          `/onboarding?next=${encodeURIComponent(bandPath)}`,
-          'forward',
-          'replace'
-        );
+        nav(`/onboarding?next=${encodeURIComponent(bandPath)}`, {
+          replace: true,
+        });
       } else {
-        ionRouter.push(bandPath, 'forward', 'replace');
+        nav(bandPath, { replace: true });
       }
     } catch (e: any) {
       console.error('[InviteMobile] onContinue error', e);
@@ -278,7 +263,7 @@ export default function Invite() {
         >
           <IonButton
             fill="clear"
-            onClick={() => ionRouter.push('/home', 'back', 'replace')}
+            onClick={() => nav('/home', { replace: true })}
             style={{
               '--color': 'rgba(156,163,175,0.9)',
               '--padding-start': '8px',
@@ -368,7 +353,7 @@ export default function Invite() {
 
               <IonButton
                 expand="block"
-                onClick={() => ionRouter.push('/login', 'forward', 'replace')}
+                onClick={() => nav('/login', { replace: true })}
                 style={{
                   '--background': '#7c3aed',
                   '--background-hover': '#6d28d9',
@@ -531,7 +516,7 @@ export default function Invite() {
 
                   <IonButton
                     fill="outline"
-                    onClick={() => ionRouter.push('/home', 'back', 'replace')}
+                    onClick={() => nav('/home', { replace: true })}
                     style={{
                       '--border-color': 'rgba(255,255,255,0.12)',
                       '--color': 'rgba(156,163,175,0.9)',
