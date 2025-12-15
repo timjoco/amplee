@@ -9,6 +9,7 @@ import {
   alertCircleOutline,
   checkmarkCircleOutline,
   closeCircleOutline,
+  closeOutline,
   musicalNotesOutline,
   timeOutline,
 } from 'ionicons/icons';
@@ -258,6 +259,28 @@ export default function Invite() {
           '--background': '#0c0a14',
         }}
       >
+        {/* Close Button */}
+        <div
+          style={{
+            position: 'absolute',
+            top: 'calc(env(safe-area-inset-top) + 12px)',
+            right: 16,
+            zIndex: 10,
+          }}
+        >
+          <IonButton
+            fill="clear"
+            onClick={() => navigate('/', { replace: true })}
+            style={{
+              '--color': 'rgba(156,163,175,0.9)',
+              '--padding-start': '8px',
+              '--padding-end': '8px',
+            }}
+          >
+            <IonIcon icon={closeOutline} style={{ fontSize: 24 }} />
+          </IonButton>
+        </div>
+
         <div
           style={{
             minHeight: '100%',
