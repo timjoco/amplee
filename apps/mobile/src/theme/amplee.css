@@ -327,3 +327,53 @@ ion-input,
 ion-textarea {
   font-size: 16px !important; /* iOS won't auto-zoom ≥ 16px */
 }
+
+ion-content::part(scroll) {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none;
+}
+
+ion-content::part(scroll)::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.action-disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+/* Amplee Modal Styles */
+.amplee-modal {
+  --background: #0c0a14;
+  --border-radius: 16px;
+}
+
+.amplee-modal ion-content {
+  --background: #0c0a14;
+}
+
+/* Action Sheet Styles */
+.amplee-action-sheet {
+  --background: #0c0a14;
+  --button-background: rgba(255, 255, 255, 0.03);
+  --button-background-hover: rgba(255, 255, 255, 0.06);
+  --button-color: #e5e7eb;
+  --color: #e5e7eb;
+}
+
+.amplee-action-sheet .action-sheet-group {
+  background: #0c0a14;
+  border-radius: 12px;
+}
+
+.amplee-action-sheet .action-sheet-title {
+  color: rgba(156, 163, 175, 0.9);
+  font-size: 13px;
+}
+
+.amplee-action-sheet .action-disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}

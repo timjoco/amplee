@@ -95,6 +95,11 @@ export default function Home() {
     );
   };
 
+  const adminBandIds = React.useMemo(
+    () => bands.filter((b) => b.role === 'admin').map((b) => b.id),
+    [bands]
+  );
+
   return (
     <IonPage>
       <IonHeader
@@ -425,7 +430,7 @@ export default function Home() {
                   marginLeft: 4,
                 }}
               >
-                <EventInboxListMobile showAvatars onLoaded={() => {}} />
+                <EventInboxListMobile showAvatars adminBandIds={adminBandIds} />
               </div>
             </div>
           )}

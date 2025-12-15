@@ -207,7 +207,8 @@ export default function BandSheetMobile() {
           await supabase
             .from('events')
             .select('id', { head: true, count: 'exact' })
-            .eq('band_id', bandId);
+            .eq('band_id', bandId)
+            .is('archived_at', null);
 
         if (!alive) return;
 
@@ -279,7 +280,9 @@ export default function BandSheetMobile() {
           const { count: eventsCountExact } = await supabase
             .from('events')
             .select('id', { head: true, count: 'exact' })
-            .eq('band_id', bandId);
+            .eq('band_id', bandId)
+            .is('archived_at', null);
+
           setEventsCount(eventsCountExact ?? 0);
         }
       )

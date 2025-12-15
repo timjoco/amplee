@@ -20,6 +20,7 @@ export default function BandEventsPage() {
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [bandName, setBandName] = useState('');
+  const [showArchived, setShowArchived] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -142,11 +143,52 @@ export default function BandEventsPage() {
           </div>
         ) : (
           <div style={{ padding: '8px 16px 0' }}>
+            <div style={{ display: 'flex', gap: 10, padding: '8px 0 12px' }}>
+              <button
+                type="button"
+                onClick={() => setShowArchived(false)}
+                style={{
+                  padding: '8px 12px',
+                  borderRadius: 999,
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  background: !showArchived
+                    ? 'rgba(52,211,153,0.16)'
+                    : 'transparent',
+                  color: !showArchived ? '#34d399' : 'rgba(148,163,184,0.9)',
+                  fontWeight: 700,
+                  fontSize: 13,
+                  cursor: 'pointer',
+                }}
+              >
+                Active
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowArchived(true)}
+                style={{
+                  padding: '8px 12px',
+                  borderRadius: 999,
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  background: showArchived
+                    ? 'rgba(248,113,113,0.16)'
+                    : 'transparent',
+                  color: showArchived ? '#f87171' : 'rgba(148,163,184,0.9)',
+                  fontWeight: 700,
+                  fontSize: 13,
+                  cursor: 'pointer',
+                }}
+              >
+                Archived
+              </button>
+            </div>
+
             <EventsInboxListMobile
               bandId={bandId!}
               showAvatars
               enableCreateForBand
               isAdmin={isAdmin}
+              showArchived={showArchived}
             />
           </div>
         )}

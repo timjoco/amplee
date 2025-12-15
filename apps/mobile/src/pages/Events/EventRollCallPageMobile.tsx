@@ -132,12 +132,16 @@ export default function EventRollCallPageMobile() {
               alignItems: 'center',
               justifyContent: 'center',
               color: '#9ca3af',
+              padding: 16,
             }}
           >
             Loading roll call…
           </div>
         ) : (
-          <RSVPTabMobile eventId={eventId} />
+          <>
+            {/* RSVP UI - where user sets their own status */}
+            <RSVPTabMobile eventId={eventId} />
+          </>
         )}
       </IonContent>
     </IonPage>

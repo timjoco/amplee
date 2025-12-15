@@ -13,7 +13,7 @@ import {
   personAddOutline,
   settingsOutline,
 } from 'ionicons/icons';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import AvatarImageMobile from '../ui/AvatarImageMobile';
@@ -55,11 +55,72 @@ export default function BandSheetModal({
   const [showsPlayed, setShowsPlayed] = useState<number | undefined>(undefined);
   const [yearsActive, setYearsActive] = useState<number | undefined>(undefined);
 
+  const refreshBandSummary = useCallback(
+    async (reason: string) => {
+      try {
+        const nowIso = new Date().toISOString();
+
+        console.log('[BandSheetModal] refreshBandSummary start', {
+          bandId,
+          reason,
+          nowIso,
+          mode: 'shows_played',
+        });
+
+        const { count, error } = await supabase
+          .from('events')
+          .select('id', { head: true, count: 'exact' })
+          .eq('band_id', bandId)
+          .eq('type', 'show')
+          .lte('starts_at', nowIso);
+
+        console.log('[BandSheetModal] refreshBandSummary result', {
+          bandId,
+          reason,
+          count,
+          error: error?.message ?? null,
+        });
+
+        if (error) return;
+        setShowsPlayed(count ?? 0);
+      } catch (e) {
+        console.warn('[BandSheetModal] refreshBandSummary exception', e);
+      }
+    },
+    [bandId]
+  );
+
   useEffect(() => {
     if (!isOpen) return;
 
     let active = true;
 
+    // helper: refresh "shows played" (past shows) in a consistent way
+    const refreshShowsPlayed = async () => {
+      try {
+        const nowIso = new Date().toISOString();
+
+        const { count, error } = await supabase
+          .from('events')
+          .select('id', { head: true, count: 'exact' })
+          .eq('band_id', bandId)
+          .eq('type', 'show')
+          .lte('starts_at', nowIso);
+
+        if (!active) return;
+
+        if (error) {
+          console.warn('[BandSheetModal] showsPlayed count error', error);
+          return;
+        }
+
+        setShowsPlayed(count ?? 0);
+      } catch (e) {
+        console.warn('[BandSheetModal] refreshShowsPlayed error', e);
+      }
+    };
+
+    // load members
     (async () => {
       try {
         setMembersLoading(true);
@@ -85,7 +146,7 @@ export default function BandSheetModal({
           (data ?? []).map((r: any) => ({
             user_id: r.user_id,
             role: r.role,
-            band_role: r.band_role, // Add this line
+            band_role: r.band_role,
             name: r.profiles?.display_name || 'Band member',
             avatar_path: r.profiles?.avatar_url || null,
             avatar_updated_at: r.profiles?.updated_at || null,
@@ -100,7 +161,7 @@ export default function BandSheetModal({
       }
     })();
 
-    // snapshot events/years
+    // snapshot events/years (keep your existing approach)
     (async () => {
       try {
         const { data: events, error: evErr } = await supabase
@@ -114,15 +175,14 @@ export default function BandSheetModal({
           return;
         }
 
+        // ✅ initial shows played (uses your original list-based calc)
         const now = new Date();
-
         const shows = (events ?? []).filter((e: any) => {
           if (e.type !== 'show') return false;
           if (!e.starts_at) return false;
           const d = new Date(e.starts_at);
           return d <= now;
         }).length;
-
         setShowsPlayed(shows);
 
         // years active from earliest event or band.created_at
@@ -156,13 +216,60 @@ export default function BandSheetModal({
           const years = Math.max(1, Math.floor(diffYears) || 1);
           setYearsActive(years);
         }
+
+        // ensure showsPlayed aligns to realtime “count” logic immediately
+        // (optional but nice — avoids edge cases if you later add pagination/filters)
+        await refreshShowsPlayed();
       } catch (e) {
         console.warn('Band snapshot load error', e);
       }
     })();
 
+    // realtime: refresh shows count when events change
+    refreshBandSummary('initial');
+
+    // ✅ realtime: refresh shows count when events change
+    const channelName = `band:${bandId}:band_summary`;
+    console.log('[BandSheetModal] subscribing', { channelName, bandId });
+
+    const channel = supabase
+      .channel(channelName)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'events',
+          filter: `band_id=eq.${bandId}`,
+        },
+        (payload) => {
+          console.log('[BandSheetModal] realtime fired', {
+            channelName,
+            bandId,
+            eventType: payload.eventType,
+            table: payload.table,
+            new: payload.new,
+            old: payload.old,
+          });
+          refreshBandSummary(`realtime:${payload.eventType}`);
+        }
+      )
+      .subscribe((status) => {
+        console.log('[BandSheetModal] realtime status', {
+          channelName,
+          bandId,
+          status,
+        });
+      });
+
+    const tick = setInterval(() => {
+      refreshShowsPlayed();
+    }, 60_000);
+
     return () => {
       active = false;
+      clearInterval(tick);
+      supabase.removeChannel(channel);
     };
   }, [isOpen, bandId]);
 

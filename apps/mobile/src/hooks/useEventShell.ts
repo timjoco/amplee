@@ -15,25 +15,44 @@ export function useEventShell(eventId?: string) {
 
   useEffect(() => {
     let alive = true;
-    if (!eventId) return;
+
+    // Reset when eventId changes / is missing
+    if (!eventId) {
+      setEvent(null);
+      setIsAdmin(false);
+      setLoading(false);
+      return () => {
+        alive = false;
+      };
+    }
 
     (async () => {
       setLoading(true);
+      setIsAdmin(false);
 
       const {
         data: { user },
       } = await supabase.auth.getUser();
 
+      // ✅ use maybeSingle so “0 rows” becomes data=null (no 406)
       const { data: eventData, error: eventErr } = await supabase
         .from('events')
         .select('id, band_id, title, notes')
         .eq('id', eventId)
-        .single();
+        .maybeSingle();
 
       if (!alive) return;
 
-      if (eventErr || !eventData) {
+      if (eventErr) {
         console.error('[useEventShell] event load error', eventErr);
+        setEvent(null);
+        setLoading(false);
+        return;
+      }
+
+      // event genuinely not found
+      if (!eventData) {
+        setEvent(null);
         setLoading(false);
         return;
       }
@@ -52,9 +71,9 @@ export function useEventShell(eventId?: string) {
 
         if (memErr) {
           console.warn('[useEventShell] membership load error', memErr);
+        } else {
+          setIsAdmin(membership?.role === 'admin');
         }
-
-        setIsAdmin(membership?.role === 'admin');
       }
 
       setLoading(false);
@@ -65,9 +84,5 @@ export function useEventShell(eventId?: string) {
     };
   }, [eventId]);
 
-  return {
-    event,
-    isAdmin,
-    loading,
-  };
+  return { event, isAdmin, loading };
 }

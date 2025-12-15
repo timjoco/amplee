@@ -13,6 +13,7 @@ export type EventRow = {
   is_booked: boolean;
   my_event_status: 'pending' | 'confirmed' | 'cancelled';
   bands: { id: string; name: string; avatar_url: string | null } | null;
+  archived_at?: string | null;
 };
 
 // 🔧 allow null path

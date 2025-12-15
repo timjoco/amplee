@@ -138,6 +138,8 @@ export function useNewBandForm(opts: {
  * NEW EVENT
  */
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 export function useNewEventForm(opts: {
   showToast: ShowToast;
   onError?: (msg: string) => void;
@@ -156,6 +158,76 @@ export function useNewEventForm(opts: {
   const [conflicts, setConflicts] = useState<EventAvailabilityConflict[]>([]);
   const [sameDayEvents, setSameDayEvents] = useState<BandSameDayEvent[]>([]);
   const [checkingConflicts, setCheckingConflicts] = useState(false);
+
+  type InviteMode = 'full' | 'roster' | 'custom';
+
+  // Default to 'custom' so user sees the member list
+  const [inviteMode, setInviteMode] = useState<InviteMode>('custom');
+  const [selectedRosterId, setSelectedRosterId] = useState('');
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+
+  const toggleSelectedUser = useCallback((userId: string) => {
+    setSelectedUserIds((prev) =>
+      prev.includes(userId)
+        ? prev.filter((id) => id !== userId)
+        : [...prev, userId]
+    );
+  }, []);
+
+  // Prefill all members (called when switching to custom or when members load)
+  const prefillAllMembers = useCallback((memberIds: string[]) => {
+    setSelectedUserIds(memberIds);
+  }, []);
+
+  async function resolveInviteUserIds(): Promise<string[]> {
+    if (!bandId) return [];
+
+    // FULL BAND
+    if (inviteMode === 'full') {
+      const { data, error } = await supabase
+        .from('band_members')
+        .select('user_id')
+        .eq('band_id', bandId);
+
+      if (error) throw error;
+      return (data ?? []).map((r: any) => r.user_id).filter(Boolean);
+    }
+
+    // SAVED ROSTER
+    if (inviteMode === 'roster') {
+      if (!selectedRosterId) throw new Error('Select a roster.');
+      const { data, error } = await supabase
+        .from('band_roster_members')
+        .select('user_id')
+        .eq('roster_id', selectedRosterId);
+
+      if (error) throw error;
+      return (data ?? []).map((r: any) => r.user_id).filter(Boolean);
+    }
+
+    // CUSTOM
+    const ids = selectedUserIds.filter(Boolean);
+    if (ids.length === 0) throw new Error('Select at least 1 member.');
+    return ids;
+  }
+
+  async function upsertEventMembers(eventId: string, userIds: string[]) {
+    const unique = Array.from(new Set(userIds)).filter(Boolean);
+    if (unique.length === 0) return;
+
+    // assumes event_members has composite PK (event_id, user_id)
+    const rows = unique.map((uid) => ({
+      event_id: eventId,
+      user_id: uid,
+      status: 'pending', // adjust to your enum/defaults
+    }));
+
+    const { error } = await supabase.from('event_members').upsert(rows as any, {
+      onConflict: 'event_id,user_id',
+    });
+
+    if (error) throw error;
+  }
 
   useEffect(() => {
     if (!bandId || !starts) {
@@ -177,6 +249,14 @@ export function useNewEventForm(opts: {
     setConflicts([]);
     setSameDayEvents([]);
     setCheckingConflicts(false);
+
+    // Reset to custom mode (default)
+    setInviteMode('custom');
+    setSelectedRosterId('');
+    setSelectedUserIds([]);
+
+    setShowStartsPicker(false);
+    setShowEndsPicker(false);
   }, []);
 
   const submit = useCallback(
@@ -200,6 +280,15 @@ export function useNewEventForm(opts: {
       setConflicts([]);
       setSameDayEvents([]);
 
+      // Resolve invite list ONCE (also validates roster/custom selection)
+      let inviteUserIds: string[] = [];
+      try {
+        inviteUserIds = await resolveInviteUserIds();
+      } catch (e: any) {
+        showToast(String(e?.message ?? 'Select invitees.'));
+        return null;
+      }
+
       // 1) Run checks unless bypassing
       if (!bypassConflicts) {
         try {
@@ -214,7 +303,8 @@ export function useNewEventForm(opts: {
             getEventAvailabilityConflicts({
               bandId,
               startsAt: startsDate,
-            }),
+              userIds: inviteUserIds, // ✅ only check invited members
+            } as any),
             getBandSameDayEvents({
               bandId,
               startsAt: startsDate,
@@ -229,8 +319,8 @@ export function useNewEventForm(opts: {
             if (memberConflicts.length > 0) {
               msgs.push(
                 memberConflicts.length === 1
-                  ? '1 member may not be available.'
-                  : `${memberConflicts.length} members may not be available.`
+                  ? '1 invited member may not be available.'
+                  : `${memberConflicts.length} invited members may not be available.`
               );
             }
             if (sameDay.length > 0) {
@@ -254,24 +344,39 @@ export function useNewEventForm(opts: {
         }
       }
 
-      // 2) Actually create event
+      // 2) Actually create event + upsert event members
       try {
-        const id = await createEvent({
+        const eventId = (await createEvent({
           bandId,
           title: title.trim(),
           type,
           startsAt: new Date(starts),
           endsAt: ends ? new Date(ends) : null,
           location: location || null,
-        });
-        return id as string;
+        })) as string;
+
+        await upsertEventMembers(eventId, inviteUserIds);
+
+        return eventId;
       } catch (e: any) {
         const msg = normalizeCreateEventError(e);
         onError?.(msg);
         return null;
       }
     },
-    [bandId, title, type, starts, ends, location, onError, showToast]
+    [
+      bandId,
+      title,
+      type,
+      starts,
+      ends,
+      location,
+      inviteMode,
+      selectedRosterId,
+      selectedUserIds,
+      onError,
+      showToast,
+    ]
   );
 
   return {
@@ -301,6 +406,18 @@ export function useNewEventForm(opts: {
     // actions
     reset,
     submit,
+
+    // invite state
+    inviteMode,
+    selectedRosterId,
+    selectedUserIds,
+
+    // invite setters
+    setInviteMode,
+    setSelectedRosterId,
+    setSelectedUserIds,
+    toggleSelectedUser,
+    prefillAllMembers,
   };
 }
 

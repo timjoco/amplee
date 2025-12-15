@@ -10,6 +10,7 @@ export type EventAvailabilityConflict = {
 type GetConflictsArgs = {
   bandId: string;
   startsAt: Date;
+  userIds?: string[]; // ✅ optional: only check these invited users
 };
 
 function formatDateKey(d: Date): string {
@@ -25,29 +26,39 @@ function formatDateKey(d: Date): string {
 /**
  * For a given band + event start date, find members who have that
  * exact date blocked in member_availability_dates.
+ *
+ * If userIds is provided, only checks those users (invite list).
  */
 export async function getEventAvailabilityConflicts({
   bandId,
   startsAt,
+  userIds,
 }: GetConflictsArgs): Promise<EventAvailabilityConflict[]> {
   try {
     const dateKey = formatDateKey(startsAt);
 
     // 1) Get band members (user_id + names/roles)
-    const { data: members, error: membersErr } = await supabase
+    let membersQuery = supabase
       .from('band_members')
       .select(
         `
-        user_id,
-        role,
-        profiles:user_id (
-          display_name,
-          first_name,
-          last_name
-        )
-      `
+          user_id,
+          role,
+          profiles:user_id (
+            display_name,
+            first_name,
+            last_name
+          )
+        `
       )
       .eq('band_id', bandId);
+
+    // ✅ Only check invited members if provided
+    if (userIds && userIds.length > 0) {
+      membersQuery = membersQuery.in('user_id', userIds);
+    }
+
+    const { data: members, error: membersErr } = await membersQuery;
 
     if (membersErr) {
       console.error('[getEventAvailabilityConflicts] membersErr', membersErr);
@@ -86,7 +97,10 @@ export async function getEventAvailabilityConflicts({
     const conflicts: EventAvailabilityConflict[] = members
       .filter((m: any) => blockedSet.has(m.user_id))
       .map((m: any) => {
-        const profile = Array.isArray(m.profiles) ? m.profiles[0] : m.profiles;
+        const profile = Array.isArray((m as any).profiles)
+          ? (m as any).profiles[0]
+          : (m as any).profiles;
+
         const name =
           profile?.display_name ||
           [profile?.first_name, profile?.last_name].filter(Boolean).join(' ') ||

@@ -1,0 +1,52 @@
+/* Dark Action Sheet */
+.amplee-action-sheet .action-sheet-wrapper,
+.amplee-action-sheet .action-sheet-container {
+  --background: #07070b;
+  background: #07070b !important;
+}
+
+.amplee-action-sheet .action-sheet-group {
+  background: #07070b !important;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.amplee-action-sheet .action-sheet-title {
+  color: #e5e7eb !important;
+}
+
+.amplee-action-sheet .action-sheet-sub-title {
+  color: rgba(229, 231, 235, 0.7) !important;
+}
+
+.amplee-action-sheet .action-sheet-button,
+.amplee-action-sheet .action-sheet-button .action-sheet-button-inner {
+  color: #e5e7eb !important;
+}
+
+.amplee-action-sheet .action-sheet-icon {
+  color: rgba(229, 231, 235, 0.85) !important;
+}
+
+/* Destructive button tint (optional) */
+.amplee-action-sheet .action-sheet-button.ion-color-danger,
+.amplee-action-sheet .action-sheet-button[aria-label*='Remove'] {
+  color: #fca5a5 !important;
+}
+
+/* Backdrop */
+.amplee-action-sheet ion-backdrop {
+  --backdrop-opacity: 0.75;
+}
+
+.amplee-action-sheet .action-sheet-button.action-sheet-destructive,
+.amplee-action-sheet
+  .action-sheet-button.action-sheet-destructive
+  .action-sheet-button-inner {
+  color: #f87171 !important; /* red */
+}
+
+.amplee-action-sheet
+  .action-sheet-button.action-sheet-destructive
+  .action-sheet-icon {
+  color: #f87171 !important;
+}

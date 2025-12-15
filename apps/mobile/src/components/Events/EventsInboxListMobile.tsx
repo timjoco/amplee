@@ -1,7 +1,28 @@
 /* eslint-disable @next/next/no-img-element */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { IonAvatar, IonIcon, IonSpinner, IonText } from '@ionic/react';
-import { addOutline, chatbubbleOutline } from 'ionicons/icons';
+import {
+  IonActionSheet,
+  IonAvatar,
+  IonButton,
+  IonContent,
+  IonIcon,
+  IonInput,
+  IonModal,
+  IonSpinner,
+  IonText,
+  IonTextarea,
+} from '@ionic/react';
+import {
+  addOutline,
+  alertCircleOutline,
+  archiveOutline,
+  calendarOutline,
+  chatbubbleOutline,
+  closeOutline,
+  hammerOutline,
+  locationOutline,
+  musicalNotesOutline,
+} from 'ionicons/icons';
 
 import { Capacitor } from '@capacitor/core';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
@@ -29,14 +50,18 @@ export default function EventInboxListMobile({
   showAvatars = true,
   enableCreateForBand = false,
   isAdmin = false,
+  adminBandIds = [],
   suppressEmptyState = false,
+  showArchived = false,
 }: {
   onLoaded?: (count: number) => void;
   bandId?: string;
   showAvatars?: boolean;
   enableCreateForBand?: boolean;
   isAdmin?: boolean;
+  adminBandIds?: string[];
   suppressEmptyState?: boolean;
+  showArchived?: boolean;
 }) {
   const nav = useNavigate();
 
@@ -59,10 +84,68 @@ export default function EventInboxListMobile({
     initial.lastMsgs
   );
 
+  const longPressFiredRef = useRef(false);
+  const activePressIdRef = useRef<string | null>(null);
+
   const [pressedId, setPressedId] = useState<string | null>(null);
   const longPressTimeoutRef = useRef<number | null>(null);
   const pressStartRef = useRef<{ x: number; y: number } | null>(null);
   const MOVE_THRESHOLD = 12;
+
+  const [actionTarget, setActionTarget] = useState<EventRow | null>(null);
+  const [showActions, setShowActions] = useState(false);
+
+  const [showArchive, setShowArchive] = useState(false);
+  const [archiveNotes, setArchiveNotes] = useState('');
+  const [archiveAttendance, setArchiveAttendance] = useState('');
+  const [archiveMerch, setArchiveMerch] = useState('');
+  const [archivePayout, setArchivePayout] = useState('');
+  const [archiving, setArchiving] = useState(false);
+
+  const [showSummary, setShowSummary] = useState(false);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [summaryRow, setSummaryRow] = useState<EventRow | null>(null);
+  const [summary, setSummary] = useState<any>(null);
+
+  const isNative = Capacitor.isNativePlatform();
+  const isAndroid = isNative && Capacitor.getPlatform() === 'android';
+  const isIOS = isNative && Capacitor.getPlatform() === 'ios';
+
+  const openArchivedSummary = useCallback(async (row: EventRow) => {
+    setSummaryRow(row);
+    setShowSummary(true);
+    setSummaryLoading(true);
+
+    try {
+      // You can skip this fetch if your EventRow already includes these fields.
+      const { data, error } = await supabase
+        .from('events')
+        .select(
+          `
+        id,
+        title,
+        type,
+        starts_at,
+        location,
+        archived_at,
+        archive_notes,
+        merch_gross,
+        payout_total,
+        attendance
+      `
+        )
+        .eq('id', row.id)
+        .maybeSingle();
+
+      if (error) throw error;
+      setSummary(data ?? null);
+    } catch (e) {
+      console.warn('[archived summary] load failed', e);
+      setSummary(null);
+    } finally {
+      setSummaryLoading(false);
+    }
+  }, []);
 
   // Admin-only create privilege
   const canCreateEvent = Boolean(enableCreateForBand && bandId && isAdmin);
@@ -142,8 +225,7 @@ export default function EventInboxListMobile({
       onLoaded?.(0);
       return;
     }
-
-    const { data: events } = await supabase
+    const q = supabase
       .from('events_with_my_attendance')
       .select(
         'id, band_id, title, type, starts_at, ends_at, location, notes, is_booked, is_cancelled, my_event_status, bands(id, name, avatar_url)'
@@ -152,11 +234,22 @@ export default function EventInboxListMobile({
       .order('starts_at', { ascending: true })
       .limit(200);
 
+    const { data: events, error: eventsErr } = await q;
+
+    if (eventsErr) {
+      console.warn('[inbox] events query error full', eventsErr);
+
+      onLoaded?.(0);
+      return;
+    }
+
     const toTs = (s?: string | null) =>
       s ? new Date(s).getTime() : Number.POSITIVE_INFINITY;
     const now = Date.now();
 
-    const normalized: EventRow[] = (events ?? []).map((e: any) => ({
+    // Hydrate from cache for instant render (stale-while-revalidate).
+    // Supabase remains the source of truth; we refresh on mount and reconcile.
+    const base: EventRow[] = (events ?? []).map((e: any) => ({
       id: String(e.id),
       band_id: String(e.band_id),
       title: String(e.title ?? ''),
@@ -167,6 +260,7 @@ export default function EventInboxListMobile({
       notes: e.notes ?? null,
       is_booked: Boolean(e.is_booked),
       is_cancelled: Boolean(e.is_cancelled),
+      archived_at: null, // will hydrate below
       my_event_status:
         (e.my_event_status as EventRow['my_event_status']) ?? 'pending',
       bands: Array.isArray(e.bands)
@@ -186,19 +280,52 @@ export default function EventInboxListMobile({
         : null,
     }));
 
-    const upcoming = normalized
+    const ids = base.map((r) => r.id);
+
+    let archivedMap: Record<string, string | null> = {};
+    if (ids.length) {
+      const { data: archRows, error: archErr } = await supabase
+        .from('events')
+        .select('id, archived_at')
+        .in('id', ids);
+
+      if (archErr) {
+        console.warn('[inbox] archived_at hydrate error', archErr);
+      } else {
+        for (const r of archRows ?? []) {
+          archivedMap[String((r as any).id)] = (r as any).archived_at ?? null;
+        }
+      }
+    }
+
+    const normalized: EventRow[] = base.map((r) => ({
+      ...r,
+      archived_at: archivedMap[r.id] ?? null,
+    }));
+
+    const filtered = normalized.filter((e) =>
+      showArchived ? Boolean(e.archived_at) : !e.archived_at
+    );
+
+    const upcoming = filtered
       .filter((e) => e.starts_at && toTs(e.starts_at) >= now)
       .sort((a, b) => toTs(a.starts_at) - toTs(b.starts_at));
-    const past = normalized
-      .filter((e) => !e.starts_at || toTs(e.starts_at) < now)
-      .sort((a, b) => toTs(b.starts_at) - toTs(a.starts_at));
-    const sorted = [...upcoming, ...past];
 
-    if (!bandId) setEvents(sorted);
+    const past = filtered
+      .filter((e) => !e.starts_at || toTs(e.starts_at) < now)
+      .sort((a, b) =>
+        showArchived
+          ? toTs(a.starts_at) - toTs(b.starts_at)
+          : toTs(b.starts_at) - toTs(a.starts_at)
+      );
+
+    const sorted = [...upcoming, ...past];
 
     setRows(sorted);
     eventIdsRef.current = sorted.map((e) => e.id);
     onLoaded?.(sorted.length);
+
+    if (!bandId) setEvents(sorted);
 
     if (showAvatars) {
       for (const e of sorted) {
@@ -249,26 +376,18 @@ export default function EventInboxListMobile({
         setLastMsgsBulk(map);
       }
     }
-  }, [bandId, onLoaded, showAvatars]);
+  }, [bandId, onLoaded, showAvatars, showArchived]);
 
   useEffect(() => {
     setLoading(true);
     void refreshEvents().finally(() => setLoading(false));
   }, [bandId, refreshEvents]);
 
-  // Helper: recompute the last visible message for an event
-  // Helper: recompute the last visible message for an event
   const recomputeLastMessage = useCallback(
     async (eventId: string) => {
       if (!eventIdsRef.current.includes(eventId)) {
-        console.log(
-          '[inbox] recompute skipped, no such eventId in list',
-          eventId
-        );
         return;
       }
-
-      console.log('[inbox] recomputing last message for', eventId);
 
       const { data, error } = await supabase
         .from('event_messages')
@@ -285,7 +404,6 @@ export default function EventInboxListMobile({
       }
 
       const next = (data?.[0] as LastMsg | undefined) ?? undefined;
-      console.log('[inbox] recompute result for', eventId, next);
 
       setLastMsgs((prev) => {
         const clone = { ...prev };
@@ -304,6 +422,49 @@ export default function EventInboxListMobile({
     [] // supabase is a module-level singleton, safe to omit
   );
 
+  const archiveEvent = useCallback(
+    async (ev: EventRow) => {
+      const { data: auth } = await supabase.auth.getUser();
+      const userId = auth?.user?.id ?? null;
+
+      const toNum = (s: string) => {
+        const n = Number(String(s).replace(/[^\d.-]/g, ''));
+        return Number.isFinite(n) ? n : null;
+      };
+
+      const patch: any = {
+        archived_at: new Date().toISOString(),
+        archived_by: userId,
+        archive_notes: archiveNotes.trim() || null,
+      };
+
+      if (ev.type === 'show') {
+        patch.attendance = toNum(archiveAttendance);
+        patch.merch_gross = toNum(archiveMerch);
+        patch.payout_total = toNum(archivePayout);
+      }
+
+      setArchiving(true);
+      try {
+        const { error } = await supabase
+          .from('events')
+          .update(patch)
+          .eq('id', ev.id);
+
+        if (error) throw error;
+
+        setRows((prev) => prev.filter((r) => r.id !== ev.id));
+
+        if (!bandId) {
+          setEvents(getCache().events.filter((r) => r.id !== ev.id));
+        }
+      } finally {
+        setArchiving(false);
+      }
+    },
+    [archiveNotes, archiveAttendance, archiveMerch, archivePayout, bandId]
+  );
+
   useEffect(() => {
     const ch = supabase
       .channel('dashboard:event-inbox')
@@ -313,7 +474,6 @@ export default function EventInboxListMobile({
         { event: 'INSERT', schema: 'public', table: 'event_messages' },
         (payload: any) => {
           const msg = payload.new as LastMsg;
-          console.log('[inbox] INSERT msg', msg);
 
           if (!eventIdsRef.current.includes(msg.event_id)) return;
 
@@ -335,7 +495,6 @@ export default function EventInboxListMobile({
         (payload: any) => {
           const row = payload.new;
           const eventId = row.event_id as string | undefined;
-          console.log('[inbox] UPDATE msg', row);
           if (!eventId) return;
           void recomputeLastMessage(eventId);
         }
@@ -347,7 +506,6 @@ export default function EventInboxListMobile({
         (payload: any) => {
           const row = payload.old;
           const eventId = row.event_id as string | undefined;
-          console.log('[inbox] DELETE msg', row);
           if (!eventId) return;
           void recomputeLastMessage(eventId);
         }
@@ -430,33 +588,54 @@ export default function EventInboxListMobile({
       })
     );
   };
-
   const handlePressStart = useCallback(
     (
       id: string,
       e: React.TouchEvent<HTMLDivElement> | React.MouseEvent<HTMLDivElement>
     ) => {
+      // new gesture
+      longPressFiredRef.current = false;
+      activePressIdRef.current = id;
+
       if (longPressTimeoutRef.current != null) {
         window.clearTimeout(longPressTimeoutRef.current);
+        longPressTimeoutRef.current = null;
       }
 
-      let clientX = 0,
-        clientY = 0;
+      let clientX = 0;
+      let clientY = 0;
+
       if ('touches' in e && e.touches.length > 0) {
         clientX = e.touches[0].clientX;
         clientY = e.touches[0].clientY;
       } else if ('clientX' in e) {
-        clientX = e.clientX;
-        clientY = e.clientY;
+        clientX = (e as React.MouseEvent).clientX;
+        clientY = (e as React.MouseEvent).clientY;
       }
 
       pressStartRef.current = { x: clientX, y: clientY };
+
       longPressTimeoutRef.current = window.setTimeout(() => {
         setPressedId(id);
         void triggerHaptic();
+
+        const target = rows.find((r) => r.id === id) ?? null;
+        if (!target) return;
+
+        const ts = target.starts_at ? new Date(target.starts_at).getTime() : 0;
+        const isPast = ts > 0 && ts < Date.now();
+
+        const isAdminForTarget = bandId
+          ? isAdmin
+          : adminBandIds.includes(target.band_id);
+
+        if (isAdminForTarget && isPast) {
+          setActionTarget(target);
+          setShowActions(true);
+        }
       }, 350);
     },
-    [triggerHaptic]
+    [triggerHaptic, rows, isAdmin]
   );
 
   const handlePressMove = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
@@ -465,6 +644,7 @@ export default function EventInboxListMobile({
 
     const { x, y } = pressStartRef.current;
     const t = e.touches[0];
+
     if (
       Math.abs(t.clientX - x) > MOVE_THRESHOLD ||
       Math.abs(t.clientY - y) > MOVE_THRESHOLD
@@ -480,9 +660,17 @@ export default function EventInboxListMobile({
       longPressTimeoutRef.current = null;
     }
     pressStartRef.current = null;
+    activePressIdRef.current = null;
+
+    // clear highlight
     if (pressedId != null) {
       setTimeout(() => setPressedId(null), 130);
     }
+
+    // allow next gesture
+    setTimeout(() => {
+      longPressFiredRef.current = false;
+    }, 0);
   }, [pressedId]);
 
   const renderAvatarInitials = (name?: string | null) => {
@@ -511,6 +699,646 @@ export default function EventInboxListMobile({
       </div>
     );
   };
+
+  const closeArchiveModal = () => {
+    setShowArchive(false);
+    setActionTarget(null);
+  };
+
+  const ActionsUI = (
+    <>
+      <IonActionSheet
+        isOpen={showActions}
+        onDidDismiss={() => setShowActions(false)}
+        header={actionTarget?.title ?? 'Event'}
+        cssClass="amplee-action-sheet"
+        buttons={[
+          {
+            text: 'Archive',
+            icon: archiveOutline,
+            handler: () => {
+              const ts = actionTarget?.starts_at
+                ? new Date(actionTarget.starts_at).getTime()
+                : 0;
+              const isPast = ts > 0 && ts < Date.now();
+
+              if (!isPast) return;
+
+              setShowActions(false);
+              setArchiveNotes('');
+              setArchiveAttendance('');
+              setArchiveMerch('');
+              setArchivePayout('');
+              setShowArchive(true);
+            },
+            cssClass: (() => {
+              const ts = actionTarget?.starts_at
+                ? new Date(actionTarget.starts_at).getTime()
+                : 0;
+              const isPast = ts > 0 && ts < Date.now();
+              return isPast ? '' : 'action-disabled';
+            })(),
+          },
+          {
+            text: 'Cancel',
+            icon: closeOutline,
+            role: 'cancel',
+            handler: () => setShowActions(false),
+          },
+        ]}
+      />
+
+      <IonModal
+        isOpen={showArchive}
+        onDidDismiss={closeArchiveModal}
+        className="amplee-modal"
+      >
+        <IonContent
+          className="ion-padding"
+          style={{
+            '--background': '#0c0a14',
+            '--padding-top': 'calc(env(safe-area-inset-top) + 16px)',
+          }}
+        >
+          {/* Header Row */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: 20,
+            }}
+          >
+            <h2
+              style={{
+                margin: 0,
+                color: '#e5e7eb',
+                fontSize: 18,
+                fontWeight: 600,
+              }}
+            >
+              Archive {actionTarget?.type === 'show' ? 'Show' : 'Practice'}
+            </h2>
+            <IonButton
+              fill="clear"
+              onClick={closeArchiveModal}
+              style={{
+                '--color': 'rgba(156,163,175,0.9)',
+                '--padding-end': '0',
+                margin: 0,
+              }}
+            >
+              <IonIcon icon={closeOutline} style={{ fontSize: 22 }} />
+            </IonButton>
+          </div>
+
+          <div style={{ display: 'grid', gap: 16 }}>
+            {actionTarget?.type === 'show' && (
+              <div
+                style={{
+                  background: 'rgba(255,255,255,0.03)',
+                  border: '1px solid rgba(255,255,255,0.06)',
+                  borderRadius: 12,
+                  padding: 16,
+                  display: 'grid',
+                  gap: 12,
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 600,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                    color: 'rgba(139,92,246,0.9)',
+                    marginBottom: 4,
+                  }}
+                >
+                  Show Stats
+                </div>
+
+                <div style={{ display: 'grid', gap: 12 }}>
+                  <div>
+                    <label
+                      style={{
+                        display: 'block',
+                        fontSize: 12,
+                        color: 'rgba(156,163,175,0.9)',
+                        marginBottom: 6,
+                      }}
+                    >
+                      Merch Sales
+                    </label>
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        background: 'rgba(0,0,0,0.3)',
+                        border: '1px solid rgba(255,255,255,0.08)',
+                        borderRadius: 8,
+                        padding: '0 12px',
+                      }}
+                    >
+                      <span style={{ color: 'rgba(156,163,175,0.7)' }}>$</span>
+                      <IonInput
+                        inputMode="decimal"
+                        value={archiveMerch}
+                        onIonInput={(e) =>
+                          setArchiveMerch(String(e.detail.value ?? ''))
+                        }
+                        placeholder="0.00"
+                        style={{
+                          '--color': '#e5e7eb',
+                          '--placeholder-color': 'rgba(156,163,175,0.5)',
+                          '--padding-start': '8px',
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label
+                      style={{
+                        display: 'block',
+                        fontSize: 12,
+                        color: 'rgba(156,163,175,0.9)',
+                        marginBottom: 6,
+                      }}
+                    >
+                      Payout
+                    </label>
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        background: 'rgba(0,0,0,0.3)',
+                        border: '1px solid rgba(255,255,255,0.08)',
+                        borderRadius: 8,
+                        padding: '0 12px',
+                      }}
+                    >
+                      <span style={{ color: 'rgba(156,163,175,0.7)' }}>$</span>
+                      <IonInput
+                        inputMode="decimal"
+                        value={archivePayout}
+                        onIonInput={(e) =>
+                          setArchivePayout(String(e.detail.value ?? ''))
+                        }
+                        placeholder="0.00"
+                        style={{
+                          '--color': '#e5e7eb',
+                          '--placeholder-color': 'rgba(156,163,175,0.5)',
+                          '--padding-start': '8px',
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label
+                      style={{
+                        display: 'block',
+                        fontSize: 12,
+                        color: 'rgba(156,163,175,0.9)',
+                        marginBottom: 6,
+                      }}
+                    >
+                      Attendance
+                    </label>
+                    <div
+                      style={{
+                        background: 'rgba(0,0,0,0.3)',
+                        border: '1px solid rgba(255,255,255,0.08)',
+                        borderRadius: 8,
+                        padding: '0 12px',
+                      }}
+                    >
+                      <IonInput
+                        inputMode="numeric"
+                        value={archiveAttendance}
+                        onIonInput={(e) =>
+                          setArchiveAttendance(String(e.detail.value ?? ''))
+                        }
+                        placeholder="0"
+                        style={{
+                          '--color': '#e5e7eb',
+                          '--placeholder-color': 'rgba(156,163,175,0.5)',
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div>
+              <label
+                style={{
+                  display: 'block',
+                  fontSize: 12,
+                  color: 'rgba(156,163,175,0.9)',
+                  marginBottom: 6,
+                }}
+              >
+                Notes
+              </label>
+              <div
+                style={{
+                  background: 'rgba(0,0,0,0.3)',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  borderRadius: 8,
+                }}
+              >
+                <IonTextarea
+                  value={archiveNotes}
+                  onIonInput={(e) =>
+                    setArchiveNotes(String(e.detail.value ?? ''))
+                  }
+                  placeholder="How did it go? Any memorable moments?"
+                  autoGrow
+                  rows={3}
+                  style={{
+                    '--color': '#e5e7eb',
+                    '--placeholder-color': 'rgba(156,163,175,0.5)',
+                    '--padding-start': '12px',
+                    '--padding-end': '12px',
+                    '--padding-top': '12px',
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div
+            style={{
+              display: 'flex',
+              gap: 12,
+              marginTop: 24,
+              paddingBottom: 'env(safe-area-inset-bottom)',
+            }}
+          >
+            <IonButton
+              fill="outline"
+              expand="block"
+              disabled={archiving}
+              onClick={closeArchiveModal}
+              style={{
+                '--border-color': 'rgba(255,255,255,0.12)',
+                '--color': 'rgba(156,163,175,0.9)',
+                '--border-radius': '10px',
+                flex: 1,
+              }}
+            >
+              Cancel
+            </IonButton>
+
+            <IonButton
+              expand="block"
+              disabled={!actionTarget || archiving}
+              onClick={async () => {
+                if (!actionTarget) return;
+                await archiveEvent(actionTarget);
+                closeArchiveModal();
+              }}
+              style={{
+                '--background': '#7c3aed',
+                '--background-hover': '#6d28d9',
+                '--border-radius': '10px',
+                flex: 1,
+              }}
+            >
+              {archiving ? (
+                <>
+                  <IonSpinner name="dots" style={{ marginRight: 8 }} />
+                  Archiving
+                </>
+              ) : (
+                'Archive'
+              )}
+            </IonButton>
+          </div>
+        </IonContent>
+      </IonModal>
+    </>
+  );
+
+  const SummaryUI = (
+    <IonModal
+      isOpen={showSummary}
+      onDidDismiss={() => {
+        setShowSummary(false);
+        setSummaryRow(null);
+        setSummary(null);
+      }}
+      breakpoints={isIOS ? [0, 0.6, 0.92] : undefined}
+      initialBreakpoint={isIOS ? 0.92 : undefined}
+      backdropBreakpoint={isIOS ? 0.6 : undefined}
+      presentingElement={
+        document.querySelector('ion-router-outlet') ?? undefined
+      }
+      className="amplee-modal"
+    >
+      <IonContent
+        className="ion-padding"
+        fullscreen
+        style={{
+          '--background': '#0c0a14',
+          '--padding-top': 'calc(env(safe-area-inset-top) + 3px)',
+          '--padding-bottom': 'calc(env(safe-area-inset-bottom) + 16px)',
+        }}
+      >
+        {/* Header Row */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: 20,
+          }}
+        >
+          <h2
+            style={{
+              margin: 0,
+              color: '#e5e7eb',
+              fontSize: 18,
+              fontWeight: 600,
+            }}
+          >
+            {summaryRow?.title ?? 'Event Summary'}
+          </h2>
+          <IonButton
+            fill="clear"
+            onClick={() => {
+              setShowSummary(false);
+              setSummaryRow(null);
+              setSummary(null);
+            }}
+            style={{
+              '--color': 'rgba(156,163,175,0.9)',
+              '--padding-end': '0',
+              margin: 0,
+            }}
+          >
+            <IonIcon icon={closeOutline} style={{ fontSize: 22 }} />
+          </IonButton>
+        </div>
+
+        {summaryLoading ? (
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: 40,
+              gap: 12,
+            }}
+          >
+            <IonSpinner name="dots" color="primary" />
+            <span style={{ color: 'rgba(156,163,175,0.7)', fontSize: 13 }}>
+              Loading summary…
+            </span>
+          </div>
+        ) : !summary ? (
+          <div
+            style={{
+              textAlign: 'center',
+              padding: 40,
+              color: 'rgba(156,163,175,0.7)',
+            }}
+          >
+            <IonIcon
+              icon={alertCircleOutline}
+              style={{ fontSize: 32, marginBottom: 8, opacity: 0.5 }}
+            />
+            <p style={{ margin: 0 }}>Couldn't load this summary.</p>
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gap: 16 }}>
+            {/* Event Details Card */}
+            <div
+              style={{
+                background: 'rgba(255,255,255,0.03)',
+                border: '1px solid rgba(255,255,255,0.06)',
+                borderRadius: 12,
+                padding: 16,
+              }}
+            >
+              <div
+                style={{
+                  display: 'grid',
+                  gap: 10,
+                  fontSize: 13,
+                  color: 'rgba(203,213,225,0.9)',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <IonIcon
+                    icon={calendarOutline}
+                    style={{ color: '#22c55e', fontSize: 16 }}
+                  />
+                  <span>
+                    {summary.starts_at
+                      ? new Date(summary.starts_at).toLocaleString(undefined, {
+                          weekday: 'short',
+                          month: 'short',
+                          day: 'numeric',
+                          hour: 'numeric',
+                          minute: '2-digit',
+                        })
+                      : '—'}
+                  </span>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <IonIcon
+                    icon={
+                      summary.type === 'show'
+                        ? musicalNotesOutline
+                        : hammerOutline
+                    }
+                    style={{
+                      color:
+                        summary.type === 'show'
+                          ? 'rgba(192,132,252,0.9)'
+                          : 'rgba(96,165,250,0.9)',
+                      fontSize: 16,
+                    }}
+                  />
+                  <span style={{ textTransform: 'capitalize' }}>
+                    {summary.type ?? '—'}
+                  </span>
+                </div>
+
+                {summary.location && (
+                  <div
+                    style={{ display: 'flex', alignItems: 'center', gap: 10 }}
+                  >
+                    <IonIcon
+                      icon={locationOutline}
+                      style={{ color: '#8b5cf6', fontSize: 16 }}
+                    />
+                    <span>{summary.location}</span>
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <IonIcon
+                    icon={archiveOutline}
+                    style={{ color: 'rgba(156,163,175,0.7)', fontSize: 16 }}
+                  />
+                  <span style={{ color: 'rgba(156,163,175,0.7)' }}>
+                    Archived{' '}
+                    {summary.archived_at
+                      ? new Date(summary.archived_at).toLocaleDateString()
+                      : '—'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Show Stats Card */}
+            {summary.type === 'show' && (
+              <div
+                style={{
+                  background: 'rgba(255,255,255,0.03)',
+                  border: '1px solid rgba(255,255,255,0.06)',
+                  borderRadius: 12,
+                  padding: 16,
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 600,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                    color: 'rgba(139,92,246,0.9)',
+                    marginBottom: 12,
+                  }}
+                >
+                  Show Stats
+                </div>
+
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(3, 1fr)',
+                    gap: 12,
+                  }}
+                >
+                  <div style={{ textAlign: 'center' }}>
+                    <div
+                      style={{
+                        fontSize: 20,
+                        fontWeight: 600,
+                        color: '#22c55e',
+                      }}
+                    >
+                      {summary.merch_gross ? `$${summary.merch_gross}` : '—'}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 11,
+                        color: 'rgba(156,163,175,0.7)',
+                        marginTop: 2,
+                      }}
+                    >
+                      Merch
+                    </div>
+                  </div>
+
+                  <div style={{ textAlign: 'center' }}>
+                    <div
+                      style={{
+                        fontSize: 20,
+                        fontWeight: 600,
+                        color: '#22c55e',
+                      }}
+                    >
+                      {summary.payout_total ? `$${summary.payout_total}` : '—'}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 11,
+                        color: 'rgba(156,163,175,0.7)',
+                        marginTop: 2,
+                      }}
+                    >
+                      Payout
+                    </div>
+                  </div>
+
+                  <div style={{ textAlign: 'center' }}>
+                    <div
+                      style={{
+                        fontSize: 20,
+                        fontWeight: 600,
+                        color: '#e5e7eb',
+                      }}
+                    >
+                      {summary.attendance ?? '—'}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 11,
+                        color: 'rgba(156,163,175,0.7)',
+                        marginTop: 2,
+                      }}
+                    >
+                      Attendance
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Notes Card */}
+            <div
+              style={{
+                background: 'rgba(255,255,255,0.03)',
+                border: '1px solid rgba(255,255,255,0.06)',
+                borderRadius: 12,
+                padding: 16,
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 11,
+                  fontWeight: 600,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                  color: 'rgba(156,163,175,0.7)',
+                  marginBottom: 10,
+                }}
+              >
+                Notes
+              </div>
+              <div
+                style={{
+                  whiteSpace: 'pre-wrap',
+                  color: 'rgba(203,213,225,0.9)',
+                  fontSize: 14,
+                  lineHeight: 1.6,
+                }}
+              >
+                {summary.archive_notes || (
+                  <span
+                    style={{
+                      color: 'rgba(156,163,175,0.5)',
+                      fontStyle: 'italic',
+                    }}
+                  >
+                    No notes added
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </IonContent>
+    </IonModal>
+  );
 
   if (loading && rows.length === 0) {
     if (suppressEmptyState) return null;
@@ -597,6 +1425,7 @@ export default function EventInboxListMobile({
                 : 'Events will appear here once your band admin schedules them.'}
             </p>
           </IonText>
+          {ActionsUI}
 
           {/* Admin-only create button */}
           {canCreateEvent && (
@@ -640,6 +1469,8 @@ export default function EventInboxListMobile({
 
   return (
     <div style={{ paddingBlock: 4 }}>
+      {ActionsUI}
+      {SummaryUI}
       {rows.map((e, index) => {
         const when = getRelativeTime(e.starts_at);
         const lm = lastMsgs[e.id];
@@ -662,20 +1493,43 @@ export default function EventInboxListMobile({
           // Update the row's onClick to handle the press state visually
           <div
             key={e.id}
-            onClick={() => openEvent(e.band_id, e.id)}
+            onClick={(ev) => {
+              if (longPressFiredRef.current) {
+                ev.preventDefault();
+                ev.stopPropagation();
+                return;
+              }
+
+              // ✅ archived rows open summary modal
+              if (e.archived_at) {
+                ev.preventDefault();
+                ev.stopPropagation();
+                void openArchivedSummary(e);
+                return;
+              }
+
+              openEvent(e.band_id, e.id);
+            }}
             onMouseEnter={() => setHoveredId(e.id)}
             onMouseLeave={() => {
               setHoveredId(null);
-              setPressedId(null); // Clear press on mouse leave
+              setPressedId(null);
             }}
             onTouchStart={(ev) => {
-              setPressedId(e.id); // Immediate highlight on touch
+              setPressedId(e.id);
               handlePressStart(e.id, ev);
             }}
             onTouchMove={handlePressMove}
-            onTouchEnd={() => {
+            onTouchEnd={(ev) => {
+              // if long press fired, swallow the tap
+              if (longPressFiredRef.current) {
+                ev.preventDefault();
+                ev.stopPropagation();
+                handlePressEnd();
+                return;
+              }
+
               handlePressEnd();
-              // Keep highlight briefly during navigation
               setTimeout(() => setPressedId(null), 150);
             }}
             onTouchCancel={() => {
@@ -683,10 +1537,16 @@ export default function EventInboxListMobile({
               setPressedId(null);
             }}
             onMouseDown={(ev) => {
-              setPressedId(e.id); // Immediate highlight on click
+              setPressedId(e.id);
               handlePressStart(e.id, ev);
             }}
-            onMouseUp={() => {
+            onMouseUp={(ev) => {
+              if (longPressFiredRef.current) {
+                ev.preventDefault();
+                ev.stopPropagation();
+                handlePressEnd();
+                return;
+              }
               handlePressEnd();
               setTimeout(() => setPressedId(null), 150);
             }}

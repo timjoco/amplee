@@ -14,8 +14,8 @@ import {
   settingsOutline,
 } from 'ionicons/icons';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { supabase } from '../../lib/supabase';
-import AvatarImageMobile from '../ui/AvatarImageMobile';
+import AvatarImageMobile from '../../../../components/ui/AvatarImageMobile';
+import { supabase } from '../../../../lib/supabase';
 
 type EventSheetModalEvent = {
   id: string;
@@ -460,10 +460,7 @@ export default function EventSheetModal({
                         } as any
                       }
                     >
-                      <RosterPanelMobile
-                        bandId={event.band_id}
-                        eventId={event.id}
-                      />
+                      <RosterPanelMobile eventId={event.id} />
                     </IonItem>
                   </IonList>
                 </div>
@@ -487,207 +484,133 @@ type RosterRow = {
   updated_at?: string | null;
 };
 
-function RosterPanelMobile({
-  bandId,
-  eventId,
-}: {
-  bandId: string;
-  eventId: string;
-}) {
-  type BaseMember = {
-    user_id: string;
-    name: string;
-    avatar_url: string | null;
-    updated_at: string | null;
-  };
-
-  const [baseMembers, setBaseMembers] = useState<BaseMember[] | null>(null);
+function RosterPanelMobile({ eventId }: { eventId: string }) {
   const [rows, setRows] = useState<RosterRow[]>([]);
   const [loading, setLoading] = useState(true);
   const initialLoadDone = useRef(false);
 
-  const loadBaseMembers = useCallback(async () => {
+  const loadRoster = useCallback(async () => {
     if (!initialLoadDone.current) setLoading(true);
 
     try {
-      const { data: members } = await supabase
-        .from('band_members')
-        .select('user_id')
-        .eq('band_id', bandId)
-        .order('created_at', { ascending: true });
+      console.log('[roster] eventId =', eventId);
 
-      const ids = (members ?? []).map((m: any) => m.user_id);
+      const { data: members, error: memErr } = await supabase
+        .from('event_members')
+        .select('user_id, status, needs_sub') // <-- adjust if your columns differ
+        .eq('event_id', eventId); // <-- if this is wrong, you’ll see 0 rows
 
-      if (ids.length === 0) {
-        setBaseMembers([]);
+      if (memErr) {
+        console.warn('[event_members select error]', memErr);
         setRows([]);
-        initialLoadDone.current = true;
-        setLoading(false);
         return;
       }
 
-      const { data: profiles } = await supabase
+      console.log('[roster] event_members rows =', members?.length, members);
+
+      const ids = (members ?? []).map((m: any) => m.user_id).filter(Boolean);
+      if (ids.length === 0) {
+        setRows([]);
+        return;
+      }
+
+      const { data: profiles, error: profErr } = await supabase
         .from('profiles')
         .select('id, display_name, first_name, avatar_url, updated_at')
         .in('id', ids);
+
+      if (profErr) {
+        console.warn('[profiles select error]', profErr);
+      }
 
       const byId = new Map(
         (profiles ?? []).map((p: any) => [
           p.id,
           {
-            user_id: p.id,
             name: p.display_name ?? p.first_name ?? 'Member',
             avatar_url: p.avatar_url ?? null,
             updated_at: p.updated_at ?? null,
-          } as BaseMember,
-        ])
-      );
-
-      const ordered: BaseMember[] = ids
-        .map((id) => byId.get(id)!)
-        .filter(Boolean);
-
-      setBaseMembers(ordered);
-    } finally {
-      // don't flip initialLoadDone here; we want attendance too
-    }
-  }, [bandId]);
-
-  const loadAttendance = useCallback(async () => {
-    if (!baseMembers) return;
-
-    if (baseMembers.length === 0) {
-      setRows([]);
-      initialLoadDone.current = true;
-      setLoading(false);
-      return;
-    }
-
-    if (!initialLoadDone.current) setLoading(true);
-
-    try {
-      const { data: att } = await supabase
-        .from('event_attendance')
-        .select('user_id, status, needs_sub')
-        .eq('event_id', eventId);
-
-      const attMap = new Map(
-        (att ?? []).map((a: any) => [
-          a.user_id,
-          {
-            status: (a.status as RosterStatus) ?? 'pending',
-            needs_sub: !!a.needs_sub,
           },
         ])
       );
 
-      const merged: RosterRow[] = baseMembers.map((base) => {
-        const attInfo = attMap.get(base.user_id) ?? {
-          status: 'pending' as RosterStatus,
-          needs_sub: false,
+      const mapped: RosterRow[] = (members ?? []).map((m: any) => {
+        const p = byId.get(m.user_id) ?? {
+          name: 'Member',
+          avatar_url: null,
+          updated_at: null,
         };
 
         return {
-          user_id: base.user_id,
-          name: base.name,
-          status: attInfo.status,
-          needs_sub: attInfo.needs_sub,
-          avatar_url: base.avatar_url,
-          updated_at: base.updated_at,
+          user_id: m.user_id,
+          name: p.name,
+          status: (m.status as RosterStatus) ?? 'pending',
+          needs_sub: !!m.needs_sub,
+          avatar_url: p.avatar_url,
+          updated_at: p.updated_at,
         };
       });
 
-      setRows(merged);
+      setRows(mapped);
     } finally {
       initialLoadDone.current = true;
       setLoading(false);
     }
-  }, [eventId, baseMembers]);
+  }, [eventId]);
 
   useEffect(() => {
     initialLoadDone.current = false;
     setRows([]);
-    setBaseMembers(null);
     setLoading(true);
-    void loadBaseMembers();
-  }, [loadBaseMembers]);
+    void loadRoster();
+  }, [loadRoster]);
 
+  // Realtime: event_members changes for this event
   useEffect(() => {
-    if (baseMembers) {
-      void loadAttendance();
-    }
-  }, [baseMembers, loadAttendance]);
-
-  // Realtime subscriptions
-  useEffect(() => {
-    const chAtt = supabase
-      .channel(`event:${eventId}:attendance-roster`)
+    const ch = supabase
+      .channel(`event:${eventId}:event-members`)
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
-          table: 'event_attendance',
+          table: 'event_members',
           filter: `event_id=eq.${eventId}`,
         },
-        (payload: any) => {
-          const row = payload.new ?? payload.old;
-          if (!row) return;
-
-          const userId = row.user_id as string;
-
-          setRows((prev) => {
-            if (!prev || prev.length === 0) return prev;
-
-            if (payload.eventType === 'DELETE') {
-              return prev.map((r) =>
-                r.user_id === userId
-                  ? {
-                      ...r,
-                      status: 'pending' as RosterStatus,
-                      needs_sub: false,
-                    }
-                  : r
-              );
-            }
-
-            const status =
-              (row.status as RosterStatus | undefined) ??
-              ('pending' as RosterStatus);
-            const needs_sub = !!row.needs_sub;
-
-            return prev.map((r) =>
-              r.user_id === userId ? { ...r, status, needs_sub } : r
-            );
-          });
+        () => {
+          // simplest + safest: re-fetch roster (avoids edge cases for INSERT/DELETE)
+          void loadRoster();
         }
       )
       .subscribe();
 
+    return () => {
+      supabase.removeChannel(ch);
+    };
+  }, [eventId, loadRoster]);
+
+  // Realtime: profile updates (patch rows if displayed users change)
+  useEffect(() => {
+    if (rows.length === 0) return;
+
+    const ids = rows.map((r) => r.user_id);
+    const idSet = new Set(ids);
+
     const chProf = supabase
-      .channel(`band:${bandId}:profile-roster`)
+      .channel(`event:${eventId}:profiles-roster`)
       .on(
         'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'profiles',
-        },
+        { event: 'UPDATE', schema: 'public', table: 'profiles' },
         (payload: any) => {
           const p = payload.new;
           if (!p) return;
 
           const userId = p.id as string;
+          if (!idSet.has(userId)) return;
+
           const name = (p.display_name ?? p.first_name ?? 'Member') as string;
           const avatar_url = (p.avatar_url ?? null) as string | null;
           const updated_at = (p.updated_at ?? null) as string | null;
-
-          setBaseMembers((prev) => {
-            if (!prev) return prev;
-            return prev.map((b) =>
-              b.user_id === userId ? { ...b, name, avatar_url, updated_at } : b
-            );
-          });
 
           setRows((prev) =>
             prev.map((r) =>
@@ -699,10 +622,9 @@ function RosterPanelMobile({
       .subscribe();
 
     return () => {
-      supabase.removeChannel(chAtt);
       supabase.removeChannel(chProf);
     };
-  }, [bandId, eventId]);
+  }, [eventId, rows]);
 
   const statusStyle = (s: RosterStatus) => {
     if (s === 'accepted') {
@@ -752,7 +674,7 @@ function RosterPanelMobile({
     return (
       <IonText color="medium">
         <p style={{ margin: 0, fontSize: 13, color: '#9ca3af' }}>
-          No members found.
+          No members on this event.
         </p>
       </IonText>
     );
@@ -781,12 +703,7 @@ function RosterPanelMobile({
                 size={40}
               />
 
-              <div
-                style={{
-                  flex: 1,
-                  minWidth: 0,
-                }}
-              >
+              <div style={{ flex: 1, minWidth: 0 }}>
                 <span
                   style={{
                     display: 'block',
@@ -802,7 +719,6 @@ function RosterPanelMobile({
                 </span>
               </div>
 
-              {/* STATUS PILL */}
               <span
                 style={{
                   display: 'inline-flex',
@@ -833,7 +749,6 @@ function RosterPanelMobile({
               </span>
             </div>
 
-            {/* divider */}
             {i < rows.length - 1 && (
               <div
                 style={{

@@ -11,6 +11,7 @@ import {
 import {
   alertCircleOutline,
   calendarOutline,
+  checkmarkOutline,
   chevronBackOutline,
   chevronDownOutline,
   chevronForwardOutline,
@@ -70,6 +71,20 @@ type SameDayEvent = {
   id: string;
   title: string;
   type?: string;
+};
+
+// Invite selection types
+type InviteMode = 'full' | 'roster' | 'custom';
+
+type RosterLite = {
+  id: string;
+  name: string;
+};
+
+type MemberLite = {
+  user_id: string;
+  name: string;
+  role: string;
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -232,12 +247,7 @@ function EventWarnings({
 
       {/* Availability Conflicts Section */}
       {hasConflicts && (
-        <div
-          style={{
-            borderTop: '1px solid rgba(251, 191, 36, 0.15)',
-          }}
-        >
-          {/* Section header - clickable to expand */}
+        <div style={{ borderTop: '1px solid rgba(251, 191, 36, 0.15)' }}>
           <button
             type="button"
             onClick={() =>
@@ -282,7 +292,6 @@ function EventWarnings({
             />
           </button>
 
-          {/* Expanded member list */}
           {expandedSection === 'conflicts' && (
             <div
               style={{
@@ -308,7 +317,6 @@ function EventWarnings({
                       background: 'rgba(0, 0, 0, 0.2)',
                     }}
                   >
-                    {/* Avatar placeholder */}
                     <div
                       style={{
                         width: 26,
@@ -376,12 +384,7 @@ function EventWarnings({
 
       {/* Same Day Events Section */}
       {hasSameDayEvents && (
-        <div
-          style={{
-            borderTop: '1px solid rgba(251, 191, 36, 0.15)',
-          }}
-        >
-          {/* Section header - clickable to expand */}
+        <div style={{ borderTop: '1px solid rgba(251, 191, 36, 0.15)' }}>
           <button
             type="button"
             onClick={() =>
@@ -426,7 +429,6 @@ function EventWarnings({
             />
           </button>
 
-          {/* Expanded event list */}
           {expandedSection === 'sameDay' && (
             <div
               style={{
@@ -529,6 +531,13 @@ export default function GlobalCreateMobile({
   const [bands, setBands] = useState<BandLite[]>([]);
   const [loadingBands, setLoadingBands] = useState(false);
 
+  // Invite UI data (rosters + members)
+  const [availableRosters, setAvailableRosters] = useState<RosterLite[]>([]);
+  const [bandMembersForInvite, setBandMembersForInvite] = useState<
+    MemberLite[]
+  >([]);
+  const [loadingInviteData, setLoadingInviteData] = useState(false);
+
   // Form hooks
   const bandForm = useNewBandForm({
     showToast: () => {},
@@ -607,6 +616,78 @@ export default function GlobalCreateMobile({
     [triggerHaptic]
   );
 
+  // Load rosters + members when creating an event (and bandId changes)
+  useEffect(() => {
+    let alive = true;
+
+    if (!open || step !== 'newEvent' || !eventForm.bandId) return;
+
+    (async () => {
+      setLoadingInviteData(true);
+
+      try {
+        const [rostersRes, membersRes] = await Promise.all([
+          supabase
+            .from('band_rosters')
+            .select('id, name')
+            .eq('band_id', eventForm.bandId)
+            .order('created_at', { ascending: false }),
+
+          supabase
+            .from('band_members')
+            .select(
+              `
+              user_id,
+              role,
+              profiles(
+                first_name,
+                last_name,
+                display_name
+              )
+            `
+            )
+            .eq('band_id', eventForm.bandId)
+            .order('created_at', { ascending: true }),
+        ]);
+
+        if (!alive) return;
+
+        if (rostersRes.error) throw rostersRes.error;
+        if (membersRes.error) throw membersRes.error;
+
+        setAvailableRosters(rostersRes.data ?? []);
+
+        const formattedMembers =
+          (membersRes.data ?? []).map((m: any) => {
+            const p = Array.isArray(m.profiles) ? m.profiles[0] : m.profiles;
+
+            const first = (p?.first_name ?? '').trim();
+            const last = (p?.last_name ?? '').trim();
+
+            const fullName =
+              [first, last].filter(Boolean).join(' ') || 'Unknown';
+
+            return {
+              user_id: m.user_id,
+              role: m.role,
+              name: fullName,
+            };
+          }) ?? [];
+
+        setBandMembersForInvite(formattedMembers);
+      } catch (e: any) {
+        console.error('[loadInviteData]', e);
+        setError(e.message || 'Failed to load invite data');
+      } finally {
+        if (alive) setLoadingInviteData(false);
+      }
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, [open, step, eventForm.bandId]);
+
   // Global open/close event handlers
   useEffect(() => {
     const onOpen = () => {
@@ -639,10 +720,8 @@ export default function GlobalCreateMobile({
         }
 
         if (detail.startsAt) {
-          // trust the precomputed ISO
           eventForm.setStarts(detail.startsAt);
         } else if (detail.date) {
-          // legacy/fallback: build a time from date-only
           const dt = new Date(`${detail.date}T20:00:00`);
           if (!Number.isNaN(+dt)) {
             eventForm.setStarts(dt.toISOString());
@@ -747,10 +826,12 @@ export default function GlobalCreateMobile({
     const bypass =
       (eventForm.conflicts?.length || 0) > 0 ||
       (eventForm.sameDayEvents?.length || 0) > 0;
+
     const id = await eventForm.submit(
       bypass ? { bypassConflicts: true } : undefined
     );
     if (!id) return;
+
     closeAll();
     nav(`/bands/${eventForm.bandId}/events/${id}`);
   }, [eventForm, closeAll, nav]);
@@ -782,15 +863,31 @@ export default function GlobalCreateMobile({
       : proposalForm.bandId;
 
   const handleBandChange = (val: string) => {
-    if (step === 'newEvent') eventForm.setBandId(val);
-    else if (step === 'newSong') songForm.setBandId(val);
-    else proposalForm.setBandId(val);
+    if (step === 'newEvent') {
+      eventForm.setBandId(val);
+
+      // reset invite selection when switching bands
+      eventForm.setInviteMode('full');
+      eventForm.setSelectedRosterId('');
+      eventForm.setSelectedUserIds([]);
+    } else if (step === 'newSong') {
+      songForm.setBandId(val);
+    } else {
+      proposalForm.setBandId(val);
+    }
   };
 
   // Calculate total warnings for button state
   const totalWarnings =
     (eventForm.conflicts?.length || 0) + (eventForm.sameDayEvents?.length || 0);
   const hasWarnings = totalWarnings > 0;
+
+  const missingInviteSelection =
+    (eventForm.inviteMode as InviteMode) === 'roster'
+      ? !eventForm.selectedRosterId
+      : (eventForm.inviteMode as InviteMode) === 'custom'
+      ? (eventForm.selectedUserIds?.length || 0) === 0
+      : false;
 
   return (
     <IonModal isOpen={open} onDidDismiss={closeAll} className="gc-modal-root">
@@ -1052,7 +1149,6 @@ export default function GlobalCreateMobile({
                   />
                 </div>
               </div>
-
               <div className="gc-form-group">
                 <label className="gc-form-label gc-form-label-event">
                   Title
@@ -1065,7 +1161,6 @@ export default function GlobalCreateMobile({
                   placeholder="e.g., Show @ The Rino"
                 />
               </div>
-
               <div className="gc-form-group">
                 <label className="gc-form-label gc-form-label-event">
                   Type
@@ -1080,13 +1175,13 @@ export default function GlobalCreateMobile({
                           : 'gc-toggle-btn-inactive'
                       }`}
                       onClick={() => eventForm.setType(t as any)}
+                      type="button"
                     >
                       {t}
                     </button>
                   ))}
                 </div>
               </div>
-
               <div className="gc-form-group">
                 <label className="gc-form-label gc-form-label-event">
                   Starts
@@ -1098,6 +1193,7 @@ export default function GlobalCreateMobile({
                       : 'gc-date-btn-empty'
                   }`}
                   onClick={() => eventForm.setShowStartsPicker(true)}
+                  type="button"
                 >
                   {eventForm.starts
                     ? new Date(eventForm.starts).toLocaleString(undefined, {
@@ -1110,7 +1206,6 @@ export default function GlobalCreateMobile({
                     : 'Select date & time'}
                 </button>
               </div>
-
               <div className="gc-form-group">
                 <label className="gc-form-label gc-form-label-event">
                   Location (optional)
@@ -1124,12 +1219,270 @@ export default function GlobalCreateMobile({
                 />
               </div>
 
+              {/* Invite Members */}
+              <div className="gc-form-group">
+                <label className="gc-form-label gc-form-label-event">
+                  Invite
+                </label>
+
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    type="button"
+                    className={`gc-toggle-btn ${
+                      (eventForm.inviteMode as InviteMode) === 'full'
+                        ? 'gc-toggle-btn-active-event'
+                        : 'gc-toggle-btn-inactive'
+                    }`}
+                    onClick={() => {
+                      triggerHaptic();
+                      eventForm.setInviteMode('full');
+                      eventForm.setSelectedRosterId('');
+                      eventForm.setSelectedUserIds([]); // Clear - fetches fresh on submit
+                    }}
+                  >
+                    Full band
+                  </button>
+
+                  <button
+                    type="button"
+                    className={`gc-toggle-btn ${
+                      (eventForm.inviteMode as InviteMode) === 'roster'
+                        ? 'gc-toggle-btn-active-event'
+                        : 'gc-toggle-btn-inactive'
+                    }`}
+                    onClick={() => {
+                      triggerHaptic();
+                      eventForm.setInviteMode('roster');
+                      eventForm.setSelectedUserIds([]);
+                    }}
+                  >
+                    Roster
+                  </button>
+
+                  <button
+                    type="button"
+                    className={`gc-toggle-btn ${
+                      (eventForm.inviteMode as InviteMode) === 'custom'
+                        ? 'gc-toggle-btn-active-event'
+                        : 'gc-toggle-btn-inactive'
+                    }`}
+                    onClick={() => {
+                      triggerHaptic();
+                      eventForm.setInviteMode('custom');
+                      eventForm.setSelectedRosterId('');
+                      // Prefill all members when switching to custom
+                      const allIds = bandMembersForInvite.map((m) => m.user_id);
+                      eventForm.prefillAllMembers(allIds);
+                    }}
+                  >
+                    Custom
+                  </button>
+                </div>
+
+                {/* Full band mode - no list shown */}
+                {(eventForm.inviteMode as InviteMode) === 'full' && (
+                  <div
+                    style={{
+                      marginTop: 10,
+                      padding: 12,
+                      borderRadius: 14,
+                      background: 'rgba(52, 211, 153, 0.08)',
+                      border: '1px solid rgba(52, 211, 153, 0.2)',
+                      color: '#6ee7b7',
+                      fontSize: 12,
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    All band members will be invited.
+                  </div>
+                )}
+
+                {/* Roster mode - dropdown */}
+                {(eventForm.inviteMode as InviteMode) === 'roster' && (
+                  <div style={{ marginTop: 10 }}>
+                    <div className="gc-select-wrapper">
+                      <select
+                        className="gc-select gc-form-input-event"
+                        value={eventForm.selectedRosterId}
+                        onChange={(e) =>
+                          eventForm.setSelectedRosterId(e.target.value)
+                        }
+                        disabled={loadingInviteData}
+                      >
+                        <option value="">
+                          {loadingInviteData
+                            ? 'Loading rosters…'
+                            : 'Select roster…'}
+                        </option>
+                        {availableRosters.map((r) => (
+                          <option key={r.id} value={r.id}>
+                            {r.name}
+                          </option>
+                        ))}
+                      </select>
+                      <IonIcon
+                        icon={chevronForwardOutline}
+                        className="gc-select-chevron"
+                      />
+                    </div>
+
+                    {availableRosters.length === 0 && !loadingInviteData && (
+                      <div
+                        style={{
+                          marginTop: 10,
+                          padding: 12,
+                          borderRadius: 14,
+                          background: 'rgba(251, 191, 36, 0.08)',
+                          border: '1px solid rgba(251, 191, 36, 0.2)',
+                          color: '#fde68a',
+                          fontSize: 12,
+                          lineHeight: 1.5,
+                        }}
+                      >
+                        No saved rosters yet. Create one at your band page.
+                      </div>
+                    )}
+
+                    {eventForm.selectedRosterId && (
+                      <div
+                        style={{
+                          marginTop: 10,
+                          padding: 12,
+                          borderRadius: 14,
+                          background: 'rgba(255,255,255,0.03)',
+                          border: '1px solid rgba(255,255,255,0.06)',
+                          color: '#9ca3af',
+                          fontSize: 12,
+                          lineHeight: 1.5,
+                        }}
+                      >
+                        Members from this roster will be invited.
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Custom mode - checklist */}
+                {(eventForm.inviteMode as InviteMode) === 'custom' && (
+                  <div
+                    style={{
+                      marginTop: 10,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 8,
+                    }}
+                  >
+                    {loadingInviteData ? (
+                      <div style={{ color: '#9ca3af', fontSize: 12 }}>
+                        Loading members…
+                      </div>
+                    ) : bandMembersForInvite.length === 0 ? (
+                      <div style={{ color: '#9ca3af', fontSize: 12 }}>
+                        No members found.
+                      </div>
+                    ) : (
+                      bandMembersForInvite.map((m) => {
+                        const checked = (
+                          eventForm.selectedUserIds ?? []
+                        ).includes(m.user_id);
+
+                        return (
+                          <button
+                            key={m.user_id}
+                            type="button"
+                            onClick={() => {
+                              triggerHaptic();
+                              eventForm.toggleSelectedUser(m.user_id);
+                            }}
+                            style={{
+                              width: '100%',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              gap: 12,
+                              padding: 12,
+                              borderRadius: 14,
+                              background: checked
+                                ? 'rgba(52, 211, 153, 0.12)'
+                                : 'rgba(255,255,255,0.03)',
+                              border: checked
+                                ? '1px solid rgba(52, 211, 153, 0.35)'
+                                : '1px solid rgba(255,255,255,0.08)',
+                              color: '#f9fafb',
+                              textAlign: 'left',
+                            }}
+                          >
+                            <div style={{ minWidth: 0 }}>
+                              <div
+                                style={{
+                                  fontWeight: 800,
+                                  fontSize: 13,
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap',
+                                }}
+                              >
+                                {m.name}
+                              </div>
+                              <div
+                                style={{
+                                  fontSize: 12,
+                                  color: '#9ca3af',
+                                  textTransform: 'capitalize',
+                                }}
+                              >
+                                {m.role}
+                              </div>
+                            </div>
+
+                            <div
+                              style={{
+                                width: 22,
+                                height: 22,
+                                borderRadius: 6,
+                                border: checked
+                                  ? '1px solid rgba(52, 211, 153, 0.5)'
+                                  : '1px solid rgba(255,255,255,0.25)',
+                                background: checked
+                                  ? 'rgba(52, 211, 153, 0.2)'
+                                  : 'transparent',
+                                display: 'grid',
+                                placeItems: 'center',
+                                flexShrink: 0,
+                              }}
+                            >
+                              {checked && (
+                                <IonIcon
+                                  icon={checkmarkOutline}
+                                  style={{ fontSize: 14, color: '#34d399' }}
+                                />
+                              )}
+                            </div>
+                          </button>
+                        );
+                      })
+                    )}
+
+                    {(eventForm.selectedUserIds?.length || 0) > 0 && (
+                      <div
+                        style={{
+                          color: '#6ee7b7',
+                          fontSize: 12,
+                          marginTop: 4,
+                        }}
+                      >
+                        {eventForm.selectedUserIds.length} of{' '}
+                        {bandMembersForInvite.length} selected
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
               {/* Unified Warnings Component */}
               <EventWarnings
                 conflicts={eventForm.conflicts || []}
                 sameDayEvents={eventForm.sameDayEvents || []}
               />
-
               {/* Submit button - changes style when warnings exist */}
               <button
                 className={`gc-submit-btn ${
@@ -1140,7 +1493,8 @@ export default function GlobalCreateMobile({
                   eventForm.checkingConflicts ||
                   !eventForm.bandId ||
                   !eventForm.title.trim() ||
-                  !eventForm.starts
+                  !eventForm.starts ||
+                  missingInviteSelection
                 }
                 style={{
                   marginTop: hasWarnings ? 8 : undefined,
@@ -1159,6 +1513,8 @@ export default function GlobalCreateMobile({
                   ? `Create anyway · ${totalWarnings} warning${
                       totalWarnings > 1 ? 's' : ''
                     }`
+                  : missingInviteSelection
+                  ? 'Select invitees to continue'
                   : 'Create Event'}
               </button>
             </div>
@@ -1215,6 +1571,7 @@ export default function GlobalCreateMobile({
                         : 'gc-toggle-btn-inactive'
                     }`}
                     onClick={() => songForm.setOrigin('original')}
+                    type="button"
                   >
                     Original
                   </button>
@@ -1225,6 +1582,7 @@ export default function GlobalCreateMobile({
                         : 'gc-toggle-btn-inactive'
                     }`}
                     onClick={() => songForm.setOrigin('cover')}
+                    type="button"
                   >
                     Cover
                   </button>

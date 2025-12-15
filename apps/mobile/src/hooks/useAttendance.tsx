@@ -23,10 +23,13 @@ export function useAttendance(eventId: string) {
   const [savingSub, setSavingSub] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [hydrated, setHydrated] = useState(false); // 👈 NEW
+  const [hydrated, setHydrated] = useState(false);
 
   const normalize = (s: AttStatus | null | undefined): RawAtt =>
     s === 'accepted' ? 'accepted' : 'pending';
+
+  // IMPORTANT: bump cache key so old event_attendance cache never gets reused
+  const cacheEventKey = `v2:${eventId}`;
 
   const load = useCallback(async () => {
     setError(null);
@@ -43,12 +46,12 @@ export function useAttendance(eventId: string) {
       setCounts({ accepted: 0, total: 0 });
       setNeedsSub(false);
       setSubReason('');
-      setHydrated(true); // 👈 even "no user" is now a known state
+      setHydrated(true);
       return;
     }
 
-    // 1) Try cache first
-    const cached = getAttendanceCache(eventId, user.id);
+    // 1) Cache first
+    const cached = getAttendanceCache(cacheEventKey, user.id);
     if (cached) {
       setMine(cached.mine);
       setCounts(cached.counts);
@@ -58,50 +61,51 @@ export function useAttendance(eventId: string) {
       return;
     }
 
-    // 2) Fallback to DB if no valid cache
-    const { data: me, error: meErr } = await supabase
-      .from('event_attendance')
-      .select('status, needs_sub, sub_reason')
-      .eq('event_id', eventId)
-      .eq('user_id', user.id)
-      .maybeSingle();
-
-    let nextMine: RawAtt = 'pending';
-    let nextNeedsSub = false;
-    let nextSubReason = '';
-
-    if (!meErr) {
-      nextMine = normalize(me?.status as AttStatus);
-      nextNeedsSub = !!me?.needs_sub;
-      nextSubReason = me?.sub_reason ?? '';
-      setMine(nextMine);
-      setNeedsSub(nextNeedsSub);
-      setSubReason(nextSubReason);
-    } else {
-      setError(meErr.message);
-    }
-
-    const { data: all, error: cErr } = await supabase
-      .from('event_attendance')
-      .select('status')
+    // 2) DB: read event roster from event_members (source of truth)
+    // Assumes event_members has:
+    // - event_id (uuid)
+    // - user_id (uuid)
+    // - status (text/enum) default 'pending'
+    // - needs_sub (boolean) default false  (optional but recommended)
+    // - sub_reason (text) default ''       (optional but recommended)
+    const { data: all, error: allErr } = await supabase
+      .from('event_members')
+      .select('user_id,status,needs_sub,sub_reason')
       .eq('event_id', eventId);
 
-    let nextCounts = { accepted: 0, total: 0 };
-
-    if (!cErr) {
-      const total = all?.length ?? 0;
-      const accepted = (all || []).filter(
-        (r) => r.status === 'accepted'
-      ).length;
-
-      nextCounts = { accepted, total };
-      setCounts(nextCounts);
-    } else {
-      setError(cErr.message);
+    if (allErr) {
+      setError(allErr.message);
+      setMine('pending');
+      setCounts({ accepted: 0, total: 0 });
+      setNeedsSub(false);
+      setSubReason('');
+      setHydrated(true);
+      return;
     }
 
-    // 3) Write fresh values to cache
-    setAttendanceCache(eventId, user.id, {
+    const list = (all ?? []) as any[];
+
+    const myRow = list.find((r) => r.user_id === user.id);
+
+    const nextMine: RawAtt = normalize(myRow?.status as AttStatus);
+    const nextNeedsSub = !!myRow?.needs_sub;
+    const nextSubReason = myRow?.sub_reason ?? '';
+
+    // Count accepted as those accepted AND not requesting sub
+    const total = list.length;
+    const accepted = list.filter(
+      (r) => r.status === 'accepted' && !r.needs_sub
+    ).length;
+
+    const nextCounts = { accepted, total };
+
+    setMine(nextMine);
+    setNeedsSub(nextNeedsSub);
+    setSubReason(nextSubReason);
+    setCounts(nextCounts);
+
+    // 3) Cache fresh values
+    setAttendanceCache(cacheEventKey, user.id, {
       mine: nextMine,
       counts: nextCounts,
       needsSub: nextNeedsSub,
@@ -109,25 +113,25 @@ export function useAttendance(eventId: string) {
     });
 
     setHydrated(true);
-  }, [eventId]);
+  }, [eventId, cacheEventKey]);
 
   useEffect(() => {
     let active = true;
 
     if (active) void load();
 
+    // Realtime: listen to event_members now (not event_attendance)
     const ch = supabase
-      .channel(`event:${eventId}:attendance`)
+      .channel(`event:${eventId}:attendance:v2`)
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
-          table: 'event_attendance',
+          table: 'event_members',
           filter: `event_id=eq.${eventId}`,
         },
         () => {
-          // DB changed → re-pull & refresh cache
           void load();
         }
       )
@@ -144,7 +148,6 @@ export function useAttendance(eventId: string) {
       const next = normalize(nextInput);
 
       const resetSub = next === 'accepted';
-
       if (next === mine && !resetSub) return;
 
       setSaving(true);
@@ -180,14 +183,14 @@ export function useAttendance(eventId: string) {
         if (authErr) throw authErr;
         if (!user) throw new Error('Not authenticated.');
 
-        const { error: upErr } = await supabase.from('event_attendance').upsert(
+        // Upsert into event_members (new source of truth)
+        const { error: upErr } = await supabase.from('event_members').upsert(
           {
             event_id: eventId,
             user_id: user.id,
             status: next,
             needs_sub: resetSub ? false : prevNeedsSub,
-            sub_reason: resetSub ? null : prevSubReason,
-            responded_at: new Date().toISOString(),
+            sub_reason: resetSub ? '' : prevSubReason,
           },
           { onConflict: 'event_id,user_id' }
         );
@@ -195,7 +198,7 @@ export function useAttendance(eventId: string) {
         if (upErr) throw upErr;
 
         // Sync cache with optimistic state
-        setAttendanceCache(eventId, user.id, {
+        setAttendanceCache(cacheEventKey, user.id, {
           mine: optimisticMine,
           counts: optimisticCounts,
           needsSub: optimisticNeedsSub,
@@ -215,7 +218,7 @@ export function useAttendance(eventId: string) {
         setSaving(false);
       }
     },
-    [eventId, mine, needsSub, subReason, counts]
+    [eventId, mine, needsSub, subReason, counts, cacheEventKey]
   );
 
   const updateSubRequest = useCallback(
@@ -231,6 +234,7 @@ export function useAttendance(eventId: string) {
       let nextMine = mine;
       let nextCounts = counts;
 
+      // If requesting a sub while accepted -> treat as not fully confirmed
       if (nextNeedsSub && mine === 'accepted') {
         nextMine = 'pending';
         nextCounts = {
@@ -251,15 +255,14 @@ export function useAttendance(eventId: string) {
         if (!user) throw new Error('Not authenticated.');
 
         const { error: upsertErr } = await supabase
-          .from('event_attendance')
+          .from('event_members')
           .upsert(
             {
               event_id: eventId,
               user_id: user.id,
               status: nextMine,
               needs_sub: nextNeedsSub,
-              sub_reason: reason || null,
-              responded_at: new Date().toISOString(),
+              sub_reason: nextNeedsSub ? reason || '' : '',
             },
             { onConflict: 'event_id,user_id' }
           );
@@ -267,11 +270,11 @@ export function useAttendance(eventId: string) {
         if (upsertErr) throw upsertErr;
 
         // Sync cache with optimistic sub state
-        setAttendanceCache(eventId, user.id, {
+        setAttendanceCache(cacheEventKey, user.id, {
           mine: nextMine,
           counts: nextCounts,
           needsSub: nextNeedsSub,
-          subReason: reason || '',
+          subReason: nextNeedsSub ? reason || '' : '',
         });
       } catch (e: any) {
         setNeedsSub(prevNeeds);
@@ -287,7 +290,7 @@ export function useAttendance(eventId: string) {
         setSavingSub(false);
       }
     },
-    [eventId, mine, needsSub, subReason, counts]
+    [eventId, mine, needsSub, subReason, counts, cacheEventKey]
   );
 
   return {

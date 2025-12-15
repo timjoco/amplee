@@ -263,7 +263,23 @@ export default function EventFilesPageMobile() {
                 style={{ color: '#F9FAFB', fontSize: 24 }}
               />
             </button>
-
+            <div
+              style={{
+                width: 28,
+                height: 28,
+                borderRadius: 9,
+                background:
+                  'linear-gradient(135deg, rgba(52, 211, 153, 0.2), rgba(52, 211, 153, 0.1))',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <IonIcon
+                icon={folderOpenOutline}
+                style={{ fontSize: 16, color: '#34D399' }}
+              />
+            </div>
             <IonText style={{ flex: 1 }}>
               <h2
                 style={{
