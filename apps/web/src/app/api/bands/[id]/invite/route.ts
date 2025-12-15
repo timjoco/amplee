@@ -9,20 +9,41 @@ export const dynamic = 'force-dynamic';
 // Your API host
 const PROD_ORIGIN = 'https://amplee.app';
 
-// Origins allowed to call this endpoint from a browser
-const ALLOWED_ORIGINS = [
-  PROD_ORIGIN,
-  'http://localhost:5173',
-  'capacitor://localhost', // iOS Capacitor
-  'http://localhost', // Android WebView
-];
+function isAllowedOrigin(origin: string) {
+  if (!origin) return false;
+
+  // Prod site (also what you'll usually see in web)
+  if (origin === PROD_ORIGIN) return true;
+
+  // Capacitor (iOS)
+  if (origin === 'capacitor://localhost') return true;
+
+  // Android WebView often uses https://localhost
+  if (origin === 'https://localhost') return true;
+
+  // Local dev (localhost)
+  if (/^https?:\/\/localhost(:\d+)?$/.test(origin)) return true;
+
+  // Local dev over LAN (Vite --host gives you something like http://192.168.x.x:5173)
+  if (/^https?:\/\/192\.168\.\d+\.\d+(:\d+)?$/.test(origin)) return true;
+  if (/^https?:\/\/10\.\d+\.\d+\.\d+(:\d+)?$/.test(origin)) return true;
+  if (/^https?:\/\/172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+(:\d+)?$/.test(origin))
+    return true;
+
+  return false;
+}
+
+function getCorsOrigin(req: NextRequest) {
+  const origin = req.headers.get('origin') || '';
+  return isAllowedOrigin(origin) ? origin : PROD_ORIGIN;
+}
+
 function createCorsResponse(
   req: NextRequest,
   body: any,
   options: { status: number }
 ) {
-  const origin = req.headers.get('origin') || '';
-  const allowedOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : PROD_ORIGIN;
+  const allowedOrigin = getCorsOrigin(req);
 
   return NextResponse.json(body, {
     status: options.status,
@@ -31,13 +52,14 @@ function createCorsResponse(
       'Access-Control-Allow-Headers': 'Content-Type, Authorization',
       'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
       'Access-Control-Max-Age': '86400',
+      // Helps avoid weird caching issues across origins
+      Vary: 'Origin',
     },
   });
 }
 
 export function OPTIONS(req: NextRequest) {
-  const origin = req.headers.get('origin') || '';
-  const allowedOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : PROD_ORIGIN;
+  const allowedOrigin = getCorsOrigin(req);
 
   return new NextResponse(null, {
     status: 204,
@@ -46,6 +68,7 @@ export function OPTIONS(req: NextRequest) {
       'Access-Control-Allow-Headers': 'Content-Type, Authorization',
       'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
       'Access-Control-Max-Age': '86400',
+      Vary: 'Origin',
     },
   });
 }
