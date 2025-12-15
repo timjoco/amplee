@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -160,9 +158,7 @@ export async function POST(req: NextRequest, ctx: { params: any }) {
     }
 
     const site = baseUrl.startsWith('http') ? baseUrl : `https://${baseUrl}`;
-    const acceptUrl = `${site}/auth/callback?invite=${encodeURIComponent(
-      token
-    )}`;
+    const acceptUrl = `${site}/invite/${encodeURIComponent(token)}`;
 
     const supabaseAdmin = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
