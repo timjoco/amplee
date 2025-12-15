@@ -116,6 +116,7 @@ export default function MobileBottomNav() {
     pathname.startsWith('/login') ||
     pathname.startsWith('/verify-email') ||
     pathname.startsWith('/auth/') ||
+    pathname === '/invite' ||
     pathname.startsWith('/invite/') ||
     pathname.startsWith('/profile') ||
     pathname.startsWith('/profile/basics') ||
@@ -126,6 +127,7 @@ export default function MobileBottomNav() {
     /^\/bands\/[^/]+\/events\/[^/]+\/settings\/?$/.test(pathname) ||
     /^\/event\/[^/]+\/?$/.test(pathname) ||
     /^\/bands\/[^/]+\/settings\/?$/i.test(pathname) ||
+    /^\/bands\/[^/]+\/invite\/?$/i.test(pathname) ||
     /^\/bands\/[^/]+\/public\/?$/i.test(pathname) ||
     /^\/bands\/[^/]+\/proposals\/[^/]+$/.test(pathname) ||
     /^\/bands\/[^/]+\/songs\/?$/.test(pathname) ||

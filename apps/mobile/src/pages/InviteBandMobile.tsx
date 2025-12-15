@@ -24,8 +24,22 @@ import {
   refreshOutline,
 } from 'ionicons/icons';
 import React from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
+
+type RouteParams = { bandId?: string };
+
+function useBandId(): string | null {
+  const { bandId: bandIdParam } = useParams<RouteParams>();
+  const { search } = useLocation();
+
+  return React.useMemo(() => {
+    if (bandIdParam) return bandIdParam;
+    const params = new URLSearchParams(search);
+    return params.get('band');
+  }, [bandIdParam, search]);
+}
 
 function useQueryParam(name: string): string | null {
   const { search } = useLocation();
@@ -39,7 +53,6 @@ function useQueryParam(name: string): string | null {
 type InviteMode = 'email' | 'sms';
 
 export default function InviteBandMobile() {
-  const bandId = useQueryParam('band');
   const nav = useNavigate();
 
   const [loading, setLoading] = React.useState(true);
@@ -57,6 +70,8 @@ export default function InviteBandMobile() {
   const [generatingLink, setGeneratingLink] = React.useState(false);
   const [copied, setCopied] = React.useState(false);
   const [showSentToast, setShowSentToast] = React.useState(false);
+
+  const bandId = useBandId();
 
   // ---------- LOAD BAND + ROLE ----------
   React.useEffect(() => {

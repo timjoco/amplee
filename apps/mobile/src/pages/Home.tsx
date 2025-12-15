@@ -135,11 +135,7 @@ export default function Home() {
                 fontSize: 20,
                 fontWeight: 800,
                 letterSpacing: '-0.02em',
-                background:
-                  'linear-gradient(135deg, #c084fc 0%, #9333ea 50%, #7c3aed 100%)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                backgroundClip: 'text',
+                color: '#fff',
               }}
             >
               amplee

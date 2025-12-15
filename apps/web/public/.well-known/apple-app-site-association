@@ -1,0 +1,13 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "Y5DJD4HR5Y.com.timoconnor.amplee.dev",
+        "paths": [
+          "/invite/*"
+        ]
+      }
+    ]
+  }
+}
