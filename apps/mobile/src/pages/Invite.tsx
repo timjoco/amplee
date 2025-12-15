@@ -138,11 +138,12 @@ export default function Invite() {
       const { data, error } = await supabase.auth.getSession();
       if (error) throw error;
 
+      // Not logged in - redirect to login with next param
       if (!data.session) {
-        navigate(`/login?redirect=${encodeURIComponent(`/invite/${token}`)}`, {
+        setAccepting(false);
+        navigate(`/login?next=${encodeURIComponent(`/invite/${token}`)}`, {
           replace: true,
         });
-        setAccepting(false);
         return;
       }
 
@@ -170,11 +171,10 @@ export default function Invite() {
         const text = await resp.text();
 
         if (resp.status === 401 || resp.status === 403) {
-          navigate(
-            `/login?redirect=${encodeURIComponent(`/invite/${token}`)}`,
-            { replace: true }
-          );
           setAccepting(false);
+          navigate(`/login?next=${encodeURIComponent(`/invite/${token}`)}`, {
+            replace: true,
+          });
           return;
         }
 
@@ -194,10 +194,10 @@ export default function Invite() {
       const { data: userRes } = await supabase.auth.getUser();
       const user = userRes?.user;
       if (!user) {
-        navigate(`/login?redirect=${encodeURIComponent(`/invite/${token}`)}`, {
+        setAccepting(false);
+        navigate(`/login?next=${encodeURIComponent(`/invite/${token}`)}`, {
           replace: true,
         });
-        setAccepting(false);
         return;
       }
 
@@ -221,7 +221,6 @@ export default function Invite() {
     } catch (e: any) {
       console.error('[InviteMobile] onContinue error', e);
       setErr(e?.message || 'Failed to accept invite.');
-    } finally {
       setAccepting(false);
     }
   };
@@ -270,7 +269,7 @@ export default function Invite() {
         >
           <IonButton
             fill="clear"
-            onClick={() => navigate('/', { replace: true })}
+            onClick={() => navigate('/home', { replace: true })}
             style={{
               '--color': 'rgba(156,163,175,0.9)',
               '--padding-start': '8px',
@@ -523,7 +522,7 @@ export default function Invite() {
 
                   <IonButton
                     fill="outline"
-                    onClick={() => navigate('/login', { replace: true })}
+                    onClick={() => navigate('/home', { replace: true })}
                     style={{
                       '--border-color': 'rgba(255,255,255,0.12)',
                       '--color': 'rgba(156,163,175,0.9)',
@@ -531,7 +530,7 @@ export default function Invite() {
                       marginTop: 8,
                     }}
                   >
-                    Go to Login
+                    Go to Home
                   </IonButton>
                 </div>
               ) : (
