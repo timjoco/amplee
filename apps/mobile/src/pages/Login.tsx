@@ -27,6 +27,15 @@ interface Orb {
   color: string;
 }
 
+function safeNext(raw: string | null | undefined) {
+  // Only allow in-app relative paths
+  if (!raw) return '/home';
+  const v = raw.trim();
+  if (!v.startsWith('/')) return '/home';
+  if (v.startsWith('//')) return '/home';
+  return v;
+}
+
 export default function Login() {
   const [email, setEmail] = useState(() => {
     if (typeof window === 'undefined') return '';
@@ -36,17 +45,18 @@ export default function Login() {
       return '';
     }
   });
+
   const [code, setCode] = useState('');
   const [status, setStatus] = useState<Status>(() => {
     if (typeof window === 'undefined') return 'idle';
     try {
-      // If we previously sent a code, restore that state
       const savedStatus = localStorage.getItem('amplee:login-status');
       return savedStatus === 'sent' ? 'sent' : 'idle';
     } catch {
       return 'idle';
     }
   });
+
   const [message, setMessage] = useState('');
   const [emailError, setEmailError] = useState('');
   const [codeError, setCodeError] = useState('');
@@ -56,32 +66,27 @@ export default function Login() {
   const nav = useNavigate();
   const { search } = useLocation();
   const qs = useMemo(() => new URLSearchParams(search), [search]);
-  const invite = qs.get('invite');
-  const next = qs.get('next') ?? '/home';
 
+  // Invite param is optional; next is the path we should return to.
+  const invite = qs.get('invite');
+  const next = useMemo(() => safeNext(qs.get('next') ?? '/home'), [qs]);
+
+  // Persist email
   useEffect(() => {
     try {
-      if (email.trim()) {
-        localStorage.setItem('amplee:login-email', email);
-      } else {
-        localStorage.removeItem('amplee:login-email');
-      }
-    } catch {
-      // ignore storage issues
-    }
+      if (email.trim()) localStorage.setItem('amplee:login-email', email);
+      else localStorage.removeItem('amplee:login-email');
+    } catch {}
   }, [email]);
 
-  // Persist status to localStorage when it changes to 'sent'
+  // Persist "sent" state
   useEffect(() => {
     try {
-      if (status === 'sent') {
+      if (status === 'sent')
         localStorage.setItem('amplee:login-status', 'sent');
-      } else if (status === 'idle') {
+      else if (status === 'idle')
         localStorage.removeItem('amplee:login-status');
-      }
-    } catch {
-      // ignore storage issues
-    }
+    } catch {}
   }, [status]);
 
   // Generate cosmic orbs
@@ -108,12 +113,10 @@ export default function Login() {
 
   const validateEmail = useCallback((val: string) => {
     const trimmed = val.trim();
-
     if (!trimmed) {
       setEmailError('');
       return false;
     }
-
     const ok = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed);
     setEmailError(ok ? '' : 'Enter a valid email address');
     return ok;
@@ -121,16 +124,22 @@ export default function Login() {
 
   const validateCode = useCallback((val: string) => {
     const trimmed = val.trim();
-
     if (!trimmed) {
       setCodeError('');
       return false;
     }
-
     const ok = /^\d{6}$/.test(trimmed);
     setCodeError(ok ? '' : 'Enter the 6-digit code');
     return ok;
   }, []);
+
+  const buildRedirectTo = useCallback(() => {
+    // Keep next + invite in the callback URL so deep link callback can route correctly
+    const url = new URL(`${origin}/auth/callback`);
+    url.searchParams.set('next', next);
+    if (invite) url.searchParams.set('invite', invite);
+    return url.toString();
+  }, [origin, next, invite]);
 
   const onSubmitEmail = useCallback(
     async (e: React.FormEvent<HTMLFormElement>) => {
@@ -140,9 +149,8 @@ export default function Login() {
 
       setStatus('sending');
       try {
-        const redirectTo = `${origin}/auth/callback${
-          invite ? `?invite=${encodeURIComponent(invite)}` : ''
-        }`;
+        const redirectTo = buildRedirectTo();
+
         const { error } = await supabase.auth.signInWithOtp({
           email: email.trim(),
           options: { emailRedirectTo: redirectTo },
@@ -158,7 +166,7 @@ export default function Login() {
         );
       }
     },
-    [email, invite, origin, validateEmail]
+    [email, validateEmail, buildRedirectTo]
   );
 
   const onVerifyCode = useCallback(
@@ -177,7 +185,7 @@ export default function Login() {
         });
         if (error) throw error;
 
-        // 2) Fetch the user
+        // 2) Fetch user
         const {
           data: { user },
           error: userErr,
@@ -185,7 +193,7 @@ export default function Login() {
         if (userErr) throw userErr;
         if (!user) throw new Error('No user after verifying code');
 
-        // 3) Ensure there is a profile row (like web's ensure_profile)
+        // 3) Ensure profile row exists (optional RPC)
         try {
           const { error: rpcErr } = await supabase.rpc('ensure_profile');
           if (rpcErr && rpcErr.code !== '42883') {
@@ -195,31 +203,22 @@ export default function Login() {
           console.warn('[ensure_profile] call failed:', rpcErr);
         }
 
-        // 4) Check onboarding status
+        // 4) Onboarding status
         const { data: profile, error: pErr } = await supabase
           .from('profiles')
           .select('onboarded')
           .eq('id', user.id)
           .maybeSingle();
 
-        if (pErr) {
-          console.warn('[onboarding check error]', pErr);
-        }
+        if (pErr) console.warn('[onboarding check error]', pErr);
 
-        // Clear login state from localStorage on successful verification
+        // Clear login state
         try {
           localStorage.removeItem('amplee:login-email');
           localStorage.removeItem('amplee:login-status');
-        } catch {
-          // ignore
-        }
+        } catch {}
 
-        // Where the user *eventually* wants to go
-        const baseDest = invite
-          ? `${next}?invite=${encodeURIComponent(invite)}`
-          : next;
-
-        // If not onboarded, send to onboarding first
+        const baseDest = next; // already safeNext()
         const finalDest =
           profile?.onboarded === true
             ? baseDest
@@ -231,7 +230,7 @@ export default function Login() {
         setMessage(getErrorMessage(err) || 'Invalid or expired code.');
       }
     },
-    [email, code, invite, next, nav, validateEmail, validateCode]
+    [email, code, next, nav, validateEmail, validateCode]
   );
 
   const resend = useCallback(async () => {
@@ -239,18 +238,22 @@ export default function Login() {
     try {
       setStatus('sending');
       setMessage('');
+
+      const redirectTo = buildRedirectTo();
+
       const { error } = await supabase.auth.signInWithOtp({
         email: email.trim(),
-        options: { emailRedirectTo: `${origin}/auth/callback` },
+        options: { emailRedirectTo: redirectTo },
       });
       if (error) throw error;
+
       setStatus('sent');
       setMessage('Code resent. Check your email.');
     } catch (err) {
       setStatus('error');
       setMessage(getErrorMessage(err) || 'Could not resend code.');
     }
-  }, [email, origin, validateEmail]);
+  }, [email, validateEmail, buildRedirectTo]);
 
   const changeEmail = useCallback(() => {
     setStatus('idle');
@@ -275,6 +278,28 @@ export default function Login() {
           overflow: 'hidden',
         }}
       >
+        {/* Cosmic Orbs */}
+        {orbs.map((orb) => (
+          <div
+            key={orb.id}
+            style={{
+              position: 'absolute',
+              width: orb.size,
+              height: orb.size,
+              left: `${orb.x}%`,
+              top: `${orb.y}%`,
+              transform: 'translate(-50%, -50%)',
+              borderRadius: '50%',
+              background: orb.color,
+              filter: 'blur(30px)',
+              opacity: orb.opacity,
+              animation: `ampFloat ${orb.duration}s ease-in-out infinite`,
+              animationDelay: `${orb.delay}s`,
+              zIndex: 0,
+            }}
+          />
+        ))}
+
         {/* Main Content Container */}
         <div
           style={{
@@ -290,7 +315,7 @@ export default function Login() {
             paddingBottom: 40,
           }}
         >
-          {/* Logo - Discord Style */}
+          {/* Logo */}
           <div
             className="amp-fade-in"
             style={{
@@ -312,13 +337,6 @@ export default function Login() {
                 background: 'rgba(137, 35, 232, 0.15)',
                 backdropFilter: 'blur(20px)',
                 border: '2px solid rgba(147, 51, 234, 0.3)',
-                transition: 'transform 0.3s ease',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'scale(1.05)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'scale(1)';
               }}
             >
               <img
@@ -388,7 +406,6 @@ export default function Login() {
               opacity: 0,
             }}
           >
-            {/* Status Message */}
             {!!message && (
               <div
                 role="status"
@@ -415,7 +432,7 @@ export default function Login() {
               </div>
             )}
 
-            {/* Step 1: Email Input */}
+            {/* Step 1 */}
             {!showCodeStep && (
               <form noValidate onSubmit={onSubmitEmail}>
                 <div style={{ marginBottom: 16 }}>
@@ -440,11 +457,7 @@ export default function Login() {
                         placeholder="you@band.com"
                         value={email}
                         onIonChange={(e) => setEmail(e.detail.value || '')}
-                        onIonBlur={() => {
-                          if (email.trim()) {
-                            validateEmail(email);
-                          }
-                        }}
+                        onIonBlur={() => email.trim() && validateEmail(email)}
                         required
                         style={{
                           '--color': '#fff',
@@ -488,30 +501,12 @@ export default function Login() {
                     marginTop: 8,
                   }}
                 >
-                  {isSending ? (
-                    <span
-                      style={{ display: 'flex', alignItems: 'center', gap: 8 }}
-                    >
-                      <span
-                        style={{
-                          width: 16,
-                          height: 16,
-                          border: '2px solid rgba(255,255,255,0.3)',
-                          borderTopColor: '#fff',
-                          borderRadius: '50%',
-                          animation: 'ampSpin 0.8s linear infinite',
-                        }}
-                      />
-                      Sending...
-                    </span>
-                  ) : (
-                    'Continue with Email'
-                  )}
+                  {isSending ? 'Sending...' : 'Continue with Email'}
                 </IonButton>
               </form>
             )}
 
-            {/* Step 2: Code Verification */}
+            {/* Step 2 */}
             {showCodeStep && (
               <form noValidate onSubmit={onVerifyCode}>
                 <div style={{ marginBottom: 20 }}>
@@ -554,7 +549,6 @@ export default function Login() {
                         type="tel"
                         inputMode="numeric"
                         pattern="[0-9]*"
-                        labelPlacement="stacked"
                         placeholder="000000"
                         maxlength={6}
                         value={code}
@@ -566,17 +560,11 @@ export default function Login() {
                           if (status === 'error') setMessage('');
                           if (v.length === 6) setCodeError('');
                         }}
-                        onIonBlur={() => {
-                          if (code.trim()) {
-                            validateCode(code);
-                          }
-                        }}
+                        onIonBlur={() => code.trim() && validateCode(code)}
                         required
                         style={{
                           '--color': '#fff',
                           '--placeholder-color': 'rgba(255, 255, 255, 0.3)',
-                          '--padding-start': '0px',
-                          '--padding-end': '0px',
                           fontSize: 22,
                           fontWeight: 700,
                           letterSpacing: '0.35em',
@@ -620,25 +608,7 @@ export default function Login() {
                     textTransform: 'none',
                   }}
                 >
-                  {isVerifying ? (
-                    <span
-                      style={{ display: 'flex', alignItems: 'center', gap: 8 }}
-                    >
-                      <span
-                        style={{
-                          width: 16,
-                          height: 16,
-                          border: '2px solid rgba(255,255,255,0.3)',
-                          borderTopColor: '#fff',
-                          borderRadius: '50%',
-                          animation: 'ampSpin 0.8s linear infinite',
-                        }}
-                      />
-                      Verifying...
-                    </span>
-                  ) : (
-                    'Verify & Continue'
-                  )}
+                  {isVerifying ? 'Verifying...' : 'Verify & Continue'}
                 </IonButton>
 
                 <div
@@ -655,7 +625,6 @@ export default function Login() {
                     onClick={changeEmail}
                     style={{
                       '--color': 'rgba(255, 255, 255, 0.6)',
-                      '--color-hover': '#fff',
                       fontSize: 14,
                       fontWeight: 600,
                       textTransform: 'none',
@@ -674,7 +643,6 @@ export default function Login() {
                     onClick={resend}
                     style={{
                       '--color': '#a78bfa',
-                      '--color-hover': '#c084fc',
                       fontSize: 14,
                       fontWeight: 600,
                       textTransform: 'none',
@@ -691,85 +659,28 @@ export default function Login() {
 
         <style>{`
           @keyframes ampFloat {
-            0%, 100% {
-              transform: translate(0, 0) scale(1);
-            }
-            25% {
-              transform: translate(40px, -40px) scale(1.1);
-            }
-            50% {
-              transform: translate(-30px, 30px) scale(0.9);
-            }
-            75% {
-              transform: translate(50px, 15px) scale(1.05);
-            }
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            25% { transform: translate(40px, -40px) scale(1.1); }
+            50% { transform: translate(-30px, 30px) scale(0.9); }
+            75% { transform: translate(50px, 15px) scale(1.05); }
           }
-
-          @keyframes ampTwinkle {
-            0%, 100% {
-              opacity: 0.3;
-            }
-            50% {
-              opacity: 1;
-            }
-          }
-
           @keyframes ampScaleIn {
-            from {
-              opacity: 0;
-              transform: scale(0.85);
-            }
-            to {
-              opacity: 1;
-              transform: scale(1);
-            }
+            from { opacity: 0; transform: scale(0.85); }
+            to { opacity: 1; transform: scale(1); }
           }
-
-          @keyframes ampFadeIn {
-            from {
-              opacity: 0;
-            }
-            to {
-              opacity: 1;
-            }
-          }
-
           @keyframes ampFadeInUp {
-            from {
-              opacity: 0;
-              transform: translateY(30px);
-            }
-            to {
-              opacity: 1;
-              transform: translateY(0);
-            }
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
           }
-
           @keyframes ampSlideIn {
-            from {
-              opacity: 0;
-              transform: translateY(-10px);
-            }
-            to {
-              opacity: 1;
-              transform: translateY(0);
-            }
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
           }
-
-          @keyframes ampSpin {
-            to {
-              transform: rotate(360deg);
-            }
-          }
-
           ion-input {
             --padding-start: 16px !important;
             --padding-end: 16px !important;
           }
-
-          .amp-btn:active {
-            transform: scale(0.98);
-          }
+          .amp-btn:active { transform: scale(0.98); }
         `}</style>
       </IonContent>
     </IonPage>

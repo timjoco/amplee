@@ -8,14 +8,25 @@ import {
 } from '@ionic/react';
 import * as React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { getApiBase, getErrorMessage } from '../lib/appEnv';
+import { getApiBase, getAppOrigin, getErrorMessage } from '../lib/appEnv';
 import { supabase } from '../lib/supabase';
+
+function safeNext(raw: string | null | undefined) {
+  if (!raw) return '/home';
+  const v = raw.trim();
+  if (!v.startsWith('/')) return '/home';
+  if (v.startsWith('//')) return '/home';
+  return v;
+}
 
 export default function AuthCallback() {
   const nav = useNavigate();
   const { search } = useLocation();
   const qs = React.useMemo(() => new URLSearchParams(search), [search]);
+
   const invite = qs.get('invite') ?? undefined;
+  const next = React.useMemo(() => safeNext(qs.get('next') ?? '/home'), [qs]);
+
   const [error, setError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
@@ -23,6 +34,7 @@ export default function AuthCallback() {
 
     const run = async () => {
       const api = getApiBase();
+      const origin = getAppOrigin();
 
       // 1) get (or wait for) session
       const { data: sessionData, error: sessionErr } =
@@ -33,7 +45,7 @@ export default function AuthCallback() {
       }
       const session = sessionData?.session ?? null;
 
-      // 2) preview invite, fetch invited email
+      // 2) preview invite, fetch invited email (if invite present)
       let inviteEmail: string | undefined;
       if (invite) {
         try {
@@ -44,6 +56,7 @@ export default function AuthCallback() {
           const payload = ct.includes('application/json')
             ? await res.json()
             : await res.text();
+
           if (!res.ok) {
             const msg =
               typeof payload === 'string'
@@ -53,40 +66,51 @@ export default function AuthCallback() {
             if (mounted) setError(msg);
             return;
           }
-          inviteEmail = (payload?.invite?.email || '').toLowerCase();
+
+          // payload shape: your normalizeInvite supports either {invite:{...}} or direct
+          const email = (payload?.invite?.email ??
+            payload?.email ??
+            '') as string;
+          inviteEmail = email.toLowerCase();
         } catch (e) {
           if (mounted) setError(getErrorMessage(e));
           return;
         }
       }
 
-      // 3) if invite but no session, bounce to login prefilled then back here
+      // Helper: build a callback URL that preserves BOTH invite + next
+      const callbackUrl = (() => {
+        const u = new URL(`${origin}/auth/callback`);
+        if (invite) u.searchParams.set('invite', invite);
+        if (next) u.searchParams.set('next', next);
+        return `${u.pathname}${u.search}`; // in-app relative path for react-router
+      })();
+
+      // 3) if invite but no session, bounce to login (prefill email optional) then back here
       if (invite && !session) {
-        nav(
-          `/login?email=${encodeURIComponent(
-            inviteEmail || ''
-          )}&next=${encodeURIComponent(`/auth/callback?invite=${invite}`)}`,
-          { replace: true }
-        );
+        const loginQs = new URLSearchParams();
+        if (inviteEmail) loginQs.set('email', inviteEmail);
+        loginQs.set('next', callbackUrl);
+        nav(`/login?${loginQs.toString()}`, { replace: true });
         return;
       }
 
       // 4) if logged in mismatch email, sign out and force correct login
       if (invite && session) {
-        const userEmail = session.user?.email?.toLowerCase?.() || '';
+        const userEmail = (session.user?.email ?? '').toLowerCase();
         if (inviteEmail && userEmail && inviteEmail !== userEmail) {
           await supabase.auth.signOut();
-          nav(
-            `/login?email=${encodeURIComponent(
-              inviteEmail
-            )}&next=${encodeURIComponent(`/auth/callback?invite=${invite}`)}`,
-            { replace: true }
-          );
+
+          const loginQs = new URLSearchParams();
+          if (inviteEmail) loginQs.set('email', inviteEmail);
+          loginQs.set('next', callbackUrl);
+          nav(`/login?${loginQs.toString()}`, { replace: true });
           return;
         }
       }
 
-      // 5) accept invite
+      // 5) accept invite (and capture bandId if returned)
+      let acceptedBandId: string | undefined;
       if (invite && session) {
         try {
           const acceptRes = await fetch(
@@ -100,6 +124,7 @@ export default function AuthCallback() {
           const payload = ct.includes('application/json')
             ? await acceptRes.json()
             : await acceptRes.text();
+
           if (!acceptRes.ok) {
             const msg =
               typeof payload === 'string'
@@ -108,6 +133,11 @@ export default function AuthCallback() {
                   `${acceptRes.status} ${acceptRes.statusText}`;
             throw new Error(msg);
           }
+
+          // support { bandId } or { band_id }
+          acceptedBandId = (payload?.bandId ?? payload?.band_id) as
+            | string
+            | undefined;
         } catch (e) {
           if (mounted)
             setError(getErrorMessage(e) || 'Invite acceptance failed');
@@ -115,29 +145,64 @@ export default function AuthCallback() {
         }
       }
 
-      // 6) route by onboarded
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData?.user) {
-        nav('/login', { replace: true });
+      // 6) ensure we have a user
+      const { data: userData, error: userErr } = await supabase.auth.getUser();
+      if (userErr) {
+        if (mounted) setError(userErr.message);
+        return;
+      }
+      const user = userData?.user;
+      if (!user) {
+        // no user -> go login, preserving next
+        const loginQs = new URLSearchParams();
+        loginQs.set('next', next);
+        nav(`/login?${loginQs.toString()}`, { replace: true });
         return;
       }
 
-      const { data: profile } = await supabase
+      // Optional: ensure profile exists
+      try {
+        const { error: rpcErr } = await supabase.rpc('ensure_profile');
+        if (rpcErr && rpcErr.code !== '42883') {
+          console.warn('[ensure_profile] RPC error:', rpcErr.message);
+        }
+      } catch (e) {
+        console.warn('[ensure_profile] failed:', e);
+      }
+
+      // 7) route by onboarded
+      const { data: profile, error: pErr } = await supabase
         .from('profiles')
         .select('onboarded')
+        .eq('id', user.id)
         .maybeSingle();
-      if (!profile || profile.onboarded === false) {
-        nav('/onboarding', { replace: true });
-      } else {
-        nav('/home', { replace: true });
+
+      if (pErr) {
+        console.warn('[profile check error]', pErr);
       }
+
+      // Final destination rules:
+      // - If user not onboarded => onboarding first, preserve intended destination
+      // - Else => go to next
+      // - If next is still /home but invite acceptance returned bandId, prefer band page
+      const inviteDest =
+        acceptedBandId && (next === '/home' || next === '/')
+          ? `/bands/${encodeURIComponent(acceptedBandId)}`
+          : next;
+
+      const finalDest =
+        profile?.onboarded === true
+          ? inviteDest
+          : `/onboarding?next=${encodeURIComponent(inviteDest)}`;
+
+      nav(finalDest, { replace: true });
     };
 
     void run();
     return () => {
       mounted = false;
     };
-  }, [nav, search, invite]);
+  }, [nav, invite, next, search]);
 
   if (error) {
     return (
@@ -155,7 +220,7 @@ export default function AuthCallback() {
             <p style={{ color: '#ffb3c1' }}>{error}</p>
             <IonButton
               className="amp-btn"
-              onClick={() => (window.location.href = '/login')}
+              onClick={() => nav('/login', { replace: true })}
             >
               Back to login
             </IonButton>
