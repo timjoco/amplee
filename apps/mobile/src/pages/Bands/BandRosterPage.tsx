@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import {
-  IonButton,
   IonContent,
   IonHeader,
   IonIcon,
@@ -9,26 +8,43 @@ import {
   IonSpinner,
   IonToolbar,
 } from '@ionic/react';
-import { chevronBackOutline, informationCircleOutline } from 'ionicons/icons';
+import {
+  addOutline,
+  callOutline,
+  checkmarkCircle,
+  chevronBackOutline,
+  chevronDownOutline,
+  chevronUpOutline,
+  closeOutline,
+  copyOutline,
+  logoInstagram,
+  mailOutline,
+  peopleOutline,
+  personOutline,
+  shieldCheckmarkOutline,
+  trashOutline,
+} from 'ionicons/icons';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 
+// ─────────────────────────────────────────────────────────────
+// Types
+// ─────────────────────────────────────────────────────────────
+
 type AvailabilityStatus = 'open' | 'limited' | 'unavailable';
 
 type RosterMember = {
-  id: string; // band_members row id
-  user_id: string; // auth user id
+  id: string;
+  user_id: string;
   first_name: string | null;
   last_name: string | null;
   display_name: string | null;
   role: string;
   avatar_url: string | null;
-
   contact_email?: string | null;
   phone?: string | null;
   instagram?: string | null;
-
   availability: {
     status: AvailabilityStatus;
     status_note: string | null;
@@ -52,28 +68,78 @@ type RosterMemberLite = {
   role: string;
 };
 
+// ─────────────────────────────────────────────────────────────
+// Theme Colors (Blue for Rosters)
+// ─────────────────────────────────────────────────────────────
+
+const BLUE = {
+  primary: '#3b82f6',
+  primaryHover: '#2563eb',
+  light: '#60a5fa',
+  lighter: '#93c5fd',
+  dark: '#1d4ed8',
+  glow: 'rgba(59, 130, 246, 0.4)',
+  subtle: 'rgba(59, 130, 246, 0.08)',
+  border: 'rgba(59, 130, 246, 0.25)',
+};
+
+// ─────────────────────────────────────────────────────────────
+// Shared Styles
+// ─────────────────────────────────────────────────────────────
+
+const glassCard = {
+  background: 'rgba(255, 255, 255, 0.02)',
+  backdropFilter: 'blur(12px)',
+  WebkitBackdropFilter: 'blur(12px)',
+  border: '1px solid rgba(255, 255, 255, 0.06)',
+  borderRadius: 16,
+};
+
+const glassCardHover = {
+  ...glassCard,
+  border: `1px solid ${BLUE.border}`,
+};
+
+// ─────────────────────────────────────────────────────────────
+// Component
+// ─────────────────────────────────────────────────────────────
+
 export default function BandRosterPage() {
   const { bandId } = useParams<{ bandId: string }>();
   const navigate = useNavigate();
 
+  // Data state
   const [loading, setLoading] = useState(true);
   const [bandName, setBandName] = useState('');
   const [members, setMembers] = useState<RosterMember[]>([]);
   const [rosters, setRosters] = useState<BandRoster[]>([]);
   const [error, setError] = useState<string | null>(null);
 
+  // Roster expansion
   const [expandedRosterId, setExpandedRosterId] = useState<string | null>(null);
   const [rosterMembersByRosterId, setRosterMembersByRosterId] = useState<
     Record<string, RosterMemberLite[] | undefined>
   >({});
 
+  // Create roster modal
   const [showCreateRoster, setShowCreateRoster] = useState(false);
   const [creatingRoster, setCreatingRoster] = useState(false);
   const [newRosterTitle, setNewRosterTitle] = useState('');
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
 
+  // Member detail sheet
   const [showMemberSheet, setShowMemberSheet] = useState(false);
   const [activeMember, setActiveMember] = useState<RosterMember | null>(null);
+
+  // Copy feedback
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+
+  // Current user & permissions
+  const [myUserId, setMyUserId] = useState<string | null>(null);
+
+  // ─────────────────────────────────────────────────────────────
+  // Helpers
+  // ─────────────────────────────────────────────────────────────
 
   const getDisplayName = (m: {
     display_name?: string | null;
@@ -84,27 +150,22 @@ export default function BandRosterPage() {
     return m.display_name || full || 'Unknown';
   };
 
-  const selectedPreview = useMemo(() => {
-    const byId = new Map(members.map((m) => [m.user_id, m]));
-    return selectedUserIds
-      .map((id) => byId.get(id))
-      .filter(Boolean) as RosterMember[];
-  }, [members, selectedUserIds]);
+  const getInitials = (m: {
+    display_name?: string | null;
+    first_name?: string | null;
+    last_name?: string | null;
+  }) => {
+    const name = getDisplayName(m);
+    const parts = name.split(' ').filter(Boolean);
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    }
+    return name.slice(0, 2).toUpperCase();
+  };
 
-  // ✅ Current user + admin gate (derived from loaded members)
-  const [myUserId, setMyUserId] = useState<string | null>(null);
-
-  useEffect(() => {
-    let alive = true;
-    (async () => {
-      const { data } = await supabase.auth.getUser();
-      if (!alive) return;
-      setMyUserId(data.user?.id ?? null);
-    })();
-    return () => {
-      alive = false;
-    };
-  }, []);
+  // ─────────────────────────────────────────────────────────────
+  // Computed values
+  // ─────────────────────────────────────────────────────────────
 
   const isAdmin = useMemo(() => {
     if (!myUserId) return false;
@@ -122,6 +183,17 @@ export default function BandRosterPage() {
     return adminUserIds.some((id) => set.has(id));
   }, [selectedUserIds, adminUserIds]);
 
+  const selectedPreview = useMemo(() => {
+    const byId = new Map(members.map((m) => [m.user_id, m]));
+    return selectedUserIds
+      .map((id) => byId.get(id))
+      .filter(Boolean) as RosterMember[];
+  }, [members, selectedUserIds]);
+
+  // ─────────────────────────────────────────────────────────────
+  // Actions
+  // ─────────────────────────────────────────────────────────────
+
   const toggleSelected = (userId: string) => {
     setSelectedUserIds((prev) =>
       prev.includes(userId)
@@ -129,6 +201,56 @@ export default function BandRosterPage() {
         : [...prev, userId]
     );
   };
+
+  const copyText = async (txt: string, field: string) => {
+    try {
+      await navigator.clipboard.writeText(txt);
+      setCopiedField(field);
+      setTimeout(() => setCopiedField(null), 2000);
+    } catch (e) {
+      console.warn('[clipboard] failed', e);
+    }
+  };
+
+  const instagramUrl = (s: string) => {
+    const raw = s.trim();
+    if (!raw) return '';
+    if (raw.startsWith('http://') || raw.startsWith('https://')) return raw;
+    const handle = raw.startsWith('@') ? raw.slice(1) : raw;
+    return `https://instagram.com/${handle}`;
+  };
+
+  const openMemberSheet = (m: RosterMember) => {
+    setActiveMember(m);
+    setShowMemberSheet(true);
+  };
+
+  const beginCreateRoster = () => {
+    setError(null);
+    if (!isAdmin) {
+      setError('Only band admins can create rosters.');
+      return;
+    }
+    setNewRosterTitle('');
+    setSelectedUserIds([...adminUserIds]);
+    setShowCreateRoster(true);
+  };
+
+  // ─────────────────────────────────────────────────────────────
+  // Data Fetching
+  // ─────────────────────────────────────────────────────────────
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      const { data } = await supabase.auth.getUser();
+      if (!alive) return;
+      setMyUserId(data.user?.id ?? null);
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -152,7 +274,6 @@ export default function BandRosterPage() {
           .from('band_members')
           .select(
             `
-        
               user_id,
               role,
               created_at,
@@ -181,7 +302,7 @@ export default function BandRosterPage() {
               : m.profiles;
 
             return {
-              id: m.id,
+              id: m.user_id,
               user_id: m.user_id,
               first_name: profile?.first_name ?? null,
               last_name: profile?.last_name ?? null,
@@ -200,7 +321,7 @@ export default function BandRosterPage() {
 
         const { data: rostersData, error: rostersErr } = await supabase
           .from('band_rosters')
-          .select('id,created_at,created_by')
+          .select('id,title,created_at,created_by')
           .eq('band_id', bandId)
           .order('created_at', { ascending: false });
 
@@ -283,43 +404,16 @@ export default function BandRosterPage() {
     setRosterMembersByRosterId((prev) => ({ ...prev, [rosterId]: ordered }));
   };
 
-  const openMemberSheet = (m: RosterMember) => {
-    setActiveMember(m);
-    setShowMemberSheet(true);
-  };
+  const slugifyRosterName = (s: string) => {
+    const base = s
+      .trim()
+      .toLowerCase()
+      .replace(/['"]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 60);
 
-  const copyText = async (txt: string) => {
-    try {
-      await navigator.clipboard.writeText(txt);
-    } catch (e) {
-      console.warn('[clipboard] failed', e);
-    }
-  };
-
-  const instagramUrl = (s: string) => {
-    const raw = s.trim();
-    if (!raw) return '';
-    if (raw.startsWith('http://') || raw.startsWith('https://')) return raw;
-    const handle = raw.startsWith('@') ? raw.slice(1) : raw;
-    return `https://instagram.com/${handle}`;
-  };
-
-  const beginCreateRoster = () => {
-    setError(null);
-
-    if (!isAdmin) {
-      setError('Only band admins can create rosters.');
-      return;
-    }
-
-    setNewRosterTitle('');
-
-    // ✅ Default selection includes all admins (prevents “no admin roster”)
-    // If you prefer “at least one admin” rather than all, you can just include your own admin id.
-    const defaultIds = Array.from(new Set([...adminUserIds]));
-    setSelectedUserIds(defaultIds);
-
-    setShowCreateRoster(true);
+    return base || `roster-${Date.now()}`;
   };
 
   const submitCreateRoster = async () => {
@@ -339,8 +433,6 @@ export default function BandRosterPage() {
       setError('Select at least one member.');
       return;
     }
-
-    // ✅ Hard rule: roster must include an admin
     if (!selectionHasAdmin) {
       setError('Roster must include at least one admin.');
       return;
@@ -350,17 +442,19 @@ export default function BandRosterPage() {
     setCreatingRoster(true);
 
     try {
-      const {
-        data: { user },
-        error: userErr,
-      } = await supabase.auth.getUser();
+      const { data: userData, error: userErr } = await supabase.auth.getUser();
+      const user = userData?.user;
       if (userErr || !user) throw new Error('Please sign in.');
+
+      // ✅ REQUIRED by your schema
+      const name = slugifyRosterName(title);
 
       const { data: roster, error: rErr } = await supabase
         .from('band_rosters')
         .insert({
           band_id: bandId,
-          title,
+          name, // ✅ fixes 23502
+          title, // you already had this
           created_by: user.id,
         } as any)
         .select('id,title,created_at,created_by')
@@ -429,295 +523,474 @@ export default function BandRosterPage() {
     }
   };
 
+  // ─────────────────────────────────────────────────────────────
+  // Render
+  // ─────────────────────────────────────────────────────────────
+
   return (
     <IonPage>
-      <IonHeader translucent>
+      <IonHeader translucent className="ion-no-border">
         <IonToolbar
           style={{
-            '--background': 'rgba(8,8,12,0.98)',
-            borderBottom: '0.5px solid rgba(255,255,255,0.06)',
+            '--background': 'rgba(8, 8, 14, 0.95)',
+            '--border-width': 0,
           }}
         >
           <div
             style={{
               display: 'flex',
               alignItems: 'center',
-              padding: '16px',
+              padding: '12px 16px',
               gap: 12,
             }}
           >
-            <IonButton
+            {/* Back Button */}
+            <button
               onClick={() => navigate(`/bands/${bandId}`)}
-              fill="clear"
-              style={{ minWidth: 0, padding: 6, margin: 0, flexShrink: 0 }}
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 12,
+                background: 'rgba(255, 255, 255, 0.04)',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                display: 'grid',
+                placeItems: 'center',
+                color: '#9ca3af',
+                flexShrink: 0,
+              }}
             >
-              <IonIcon
-                icon={chevronBackOutline}
-                style={{ color: '#9ca3af', fontSize: 22 }}
-              />
-            </IonButton>
+              <IonIcon icon={chevronBackOutline} style={{ fontSize: 20 }} />
+            </button>
 
+            {/* Title Section */}
             <div style={{ flex: 1 }}>
-              <h1
-                style={{
-                  fontSize: 28,
-                  fontWeight: 800,
-                  color: '#F9FAFB',
-                  margin: 0,
-                  letterSpacing: '-0.8px',
-                  lineHeight: 1.15,
-                }}
-              >
-                Rosters
-              </h1>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <IonIcon
+                  icon={peopleOutline}
+                  style={{ color: BLUE.light, fontSize: 20 }}
+                />
+                <h1
+                  style={{
+                    fontSize: 22,
+                    fontWeight: 700,
+                    color: '#f9fafb',
+                    margin: 0,
+                    letterSpacing: '-0.5px',
+                  }}
+                >
+                  Rosters
+                </h1>
+              </div>
               {bandName && (
-                <div style={{ fontSize: 13, color: '#9ca3af', marginTop: 4 }}>
+                <div
+                  style={{
+                    fontSize: 13,
+                    color: '#6b7280',
+                    marginTop: 2,
+                    marginLeft: 28,
+                  }}
+                >
                   {bandName}
                 </div>
               )}
-              {myUserId && (
-                <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>
-                  {isAdmin ? 'Admin access' : 'Member access'}
-                </div>
-              )}
             </div>
+
+            {/* Admin Badge */}
+            {myUserId && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '6px 10px',
+                  borderRadius: 10,
+                  background: isAdmin
+                    ? BLUE.subtle
+                    : 'rgba(255, 255, 255, 0.04)',
+                  border: `1px solid ${
+                    isAdmin ? BLUE.border : 'rgba(255, 255, 255, 0.08)'
+                  }`,
+                }}
+              >
+                <IonIcon
+                  icon={isAdmin ? shieldCheckmarkOutline : personOutline}
+                  style={{
+                    fontSize: 14,
+                    color: isAdmin ? BLUE.light : '#6b7280',
+                  }}
+                />
+                <span
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: isAdmin ? BLUE.light : '#6b7280',
+                  }}
+                >
+                  {isAdmin ? 'Admin' : 'Member'}
+                </span>
+              </div>
+            )}
           </div>
         </IonToolbar>
       </IonHeader>
 
       <IonContent
         fullscreen
-        scrollY={true}
+        className="roster-content"
         style={{
-          '--background': 'linear-gradient(180deg, #050509 0%, #020109 100%)',
+          '--background': 'linear-gradient(180deg, #08080e 0%, #04040a 100%)',
         }}
       >
         {loading ? (
           <div
-            style={{ display: 'grid', placeItems: 'center', height: '100%' }}
+            style={{
+              display: 'grid',
+              placeItems: 'center',
+              height: '100%',
+              gap: 12,
+            }}
           >
-            <IonSpinner style={{ '--color': '#38bdf8' }} />
-          </div>
-        ) : error ? (
-          <div style={{ padding: '16px', maxWidth: '600px', margin: '0 auto' }}>
-            <div
-              style={{
-                background: 'rgba(239, 68, 68, 0.1)',
-                border: '1px solid rgba(239, 68, 68, 0.3)',
-                borderRadius: 16,
-                padding: '16px',
-                color: '#fca5a5',
-                fontSize: 14,
-              }}
-            >
-              {error}
+            <div style={{ textAlign: 'center' }}>
+              <IonSpinner
+                style={{
+                  '--color': BLUE.primary,
+                  width: 32,
+                  height: 32,
+                }}
+              />
+              <div
+                style={{
+                  color: '#6b7280',
+                  fontSize: 13,
+                  marginTop: 12,
+                }}
+              >
+                Loading rosters...
+              </div>
             </div>
           </div>
         ) : (
           <div
             style={{
-              padding: '16px',
-              maxWidth: '600px',
+              padding: 16,
+              maxWidth: 600,
               margin: '0 auto',
-              paddingBottom: '40px',
+              paddingBottom: 40,
             }}
           >
-            <div
-              style={{
-                display: 'flex',
-                gap: 10,
-                padding: '14px 16px',
-                background: 'rgba(59, 130, 246, 0.08)',
-                border: '1px solid rgba(59, 130, 246, 0.2)',
-                borderRadius: 12,
-                marginBottom: 16,
-              }}
-            >
-              <IonIcon
-                icon={informationCircleOutline}
-                style={{
-                  color: '#60a5fa',
-                  fontSize: 18,
-                  flexShrink: 0,
-                  marginTop: 1,
-                }}
-              />
-              <p
-                style={{
-                  fontSize: 13,
-                  color: '#b5bac1',
-                  lineHeight: 1.5,
-                  margin: 0,
-                }}
-              >
-                Tap a member to view their contact info. Rosters are admin-only.
-              </p>
-            </div>
-
-            {/* ✅ ADMIN-ONLY create */}
-            {isAdmin ? (
-              <IonButton
-                expand="block"
-                onClick={beginCreateRoster}
-                style={{
-                  marginBottom: 16,
-                  '--background': 'rgba(147, 51, 234, 0.92)',
-                  '--border-radius': '14px',
-                }}
-              >
-                Create Roster
-              </IonButton>
-            ) : (
+            {/* Error Banner */}
+            {error && (
               <div
                 style={{
+                  ...glassCard,
+                  background: 'rgba(239, 68, 68, 0.08)',
+                  border: '1px solid rgba(239, 68, 68, 0.25)',
+                  padding: 14,
                   marginBottom: 16,
-                  padding: 12,
-                  borderRadius: 14,
-                  background: 'rgba(255,255,255,0.03)',
-                  border: '1px solid rgba(255,255,255,0.06)',
-                  color: '#9ca3af',
-                  fontSize: 13,
-                  lineHeight: 1.45,
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: 10,
                 }}
               >
-                Only band admins can create or delete rosters.
+                <IonIcon
+                  icon={closeOutline}
+                  style={{ color: '#f87171', fontSize: 18, marginTop: 1 }}
+                />
+                <div style={{ flex: 1 }}>
+                  <div
+                    style={{ color: '#fca5a5', fontSize: 14, fontWeight: 500 }}
+                  >
+                    {error}
+                  </div>
+                </div>
+                <button
+                  onClick={() => setError(null)}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: '#9ca3af',
+                    padding: 4,
+                  }}
+                >
+                  <IonIcon icon={closeOutline} style={{ fontSize: 16 }} />
+                </button>
               </div>
             )}
 
-            {/* Saved Rosters */}
-            <div style={{ marginBottom: 18 }}>
-              <div style={{ fontSize: 13, color: '#9ca3af', marginBottom: 8 }}>
-                Saved Rosters
+            {/* ─────────────────────────────────────────────────────────────
+                SAVED ROSTERS SECTION
+            ───────────────────────────────────────────────────────────── */}
+            <section style={{ marginBottom: 24 }}>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  marginBottom: 12,
+                }}
+              >
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 6,
+                      height: 6,
+                      borderRadius: '50%',
+                      background: BLUE.primary,
+                    }}
+                  />
+                  <span
+                    style={{
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: '#9ca3af',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px',
+                    }}
+                  >
+                    Saved Rosters
+                  </span>
+                  <span
+                    style={{
+                      fontSize: 12,
+                      color: '#6b7280',
+                      background: 'rgba(255, 255, 255, 0.04)',
+                      padding: '2px 8px',
+                      borderRadius: 6,
+                    }}
+                  >
+                    {rosters.length}
+                  </span>
+                </div>
+
+                {/* Create Button */}
+                {isAdmin && (
+                  <button
+                    onClick={beginCreateRoster}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      padding: '8px 14px',
+                      borderRadius: 10,
+                      background: BLUE.primary,
+                      border: 'none',
+                      color: '#fff',
+                      fontSize: 13,
+                      fontWeight: 600,
+                      boxShadow: `0 4px 12px ${BLUE.glow}`,
+                    }}
+                  >
+                    <IonIcon icon={addOutline} style={{ fontSize: 16 }} />
+                    New Roster
+                  </button>
+                )}
               </div>
 
+              {/* Non-admin notice */}
+              {!isAdmin && (
+                <div
+                  style={{
+                    ...glassCard,
+                    padding: 12,
+                    marginBottom: 12,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                  }}
+                >
+                  <IonIcon
+                    icon={shieldCheckmarkOutline}
+                    style={{ color: '#6b7280', fontSize: 16 }}
+                  />
+                  <span style={{ color: '#6b7280', fontSize: 13 }}>
+                    Only band admins can create or delete rosters
+                  </span>
+                </div>
+              )}
+
+              {/* Roster List */}
               {rosters.length === 0 ? (
                 <div
                   style={{
-                    background: 'rgba(255,255,255,0.02)',
-                    border: '1px solid rgba(255,255,255,0.06)',
-                    borderRadius: 16,
-                    padding: 14,
-                    color: '#9ca3af',
-                    fontSize: 13,
+                    ...glassCard,
+                    padding: 32,
+                    textAlign: 'center',
                   }}
                 >
-                  No rosters yet.
+                  <IonIcon
+                    icon={peopleOutline}
+                    style={{
+                      fontSize: 36,
+                      color: '#4b5563',
+                      marginBottom: 12,
+                    }}
+                  />
+                  <div style={{ color: '#6b7280', fontSize: 14 }}>
+                    No rosters created yet
+                  </div>
+                  {isAdmin && (
+                    <div
+                      style={{ color: '#4b5563', fontSize: 13, marginTop: 4 }}
+                    >
+                      Create one to save different band lineups
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div
                   style={{ display: 'flex', flexDirection: 'column', gap: 10 }}
                 >
-                  {rosters.map((r) => {
-                    const isOpen = expandedRosterId === r.id;
-                    const rosterMembers = rosterMembersByRosterId[r.id];
+                  {rosters.map((roster) => {
+                    const isExpanded = expandedRosterId === roster.id;
+                    const rosterMembers = rosterMembersByRosterId[roster.id];
 
                     return (
                       <div
-                        key={r.id}
+                        key={roster.id}
                         style={{
-                          background: 'rgba(255,255,255,0.02)',
-                          border: '1px solid rgba(255,255,255,0.06)',
-                          borderRadius: 16,
+                          ...glassCard,
                           overflow: 'hidden',
+                          border: isExpanded
+                            ? `1px solid ${BLUE.border}`
+                            : glassCard.border,
                         }}
                       >
-                        <div
+                        {/* Roster Header */}
+                        <button
+                          onClick={async () => {
+                            try {
+                              if (isExpanded) {
+                                setExpandedRosterId(null);
+                                return;
+                              }
+                              setExpandedRosterId(roster.id);
+                              await loadRosterMembers(roster.id);
+                            } catch (e: any) {
+                              setError(
+                                String(
+                                  e?.message ?? 'Failed to load roster members'
+                                )
+                              );
+                            }
+                          }}
                           style={{
+                            width: '100%',
                             display: 'flex',
                             alignItems: 'center',
-                            gap: 10,
+                            gap: 12,
                             padding: 14,
+                            background: 'transparent',
+                            border: 'none',
+                            color: '#f9fafb',
+                            textAlign: 'left',
                           }}
                         >
-                          <button
-                            onClick={async () => {
-                              try {
-                                if (isOpen) {
-                                  setExpandedRosterId(null);
-                                  return;
-                                }
-                                setExpandedRosterId(r.id);
-                                await loadRosterMembers(r.id);
-                              } catch (e: any) {
-                                setError(
-                                  String(
-                                    e?.message ??
-                                      'Failed to load roster members'
-                                  )
-                                );
-                              }
-                            }}
+                          {/* Roster Icon */}
+                          <div
                             style={{
-                              flex: 1,
-                              textAlign: 'left',
-                              background: 'transparent',
-                              border: 'none',
-                              padding: 0,
-                              color: '#f9fafb',
+                              width: 40,
+                              height: 40,
+                              borderRadius: 12,
+                              background: BLUE.subtle,
+                              border: `1px solid ${BLUE.border}`,
+                              display: 'grid',
+                              placeItems: 'center',
+                              flexShrink: 0,
                             }}
                           >
-                            <div style={{ fontWeight: 800, fontSize: 15 }}>
-                              {r.title}
+                            <IonIcon
+                              icon={peopleOutline}
+                              style={{ color: BLUE.light, fontSize: 18 }}
+                            />
+                          </div>
+
+                          {/* Roster Info */}
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div
+                              style={{
+                                fontWeight: 600,
+                                fontSize: 15,
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              {roster.title}
                             </div>
                             <div
                               style={{
-                                color: '#9ca3af',
+                                color: '#6b7280',
                                 fontSize: 12,
                                 marginTop: 2,
                               }}
                             >
-                              {isOpen ? 'Tap to hide' : 'Tap to view members'}
+                              {rosterMembers
+                                ? `${rosterMembers.length} member${
+                                    rosterMembers.length !== 1 ? 's' : ''
+                                  }`
+                                : 'Tap to view'}
                             </div>
-                          </button>
+                          </div>
 
-                          {/* ✅ ADMIN-ONLY delete */}
-                          {isAdmin && (
-                            <IonButton
-                              fill="clear"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                deleteRoster(r.id);
-                              }}
-                              style={{ margin: 0, minWidth: 0 }}
-                            >
-                              <span
-                                style={{
-                                  color: '#ef4444',
-                                  fontWeight: 700,
-                                  fontSize: 12,
-                                }}
-                              >
-                                Delete
-                              </span>
-                            </IonButton>
-                          )}
-                        </div>
+                          {/* Expand/Collapse Icon */}
+                          <IonIcon
+                            icon={
+                              isExpanded ? chevronUpOutline : chevronDownOutline
+                            }
+                            style={{ color: '#6b7280', fontSize: 18 }}
+                          />
+                        </button>
 
-                        {isOpen && (
+                        {/* Expanded Content */}
+                        {isExpanded && (
                           <div
                             style={{
-                              borderTop: '1px solid rgba(255,255,255,0.06)',
+                              borderTop: '1px solid rgba(255, 255, 255, 0.06)',
                               padding: 12,
-                              background: 'rgba(255,255,255,0.02)',
+                              background: 'rgba(0, 0, 0, 0.2)',
                             }}
                           >
                             {!rosterMembers ? (
-                              <IonSpinner style={{ '--color': '#38bdf8' }} />
+                              <div
+                                style={{
+                                  display: 'flex',
+                                  justifyContent: 'center',
+                                  padding: 16,
+                                }}
+                              >
+                                <IonSpinner
+                                  style={{ '--color': BLUE.primary }}
+                                />
+                              </div>
                             ) : rosterMembers.length === 0 ? (
-                              <div style={{ color: '#9ca3af', fontSize: 13 }}>
-                                No members in this roster.
+                              <div
+                                style={{
+                                  color: '#6b7280',
+                                  fontSize: 13,
+                                  textAlign: 'center',
+                                  padding: 12,
+                                }}
+                              >
+                                No members in this roster
                               </div>
                             ) : (
                               <div
                                 style={{
                                   display: 'flex',
                                   flexDirection: 'column',
-                                  gap: 8,
+                                  gap: 6,
                                 }}
                               >
                                 {rosterMembers.map((m) => {
                                   const name = getDisplayName(m);
+                                  const initials = getInitials(m);
+
                                   return (
                                     <div
                                       key={m.user_id}
@@ -725,33 +998,35 @@ export default function BandRosterPage() {
                                         display: 'flex',
                                         alignItems: 'center',
                                         gap: 10,
-                                        padding: 10,
-                                        borderRadius: 12,
-                                        background: 'rgba(255,255,255,0.03)',
+                                        padding: '10px 12px',
+                                        borderRadius: 10,
+                                        background: 'rgba(255, 255, 255, 0.02)',
                                         border:
-                                          '1px solid rgba(255,255,255,0.05)',
+                                          '1px solid rgba(255, 255, 255, 0.04)',
                                       }}
                                     >
                                       <div
                                         style={{
-                                          width: 34,
-                                          height: 34,
-                                          borderRadius: 10,
-                                          background: 'rgba(255,255,255,0.08)',
+                                          width: 32,
+                                          height: 32,
+                                          borderRadius: 8,
+                                          background: BLUE.subtle,
+                                          border: `1px solid ${BLUE.border}`,
                                           display: 'grid',
                                           placeItems: 'center',
-                                          color: '#9ca3af',
-                                          fontWeight: 800,
+                                          color: BLUE.light,
+                                          fontSize: 11,
+                                          fontWeight: 700,
                                         }}
                                       >
-                                        {name[0].toUpperCase()}
+                                        {initials}
                                       </div>
                                       <div style={{ flex: 1, minWidth: 0 }}>
                                         <div
                                           style={{
-                                            color: '#f9fafb',
+                                            color: '#e5e7eb',
                                             fontSize: 13,
-                                            fontWeight: 700,
+                                            fontWeight: 600,
                                             overflow: 'hidden',
                                             textOverflow: 'ellipsis',
                                             whiteSpace: 'nowrap',
@@ -761,8 +1036,8 @@ export default function BandRosterPage() {
                                         </div>
                                         <div
                                           style={{
-                                            color: '#9ca3af',
-                                            fontSize: 12,
+                                            color: '#6b7280',
+                                            fontSize: 11,
                                             textTransform: 'capitalize',
                                           }}
                                         >
@@ -774,6 +1049,38 @@ export default function BandRosterPage() {
                                 })}
                               </div>
                             )}
+
+                            {/* Delete Button (Admin Only) */}
+                            {isAdmin && (
+                              <button
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  deleteRoster(roster.id);
+                                }}
+                                style={{
+                                  width: '100%',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  gap: 6,
+                                  padding: '10px 14px',
+                                  marginTop: 10,
+                                  borderRadius: 10,
+                                  background: 'rgba(239, 68, 68, 0.08)',
+                                  border: '1px solid rgba(239, 68, 68, 0.2)',
+                                  color: '#f87171',
+                                  fontSize: 13,
+                                  fontWeight: 600,
+                                }}
+                              >
+                                <IonIcon
+                                  icon={trashOutline}
+                                  style={{ fontSize: 15 }}
+                                />
+                                Delete Roster
+                              </button>
+                            )}
                           </div>
                         )}
                       </div>
@@ -781,652 +1088,1005 @@ export default function BandRosterPage() {
                   })}
                 </div>
               )}
-            </div>
+            </section>
 
-            {/* Band Member Directory */}
-            <div style={{ fontSize: 13, color: '#9ca3af', marginBottom: 8 }}>
-              Band Members
-            </div>
+            {/* ─────────────────────────────────────────────────────────────
+                BAND MEMBERS DIRECTORY
+            ───────────────────────────────────────────────────────────── */}
+            <section>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  marginBottom: 12,
+                }}
+              >
+                <div
+                  style={{
+                    width: 6,
+                    height: 6,
+                    borderRadius: '50%',
+                    background: '#22c55e',
+                  }}
+                />
+                <span
+                  style={{
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: '#9ca3af',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                  }}
+                >
+                  Band Members
+                </span>
+                <span
+                  style={{
+                    fontSize: 12,
+                    color: '#6b7280',
+                    background: 'rgba(255, 255, 255, 0.04)',
+                    padding: '2px 8px',
+                    borderRadius: 6,
+                  }}
+                >
+                  {members.length}
+                </span>
+              </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {members.map((member) => {
-                const fullName = [member.first_name, member.last_name]
-                  .filter(Boolean)
-                  .join(' ');
-                const displayName =
-                  member.display_name || fullName || 'Unknown';
-                const initial = (member.display_name ||
-                  member.first_name ||
-                  '?')[0].toUpperCase();
+              <div
+                style={{ display: 'flex', flexDirection: 'column', gap: 12 }}
+              >
+                {members.map((member) => {
+                  const displayName = getDisplayName(member);
+                  const fullName = [member.first_name, member.last_name]
+                    .filter(Boolean)
+                    .join(' ');
+                  const initials = getInitials(member);
+                  const showFullName =
+                    member.display_name &&
+                    fullName &&
+                    member.display_name !== fullName;
 
-                return (
-                  <button
-                    key={member.id}
-                    onClick={() => openMemberSheet(member)}
-                    style={{
-                      background: 'rgba(255,255,255,0.02)',
-                      border: '1px solid rgba(255,255,255,0.06)',
-                      borderRadius: 16,
-                      padding: '16px',
-                      textAlign: 'left',
-                      color: 'inherit',
-                    }}
-                  >
-                    <div
-                      style={{ display: 'flex', alignItems: 'center', gap: 12 }}
+                  return (
+                    <button
+                      key={member.id}
+                      onClick={() => openMemberSheet(member)}
+                      style={{
+                        ...glassCard,
+                        width: '100%',
+                        padding: 16,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 12,
+                        textAlign: 'left',
+                        color: 'inherit',
+                      }}
                     >
+                      {/* Avatar */}
                       <div
                         style={{
-                          width: 48,
-                          height: 48,
+                          width: 44,
+                          height: 44,
                           borderRadius: 12,
-                          background: 'rgba(255,255,255,0.08)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontSize: 18,
-                          fontWeight: 800,
+                          background: 'rgba(255, 255, 255, 0.06)',
+                          border: '1px solid rgba(255, 255, 255, 0.08)',
+                          display: 'grid',
+                          placeItems: 'center',
                           color: '#9ca3af',
+                          fontSize: 14,
+                          fontWeight: 700,
                           flexShrink: 0,
                         }}
                       >
-                        {initial}
+                        {initials}
                       </div>
 
+                      {/* Member Info */}
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div
                           style={{
-                            fontSize: 16,
-                            fontWeight: 800,
-                            color: '#f9fafb',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 6,
                           }}
                         >
-                          {displayName}
+                          <span
+                            style={{
+                              fontSize: 15,
+                              fontWeight: 600,
+                              color: '#f9fafb',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {displayName}
+                          </span>
+                          {member.role === 'admin' && (
+                            <IonIcon
+                              icon={shieldCheckmarkOutline}
+                              style={{ color: BLUE.light, fontSize: 14 }}
+                            />
+                          )}
                         </div>
 
-                        {member.display_name &&
-                          fullName &&
-                          member.display_name !== fullName && (
-                            <div
-                              style={{
-                                fontSize: 11,
-                                color: '#6b7280',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap',
-                              }}
-                            >
-                              {fullName}
-                            </div>
-                          )}
+                        {showFullName && (
+                          <div
+                            style={{
+                              fontSize: 12,
+                              color: '#6b7280',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {fullName}
+                          </div>
+                        )}
 
                         <div
                           style={{
                             fontSize: 12,
-                            color: '#9ca3af',
+                            color: '#6b7280',
                             textTransform: 'capitalize',
+                            marginTop: showFullName ? 0 : 2,
                           }}
                         >
                           {member.role}
                         </div>
                       </div>
 
-                      <div style={{ color: '#9ca3af', fontSize: 12 }}>View</div>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
+                      {/* Contact indicator */}
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          color: '#6b7280',
+                          fontSize: 12,
+                        }}
+                      >
+                        <span>View</span>
+                        <IonIcon
+                          icon={chevronDownOutline}
+                          style={{ fontSize: 14 }}
+                        />
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          </div>
+        )}
 
-            {/* Create Roster Modal */}
-            <IonModal
-              isOpen={showCreateRoster}
-              onDidDismiss={() => setShowCreateRoster(false)}
+        {/* ─────────────────────────────────────────────────────────────
+            CREATE ROSTER MODAL
+        ───────────────────────────────────────────────────────────── */}
+        <IonModal
+          isOpen={showCreateRoster}
+          onDidDismiss={() => setShowCreateRoster(false)}
+        >
+          <IonHeader translucent className="ion-no-border">
+            <IonToolbar
+              style={{
+                '--background': 'rgba(8, 8, 14, 0.98)',
+                '--border-width': 0,
+              }}
             >
-              <IonHeader translucent>
-                <IonToolbar style={{ '--background': 'rgba(8,8,12,0.98)' }}>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '12px 16px',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <div
                     style={{
-                      padding: 16,
+                      width: 36,
+                      height: 36,
+                      borderRadius: 10,
+                      background: BLUE.subtle,
+                      border: `1px solid ${BLUE.border}`,
+                      display: 'grid',
+                      placeItems: 'center',
+                    }}
+                  >
+                    <IonIcon
+                      icon={addOutline}
+                      style={{ color: BLUE.light, fontSize: 18 }}
+                    />
+                  </div>
+                  <span
+                    style={{
                       color: '#f9fafb',
-                      fontWeight: 900,
-                      fontSize: 18,
+                      fontWeight: 700,
+                      fontSize: 17,
                     }}
                   >
                     New Roster
-                  </div>
-                </IonToolbar>
-              </IonHeader>
-
-              <IonContent
-                fullscreen
-                style={{
-                  '--background':
-                    'linear-gradient(180deg, #050509 0%, #020109 100%)',
-                }}
-              >
-                <div
+                  </span>
+                </div>
+                <button
+                  onClick={() => setShowCreateRoster(false)}
                   style={{
-                    padding: 16,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 12,
+                    width: 36,
+                    height: 36,
+                    borderRadius: 10,
+                    background: 'rgba(255, 255, 255, 0.04)',
+                    border: '1px solid rgba(255, 255, 255, 0.08)',
+                    display: 'grid',
+                    placeItems: 'center',
+                    color: '#9ca3af',
                   }}
                 >
-                  {!isAdmin && (
-                    <div
-                      style={{
-                        background: 'rgba(239,68,68,0.10)',
-                        border: '1px solid rgba(239,68,68,0.25)',
-                        borderRadius: 14,
-                        padding: 12,
-                        color: '#fca5a5',
-                        fontSize: 13,
-                      }}
-                    >
-                      Only admins can create rosters.
-                    </div>
-                  )}
+                  <IonIcon icon={closeOutline} style={{ fontSize: 20 }} />
+                </button>
+              </div>
+            </IonToolbar>
+          </IonHeader>
 
-                  <div>
-                    <div
-                      style={{
-                        color: '#9ca3af',
-                        fontSize: 12,
-                        marginBottom: 8,
-                      }}
-                    >
-                      Roster title
-                    </div>
-                    <input
-                      value={newRosterTitle}
-                      onChange={(e) => setNewRosterTitle(e.target.value)}
-                      placeholder="e.g. Weekend Lineup"
-                      style={{
-                        width: '100%',
-                        background: 'rgba(255,255,255,0.04)',
-                        border: '1px solid rgba(255,255,255,0.08)',
-                        borderRadius: 14,
-                        padding: '12px 14px',
-                        color: '#f9fafb',
-                        outline: 'none',
-                      }}
-                      disabled={!isAdmin}
-                    />
-                  </div>
+          <IonContent
+            fullscreen
+            style={{
+              '--background':
+                'linear-gradient(180deg, #08080e 0%, #04040a 100%)',
+            }}
+          >
+            <div
+              style={{
+                padding: 16,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 16,
+              }}
+            >
+              {/* Title Input */}
+              <div>
+                <label
+                  style={{
+                    display: 'block',
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: '#9ca3af',
+                    marginBottom: 8,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                  }}
+                >
+                  Roster Name
+                </label>
+                <input
+                  value={newRosterTitle}
+                  onChange={(e) => setNewRosterTitle(e.target.value)}
+                  placeholder="e.g. Weekend Lineup, Full Band, Acoustic Set"
+                  style={{
+                    width: '100%',
+                    padding: '14px 16px',
+                    borderRadius: 12,
+                    background: 'rgba(255, 255, 255, 0.04)',
+                    border: `1px solid ${
+                      newRosterTitle ? BLUE.border : 'rgba(255, 255, 255, 0.08)'
+                    }`,
+                    color: '#f9fafb',
+                    fontSize: 15,
+                    outline: 'none',
+                  }}
+                  disabled={!isAdmin}
+                />
+              </div>
 
-                  <div style={{ color: '#9ca3af', fontSize: 12, marginTop: 8 }}>
-                    Select members ({selectedUserIds.length})
-                  </div>
+              {/* Member Selection */}
+              <div>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    marginBottom: 10,
+                  }}
+                >
+                  <label
+                    style={{
+                      fontSize: 12,
+                      fontWeight: 600,
+                      color: '#9ca3af',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px',
+                    }}
+                  >
+                    Select Members
+                  </label>
+                  <span
+                    style={{
+                      fontSize: 12,
+                      color:
+                        selectedUserIds.length > 0 ? BLUE.light : '#6b7280',
+                      fontWeight: 600,
+                    }}
+                  >
+                    {selectedUserIds.length} selected
+                  </span>
+                </div>
 
-                  {!selectionHasAdmin && (
-                    <div
-                      style={{
-                        background: 'rgba(251,191,36,0.08)',
-                        border: '1px solid rgba(251,191,36,0.25)',
-                        borderRadius: 14,
-                        padding: 12,
-                        color: '#fde68a',
-                        fontSize: 13,
-                      }}
-                    >
-                      This roster must include at least one admin.
-                    </div>
-                  )}
-
+                {/* Admin Warning */}
+                {!selectionHasAdmin && (
                   <div
                     style={{
+                      ...glassCard,
+                      background: 'rgba(251, 191, 36, 0.08)',
+                      border: '1px solid rgba(251, 191, 36, 0.2)',
+                      padding: 12,
+                      marginBottom: 12,
                       display: 'flex',
-                      flexDirection: 'column',
+                      alignItems: 'center',
                       gap: 10,
                     }}
                   >
-                    {members.map((m) => {
-                      const name = getDisplayName(m);
-                      const checked = selectedUserIds.includes(m.user_id);
+                    <IonIcon
+                      icon={shieldCheckmarkOutline}
+                      style={{ color: '#fbbf24', fontSize: 16 }}
+                    />
+                    <span style={{ color: '#fde68a', fontSize: 13 }}>
+                      Roster must include at least one admin
+                    </span>
+                  </div>
+                )}
 
-                      return (
-                        <button
-                          key={m.user_id}
-                          onClick={() => isAdmin && toggleSelected(m.user_id)}
-                          disabled={!isAdmin}
+                <div
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 8,
+                  }}
+                >
+                  {members.map((m) => {
+                    const name = getDisplayName(m);
+                    const initials = getInitials(m);
+                    const isChecked = selectedUserIds.includes(m.user_id);
+
+                    return (
+                      <button
+                        key={m.user_id}
+                        onClick={() => isAdmin && toggleSelected(m.user_id)}
+                        disabled={!isAdmin}
+                        style={{
+                          width: '100%',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 12,
+                          padding: 12,
+                          borderRadius: 12,
+                          background: isChecked
+                            ? BLUE.subtle
+                            : 'rgba(255, 255, 255, 0.02)',
+                          border: isChecked
+                            ? `1px solid ${BLUE.border}`
+                            : '1px solid rgba(255, 255, 255, 0.06)',
+                          color: '#f9fafb',
+                          textAlign: 'left',
+                          opacity: isAdmin ? 1 : 0.5,
+                        }}
+                      >
+                        {/* Avatar */}
+                        <div
                           style={{
-                            width: '100%',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 12,
-                            padding: 12,
-                            borderRadius: 14,
-                            background: checked
-                              ? 'rgba(236, 72, 153, 0.12)'
-                              : 'rgba(255,255,255,0.03)',
-                            border: checked
-                              ? '1px solid rgba(236, 72, 153, 0.35)'
-                              : '1px solid rgba(255,255,255,0.06)',
-                            color: '#f9fafb',
-                            textAlign: 'left',
-                            opacity: isAdmin ? 1 : 0.6,
+                            width: 36,
+                            height: 36,
+                            borderRadius: 10,
+                            background: isChecked
+                              ? BLUE.subtle
+                              : 'rgba(255, 255, 255, 0.06)',
+                            border: `1px solid ${
+                              isChecked
+                                ? BLUE.border
+                                : 'rgba(255, 255, 255, 0.08)'
+                            }`,
+                            display: 'grid',
+                            placeItems: 'center',
+                            color: isChecked ? BLUE.light : '#9ca3af',
+                            fontSize: 12,
+                            fontWeight: 700,
                           }}
                         >
+                          {initials}
+                        </div>
+
+                        {/* Name & Role */}
+                        <div style={{ flex: 1, minWidth: 0 }}>
                           <div
                             style={{
-                              width: 36,
-                              height: 36,
-                              borderRadius: 12,
-                              background: 'rgba(255,255,255,0.08)',
-                              display: 'grid',
-                              placeItems: 'center',
-                              color: '#9ca3af',
-                              fontWeight: 900,
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 6,
                             }}
                           >
-                            {name[0].toUpperCase()}
-                          </div>
-
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div
+                            <span
                               style={{
                                 fontSize: 14,
-                                fontWeight: 900,
+                                fontWeight: 600,
                                 overflow: 'hidden',
                                 textOverflow: 'ellipsis',
                                 whiteSpace: 'nowrap',
                               }}
                             >
                               {name}
-                            </div>
-                            <div
-                              style={{
-                                fontSize: 12,
-                                color: '#9ca3af',
-                                textTransform: 'capitalize',
-                              }}
-                            >
-                              {m.role}
-                            </div>
-                          </div>
-
-                          <div
-                            style={{
-                              width: 18,
-                              height: 18,
-                              borderRadius: 6,
-                              border: '1px solid rgba(255,255,255,0.25)',
-                              display: 'grid',
-                              placeItems: 'center',
-                            }}
-                          >
-                            {checked && (
-                              <div
-                                style={{
-                                  width: 12,
-                                  height: 12,
-                                  borderRadius: 4,
-                                  background: '#ec4899',
-                                }}
+                            </span>
+                            {m.role === 'admin' && (
+                              <IonIcon
+                                icon={shieldCheckmarkOutline}
+                                style={{ color: BLUE.light, fontSize: 13 }}
                               />
                             )}
                           </div>
-                        </button>
-                      );
-                    })}
-                  </div>
+                          <div
+                            style={{
+                              fontSize: 12,
+                              color: '#6b7280',
+                              textTransform: 'capitalize',
+                            }}
+                          >
+                            {m.role}
+                          </div>
+                        </div>
 
-                  <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
-                    <IonButton
-                      expand="block"
-                      onClick={() => setShowCreateRoster(false)}
-                      fill="outline"
-                      style={{
-                        flex: 1,
-                        '--border-color': 'rgba(255,255,255,0.25)',
-                        color: '#e5e7eb',
-                      }}
-                    >
-                      Cancel
-                    </IonButton>
-
-                    <IonButton
-                      expand="block"
-                      disabled={
-                        !isAdmin ||
-                        creatingRoster ||
-                        !newRosterTitle.trim() ||
-                        selectedUserIds.length === 0 ||
-                        !selectionHasAdmin
-                      }
-                      onClick={submitCreateRoster}
-                      style={{
-                        flex: 1,
-                        '--background': 'rgba(147, 51, 234, 0.95)',
-                        '--border-radius': '14px',
-                      }}
-                    >
-                      {creatingRoster ? (
-                        <IonSpinner style={{ '--color': '#fff' }} />
-                      ) : (
-                        'Create'
-                      )}
-                    </IonButton>
-                  </div>
+                        {/* Checkbox */}
+                        <div
+                          style={{
+                            width: 22,
+                            height: 22,
+                            borderRadius: 6,
+                            background: isChecked
+                              ? BLUE.primary
+                              : 'transparent',
+                            border: `2px solid ${
+                              isChecked
+                                ? BLUE.primary
+                                : 'rgba(255, 255, 255, 0.25)'
+                            }`,
+                            display: 'grid',
+                            placeItems: 'center',
+                          }}
+                        >
+                          {isChecked && (
+                            <IonIcon
+                              icon={checkmarkCircle}
+                              style={{ color: '#fff', fontSize: 14 }}
+                            />
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
-              </IonContent>
-            </IonModal>
+              </div>
 
-            {/* Member Sheet (unchanged from your version) */}
-            <IonModal
-              isOpen={showMemberSheet}
-              onDidDismiss={() => {
-                setShowMemberSheet(false);
-                setActiveMember(null);
-              }}
-              initialBreakpoint={0.65}
-              breakpoints={[0, 0.45, 0.65, 0.9]}
-            >
-              <IonHeader translucent>
-                <IonToolbar style={{ '--background': 'rgba(8,8,12,0.98)' }}>
-                  <div
-                    style={{
-                      padding: 16,
-                      color: '#f9fafb',
-                      fontWeight: 900,
-                      fontSize: 18,
-                    }}
-                  >
-                    Member
-                  </div>
-                </IonToolbar>
-              </IonHeader>
-
-              <IonContent
-                fullscreen
+              {/* Action Buttons */}
+              <div
                 style={{
-                  '--background':
-                    'linear-gradient(180deg, #050509 0%, #020109 100%)',
+                  display: 'flex',
+                  gap: 10,
+                  marginTop: 8,
                 }}
               >
-                {activeMember ? (
-                  <div style={{ padding: 16 }}>
+                <button
+                  onClick={() => setShowCreateRoster(false)}
+                  style={{
+                    flex: 1,
+                    padding: '14px 20px',
+                    borderRadius: 12,
+                    background: 'transparent',
+                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                    color: '#e5e7eb',
+                    fontSize: 15,
+                    fontWeight: 600,
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={submitCreateRoster}
+                  disabled={
+                    !isAdmin ||
+                    creatingRoster ||
+                    !newRosterTitle.trim() ||
+                    selectedUserIds.length === 0 ||
+                    !selectionHasAdmin
+                  }
+                  style={{
+                    flex: 1,
+                    padding: '14px 20px',
+                    borderRadius: 12,
+                    background: BLUE.primary,
+                    border: 'none',
+                    color: '#fff',
+                    fontSize: 15,
+                    fontWeight: 600,
+                    opacity:
+                      !isAdmin ||
+                      creatingRoster ||
+                      !newRosterTitle.trim() ||
+                      selectedUserIds.length === 0 ||
+                      !selectionHasAdmin
+                        ? 0.5
+                        : 1,
+                    boxShadow: `0 4px 12px ${BLUE.glow}`,
+                  }}
+                >
+                  {creatingRoster ? (
+                    <IonSpinner
+                      style={{ '--color': '#fff', width: 20, height: 20 }}
+                    />
+                  ) : (
+                    'Create Roster'
+                  )}
+                </button>
+              </div>
+            </div>
+          </IonContent>
+        </IonModal>
+
+        {/* ─────────────────────────────────────────────────────────────
+            MEMBER DETAIL SHEET
+        ───────────────────────────────────────────────────────────── */}
+        <IonModal
+          isOpen={showMemberSheet}
+          onDidDismiss={() => {
+            setShowMemberSheet(false);
+            setActiveMember(null);
+          }}
+          initialBreakpoint={0.55}
+          breakpoints={[0, 0.55, 0.85]}
+        >
+          <IonContent
+            fullscreen
+            style={{
+              '--background':
+                'linear-gradient(180deg, #0c0a14 0%, #08080e 100%)',
+            }}
+          >
+            {activeMember ? (
+              <div style={{ padding: 20 }}>
+                {/* Header */}
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 14,
+                    marginBottom: 20,
+                    paddingBottom: 16,
+                    borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 56,
+                      height: 56,
+                      borderRadius: 16,
+                      background: BLUE.subtle,
+                      border: `1px solid ${BLUE.border}`,
+                      display: 'grid',
+                      placeItems: 'center',
+                      color: BLUE.light,
+                      fontSize: 18,
+                      fontWeight: 700,
+                    }}
+                  >
+                    {getInitials(activeMember)}
+                  </div>
+                  <div style={{ flex: 1 }}>
                     <div
                       style={{
                         display: 'flex',
-                        gap: 12,
                         alignItems: 'center',
-                        marginBottom: 14,
+                        gap: 8,
+                      }}
+                    >
+                      <span
+                        style={{
+                          color: '#f9fafb',
+                          fontWeight: 700,
+                          fontSize: 18,
+                        }}
+                      >
+                        {getDisplayName(activeMember)}
+                      </span>
+                      {activeMember.role === 'admin' && (
+                        <IonIcon
+                          icon={shieldCheckmarkOutline}
+                          style={{ color: BLUE.light, fontSize: 16 }}
+                        />
+                      )}
+                    </div>
+                    <div
+                      style={{
+                        color: '#6b7280',
+                        fontSize: 13,
+                        textTransform: 'capitalize',
+                      }}
+                    >
+                      {activeMember.role}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setShowMemberSheet(false);
+                      setActiveMember(null);
+                    }}
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 10,
+                      background: 'rgba(255, 255, 255, 0.04)',
+                      border: '1px solid rgba(255, 255, 255, 0.08)',
+                      display: 'grid',
+                      placeItems: 'center',
+                      color: '#9ca3af',
+                    }}
+                  >
+                    <IonIcon icon={closeOutline} style={{ fontSize: 20 }} />
+                  </button>
+                </div>
+
+                {/* Contact Cards */}
+                <div
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 10,
+                  }}
+                >
+                  {/* Email */}
+                  {activeMember.contact_email && (
+                    <div
+                      style={{
+                        ...glassCard,
+                        padding: 14,
                       }}
                     >
                       <div
                         style={{
-                          width: 56,
-                          height: 56,
-                          borderRadius: 16,
-                          background: 'rgba(255,255,255,0.08)',
-                          display: 'grid',
-                          placeItems: 'center',
-                          color: '#9ca3af',
-                          fontWeight: 900,
-                          fontSize: 20,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 10,
+                          marginBottom: 12,
                         }}
                       >
-                        {getDisplayName(activeMember)[0].toUpperCase()}
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div
-                          style={{
-                            color: '#f9fafb',
-                            fontWeight: 900,
-                            fontSize: 18,
-                          }}
-                        >
-                          {getDisplayName(activeMember)}
-                        </div>
-                        <div
+                        <IonIcon
+                          icon={mailOutline}
+                          style={{ color: BLUE.light, fontSize: 18 }}
+                        />
+                        <span
                           style={{
                             color: '#9ca3af',
-                            fontSize: 13,
-                            textTransform: 'capitalize',
+                            fontSize: 12,
+                            fontWeight: 600,
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.5px',
                           }}
                         >
-                          {activeMember.role}
-                        </div>
-                      </div>
-                      <IonButton
-                        fill="clear"
-                        onClick={() => {
-                          setShowMemberSheet(false);
-                          setActiveMember(null);
-                        }}
-                        style={{ margin: 0, minWidth: 0 }}
-                      >
-                        <span style={{ color: '#9ca3af', fontWeight: 800 }}>
-                          Close
+                          Email
                         </span>
-                      </IonButton>
+                      </div>
+                      <div
+                        style={{
+                          color: '#f9fafb',
+                          fontSize: 15,
+                          fontWeight: 500,
+                          marginBottom: 12,
+                        }}
+                      >
+                        {activeMember.contact_email}
+                      </div>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <button
+                          onClick={() =>
+                            copyText(activeMember.contact_email!, 'email')
+                          }
+                          style={{
+                            flex: 1,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: 6,
+                            padding: '10px 14px',
+                            borderRadius: 10,
+                            background: 'rgba(255, 255, 255, 0.04)',
+                            border: '1px solid rgba(255, 255, 255, 0.08)',
+                            color: '#e5e7eb',
+                            fontSize: 13,
+                            fontWeight: 600,
+                          }}
+                        >
+                          <IonIcon
+                            icon={
+                              copiedField === 'email'
+                                ? checkmarkCircle
+                                : copyOutline
+                            }
+                            style={{ fontSize: 16 }}
+                          />
+                          {copiedField === 'email' ? 'Copied!' : 'Copy'}
+                        </button>
+                        <a
+                          href={`mailto:${activeMember.contact_email}`}
+                          style={{
+                            flex: 1,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: 6,
+                            padding: '10px 14px',
+                            borderRadius: 10,
+                            background: BLUE.primary,
+                            border: 'none',
+                            color: '#fff',
+                            fontSize: 13,
+                            fontWeight: 600,
+                            textDecoration: 'none',
+                          }}
+                        >
+                          <IonIcon
+                            icon={mailOutline}
+                            style={{ fontSize: 16 }}
+                          />
+                          Email
+                        </a>
+                      </div>
                     </div>
+                  )}
 
+                  {/* Phone */}
+                  {activeMember.phone && (
                     <div
                       style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: 10,
+                        ...glassCard,
+                        padding: 14,
                       }}
                     >
-                      {activeMember.contact_email ? (
-                        <div
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 10,
+                          marginBottom: 12,
+                        }}
+                      >
+                        <IonIcon
+                          icon={callOutline}
+                          style={{ color: '#22c55e', fontSize: 18 }}
+                        />
+                        <span
                           style={{
-                            background: 'rgba(255,255,255,0.03)',
-                            border: '1px solid rgba(255,255,255,0.06)',
-                            borderRadius: 16,
-                            padding: 14,
-                          }}
-                        >
-                          <div
-                            style={{
-                              color: '#9ca3af',
-                              fontSize: 12,
-                              marginBottom: 6,
-                            }}
-                          >
-                            Email
-                          </div>
-                          <div
-                            style={{
-                              color: '#f9fafb',
-                              fontSize: 14,
-                              fontWeight: 700,
-                            }}
-                          >
-                            {activeMember.contact_email}
-                          </div>
-                          <div
-                            style={{ display: 'flex', gap: 10, marginTop: 10 }}
-                          >
-                            <IonButton
-                              expand="block"
-                              onClick={() =>
-                                copyText(activeMember.contact_email!)
-                              }
-                              style={{
-                                flex: 1,
-                                '--background': 'rgba(59,130,246,0.85)',
-                                '--border-radius': '14px',
-                              }}
-                            >
-                              Copy
-                            </IonButton>
-                            <IonButton
-                              expand="block"
-                              onClick={() =>
-                                (window.location.href = `mailto:${activeMember.contact_email}`)
-                              }
-                              style={{
-                                flex: 1,
-                                '--background': 'rgba(34,197,94,0.85)',
-                                '--border-radius': '14px',
-                              }}
-                            >
-                              Email
-                            </IonButton>
-                          </div>
-                        </div>
-                      ) : null}
-
-                      {activeMember.phone ? (
-                        <div
-                          style={{
-                            background: 'rgba(255,255,255,0.03)',
-                            border: '1px solid rgba(255,255,255,0.06)',
-                            borderRadius: 16,
-                            padding: 14,
-                          }}
-                        >
-                          <div
-                            style={{
-                              color: '#9ca3af',
-                              fontSize: 12,
-                              marginBottom: 6,
-                            }}
-                          >
-                            Phone
-                          </div>
-                          <div
-                            style={{
-                              color: '#f9fafb',
-                              fontSize: 14,
-                              fontWeight: 700,
-                            }}
-                          >
-                            {activeMember.phone}
-                          </div>
-                          <div
-                            style={{ display: 'flex', gap: 10, marginTop: 10 }}
-                          >
-                            <IonButton
-                              expand="block"
-                              onClick={() => copyText(activeMember.phone!)}
-                              style={{
-                                flex: 1,
-                                '--background': 'rgba(59,130,246,0.85)',
-                                '--border-radius': '14px',
-                              }}
-                            >
-                              Copy
-                            </IonButton>
-                            <IonButton
-                              expand="block"
-                              onClick={() =>
-                                (window.location.href = `tel:${activeMember.phone}`)
-                              }
-                              style={{
-                                flex: 1,
-                                '--background': 'rgba(34,197,94,0.85)',
-                                '--border-radius': '14px',
-                              }}
-                            >
-                              Call
-                            </IonButton>
-                          </div>
-                        </div>
-                      ) : null}
-
-                      {activeMember.instagram ? (
-                        <div
-                          style={{
-                            background: 'rgba(255,255,255,0.03)',
-                            border: '1px solid rgba(255,255,255,0.06)',
-                            borderRadius: 16,
-                            padding: 14,
-                          }}
-                        >
-                          <div
-                            style={{
-                              color: '#9ca3af',
-                              fontSize: 12,
-                              marginBottom: 6,
-                            }}
-                          >
-                            Instagram
-                          </div>
-                          <div
-                            style={{
-                              color: '#f9fafb',
-                              fontSize: 14,
-                              fontWeight: 700,
-                            }}
-                          >
-                            {activeMember.instagram}
-                          </div>
-
-                          <div
-                            style={{ display: 'flex', gap: 10, marginTop: 10 }}
-                          >
-                            <IonButton
-                              expand="block"
-                              onClick={() => copyText(activeMember.instagram!)}
-                              style={{
-                                flex: 1,
-                                '--background': 'rgba(59,130,246,0.85)',
-                                '--border-radius': '14px',
-                              }}
-                            >
-                              Copy
-                            </IonButton>
-                            <IonButton
-                              expand="block"
-                              onClick={() =>
-                                window.open(
-                                  instagramUrl(activeMember.instagram!),
-                                  '_blank'
-                                )
-                              }
-                              style={{
-                                flex: 1,
-                                '--background': 'rgba(236,72,153,0.85)',
-                                '--border-radius': '14px',
-                              }}
-                            >
-                              Open
-                            </IonButton>
-                          </div>
-                        </div>
-                      ) : null}
-
-                      {!activeMember.contact_email &&
-                      !activeMember.phone &&
-                      !activeMember.instagram ? (
-                        <div
-                          style={{
-                            background: 'rgba(255,255,255,0.03)',
-                            border: '1px solid rgba(255,255,255,0.06)',
-                            borderRadius: 16,
-                            padding: 14,
                             color: '#9ca3af',
-                            fontSize: 13,
+                            fontSize: 12,
+                            fontWeight: 600,
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.5px',
                           }}
                         >
-                          No contact info saved for this member yet.
-                        </div>
-                      ) : null}
+                          Phone
+                        </span>
+                      </div>
+                      <div
+                        style={{
+                          color: '#f9fafb',
+                          fontSize: 15,
+                          fontWeight: 500,
+                          marginBottom: 12,
+                        }}
+                      >
+                        {activeMember.phone}
+                      </div>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <button
+                          onClick={() => copyText(activeMember.phone!, 'phone')}
+                          style={{
+                            flex: 1,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: 6,
+                            padding: '10px 14px',
+                            borderRadius: 10,
+                            background: 'rgba(255, 255, 255, 0.04)',
+                            border: '1px solid rgba(255, 255, 255, 0.08)',
+                            color: '#e5e7eb',
+                            fontSize: 13,
+                            fontWeight: 600,
+                          }}
+                        >
+                          <IonIcon
+                            icon={
+                              copiedField === 'phone'
+                                ? checkmarkCircle
+                                : copyOutline
+                            }
+                            style={{ fontSize: 16 }}
+                          />
+                          {copiedField === 'phone' ? 'Copied!' : 'Copy'}
+                        </button>
+                        <a
+                          href={`tel:${activeMember.phone}`}
+                          style={{
+                            flex: 1,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: 6,
+                            padding: '10px 14px',
+                            borderRadius: 10,
+                            background: '#22c55e',
+                            border: 'none',
+                            color: '#fff',
+                            fontSize: 13,
+                            fontWeight: 600,
+                            textDecoration: 'none',
+                          }}
+                        >
+                          <IonIcon
+                            icon={callOutline}
+                            style={{ fontSize: 16 }}
+                          />
+                          Call
+                        </a>
+                      </div>
                     </div>
-                  </div>
-                ) : (
-                  <div
-                    style={{
-                      display: 'grid',
-                      placeItems: 'center',
-                      height: '100%',
-                    }}
-                  >
-                    <IonSpinner style={{ '--color': '#38bdf8' }} />
-                  </div>
-                )}
-              </IonContent>
-            </IonModal>
-          </div>
-        )}
+                  )}
+
+                  {/* Instagram */}
+                  {activeMember.instagram && (
+                    <div
+                      style={{
+                        ...glassCard,
+                        padding: 14,
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 10,
+                          marginBottom: 12,
+                        }}
+                      >
+                        <IonIcon
+                          icon={logoInstagram}
+                          style={{ color: '#ec4899', fontSize: 18 }}
+                        />
+                        <span
+                          style={{
+                            color: '#9ca3af',
+                            fontSize: 12,
+                            fontWeight: 600,
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.5px',
+                          }}
+                        >
+                          Instagram
+                        </span>
+                      </div>
+                      <div
+                        style={{
+                          color: '#f9fafb',
+                          fontSize: 15,
+                          fontWeight: 500,
+                          marginBottom: 12,
+                        }}
+                      >
+                        {activeMember.instagram}
+                      </div>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <button
+                          onClick={() =>
+                            copyText(activeMember.instagram!, 'instagram')
+                          }
+                          style={{
+                            flex: 1,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: 6,
+                            padding: '10px 14px',
+                            borderRadius: 10,
+                            background: 'rgba(255, 255, 255, 0.04)',
+                            border: '1px solid rgba(255, 255, 255, 0.08)',
+                            color: '#e5e7eb',
+                            fontSize: 13,
+                            fontWeight: 600,
+                          }}
+                        >
+                          <IonIcon
+                            icon={
+                              copiedField === 'instagram'
+                                ? checkmarkCircle
+                                : copyOutline
+                            }
+                            style={{ fontSize: 16 }}
+                          />
+                          {copiedField === 'instagram' ? 'Copied!' : 'Copy'}
+                        </button>
+                        <a
+                          href={instagramUrl(activeMember.instagram)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            flex: 1,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: 6,
+                            padding: '10px 14px',
+                            borderRadius: 10,
+                            background: '#ec4899',
+                            border: 'none',
+                            color: '#fff',
+                            fontSize: 13,
+                            fontWeight: 600,
+                            textDecoration: 'none',
+                          }}
+                        >
+                          <IonIcon
+                            icon={logoInstagram}
+                            style={{ fontSize: 16 }}
+                          />
+                          Open
+                        </a>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* No Contact Info */}
+                  {!activeMember.contact_email &&
+                    !activeMember.phone &&
+                    !activeMember.instagram && (
+                      <div
+                        style={{
+                          ...glassCard,
+                          padding: 24,
+                          textAlign: 'center',
+                        }}
+                      >
+                        <IonIcon
+                          icon={personOutline}
+                          style={{
+                            fontSize: 32,
+                            color: '#4b5563',
+                            marginBottom: 10,
+                          }}
+                        />
+                        <div style={{ color: '#6b7280', fontSize: 14 }}>
+                          No contact info saved yet
+                        </div>
+                        <div
+                          style={{
+                            color: '#4b5563',
+                            fontSize: 13,
+                            marginTop: 4,
+                          }}
+                        >
+                          This member can add contact details in their profile
+                        </div>
+                      </div>
+                    )}
+                </div>
+              </div>
+            ) : (
+              <div
+                style={{
+                  display: 'grid',
+                  placeItems: 'center',
+                  height: '100%',
+                }}
+              >
+                <IonSpinner style={{ '--color': BLUE.primary }} />
+              </div>
+            )}
+          </IonContent>
+        </IonModal>
       </IonContent>
     </IonPage>
   );

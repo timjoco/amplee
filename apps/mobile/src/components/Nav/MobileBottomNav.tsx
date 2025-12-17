@@ -130,8 +130,11 @@ export default function MobileBottomNav() {
     /^\/bands\/[^/]+\/invite\/?$/i.test(pathname) ||
     /^\/bands\/[^/]+\/public\/?$/i.test(pathname) ||
     /^\/bands\/[^/]+\/proposals\/[^/]+$/.test(pathname) ||
-    /^\/bands\/[^/]+\/songs\/?$/.test(pathname) ||
-    /^\/bands\/[^/]+\/songs\/[^/]+\/?$/.test(pathname);
+    /^\/bands\/[^/]+\/events\/[^/]+(\/.*)?$/.test(pathname) ||
+    /^\/event\/[^/]+(\/.*)?$/.test(pathname) ||
+    // ✅ Song editor only
+    /^\/bands\/[^/]+\/songs\/new\/?$/.test(pathname) ||
+    /^\/bands\/[^/]+\/songs\/[^/]+\/edit\/?$/.test(pathname);
 
   if (hidden) return null;
 

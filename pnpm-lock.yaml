@@ -26,6 +26,9 @@ importers:
       '@capacitor/browser':
         specifier: ^7.0.2
         version: 7.0.2(@capacitor/core@7.4.4)
+      '@capacitor/camera':
+        specifier: ^7.0.3
+        version: 7.0.3(@capacitor/core@7.4.4)
       '@capacitor/core':
         specifier: ^7.4.4
         version: 7.4.4
@@ -100,10 +103,10 @@ importers:
         specifier: ^7.4.4
         version: 7.4.4(@capacitor/core@7.4.4)
       '@types/react':
-        specifier: ^18.3.11
+        specifier: ^18.3.26
         version: 18.3.26
       '@types/react-dom':
-        specifier: ^18.3.1
+        specifier: ^18.3.7
         version: 18.3.7(@types/react@18.3.26)
       '@vitejs/plugin-react':
         specifier: ^5.1.0
@@ -112,7 +115,7 @@ importers:
         specifier: ^5.6.3
         version: 5.9.3
       vite:
-        specifier: ^5.4.10
+        specifier: ^5.4.21
         version: 5.4.21(@types/node@20.19.24)
 
   apps/web:
@@ -417,6 +420,14 @@ packages:
 
   /@capacitor/browser@7.0.2(@capacitor/core@7.4.4):
     resolution: {integrity: sha512-5kySTunCtH+2sezmTjgDfwvspW7GW/hslQECZeLIRM2qefnxjGTc3fmCTeILYK5EuvcxMs+8sF5BhmzzKqOzuQ==}
+    peerDependencies:
+      '@capacitor/core': '>=7.0.0'
+    dependencies:
+      '@capacitor/core': 7.4.4
+    dev: false
+
+  /@capacitor/camera@7.0.3(@capacitor/core@7.4.4):
+    resolution: {integrity: sha512-DFNmX75JkLa+TSvxCnQp1zB7kUN7Euq6Hmcd8sX5bHM1+SyYFyEf35xm4wp7bfPZE7oS+x9fjSx7WdExTWw1Hg==}
     peerDependencies:
       '@capacitor/core': '>=7.0.0'
     dependencies:

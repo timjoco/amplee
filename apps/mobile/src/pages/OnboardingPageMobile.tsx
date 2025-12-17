@@ -197,41 +197,6 @@ export default function OnboardingPageMobile() {
           '--background': 'transparent',
         }}
       >
-        {/* Starry Background */}
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background:
-              'radial-gradient(ellipse at 50% 0%, #1a0a2e 0%, #0f0720 40%, #050509 100%)',
-            zIndex: -2,
-          }}
-        />
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            backgroundImage: `
-              radial-gradient(1px 1px at 20% 30%, rgba(255,255,255,0.8) 0%, transparent 100%),
-              radial-gradient(1px 1px at 40% 70%, rgba(255,255,255,0.6) 0%, transparent 100%),
-              radial-gradient(1px 1px at 60% 20%, rgba(255,255,255,0.7) 0%, transparent 100%),
-              radial-gradient(1px 1px at 80% 50%, rgba(255,255,255,0.5) 0%, transparent 100%),
-              radial-gradient(1.5px 1.5px at 10% 80%, rgba(139,92,246,0.8) 0%, transparent 100%),
-              radial-gradient(1.5px 1.5px at 70% 90%, rgba(168,85,247,0.7) 0%, transparent 100%),
-              radial-gradient(1px 1px at 30% 50%, rgba(255,255,255,0.6) 0%, transparent 100%),
-              radial-gradient(1px 1px at 90% 10%, rgba(255,255,255,0.5) 0%, transparent 100%),
-              radial-gradient(1px 1px at 50% 60%, rgba(255,255,255,0.4) 0%, transparent 100%),
-              radial-gradient(1.5px 1.5px at 25% 15%, rgba(139,92,246,0.6) 0%, transparent 100%),
-              radial-gradient(1px 1px at 85% 75%, rgba(255,255,255,0.5) 0%, transparent 100%),
-              radial-gradient(1px 1px at 15% 45%, rgba(255,255,255,0.6) 0%, transparent 100%),
-              radial-gradient(1.5px 1.5px at 95% 35%, rgba(168,85,247,0.5) 0%, transparent 100%),
-              radial-gradient(1px 1px at 5% 65%, rgba(255,255,255,0.4) 0%, transparent 100%),
-              radial-gradient(1px 1px at 45% 85%, rgba(255,255,255,0.5) 0%, transparent 100%)
-            `,
-            zIndex: -1,
-          }}
-        />
-
         <div
           style={{
             minHeight: '100%',

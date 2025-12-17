@@ -377,3 +377,64 @@ ion-content::part(scroll)::-webkit-scrollbar {
   opacity: 0.4;
   pointer-events: none;
 }
+
+/* Dark ActionSheet (iOS + MD) */
+.amplee-action-sheet-dark .action-sheet-wrapper {
+  --background: #050509;
+}
+
+.amplee-action-sheet-dark .action-sheet-container {
+  --background: #050509;
+}
+
+.amplee-action-sheet-dark .action-sheet-title,
+.amplee-action-sheet-dark .action-sheet-sub-title {
+  color: #f9fafb !important;
+}
+
+.amplee-action-sheet-dark .action-sheet-button {
+  color: #e5e7eb !important;
+}
+
+.amplee-action-sheet-dark .action-sheet-button.ion-activated {
+  --background-activated: rgba(255, 255, 255, 0.08);
+}
+
+.amplee-action-sheet-dark .action-sheet-group {
+  background: #050509 !important;
+  border: 1px solid rgba(168, 85, 247, 0.18);
+  border-radius: 18px;
+}
+
+.amplee-action-sheet-dark .action-sheet-cancel {
+  background: rgba(255, 255, 255, 0.04) !important;
+}
+
+.amplee-action-sheet-dark .action-sheet-button-inner {
+  justify-content: center;
+}
+
+.amplee-action-sheet-dark .action-sheet-group {
+  background: #050509 !important;
+}
+
+.amplee-action-sheet-dark .action-sheet-button {
+  color: rgba(229, 231, 235, 0.95) !important;
+}
+
+.amplee-action-sheet-dark .action-sheet-cancel .action-sheet-button {
+  color: rgba(148, 163, 184, 0.95) !important;
+}
+
+/* Fix “IonContent won't scroll” issues on Android when nested layouts fight overflow */
+ion-page,
+ion-content,
+.roster-content {
+  height: 100%;
+}
+
+.roster-content::part(scroll) {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+}

@@ -1,31 +1,32 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import {
-  IonButton,
   IonContent,
   IonHeader,
   IonIcon,
   IonModal,
   IonPage,
   IonSpinner,
-  IonText,
   IonToolbar,
 } from '@ionic/react';
 import {
   addOutline,
   chevronBackOutline,
+  closeOutline,
   createOutline,
   linkOutline,
   logoApple,
   logoYoutube,
   musicalNotesOutline,
   openOutline,
+  personOutline,
   reorderThreeOutline,
   searchOutline,
+  shieldCheckmarkOutline,
   sparklesOutline,
   speedometerOutline,
   trashOutline,
 } from 'ionicons/icons';
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useSetlistTemplateEditor } from '../hooks/useSetlistTemplateEditor';
 
@@ -37,6 +38,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { supabase } from '../lib/supabase';
 import {
   SetlistTemplateItemRow,
   SetlistTemplateLinkRow,
@@ -44,10 +46,53 @@ import {
   detectLinkType,
 } from '../utils/setlists';
 
+// ─────────────────────────────────────────────────────────────
+// Theme Colors (Pink/Magenta for Library/Setlists)
+// ─────────────────────────────────────────────────────────────
+
+const PINK = {
+  primary: '#ec4899',
+  primaryHover: '#db2777',
+  light: '#f472b6',
+  lighter: '#f9a8d4',
+  dark: '#be185d',
+  glow: 'rgba(236, 72, 153, 0.4)',
+  subtle: 'rgba(236, 72, 153, 0.08)',
+  border: 'rgba(236, 72, 153, 0.25)',
+};
+
+const RED = {
+  primary: '#ef4444',
+  light: '#f87171',
+  subtle: 'rgba(239, 68, 68, 0.08)',
+  border: 'rgba(239, 68, 68, 0.25)',
+  glow: 'rgba(239, 68, 68, 0.4)',
+};
+
+// ─────────────────────────────────────────────────────────────
+// Shared Styles
+// ─────────────────────────────────────────────────────────────
+
+const glassCard = {
+  background: 'rgba(255, 255, 255, 0.02)',
+  backdropFilter: 'blur(12px)',
+  WebkitBackdropFilter: 'blur(12px)',
+  border: '1px solid rgba(255, 255, 255, 0.06)',
+  borderRadius: 16,
+};
+
+// ─────────────────────────────────────────────────────────────
+// Types
+// ─────────────────────────────────────────────────────────────
+
 type RouteParams = {
   bandId: string;
   setlistId: string;
 };
+
+// ─────────────────────────────────────────────────────────────
+// Spotify Icon
+// ─────────────────────────────────────────────────────────────
 
 export function SpotifyIcon({ size = 18 }: { size?: number }) {
   return (
@@ -57,11 +102,45 @@ export function SpotifyIcon({ size = 18 }: { size?: number }) {
   );
 }
 
-/* ------------------ MAIN COMPONENT ------------------ */
+// ─────────────────────────────────────────────────────────────
+// Main Component
+// ─────────────────────────────────────────────────────────────
 
 export default function SetlistTemplateEditorMobile() {
   const nav = useNavigate();
   const { bandId, setlistId } = useParams<RouteParams>();
+
+  // User permissions
+  const [myUserId, setMyUserId] = useState<string | null>(null);
+  const [myRole, setMyRole] = useState<string | null>(null);
+
+  const isAdmin = useMemo(() => myRole === 'admin', [myRole]);
+
+  // Get current user and role
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      const { data } = await supabase.auth.getUser();
+      if (!alive) return;
+      const userId = data.user?.id ?? null;
+      setMyUserId(userId);
+
+      if (userId && bandId) {
+        const { data: membership } = await supabase
+          .from('band_members')
+          .select('role')
+          .eq('band_id', bandId)
+          .eq('user_id', userId)
+          .maybeSingle();
+
+        if (!alive) return;
+        setMyRole(membership?.role ?? null);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [bandId]);
 
   const editor = useSetlistTemplateEditor({
     bandId,
@@ -124,11 +203,11 @@ export default function SetlistTemplateEditorMobile() {
 
   return (
     <IonPage>
-      <IonHeader translucent>
+      <IonHeader translucent className="ion-no-border">
         <IonToolbar
           style={{
-            '--background': 'rgba(8, 8, 12, 0.98)',
-            borderBottom: '0.5px solid rgba(255, 255, 255, 0.06)',
+            '--background': 'rgba(8, 8, 14, 0.95)',
+            '--border-width': 0,
           }}
         >
           <div
@@ -139,48 +218,86 @@ export default function SetlistTemplateEditorMobile() {
               gap: 12,
             }}
           >
-            <IonButton
+            {/* Back Button */}
+            <button
               onClick={() => nav(-1)}
-              fill="clear"
               style={{
-                minWidth: 0,
-                padding: 6,
-                margin: 0,
-                '--padding-start': '0',
-                '--padding-end': '0',
+                width: 40,
+                height: 40,
+                borderRadius: 12,
+                background: 'rgba(255, 255, 255, 0.04)',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                display: 'grid',
+                placeItems: 'center',
+                color: '#9ca3af',
+                flexShrink: 0,
               }}
             >
-              <IonIcon
-                icon={chevronBackOutline}
-                style={{ color: '#F9FAFB', fontSize: 24 }}
-              />
-            </IonButton>
+              <IonIcon icon={chevronBackOutline} style={{ fontSize: 20 }} />
+            </button>
 
+            {/* Title */}
             <div style={{ flex: 1, minWidth: 0 }}>
               <h1
                 style={{
                   margin: 0,
                   fontSize: 20,
-                  fontWeight: 800,
-                  color: '#F9FAFB',
+                  fontWeight: 700,
+                  color: '#f9fafb',
                   letterSpacing: '-0.5px',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
                   whiteSpace: 'nowrap',
                 }}
               >
-                {template?.name ?? (loading ? 'Loading…' : 'Setlist')}
+                {template?.name ?? (loading ? 'Loading...' : 'Setlist')}
               </h1>
               <p
                 style={{
                   margin: '2px 0 0',
                   fontSize: 13,
-                  color: '#9ca3af',
+                  color: '#6b7280',
                 }}
               >
                 {items.length} {items.length === 1 ? 'song' : 'songs'}
               </p>
             </div>
+
+            {/* Role Badge */}
+            {myUserId && myRole && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '6px 10px',
+                  borderRadius: 10,
+                  background: isAdmin
+                    ? PINK.subtle
+                    : 'rgba(255, 255, 255, 0.04)',
+                  border: `1px solid ${
+                    isAdmin ? PINK.border : 'rgba(255, 255, 255, 0.08)'
+                  }`,
+                }}
+              >
+                <IonIcon
+                  icon={isAdmin ? shieldCheckmarkOutline : personOutline}
+                  style={{
+                    fontSize: 14,
+                    color: isAdmin ? PINK.light : '#6b7280',
+                  }}
+                />
+                <span
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: isAdmin ? PINK.light : '#6b7280',
+                  }}
+                >
+                  {isAdmin ? 'Admin' : 'Member'}
+                </span>
+              </div>
+            )}
           </div>
         </IonToolbar>
       </IonHeader>
@@ -188,7 +305,7 @@ export default function SetlistTemplateEditorMobile() {
       <IonContent
         fullscreen
         style={{
-          '--background': 'linear-gradient(180deg, #0a0812 0%, #050509 100%)',
+          '--background': 'linear-gradient(180deg, #08080e 0%, #04040a 100%)',
         }}
       >
         {loading ? (
@@ -205,6 +322,29 @@ export default function SetlistTemplateEditorMobile() {
                 margin: '0 auto',
               }}
             >
+              {/* Non-admin notice */}
+              {!isAdmin && myRole && (
+                <div
+                  style={{
+                    ...glassCard,
+                    padding: 12,
+                    marginBottom: 16,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                  }}
+                >
+                  <IonIcon
+                    icon={shieldCheckmarkOutline}
+                    style={{ color: '#6b7280', fontSize: 16 }}
+                  />
+                  <span style={{ color: '#6b7280', fontSize: 13 }}>
+                    You're viewing this setlist as a member. Only admins can
+                    edit.
+                  </span>
+                </div>
+              )}
+
               {/* 1) Stats bar */}
               <StatsBar
                 songCount={items.length}
@@ -221,6 +361,7 @@ export default function SetlistTemplateEditorMobile() {
                 onAddClick={() => handleButtonPress('add', openSongPicker)}
                 onEmptyCtaClick={openSongPicker}
                 isAddPressed={pressedButton === 'add'}
+                isAdmin={isAdmin}
               />
 
               {/* 3) External links */}
@@ -230,23 +371,26 @@ export default function SetlistTemplateEditorMobile() {
                 isAddPressed={pressedButton === 'addLink'}
                 onDeleteLink={handleDeleteLink}
                 onOpenLink={openExternalLink}
+                isAdmin={isAdmin}
               />
 
-              {/* 4) Rename / delete actions */}
-              <TemplateActionsSection
-                onRenameClick={() =>
-                  handleButtonPress('rename', startEditTemplate)
-                }
-                onDeleteClick={() =>
-                  handleButtonPress('delete', openDeleteTemplateConfirm)
-                }
-                isRenamePressed={pressedButton === 'rename'}
-                isDeletePressed={pressedButton === 'delete'}
-              />
+              {/* 4) Rename / delete actions (Admin Only) */}
+              {isAdmin && (
+                <TemplateActionsSection
+                  onRenameClick={() =>
+                    handleButtonPress('rename', startEditTemplate)
+                  }
+                  onDeleteClick={() =>
+                    handleButtonPress('delete', openDeleteTemplateConfirm)
+                  }
+                  isRenamePressed={pressedButton === 'rename'}
+                  isDeletePressed={pressedButton === 'delete'}
+                />
+              )}
             </div>
 
             {/* Add Link Modal */}
-            {showAddLink && (
+            {showAddLink && isAdmin && (
               <AddLinkModal
                 newLinkUrl={newLinkUrl}
                 newLinkLabel={newLinkLabel}
@@ -261,7 +405,7 @@ export default function SetlistTemplateEditorMobile() {
 
             {/* Song picker modal */}
             <SongPickerModal
-              isOpen={songPickerOpen}
+              isOpen={songPickerOpen && isAdmin}
               loadingSongs={loadingSongs}
               songSearch={songSearch}
               setSongSearch={setSongSearch}
@@ -273,7 +417,7 @@ export default function SetlistTemplateEditorMobile() {
 
             {/* Edit template name modal */}
             <RenameTemplateModal
-              isOpen={showEditTemplate}
+              isOpen={showEditTemplate && isAdmin}
               editName={editName}
               setEditName={setEditName}
               savingTemplate={savingTemplate}
@@ -283,7 +427,7 @@ export default function SetlistTemplateEditorMobile() {
 
             {/* Delete template confirm modal */}
             <DeleteTemplateModal
-              isOpen={showDeleteTemplate}
+              isOpen={showDeleteTemplate && isAdmin}
               templateName={template?.name ?? ''}
               songCount={items.length}
               deletingTemplate={deletingTemplate}
@@ -297,27 +441,38 @@ export default function SetlistTemplateEditorMobile() {
   );
 }
 
-/* ------------------ PRESENTATIONAL COMPONENTS ------------------ */
+// ─────────────────────────────────────────────────────────────
+// Presentational Components
+// ─────────────────────────────────────────────────────────────
 
 function LoadingState() {
   return (
     <div
       style={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
+        display: 'grid',
+        placeItems: 'center',
         height: '50vh',
         gap: 12,
       }}
     >
-      <IonSpinner
-        name="crescent"
-        style={{ '--color': '#f472b6', width: 32, height: 32 }}
-      />
-      <IonText color="medium">
-        <p style={{ margin: 0, fontSize: 14 }}>Loading setlist…</p>
-      </IonText>
+      <div style={{ textAlign: 'center' }}>
+        <IonSpinner
+          style={{
+            '--color': PINK.primary,
+            width: 32,
+            height: 32,
+          }}
+        />
+        <div
+          style={{
+            color: '#6b7280',
+            fontSize: 13,
+            marginTop: 12,
+          }}
+        >
+          Loading setlist...
+        </div>
+      </div>
     </div>
   );
 }
@@ -340,22 +495,22 @@ function NotFoundState() {
         style={{
           width: 64,
           height: 64,
-          borderRadius: 20,
-          background: 'rgba(244, 114, 182, 0.1)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
+          borderRadius: 16,
+          background: PINK.subtle,
+          border: `1px solid ${PINK.border}`,
+          display: 'grid',
+          placeItems: 'center',
         }}
       >
         <IonIcon
           icon={musicalNotesOutline}
-          style={{ fontSize: 32, color: '#f472b6' }}
+          style={{ fontSize: 28, color: PINK.light }}
         />
       </div>
       <h3
         style={{
           margin: 0,
-          fontSize: 18,
+          fontSize: 17,
           fontWeight: 700,
           color: '#e5e7eb',
         }}
@@ -390,56 +545,66 @@ function StatsBar({
       <div
         style={{
           flex: 1,
-          background:
-            'linear-gradient(135deg, rgba(244,114,182,0.1) 0%, rgba(236,72,153,0.05) 100%)',
-          border: '1px solid rgba(244, 114, 182, 0.2)',
-          borderRadius: 14,
-          padding: '12px 16px',
+          ...glassCard,
+          border: `1px solid ${PINK.border}`,
+          padding: '14px 16px',
           textAlign: 'center',
-          backdropFilter: 'blur(8px)',
-          WebkitBackdropFilter: 'blur(8px)',
         }}
       >
         <div
           style={{
-            fontSize: 24,
+            fontSize: 26,
             fontWeight: 700,
-            color: '#f472b6',
+            color: PINK.light,
             lineHeight: 1,
           }}
         >
           {songCount}
         </div>
-        <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 4 }}>
-          {songCount === 1 ? 'SONG' : 'SONGS'}
+        <div
+          style={{
+            fontSize: 11,
+            fontWeight: 600,
+            color: '#6b7280',
+            marginTop: 6,
+            textTransform: 'uppercase',
+            letterSpacing: '0.5px',
+          }}
+        >
+          {songCount === 1 ? 'Song' : 'Songs'}
         </div>
       </div>
 
       <div
         style={{
           flex: 1,
-          background:
-            'linear-gradient(135deg, rgba(244,114,182,0.1) 0%, rgba(236,72,153,0.05) 100%)',
-          border: '1px solid rgba(244, 114, 182, 0.2)',
-          borderRadius: 14,
-          padding: '12px 16px',
+          ...glassCard,
+          border: `1px solid ${PINK.border}`,
+          padding: '14px 16px',
           textAlign: 'center',
-          backdropFilter: 'blur(8px)',
-          WebkitBackdropFilter: 'blur(8px)',
         }}
       >
         <div
           style={{
-            fontSize: 24,
+            fontSize: 26,
             fontWeight: 700,
-            color: '#f472b6',
+            color: PINK.light,
             lineHeight: 1,
           }}
         >
           {minutesEstimate === 0 ? '0' : `~${minutesEstimate}`}
         </div>
-        <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 4 }}>
-          MINUTES
+        <div
+          style={{
+            fontSize: 11,
+            fontWeight: 600,
+            color: '#6b7280',
+            marginTop: 6,
+            textTransform: 'uppercase',
+            letterSpacing: '0.5px',
+          }}
+        >
+          Minutes
         </div>
       </div>
 
@@ -447,23 +612,24 @@ function StatsBar({
         <div
           style={{
             position: 'absolute',
-            top: 12,
-            right: 16,
+            top: -8,
+            right: 0,
             display: 'flex',
             alignItems: 'center',
             gap: 6,
             padding: '6px 12px',
             borderRadius: 20,
-            background: 'rgba(244, 114, 182, 0.15)',
+            background: PINK.subtle,
+            border: `1px solid ${PINK.border}`,
             fontSize: 12,
-            color: '#f472b6',
+            fontWeight: 600,
+            color: PINK.light,
           }}
         >
           <IonSpinner
-            name="dots"
-            style={{ '--color': '#f472b6', width: 16, height: 16 }}
+            style={{ '--color': PINK.light, width: 14, height: 14 }}
           />
-          Saving…
+          Saving...
         </div>
       )}
     </div>
@@ -478,6 +644,7 @@ function SongsSection({
   onAddClick,
   onEmptyCtaClick,
   isAddPressed,
+  isAdmin,
 }: {
   items: SetlistTemplateItemRow[];
   sensors: any;
@@ -486,20 +653,18 @@ function SongsSection({
   onAddClick: () => void;
   onEmptyCtaClick: () => void;
   isAddPressed: boolean;
+  isAdmin: boolean;
 }) {
   return (
     <div
       style={{
-        background:
-          'linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%)',
-        border: '1px solid rgba(148,163,184,0.12)',
-        borderRadius: 20,
+        ...glassCard,
+        border: `1px solid rgba(255, 255, 255, 0.08)`,
         padding: 16,
         marginBottom: 16,
-        backdropFilter: 'blur(12px)',
-        WebkitBackdropFilter: 'blur(12px)',
       }}
     >
+      {/* Section Header */}
       <div
         style={{
           display: 'flex',
@@ -517,46 +682,48 @@ function SongsSection({
         >
           <IonIcon
             icon={musicalNotesOutline}
-            style={{ fontSize: 18, color: '#f472b6' }}
+            style={{ fontSize: 18, color: PINK.light }}
           />
           <span
             style={{
               fontSize: 13,
-              fontWeight: 700,
+              fontWeight: 600,
               color: '#9ca3af',
               textTransform: 'uppercase',
-              letterSpacing: 0.5,
+              letterSpacing: '0.5px',
             }}
           >
             Songs
           </span>
         </div>
 
-        <button
-          type="button"
-          onClick={onAddClick}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-            padding: '8px 14px',
-            borderRadius: 20,
-            border: '1px solid rgba(244, 114, 182, 0.4)',
-            background:
-              'linear-gradient(135deg, rgba(244,114,182,0.2) 0%, rgba(236,72,153,0.1) 100%)',
-            color: '#f472b6',
-            fontSize: 13,
-            fontWeight: 600,
-            cursor: 'pointer',
-            transition: 'all 100ms ease-out',
-            transform: isAddPressed ? 'scale(0.95)' : 'scale(1)',
-          }}
-        >
-          <IonIcon icon={addOutline} style={{ fontSize: 16 }} />
-          Add
-        </button>
+        {isAdmin && (
+          <button
+            type="button"
+            onClick={onAddClick}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: '8px 14px',
+              borderRadius: 10,
+              background: PINK.primary,
+              border: 'none',
+              color: '#fff',
+              fontSize: 13,
+              fontWeight: 600,
+              boxShadow: `0 4px 12px ${PINK.glow}`,
+              transform: isAddPressed ? 'scale(0.95)' : 'scale(1)',
+              transition: 'all 100ms ease-out',
+            }}
+          >
+            <IonIcon icon={addOutline} style={{ fontSize: 16 }} />
+            Add
+          </button>
+        )}
       </div>
 
+      {/* Empty State */}
       {items.length === 0 ? (
         <div
           style={{
@@ -568,65 +735,68 @@ function SongsSection({
             style={{
               width: 56,
               height: 56,
-              borderRadius: 16,
-              background: 'rgba(244, 114, 182, 0.1)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
+              borderRadius: 14,
+              background: PINK.subtle,
+              border: `1px solid ${PINK.border}`,
+              display: 'grid',
+              placeItems: 'center',
               margin: '0 auto 16px',
             }}
           >
             <IonIcon
               icon={sparklesOutline}
-              style={{ fontSize: 28, color: '#f472b6' }}
+              style={{ fontSize: 24, color: PINK.light }}
             />
           </div>
           <h3
             style={{
               margin: 0,
-              fontSize: 17,
+              fontSize: 16,
               fontWeight: 700,
               color: '#e5e7eb',
               marginBottom: 6,
             }}
           >
-            Start building your setlist
+            {isAdmin ? 'Start building your setlist' : 'No songs yet'}
           </h3>
           <p
             style={{
               margin: 0,
-              fontSize: 14,
+              fontSize: 13,
               color: '#6b7280',
-              marginBottom: 16,
+              marginBottom: isAdmin ? 16 : 0,
             }}
           >
-            Add songs from your library and drag to reorder
+            {isAdmin
+              ? 'Add songs from your library and drag to reorder'
+              : 'This setlist is empty. Ask an admin to add songs.'}
           </p>
 
-          <button
-            type="button"
-            onClick={onEmptyCtaClick}
-            style={{
-              padding: '12px 24px',
-              borderRadius: 12,
-              border: '1px solid rgba(244, 114, 182, 0.4)',
-              background:
-                'linear-gradient(135deg, rgba(244,114,182,0.9) 0%, rgba(236,72,153,0.9) 100%)',
-              color: '#fff',
-              fontSize: 15,
-              fontWeight: 700,
-              cursor: 'pointer',
-              boxShadow: '0 4px 14px rgba(244, 114, 182, 0.3)',
-            }}
-          >
-            Add your first song
-          </button>
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={onEmptyCtaClick}
+              style={{
+                padding: '12px 20px',
+                borderRadius: 12,
+                background: PINK.primary,
+                border: 'none',
+                color: '#fff',
+                fontSize: 14,
+                fontWeight: 600,
+                boxShadow: `0 4px 14px ${PINK.glow}`,
+              }}
+            >
+              Add your first song
+            </button>
+          )}
         </div>
       ) : (
+        /* Song List */
         <DndContext
-          sensors={sensors}
+          sensors={isAdmin ? sensors : []}
           collisionDetection={closestCenter}
-          onDragEnd={onDragEnd}
+          onDragEnd={isAdmin ? onDragEnd : () => {}}
           modifiers={[restrictToVerticalAxis]}
         >
           <SortableContext
@@ -646,6 +816,7 @@ function SongsSection({
                   row={row}
                   index={index}
                   onDelete={() => onDeleteItem(row.id)}
+                  isAdmin={isAdmin}
                 />
               ))}
             </div>
@@ -662,12 +833,14 @@ function ExternalLinksSection({
   isAddPressed,
   onDeleteLink,
   onOpenLink,
+  isAdmin,
 }: {
   links: SetlistTemplateLinkRow[];
   onAddClick: () => void;
   isAddPressed: boolean;
   onDeleteLink: (id: string) => void;
   onOpenLink: (url: string) => void;
+  isAdmin: boolean;
 }) {
   const renderLinkIcon = (url: string) => {
     const { kind } = detectLinkType(url);
@@ -687,16 +860,13 @@ function ExternalLinksSection({
   return (
     <div
       style={{
-        background:
-          'linear-gradient(135deg, rgba(244,114,182,0.08) 0%, rgba(236,72,153,0.04) 100%)',
-        border: '1px solid rgba(244, 114, 182, 0.2)',
-        borderRadius: 20,
+        ...glassCard,
+        border: `1px solid ${PINK.border}`,
         padding: 16,
         marginBottom: 16,
-        backdropFilter: 'blur(12px)',
-        WebkitBackdropFilter: 'blur(12px)',
       }}
     >
+      {/* Section Header */}
       <div
         style={{
           display: 'flex',
@@ -714,50 +884,51 @@ function ExternalLinksSection({
         >
           <IonIcon
             icon={linkOutline}
-            style={{ fontSize: 18, color: '#f472b6' }}
+            style={{ fontSize: 18, color: PINK.light }}
           />
           <span
             style={{
               fontSize: 13,
-              fontWeight: 700,
+              fontWeight: 600,
               color: '#9ca3af',
               textTransform: 'uppercase',
-              letterSpacing: 0.5,
+              letterSpacing: '0.5px',
             }}
           >
             External Links
           </span>
         </div>
 
-        <button
-          type="button"
-          onClick={onAddClick}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-            padding: '8px 14px',
-            borderRadius: 20,
-            border: '1px solid rgba(244, 114, 182, 0.4)',
-            background:
-              'linear-gradient(135deg, rgba(244,114,182,0.2) 0%, rgba(236,72,153,0.1) 100%)',
-            color: '#f472b6',
-            fontSize: 13,
-            fontWeight: 600,
-            cursor: 'pointer',
-            transition: 'all 100ms ease-out',
-            transform: isAddPressed ? 'scale(0.95)' : 'scale(1)',
-          }}
-        >
-          <IonIcon icon={addOutline} style={{ fontSize: 16 }} />
-          Add
-        </button>
+        {isAdmin && (
+          <button
+            type="button"
+            onClick={onAddClick}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: '8px 14px',
+              borderRadius: 10,
+              background: PINK.subtle,
+              border: `1px solid ${PINK.border}`,
+              color: PINK.light,
+              fontSize: 13,
+              fontWeight: 600,
+              transform: isAddPressed ? 'scale(0.95)' : 'scale(1)',
+              transition: 'all 100ms ease-out',
+            }}
+          >
+            <IonIcon icon={addOutline} style={{ fontSize: 16 }} />
+            Add
+          </button>
+        )}
       </div>
 
+      {/* Empty State */}
       {links.length === 0 ? (
         <div
           style={{
-            padding: '20px 16px',
+            padding: '16px',
             textAlign: 'center',
           }}
         >
@@ -768,10 +939,13 @@ function ExternalLinksSection({
               color: '#6b7280',
             }}
           >
-            Add links to Spotify playlists, Apple Music, YouTube, and more
+            {isAdmin
+              ? 'Add links to Spotify playlists, Apple Music, YouTube, and more'
+              : 'No external links added yet'}
           </p>
         </div>
       ) : (
+        /* Links List */
         <div
           style={{
             display: 'flex',
@@ -788,8 +962,8 @@ function ExternalLinksSection({
                 gap: 12,
                 padding: '12px 14px',
                 borderRadius: 12,
-                background: 'rgba(15, 23, 42, 0.6)',
-                border: '1px solid rgba(71, 85, 105, 0.3)',
+                background: 'rgba(255, 255, 255, 0.02)',
+                border: '1px solid rgba(255, 255, 255, 0.06)',
               }}
             >
               <div
@@ -797,12 +971,12 @@ function ExternalLinksSection({
                   width: 36,
                   height: 36,
                   borderRadius: 10,
-                  background: 'rgba(244, 114, 182, 0.1)',
-                  border: '1px solid rgba(244, 114, 182, 0.2)',
+                  background: PINK.subtle,
+                  border: `1px solid ${PINK.border}`,
                   display: 'grid',
                   placeItems: 'center',
                   flexShrink: 0,
-                  color: '#f472b6',
+                  color: PINK.light,
                 }}
               >
                 {renderLinkIcon(link.url)}
@@ -818,7 +992,7 @@ function ExternalLinksSection({
                   style={{
                     fontSize: 14,
                     fontWeight: 600,
-                    color: '#F9FAFB',
+                    color: '#f9fafb',
                     marginBottom: 2,
                   }}
                 >
@@ -843,10 +1017,9 @@ function ExternalLinksSection({
                 style={{
                   padding: 8,
                   borderRadius: 8,
-                  border: '1px solid rgba(244, 114, 182, 0.3)',
-                  background: 'rgba(244, 114, 182, 0.1)',
-                  color: '#f472b6',
-                  cursor: 'pointer',
+                  background: PINK.subtle,
+                  border: `1px solid ${PINK.border}`,
+                  color: PINK.light,
                   display: 'grid',
                   placeItems: 'center',
                   flexShrink: 0,
@@ -855,23 +1028,24 @@ function ExternalLinksSection({
                 <IonIcon icon={openOutline} style={{ fontSize: 16 }} />
               </button>
 
-              <button
-                type="button"
-                onClick={() => onDeleteLink(link.id)}
-                style={{
-                  padding: 8,
-                  borderRadius: 8,
-                  border: '1px solid rgba(248, 113, 113, 0.3)',
-                  background: 'rgba(248, 113, 113, 0.1)',
-                  color: '#f87171',
-                  cursor: 'pointer',
-                  display: 'grid',
-                  placeItems: 'center',
-                  flexShrink: 0,
-                }}
-              >
-                <IonIcon icon={trashOutline} style={{ fontSize: 16 }} />
-              </button>
+              {isAdmin && (
+                <button
+                  type="button"
+                  onClick={() => onDeleteLink(link.id)}
+                  style={{
+                    padding: 8,
+                    borderRadius: 8,
+                    background: RED.subtle,
+                    border: `1px solid ${RED.border}`,
+                    color: RED.light,
+                    display: 'grid',
+                    placeItems: 'center',
+                    flexShrink: 0,
+                  }}
+                >
+                  <IonIcon icon={trashOutline} style={{ fontSize: 16 }} />
+                </button>
+              )}
             </div>
           ))}
         </div>
@@ -896,7 +1070,7 @@ function TemplateActionsSection({
       style={{
         display: 'flex',
         gap: 10,
-        marginTop: 20,
+        marginTop: 8,
       }}
     >
       <button
@@ -908,17 +1082,15 @@ function TemplateActionsSection({
           alignItems: 'center',
           justifyContent: 'center',
           gap: 8,
-          padding: '12px 16px',
+          padding: '14px 16px',
           borderRadius: 12,
-          border: '1px solid rgba(244, 114, 182, 0.3)',
-          background:
-            'linear-gradient(135deg, rgba(244,114,182,0.1) 0%, rgba(236,72,153,0.05) 100%)',
-          color: '#f472b6',
+          background: PINK.subtle,
+          border: `1px solid ${PINK.border}`,
+          color: PINK.light,
           fontSize: 14,
           fontWeight: 600,
-          cursor: 'pointer',
-          transition: 'all 100ms ease-out',
           transform: isRenamePressed ? 'scale(0.97)' : 'scale(1)',
+          transition: 'all 100ms ease-out',
         }}
       >
         <IonIcon icon={createOutline} style={{ fontSize: 18 }} />
@@ -934,17 +1106,15 @@ function TemplateActionsSection({
           alignItems: 'center',
           justifyContent: 'center',
           gap: 8,
-          padding: '12px 16px',
+          padding: '14px 16px',
           borderRadius: 12,
-          border: '1px solid rgba(248, 113, 113, 0.3)',
-          background:
-            'linear-gradient(135deg, rgba(248,113,113,0.1) 0%, rgba(239,68,68,0.05) 100%)',
-          color: '#f87171',
+          background: RED.subtle,
+          border: `1px solid ${RED.border}`,
+          color: RED.light,
           fontSize: 14,
           fontWeight: 600,
-          cursor: 'pointer',
-          transition: 'all 100ms ease-out',
           transform: isDeletePressed ? 'scale(0.97)' : 'scale(1)',
+          transition: 'all 100ms ease-out',
         }}
       >
         <IonIcon icon={trashOutline} style={{ fontSize: 18 }} />
@@ -953,6 +1123,185 @@ function TemplateActionsSection({
     </div>
   );
 }
+
+function SortableTemplateItemCard({
+  row,
+  index,
+  onDelete,
+  isAdmin,
+}: {
+  row: SetlistTemplateItemRow;
+  index: number;
+  onDelete: () => void;
+  isAdmin: boolean;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: row.id, disabled: !isAdmin });
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 100 : 'auto',
+  };
+
+  return (
+    <div ref={setNodeRef} style={style}>
+      <div
+        style={{
+          borderRadius: 12,
+          padding: '12px 14px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 12,
+          background: isDragging ? PINK.subtle : 'rgba(255, 255, 255, 0.02)',
+          border: isDragging
+            ? `1px solid ${PINK.border}`
+            : '1px solid rgba(255, 255, 255, 0.06)',
+          boxShadow: isDragging
+            ? `0 20px 40px rgba(0, 0, 0, 0.4), 0 0 20px ${PINK.glow}`
+            : 'none',
+          transition: 'background 150ms, border 150ms, box-shadow 150ms',
+        }}
+      >
+        {/* Drag handle + index */}
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 2,
+            width: 28,
+            flexShrink: 0,
+          }}
+        >
+          {isAdmin && (
+            <button
+              type="button"
+              aria-label="Reorder"
+              {...attributes}
+              {...listeners}
+              style={{
+                border: 'none',
+                background: 'transparent',
+                padding: 4,
+                margin: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'grab',
+                touchAction: 'none',
+                borderRadius: 6,
+              }}
+            >
+              <IonIcon
+                icon={reorderThreeOutline}
+                style={{ fontSize: 20, color: '#6b7280' }}
+              />
+            </button>
+          )}
+          <span
+            style={{
+              fontSize: 11,
+              fontWeight: 700,
+              color: PINK.light,
+            }}
+          >
+            {index + 1}
+          </span>
+        </div>
+
+        {/* Song info */}
+        <div
+          style={{
+            flex: 1,
+            minWidth: 0,
+          }}
+        >
+          <div
+            style={{
+              fontSize: 15,
+              fontWeight: 600,
+              color: '#f9fafb',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              marginBottom: 4,
+            }}
+          >
+            {row.title}
+          </div>
+
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 12,
+              fontSize: 12,
+              color: '#6b7280',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
+              }}
+            >
+              <IonIcon
+                icon={musicalNotesOutline}
+                style={{ fontSize: 13, color: PINK.light, opacity: 0.7 }}
+              />
+              <span>{row.musical_key || '—'}</span>
+            </div>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
+              }}
+            >
+              <IonIcon
+                icon={speedometerOutline}
+                style={{ fontSize: 13, color: PINK.light, opacity: 0.7 }}
+              />
+              <span>{row.bpm ?? '—'}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Remove button (Admin Only) */}
+        {isAdmin && (
+          <button
+            type="button"
+            onClick={onDelete}
+            style={{
+              padding: '6px 12px',
+              borderRadius: 8,
+              background: RED.subtle,
+              border: `1px solid ${RED.border}`,
+              color: RED.light,
+              fontSize: 12,
+              fontWeight: 600,
+              flexShrink: 0,
+            }}
+          >
+            Remove
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// Modal Components
+// ─────────────────────────────────────────────────────────────
 
 function AddLinkModal({
   newLinkUrl,
@@ -990,7 +1339,7 @@ function AddLinkModal({
         style={{
           position: 'absolute',
           inset: 0,
-          background: 'rgba(0,0,0,0.75)',
+          background: 'rgba(0,0,0,0.8)',
           backdropFilter: 'blur(8px)',
           WebkitBackdropFilter: 'blur(8px)',
         }}
@@ -1001,69 +1350,88 @@ function AddLinkModal({
           position: 'relative',
           width: '100%',
           maxWidth: 380,
-          background:
-            'linear-gradient(145deg, rgba(20,15,25,0.98) 0%, rgba(12,8,18,0.98) 100%)',
-          border: '1px solid rgba(244, 114, 182, 0.3)',
-          borderRadius: 24,
+          ...glassCard,
+          border: `1px solid ${PINK.border}`,
           padding: 24,
-          boxShadow:
-            '0 25px 50px -12px rgba(0,0,0,0.6), 0 0 40px rgba(244,114,182,0.1)',
+          boxShadow: `0 25px 50px rgba(0,0,0,0.5), 0 0 40px ${PINK.glow}`,
         }}
       >
+        {/* Header */}
         <div
           style={{
-            width: 56,
-            height: 56,
-            borderRadius: '50%',
-            background:
-              'linear-gradient(135deg, rgba(244,114,182,0.2) 0%, rgba(236,72,153,0.1) 100%)',
-            border: '1px solid rgba(244,114,182,0.3)',
-            display: 'grid',
-            placeItems: 'center',
-            margin: '0 auto 16px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: 20,
           }}
         >
-          <IonIcon
-            icon={linkOutline}
-            style={{ fontSize: 26, color: '#f472b6' }}
-          />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 12,
+                background: PINK.subtle,
+                border: `1px solid ${PINK.border}`,
+                display: 'grid',
+                placeItems: 'center',
+              }}
+            >
+              <IonIcon
+                icon={linkOutline}
+                style={{ fontSize: 20, color: PINK.light }}
+              />
+            </div>
+            <span
+              style={{
+                fontSize: 18,
+                fontWeight: 700,
+                color: '#f9fafb',
+              }}
+            >
+              Add Link
+            </span>
+          </div>
+          <button
+            onClick={onClose}
+            disabled={savingLink}
+            style={{
+              width: 32,
+              height: 32,
+              borderRadius: 8,
+              background: 'rgba(255, 255, 255, 0.04)',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
+              display: 'grid',
+              placeItems: 'center',
+              color: '#9ca3af',
+            }}
+          >
+            <IonIcon icon={closeOutline} style={{ fontSize: 18 }} />
+          </button>
         </div>
-
-        <h2
-          style={{
-            margin: 0,
-            fontSize: 20,
-            fontWeight: 700,
-            color: '#f9fafb',
-            textAlign: 'center',
-            letterSpacing: '-0.3px',
-          }}
-        >
-          Add external link
-        </h2>
 
         <p
           style={{
-            margin: '8px 0 20px',
-            fontSize: 14,
-            color: '#9ca3af',
-            textAlign: 'center',
+            margin: '0 0 20px',
+            fontSize: 13,
+            color: '#6b7280',
             lineHeight: 1.5,
           }}
         >
           Link to Spotify, Apple Music, YouTube, or any other streaming service
         </p>
 
+        {/* URL Input */}
         <div style={{ marginBottom: 16 }}>
           <label
             style={{
               display: 'block',
               marginBottom: 8,
-              fontSize: 11,
+              fontSize: 12,
               fontWeight: 600,
-              color: '#6b7280',
+              color: '#9ca3af',
               textTransform: 'uppercase',
-              letterSpacing: 0.5,
+              letterSpacing: '0.5px',
             }}
           >
             URL
@@ -1071,39 +1439,37 @@ function AddLinkModal({
           <input
             type="url"
             value={newLinkUrl}
-            onChange={(e) => {
-              setNewLinkUrl(e.target.value);
-              if (linkError) {
-              }
-            }}
+            onChange={(e) => setNewLinkUrl(e.target.value)}
             placeholder="https://open.spotify.com/playlist/..."
             autoFocus
             style={{
               width: '100%',
+              padding: '14px 16px',
               borderRadius: 12,
+              background: 'rgba(255, 255, 255, 0.04)',
               border: linkError
-                ? '1px solid rgba(248,113,113,0.6)'
-                : '1px solid rgba(148,163,184,0.25)',
-              padding: '12px 14px',
-              backgroundColor: 'rgba(255,255,255,0.03)',
-              color: '#e5e7eb',
+                ? `1px solid ${RED.border}`
+                : `1px solid ${
+                    newLinkUrl ? PINK.border : 'rgba(255, 255, 255, 0.08)'
+                  }`,
+              color: '#f9fafb',
               fontSize: 15,
-              transition: 'all 0.2s ease',
               outline: 'none',
             }}
           />
         </div>
 
+        {/* Label Input */}
         <div style={{ marginBottom: 20 }}>
           <label
             style={{
               display: 'block',
               marginBottom: 8,
-              fontSize: 11,
+              fontSize: 12,
               fontWeight: 600,
-              color: '#6b7280',
+              color: '#9ca3af',
               textTransform: 'uppercase',
-              letterSpacing: 0.5,
+              letterSpacing: '0.5px',
             }}
           >
             Label (optional)
@@ -1115,13 +1481,12 @@ function AddLinkModal({
             placeholder="e.g. Practice Playlist"
             style={{
               width: '100%',
+              padding: '14px 16px',
               borderRadius: 12,
-              border: '1px solid rgba(148,163,184,0.25)',
-              padding: '12px 14px',
-              backgroundColor: 'rgba(255,255,255,0.03)',
-              color: '#e5e7eb',
+              background: 'rgba(255, 255, 255, 0.04)',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
+              color: '#f9fafb',
               fontSize: 15,
-              transition: 'all 0.2s ease',
               outline: 'none',
             }}
           />
@@ -1132,7 +1497,7 @@ function AddLinkModal({
             style={{
               margin: '0 0 16px',
               fontSize: 13,
-              color: '#f87171',
+              color: RED.light,
               textAlign: 'center',
             }}
           >
@@ -1140,56 +1505,38 @@ function AddLinkModal({
           </p>
         )}
 
-        <div
-          style={{
-            display: 'flex',
-            gap: 12,
-          }}
-        >
+        {/* Actions */}
+        <div style={{ display: 'flex', gap: 10 }}>
           <button
-            type="button"
             onClick={onClose}
             disabled={savingLink}
             style={{
               flex: 1,
               padding: '14px 16px',
-              borderRadius: 14,
-              border: '1px solid rgba(148,163,184,0.2)',
-              background: 'rgba(255,255,255,0.03)',
-              color: '#9ca3af',
-              fontSize: 14,
+              borderRadius: 12,
+              background: 'transparent',
+              border: '1px solid rgba(255, 255, 255, 0.15)',
+              color: '#e5e7eb',
+              fontSize: 15,
               fontWeight: 600,
-              cursor: 'pointer',
-              transition: 'all 0.2s ease',
             }}
           >
             Cancel
           </button>
-
           <button
-            type="button"
             onClick={onSubmit}
             disabled={savingLink || !newLinkUrl.trim()}
             style={{
               flex: 1,
               padding: '14px 16px',
-              borderRadius: 14,
-              border: '1px solid rgba(244,114,182,0.4)',
-              background:
-                savingLink || !newLinkUrl.trim()
-                  ? 'rgba(244,114,182,0.1)'
-                  : 'linear-gradient(135deg, rgba(244,114,182,0.9) 0%, rgba(236,72,153,0.9) 100%)',
+              borderRadius: 12,
+              background: PINK.primary,
+              border: 'none',
               color: '#fff',
-              fontSize: 14,
+              fontSize: 15,
               fontWeight: 600,
-              cursor:
-                savingLink || !newLinkUrl.trim() ? 'not-allowed' : 'pointer',
-              transition: 'all 0.2s ease',
               opacity: savingLink || !newLinkUrl.trim() ? 0.5 : 1,
-              boxShadow:
-                savingLink || !newLinkUrl.trim()
-                  ? 'none'
-                  : '0 4px 14px rgba(244,114,182,0.3)',
+              boxShadow: `0 4px 12px ${PINK.glow}`,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -1198,11 +1545,13 @@ function AddLinkModal({
           >
             {savingLink ? (
               <>
-                <IonSpinner name="crescent" style={{ width: 16, height: 16 }} />
-                Adding…
+                <IonSpinner
+                  style={{ '--color': '#fff', width: 16, height: 16 }}
+                />
+                Adding...
               </>
             ) : (
-              'Add link'
+              'Add Link'
             )}
           </button>
         </div>
@@ -1231,188 +1580,179 @@ function SongPickerModal({
   onSelectSong: (song: SongOption) => void;
 }) {
   return (
-    <IonModal
-      isOpen={isOpen}
-      onDidDismiss={onClose}
-      style={{
-        '--background': 'rgba(8, 8, 12, 1)',
-      }}
-    >
-      <div
+    <IonModal isOpen={isOpen} onDidDismiss={onClose}>
+      <IonContent
         style={{
-          padding: 16,
-          paddingTop: 20,
-          background: 'linear-gradient(180deg, #0a0812 0%, #050509 100%)',
-          minHeight: '100%',
+          '--background': 'linear-gradient(180deg, #08080e 0%, #04040a 100%)',
         }}
       >
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            marginBottom: 16,
-          }}
-        >
-          <h2
-            style={{
-              margin: 0,
-              fontSize: 20,
-              fontWeight: 800,
-              color: '#F9FAFB',
-            }}
-          >
-            Add song
-          </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            style={{
-              padding: '8px 16px',
-              borderRadius: 20,
-              border: '1px solid rgba(148, 163, 184, 0.3)',
-              background: 'transparent',
-              color: '#9ca3af',
-              fontSize: 14,
-              fontWeight: 600,
-              cursor: 'pointer',
-            }}
-          >
-            Cancel
-          </button>
-        </div>
-
-        {/* Search bar */}
-        <div
-          style={{
-            position: 'relative',
-            marginBottom: 16,
-          }}
-        >
-          <IonIcon
-            icon={searchOutline}
-            style={{
-              position: 'absolute',
-              left: 14,
-              top: '50%',
-              transform: 'translateY(-50%)',
-              fontSize: 18,
-              color: '#6b7280',
-            }}
-          />
-          <input
-            type="text"
-            value={songSearch}
-            onChange={(e) => setSongSearch(e.target.value)}
-            placeholder="Search songs…"
-            style={{
-              width: '100%',
-              padding: '12px 14px 12px 42px',
-              borderRadius: 12,
-              border: '1px solid rgba(244, 114, 182, 0.3)',
-              background: 'rgba(255,255,255,0.03)',
-              color: '#e5e7eb',
-              fontSize: 15,
-              outline: 'none',
-            }}
-          />
-        </div>
-
-        {loadingSongs ? (
+        <div style={{ padding: 16, paddingTop: 20 }}>
+          {/* Header */}
           <div
             style={{
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center',
-              padding: 40,
-              gap: 10,
+              justifyContent: 'space-between',
+              marginBottom: 16,
             }}
           >
-            <IonSpinner
-              name="crescent"
-              style={{ '--color': '#f472b6', width: 24, height: 24 }}
-            />
-            <span style={{ fontSize: 14, color: '#9ca3af' }}>
-              Loading songs…
-            </span>
+            <h2
+              style={{
+                margin: 0,
+                fontSize: 20,
+                fontWeight: 700,
+                color: '#f9fafb',
+              }}
+            >
+              Add Song
+            </h2>
+            <button
+              onClick={onClose}
+              style={{
+                padding: '8px 14px',
+                borderRadius: 10,
+                background: 'rgba(255, 255, 255, 0.04)',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                color: '#9ca3af',
+                fontSize: 14,
+                fontWeight: 600,
+              }}
+            >
+              Cancel
+            </button>
           </div>
-        ) : filteredSongs.length === 0 ? (
+
+          {/* Search */}
           <div
             style={{
-              padding: 40,
-              textAlign: 'center',
+              position: 'relative',
+              marginBottom: 16,
             }}
           >
             <IonIcon
-              icon={musicalNotesOutline}
+              icon={searchOutline}
               style={{
-                fontSize: 40,
-                color: '#4b5563',
-                marginBottom: 12,
+                position: 'absolute',
+                left: 14,
+                top: '50%',
+                transform: 'translateY(-50%)',
+                fontSize: 18,
+                color: '#6b7280',
               }}
             />
-            <p style={{ margin: 0, fontSize: 14, color: '#6b7280' }}>
-              {songsCount === 0
-                ? 'No songs in your library yet'
-                : 'No songs match your search'}
-            </p>
+            <input
+              type="text"
+              value={songSearch}
+              onChange={(e) => setSongSearch(e.target.value)}
+              placeholder="Search songs..."
+              style={{
+                width: '100%',
+                padding: '14px 16px 14px 44px',
+                borderRadius: 12,
+                background: 'rgba(255, 255, 255, 0.04)',
+                border: `1px solid ${
+                  songSearch ? PINK.border : 'rgba(255, 255, 255, 0.08)'
+                }`,
+                color: '#f9fafb',
+                fontSize: 15,
+                outline: 'none',
+              }}
+            />
           </div>
-        ) : (
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 8,
-              maxHeight: '65vh',
-              overflowY: 'auto',
-              paddingBottom: 20,
-            }}
-          >
-            {filteredSongs.map((song) => (
-              <button
-                key={song.id}
-                type="button"
-                onClick={() => onSelectSong(song)}
+
+          {/* Content */}
+          {loadingSongs ? (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: 40,
+                gap: 10,
+              }}
+            >
+              <IonSpinner
+                style={{ '--color': PINK.primary, width: 24, height: 24 }}
+              />
+              <span style={{ fontSize: 14, color: '#6b7280' }}>
+                Loading songs...
+              </span>
+            </div>
+          ) : filteredSongs.length === 0 ? (
+            <div
+              style={{
+                padding: 40,
+                textAlign: 'center',
+              }}
+            >
+              <IonIcon
+                icon={musicalNotesOutline}
                 style={{
-                  width: '100%',
-                  padding: '14px 16px',
-                  borderRadius: 14,
-                  border: '1px solid rgba(244, 114, 182, 0.2)',
-                  background:
-                    'linear-gradient(135deg, rgba(244,114,182,0.08) 0%, rgba(236,72,153,0.04) 100%)',
-                  cursor: 'pointer',
-                  textAlign: 'left',
-                  transition: 'all 100ms ease-out',
+                  fontSize: 40,
+                  color: '#4b5563',
+                  marginBottom: 12,
                 }}
-              >
-                <div
+              />
+              <p style={{ margin: 0, fontSize: 14, color: '#6b7280' }}>
+                {songsCount === 0
+                  ? 'No songs in your library yet'
+                  : 'No songs match your search'}
+              </p>
+            </div>
+          ) : (
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 8,
+                maxHeight: '65vh',
+                overflowY: 'auto',
+                paddingBottom: 20,
+              }}
+            >
+              {filteredSongs.map((song) => (
+                <button
+                  key={song.id}
+                  onClick={() => onSelectSong(song)}
                   style={{
-                    fontSize: 15,
-                    fontWeight: 600,
-                    color: '#F9FAFB',
-                    marginBottom: 4,
+                    width: '100%',
+                    padding: '14px 16px',
+                    borderRadius: 12,
+                    background: PINK.subtle,
+                    border: `1px solid ${PINK.border}`,
+                    textAlign: 'left',
+                    transition: 'all 100ms ease-out',
                   }}
                 >
-                  {song.title}
-                </div>
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 12,
-                    fontSize: 12,
-                    color: '#6b7280',
-                  }}
-                >
-                  <span>Key: {song.default_key?.trim() || '—'}</span>
-                  <span>•</span>
-                  <span>BPM: {song.default_bpm ?? '—'}</span>
-                </div>
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
+                  <div
+                    style={{
+                      fontSize: 15,
+                      fontWeight: 600,
+                      color: '#f9fafb',
+                      marginBottom: 4,
+                    }}
+                  >
+                    {song.title}
+                  </div>
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 12,
+                      fontSize: 12,
+                      color: '#6b7280',
+                    }}
+                  >
+                    <span>Key: {song.default_key?.trim() || '—'}</span>
+                    <span>•</span>
+                    <span>BPM: {song.default_bpm ?? '—'}</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </IonContent>
     </IonModal>
   );
 }
@@ -1436,7 +1776,7 @@ function RenameTemplateModal({
     <IonModal isOpen={isOpen} onDidDismiss={onClose}>
       <IonContent
         style={{
-          '--background': 'rgba(8, 8, 12, 0.98)',
+          '--background': 'rgba(8, 8, 14, 0.98)',
         }}
       >
         <div
@@ -1452,25 +1792,22 @@ function RenameTemplateModal({
             style={{
               width: '100%',
               maxWidth: 380,
-              borderRadius: 24,
+              ...glassCard,
+              border: `1px solid ${PINK.border}`,
               padding: 24,
-              background:
-                'linear-gradient(145deg, rgba(20,15,25,0.98) 0%, rgba(12,8,18,0.98) 100%)',
-              border: '1px solid rgba(244, 114, 182, 0.3)',
-              boxShadow:
-                '0 25px 50px rgba(0, 0, 0, 0.5), 0 0 40px rgba(244,114,182,0.1)',
+              boxShadow: `0 25px 50px rgba(0, 0, 0, 0.5), 0 0 40px ${PINK.glow}`,
             }}
           >
             <h3
               style={{
                 margin: 0,
                 marginBottom: 20,
-                fontSize: 22,
-                fontWeight: 800,
-                color: '#F9FAFB',
+                fontSize: 20,
+                fontWeight: 700,
+                color: '#f9fafb',
               }}
             >
-              Rename setlist
+              Rename Setlist
             </h3>
 
             <div style={{ marginBottom: 24 }}>
@@ -1478,11 +1815,11 @@ function RenameTemplateModal({
                 style={{
                   display: 'block',
                   marginBottom: 8,
-                  fontSize: 11,
+                  fontSize: 12,
                   fontWeight: 600,
-                  color: '#6b7280',
+                  color: '#9ca3af',
                   textTransform: 'uppercase',
-                  letterSpacing: 0.5,
+                  letterSpacing: '0.5px',
                 }}
               >
                 Name
@@ -1494,61 +1831,53 @@ function RenameTemplateModal({
                 autoFocus
                 style={{
                   width: '100%',
-                  borderRadius: 12,
-                  border: '1px solid rgba(244, 114, 182, 0.4)',
                   padding: '14px 16px',
-                  background: 'rgba(255,255,255,0.03)',
-                  color: '#F9FAFB',
+                  borderRadius: 12,
+                  background: 'rgba(255, 255, 255, 0.04)',
+                  border: `1px solid ${
+                    editName ? PINK.border : 'rgba(255, 255, 255, 0.08)'
+                  }`,
+                  color: '#f9fafb',
                   fontSize: 16,
                   outline: 'none',
                 }}
               />
             </div>
 
-            <div
-              style={{
-                display: 'flex',
-                gap: 12,
-              }}
-            >
+            <div style={{ display: 'flex', gap: 10 }}>
               <button
-                type="button"
                 disabled={savingTemplate}
                 onClick={onClose}
                 style={{
                   flex: 1,
                   padding: '14px 16px',
-                  borderRadius: 14,
-                  border: '1px solid rgba(148, 163, 184, 0.2)',
-                  background: 'rgba(255,255,255,0.03)',
-                  color: '#9ca3af',
+                  borderRadius: 12,
+                  background: 'transparent',
+                  border: '1px solid rgba(255, 255, 255, 0.15)',
+                  color: '#e5e7eb',
                   fontSize: 15,
                   fontWeight: 600,
-                  cursor: 'pointer',
                 }}
               >
                 Cancel
               </button>
               <button
-                type="button"
                 disabled={savingTemplate}
                 onClick={onSave}
                 style={{
                   flex: 1,
                   padding: '14px 16px',
-                  borderRadius: 14,
-                  border: '1px solid rgba(244,114,182,0.4)',
-                  background:
-                    'linear-gradient(135deg, rgba(244,114,182,0.9) 0%, rgba(236,72,153,0.9) 100%)',
+                  borderRadius: 12,
+                  background: PINK.primary,
+                  border: 'none',
                   color: '#fff',
                   fontSize: 15,
-                  fontWeight: 700,
-                  cursor: 'pointer',
+                  fontWeight: 600,
                   opacity: savingTemplate ? 0.7 : 1,
-                  boxShadow: '0 4px 14px rgba(244, 114, 182, 0.3)',
+                  boxShadow: `0 4px 12px ${PINK.glow}`,
                 }}
               >
-                {savingTemplate ? 'Saving…' : 'Save'}
+                {savingTemplate ? 'Saving...' : 'Save'}
               </button>
             </div>
           </div>
@@ -1577,7 +1906,7 @@ function DeleteTemplateModal({
     <IonModal isOpen={isOpen} onDidDismiss={onClose}>
       <IonContent
         style={{
-          '--background': 'rgba(8, 8, 12, 0.98)',
+          '--background': 'rgba(8, 8, 14, 0.98)',
         }}
       >
         <div
@@ -1593,23 +1922,19 @@ function DeleteTemplateModal({
             style={{
               width: '100%',
               maxWidth: 380,
-              borderRadius: 24,
+              ...glassCard,
+              border: `1px solid ${RED.border}`,
               padding: 24,
-              background:
-                'linear-gradient(145deg, rgba(20,15,25,0.98) 0%, rgba(12,8,18,0.98) 100%)',
-              border: '1px solid rgba(248, 113, 113, 0.3)',
-              boxShadow:
-                '0 25px 50px rgba(0, 0, 0, 0.5), 0 0 40px rgba(248,113,113,0.1)',
+              boxShadow: `0 25px 50px rgba(0, 0, 0, 0.5), 0 0 40px ${RED.glow}`,
             }}
           >
             <div
               style={{
                 width: 56,
                 height: 56,
-                borderRadius: '50%',
-                background:
-                  'linear-gradient(135deg, rgba(220,38,38,0.2) 0%, rgba(185,28,28,0.1) 100%)',
-                border: '1px solid rgba(248,113,113,0.3)',
+                borderRadius: 14,
+                background: RED.subtle,
+                border: `1px solid ${RED.border}`,
                 display: 'grid',
                 placeItems: 'center',
                 margin: '0 auto 16px',
@@ -1617,7 +1942,7 @@ function DeleteTemplateModal({
             >
               <IonIcon
                 icon={trashOutline}
-                style={{ fontSize: 28, color: '#f87171' }}
+                style={{ fontSize: 26, color: RED.light }}
               />
             </div>
 
@@ -1625,20 +1950,20 @@ function DeleteTemplateModal({
               style={{
                 margin: 0,
                 marginBottom: 8,
-                fontSize: 22,
-                fontWeight: 800,
-                color: '#F9FAFB',
+                fontSize: 20,
+                fontWeight: 700,
+                color: '#f9fafb',
                 textAlign: 'center',
               }}
             >
-              Delete setlist?
+              Delete Setlist?
             </h3>
             <p
               style={{
                 margin: 0,
                 marginBottom: 24,
-                fontSize: 15,
-                color: '#9ca3af',
+                fontSize: 14,
+                color: '#6b7280',
                 lineHeight: 1.5,
                 textAlign: 'center',
               }}
@@ -1647,45 +1972,35 @@ function DeleteTemplateModal({
               song{songCount === 1 ? '' : 's'}. This can't be undone.
             </p>
 
-            <div
-              style={{
-                display: 'flex',
-                gap: 12,
-              }}
-            >
+            <div style={{ display: 'flex', gap: 10 }}>
               <button
-                type="button"
                 disabled={deletingTemplate}
                 onClick={onClose}
                 style={{
                   flex: 1,
                   padding: '14px 16px',
-                  borderRadius: 14,
-                  border: '1px solid rgba(148, 163, 184, 0.2)',
-                  background: 'rgba(255,255,255,0.03)',
-                  color: '#9ca3af',
+                  borderRadius: 12,
+                  background: 'transparent',
+                  border: '1px solid rgba(255, 255, 255, 0.15)',
+                  color: '#e5e7eb',
                   fontSize: 15,
                   fontWeight: 600,
-                  cursor: 'pointer',
                 }}
               >
                 Cancel
               </button>
               <button
-                type="button"
                 disabled={deletingTemplate}
                 onClick={onDelete}
                 style={{
                   flex: 1,
                   padding: '14px 16px',
-                  borderRadius: 14,
-                  border: '1px solid rgba(220,38,38,0.5)',
-                  background:
-                    'linear-gradient(135deg, rgba(220,38,38,0.9) 0%, rgba(185,28,28,0.9) 100%)',
+                  borderRadius: 12,
+                  background: RED.primary,
+                  border: 'none',
                   color: '#fff',
                   fontSize: 15,
-                  fontWeight: 700,
-                  cursor: 'pointer',
+                  fontWeight: 600,
                   opacity: deletingTemplate ? 0.7 : 1,
                   display: 'flex',
                   alignItems: 'center',
@@ -1696,10 +2011,9 @@ function DeleteTemplateModal({
                 {deletingTemplate ? (
                   <>
                     <IonSpinner
-                      name="crescent"
-                      style={{ width: 16, height: 16 }}
+                      style={{ '--color': '#fff', width: 16, height: 16 }}
                     />
-                    Deleting…
+                    Deleting...
                   </>
                 ) : (
                   'Delete'
@@ -1710,177 +2024,5 @@ function DeleteTemplateModal({
         </div>
       </IonContent>
     </IonModal>
-  );
-}
-
-function SortableTemplateItemCard({
-  row,
-  index,
-  onDelete,
-}: {
-  row: SetlistTemplateItemRow;
-  index: number;
-  onDelete: () => void;
-}) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: row.id });
-
-  const style: React.CSSProperties = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    zIndex: isDragging ? 100 : 'auto',
-  };
-
-  return (
-    <div ref={setNodeRef} style={style}>
-      <div
-        style={{
-          borderRadius: 14,
-          padding: '12px 14px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 12,
-          background: isDragging
-            ? 'linear-gradient(135deg, rgba(244,114,182,0.2) 0%, rgba(236,72,153,0.1) 100%)'
-            : 'rgba(15, 23, 42, 0.6)',
-          border: isDragging
-            ? '1px solid rgba(244, 114, 182, 0.4)'
-            : '1px solid rgba(71, 85, 105, 0.3)',
-          boxShadow: isDragging
-            ? '0 20px 40px rgba(0, 0, 0, 0.5), 0 0 20px rgba(244,114,182,0.2)'
-            : '0 2px 8px rgba(0, 0, 0, 0.2)',
-          transition: 'background 150ms, border 150ms, box-shadow 150ms',
-        }}
-      >
-        {/* Drag handle + index */}
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: 2,
-            width: 28,
-            flexShrink: 0,
-          }}
-        >
-          <button
-            type="button"
-            aria-label="Reorder"
-            {...attributes}
-            {...listeners}
-            style={{
-              border: 'none',
-              background: 'transparent',
-              padding: 4,
-              margin: 0,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'grab',
-              touchAction: 'none',
-              borderRadius: 6,
-            }}
-          >
-            <IonIcon
-              icon={reorderThreeOutline}
-              style={{ fontSize: 20, color: '#6b7280' }}
-            />
-          </button>
-          <span
-            style={{
-              fontSize: 11,
-              fontWeight: 600,
-              color: '#f472b6',
-            }}
-          >
-            {index + 1}
-          </span>
-        </div>
-
-        {/* Song info */}
-        <div
-          style={{
-            flex: 1,
-            minWidth: 0,
-          }}
-        >
-          <div
-            style={{
-              fontSize: 15,
-              fontWeight: 600,
-              color: '#F9FAFB',
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              marginBottom: 4,
-            }}
-          >
-            {row.title}
-          </div>
-
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 10,
-              fontSize: 12,
-              color: '#6b7280',
-            }}
-          >
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 4,
-              }}
-            >
-              <IonIcon
-                icon={musicalNotesOutline}
-                style={{ fontSize: 13, color: '#f472b6', opacity: 0.8 }}
-              />
-              <span>{row.musical_key || '—'}</span>
-            </div>
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 4,
-              }}
-            >
-              <IonIcon
-                icon={speedometerOutline}
-                style={{ fontSize: 13, color: '#f472b6', opacity: 0.8 }}
-              />
-              <span>{row.bpm ?? '—'}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Remove button */}
-        <button
-          type="button"
-          onClick={onDelete}
-          style={{
-            padding: '6px 12px',
-            borderRadius: 8,
-            border: '1px solid rgba(248, 113, 113, 0.3)',
-            background: 'rgba(248, 113, 113, 0.1)',
-            color: '#f87171',
-            fontSize: 12,
-            fontWeight: 600,
-            cursor: 'pointer',
-            flexShrink: 0,
-          }}
-        >
-          Remove
-        </button>
-      </div>
-    </div>
   );
 }

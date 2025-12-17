@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Capacitor } from '@capacitor/core';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
-import { IonIcon, IonSpinner, IonText } from '@ionic/react';
+import { IonIcon, IonSpinner } from '@ionic/react';
 import {
   chevronForwardOutline,
   listOutline,
@@ -11,9 +11,53 @@ import React, { useCallback, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 
+// ─────────────────────────────────────────────────────────────
+// Theme Colors (Pink/Magenta for Library)
+// ─────────────────────────────────────────────────────────────
+
+const PINK = {
+  primary: '#ec4899',
+  primaryHover: '#db2777',
+  light: '#f472b6',
+  lighter: '#f9a8d4',
+  dark: '#be185d',
+  glow: 'rgba(236, 72, 153, 0.4)',
+  subtle: 'rgba(236, 72, 153, 0.08)',
+  border: 'rgba(236, 72, 153, 0.25)',
+};
+
+// ─────────────────────────────────────────────────────────────
+// Shared Styles
+// ─────────────────────────────────────────────────────────────
+
+const glassCard = {
+  background: 'rgba(255, 255, 255, 0.02)',
+  backdropFilter: 'blur(12px)',
+  WebkitBackdropFilter: 'blur(12px)',
+  border: '1px solid rgba(255, 255, 255, 0.06)',
+  borderRadius: 16,
+};
+
+// ─────────────────────────────────────────────────────────────
+// Types
+// ─────────────────────────────────────────────────────────────
+
 type BandLibraryTabProps = {
   bandId: string;
 };
+
+type LibraryCard = {
+  id: string;
+  title: string;
+  description: string;
+  icon: string;
+  count: number | null;
+  route: string;
+};
+
+// ─────────────────────────────────────────────────────────────
+// Component
+// ─────────────────────────────────────────────────────────────
 
 export default function BandLibraryTab({ bandId }: BandLibraryTabProps) {
   const nav = useNavigate();
@@ -39,7 +83,9 @@ export default function BandLibraryTab({ bandId }: BandLibraryTabProps) {
   const handlePressStart = useCallback(
     (
       id: string,
-      e: React.TouchEvent<HTMLDivElement> | React.MouseEvent<HTMLDivElement>
+      e:
+        | React.TouchEvent<HTMLButtonElement>
+        | React.MouseEvent<HTMLButtonElement>
     ) => {
       if (longPressTimeoutRef.current != null) {
         window.clearTimeout(longPressTimeoutRef.current);
@@ -64,20 +110,23 @@ export default function BandLibraryTab({ bandId }: BandLibraryTabProps) {
     [triggerHaptic]
   );
 
-  const handlePressMove = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
-    if (!pressStartRef.current || longPressTimeoutRef.current == null) return;
-    if (e.touches.length !== 1) return;
+  const handlePressMove = useCallback(
+    (e: React.TouchEvent<HTMLButtonElement>) => {
+      if (!pressStartRef.current || longPressTimeoutRef.current == null) return;
+      if (e.touches.length !== 1) return;
 
-    const { x, y } = pressStartRef.current;
-    const t = e.touches[0];
-    if (
-      Math.abs(t.clientX - x) > MOVE_THRESHOLD ||
-      Math.abs(t.clientY - y) > MOVE_THRESHOLD
-    ) {
-      window.clearTimeout(longPressTimeoutRef.current);
-      longPressTimeoutRef.current = null;
-    }
-  }, []);
+      const { x, y } = pressStartRef.current;
+      const t = e.touches[0];
+      if (
+        Math.abs(t.clientX - x) > MOVE_THRESHOLD ||
+        Math.abs(t.clientY - y) > MOVE_THRESHOLD
+      ) {
+        window.clearTimeout(longPressTimeoutRef.current);
+        longPressTimeoutRef.current = null;
+      }
+    },
+    []
+  );
 
   const handlePressEnd = useCallback(() => {
     if (longPressTimeoutRef.current != null) {
@@ -90,13 +139,9 @@ export default function BandLibraryTab({ bandId }: BandLibraryTabProps) {
     }
   }, [pressedId]);
 
-  const handleOpenSetlists = React.useCallback(() => {
-    if (!bandId) {
-      console.warn('[BandLibraryTab] Missing bandId for setlists nav');
-      return;
-    }
-    nav(`/bands/${bandId}/setlists`);
-  }, [bandId, nav]);
+  // ─────────────────────────────────────────────────────────────
+  // Data Fetching
+  // ─────────────────────────────────────────────────────────────
 
   React.useEffect(() => {
     if (!bandId) return;
@@ -130,234 +175,238 @@ export default function BandLibraryTab({ bandId }: BandLibraryTabProps) {
     };
   }, [bandId]);
 
+  // ─────────────────────────────────────────────────────────────
+  // Library Cards Config
+  // ─────────────────────────────────────────────────────────────
+
+  const libraryCards: LibraryCard[] = [
+    {
+      id: 'songs',
+      title: 'Songs',
+      description: 'Your full song library with chords & lyrics',
+      icon: musicalNotesOutline,
+      count: songCount,
+      route: `/bands/${bandId}/songs`,
+    },
+    {
+      id: 'setlists',
+      title: 'Setlists',
+      description: 'Build and reuse setlists for your shows',
+      icon: listOutline,
+      count: setlistCount,
+      route: `/bands/${bandId}/setlists`,
+    },
+  ];
+
+  // ─────────────────────────────────────────────────────────────
+  // Render
+  // ─────────────────────────────────────────────────────────────
+
   if (loading) {
     return (
       <div
         style={{
           display: 'flex',
+          flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          gap: 10,
-          padding: '24px 16px',
+          gap: 12,
+          padding: '48px 16px',
         }}
       >
         <IonSpinner
-          name="dots"
-          style={{ '--color': 'rgba(244, 114, 182, 0.8)' } as any}
+          style={{
+            '--color': PINK.primary,
+            width: 28,
+            height: 28,
+          }}
         />
-        <IonText style={{ color: 'rgba(156, 163, 175, 0.9)', fontSize: 14 }}>
-          Loading library…
-        </IonText>
+        <span
+          style={{
+            color: '#6b7280',
+            fontSize: 13,
+          }}
+        >
+          Loading library...
+        </span>
       </div>
     );
   }
 
   return (
-    <div style={{ paddingBottom: 16, paddingTop: 8, paddingInline: 16 }}>
+    <div
+      style={{
+        padding: 16,
+        paddingTop: 8,
+        paddingBottom: 24,
+      }}
+    >
+      {/* Section Header */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          marginBottom: 14,
+        }}
+      >
+        <div
+          style={{
+            width: 6,
+            height: 6,
+            borderRadius: '50%',
+            background: PINK.primary,
+          }}
+        />
+        <span
+          style={{
+            fontSize: 13,
+            fontWeight: 600,
+            color: '#9ca3af',
+            textTransform: 'uppercase',
+            letterSpacing: '0.5px',
+          }}
+        >
+          Your Music
+        </span>
+      </div>
+
+      {/* Cards */}
       <div
         style={{
           display: 'flex',
           flexDirection: 'column',
           gap: 12,
-          paddingTop: 8,
         }}
       >
-        {/* Songs Card */}
-        <div
-          onClick={() => nav(`/bands/${bandId}/songs`)}
-          onTouchStart={(ev) => handlePressStart('songs', ev)}
-          onTouchMove={handlePressMove}
-          onTouchEnd={handlePressEnd}
-          onTouchCancel={handlePressEnd}
-          onMouseDown={(ev) => handlePressStart('songs', ev)}
-          onMouseUp={handlePressEnd}
-          onMouseLeave={handlePressEnd}
-          style={{
-            background: 'transparent',
-            border: '1px solid rgba(244, 114, 182, 0.2)',
-            borderRadius: 16,
-            padding: 16,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 12,
-            cursor: 'pointer',
-            transform: pressedId === 'songs' ? 'scale(0.99)' : 'scale(1)',
-            opacity: pressedId === 'songs' ? 0.7 : 1,
-            transition: 'all 120ms ease-out',
-          }}
-        >
-          <div
-            style={{
-              width: 44,
-              height: 44,
-              borderRadius: 12,
-              background: 'rgba(244, 114, 182, 0.1)',
-              border: '1px solid rgba(244, 114, 182, 0.2)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0,
-            }}
-          >
-            <IonIcon
-              icon={musicalNotesOutline}
-              style={{ fontSize: 22, color: 'rgba(244, 114, 182, 0.9)' }}
-            />
-          </div>
+        {libraryCards.map((card) => {
+          const isPressed = pressedId === card.id;
 
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div
+          return (
+            <button
+              key={card.id}
+              onClick={() => nav(card.route)}
+              onTouchStart={(ev) => handlePressStart(card.id, ev)}
+              onTouchMove={handlePressMove}
+              onTouchEnd={handlePressEnd}
+              onTouchCancel={handlePressEnd}
+              onMouseDown={(ev) => handlePressStart(card.id, ev)}
+              onMouseUp={handlePressEnd}
+              onMouseLeave={handlePressEnd}
               style={{
+                ...glassCard,
+                width: '100%',
+                padding: 16,
                 display: 'flex',
                 alignItems: 'center',
-                gap: 8,
-                marginBottom: 4,
+                gap: 14,
+                textAlign: 'left',
+                color: 'inherit',
+                cursor: 'pointer',
+                border: `1px solid ${PINK.border}`,
+                transform: isPressed ? 'scale(0.98)' : 'scale(1)',
+                opacity: isPressed ? 0.8 : 1,
+                transition: 'all 120ms ease-out',
               }}
             >
-              <span
+              {/* Icon */}
+              <div
                 style={{
-                  fontWeight: 700,
-                  fontSize: 15.5,
-                  color: 'rgba(241, 245, 249, 0.95)',
-                  letterSpacing: '-0.01em',
+                  width: 48,
+                  height: 48,
+                  borderRadius: 14,
+                  background: PINK.subtle,
+                  border: `1px solid ${PINK.border}`,
+                  display: 'grid',
+                  placeItems: 'center',
+                  flexShrink: 0,
                 }}
               >
-                Songs
-              </span>
-              <span
+                <IonIcon
+                  icon={card.icon}
+                  style={{
+                    fontSize: 22,
+                    color: PINK.light,
+                  }}
+                />
+              </div>
+
+              {/* Content */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    marginBottom: 4,
+                  }}
+                >
+                  <span
+                    style={{
+                      fontWeight: 600,
+                      fontSize: 16,
+                      color: '#f9fafb',
+                      letterSpacing: '-0.2px',
+                    }}
+                  >
+                    {card.title}
+                  </span>
+                  <span
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 600,
+                      padding: '3px 8px',
+                      borderRadius: 6,
+                      background: PINK.subtle,
+                      border: `1px solid ${PINK.border}`,
+                      color: PINK.light,
+                    }}
+                  >
+                    {card.count ?? 0}
+                  </span>
+                </div>
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: 13,
+                    color: '#6b7280',
+                    lineHeight: 1.4,
+                  }}
+                >
+                  {card.description}
+                </p>
+              </div>
+
+              {/* Chevron */}
+              <IonIcon
+                icon={chevronForwardOutline}
                 style={{
-                  fontSize: 11,
-                  fontWeight: 600,
-                  padding: '3px 8px',
-                  borderRadius: 6,
-                  background: 'rgba(244, 114, 182, 0.1)',
-                  border: '1px solid rgba(244, 114, 182, 0.2)',
-                  color: 'rgba(244, 114, 182, 0.9)',
+                  fontSize: 18,
+                  color: '#4b5563',
+                  flexShrink: 0,
                 }}
-              >
-                {songCount ?? 0}
-              </span>
-            </div>
-            <p
-              style={{
-                margin: 0,
-                fontSize: 13,
-                color: 'rgba(148, 163, 184, 0.8)',
-                lineHeight: 1.4,
-              }}
-            >
-              Open your band's full song library
-            </p>
-          </div>
-
-          <IonIcon
-            icon={chevronForwardOutline}
-            style={{
-              fontSize: 18,
-              color: 'rgba(148, 163, 184, 0.6)',
-              flexShrink: 0,
-            }}
-          />
-        </div>
-
-        {/* Setlists Card */}
-        <div
-          onClick={handleOpenSetlists}
-          onTouchStart={(ev) => handlePressStart('setlists', ev)}
-          onTouchMove={handlePressMove}
-          onTouchEnd={handlePressEnd}
-          onTouchCancel={handlePressEnd}
-          onMouseDown={(ev) => handlePressStart('setlists', ev)}
-          onMouseUp={handlePressEnd}
-          onMouseLeave={handlePressEnd}
-          style={{
-            background: 'transparent',
-            border: '1px solid rgba(244, 114, 182, 0.2)',
-            borderRadius: 16,
-            padding: 16,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 12,
-            cursor: 'pointer',
-            transform: pressedId === 'setlists' ? 'scale(0.99)' : 'scale(1)',
-            opacity: pressedId === 'setlists' ? 0.7 : 1,
-            transition: 'all 120ms ease-out',
-          }}
-        >
-          <div
-            style={{
-              width: 44,
-              height: 44,
-              borderRadius: 12,
-              background: 'rgba(244, 114, 182, 0.1)',
-              border: '1px solid rgba(244, 114, 182, 0.2)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0,
-            }}
-          >
-            <IonIcon
-              icon={listOutline}
-              style={{ fontSize: 22, color: 'rgba(244, 114, 182, 0.9)' }}
-            />
-          </div>
-
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                marginBottom: 4,
-              }}
-            >
-              <span
-                style={{
-                  fontWeight: 700,
-                  fontSize: 15.5,
-                  color: 'rgba(241, 245, 249, 0.95)',
-                  letterSpacing: '-0.01em',
-                }}
-              >
-                Setlists
-              </span>
-              <span
-                style={{
-                  fontSize: 11,
-                  fontWeight: 600,
-                  padding: '3px 8px',
-                  borderRadius: 6,
-                  background: 'rgba(244, 114, 182, 0.1)',
-                  border: '1px solid rgba(244, 114, 182, 0.2)',
-                  color: 'rgba(244, 114, 182, 0.9)',
-                }}
-              >
-                {setlistCount ?? 0}
-              </span>
-            </div>
-            <p
-              style={{
-                margin: 0,
-                fontSize: 13,
-                color: 'rgba(148, 163, 184, 0.8)',
-                lineHeight: 1.4,
-              }}
-            >
-              Build and reuse setlists for your shows
-            </p>
-          </div>
-
-          <IonIcon
-            icon={chevronForwardOutline}
-            style={{
-              fontSize: 18,
-              color: 'rgba(148, 163, 184, 0.6)',
-              flexShrink: 0,
-            }}
-          />
-        </div>
+              />
+            </button>
+          );
+        })}
       </div>
+
+      {/* Empty State Hint */}
+      {songCount === 0 && setlistCount === 0 && (
+        <div
+          style={{
+            ...glassCard,
+            marginTop: 16,
+            padding: 16,
+            textAlign: 'center',
+          }}
+        >
+          <div style={{ color: '#6b7280', fontSize: 13, lineHeight: 1.5 }}>
+            Start by adding songs to your library, then create setlists for your
+            upcoming shows.
+          </div>
+        </div>
+      )}
     </div>
   );
 }

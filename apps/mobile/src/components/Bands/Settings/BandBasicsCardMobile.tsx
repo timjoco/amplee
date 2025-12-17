@@ -28,12 +28,22 @@ export default function BandBasicsCardMobile({ bandId, initialName }: Props) {
       setErr(null);
       setOk(null);
 
-      const { error } = await supabase
+      // (optional) return the updated row so you can trust DB truth
+      const { data, error } = await supabase
         .from('bands')
         .update({ name: next })
-        .eq('id', bandId);
+        .eq('id', bandId)
+        .select('id, name')
+        .single();
 
       if (error) throw new Error(error.message);
+
+      // 🔔 tell the app "bands changed" so selectors refetch + show new name
+      window.dispatchEvent(
+        new CustomEvent('bands:changed', {
+          detail: { bandId, name: data?.name ?? next },
+        })
+      );
 
       setOk('Band name updated.');
     } catch (e: any) {

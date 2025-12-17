@@ -15,6 +15,7 @@ import {
 } from 'ionicons/icons';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { markInviteCompleted } from '../hooks/useDeepLinks';
 import { supabase } from '../lib/supabase';
 
 type InvitePreview = {
@@ -132,6 +133,24 @@ export default function Invite() {
     nav(`/login?next=${encodeURIComponent(`/invite/${t}`)}`, { replace: true });
   };
 
+  const goHome = async () => {
+    // Mark this invite as completed so deep link won't bring us back
+    if (token) {
+      markInviteCompleted(token);
+    }
+
+    try {
+      const { data } = await supabase.auth.getSession();
+      if (data.session) {
+        nav('/home', { replace: true });
+      } else {
+        nav('/login', { replace: true });
+      }
+    } catch {
+      nav('/login', { replace: true });
+    }
+  };
+
   const onContinue = async () => {
     if (!token || !invite || invite.status !== 'pending') return;
 
@@ -144,7 +163,6 @@ export default function Invite() {
 
       // Not logged in - redirect to login with next param
       if (!data.session) {
-        setAccepting(false);
         gotoLogin(token);
         return;
       }
@@ -152,7 +170,6 @@ export default function Invite() {
       const sessionEmail = (data.session.user.email ?? '').toLowerCase();
       const inviteEmail = (invite.email ?? '').toLowerCase();
       if (inviteEmail && sessionEmail && inviteEmail !== sessionEmail) {
-        setAccepting(false);
         setErr(
           `You are signed in as ${sessionEmail}, but this invite is for ${inviteEmail}. Sign out and sign in as the invited email.`
         );
@@ -173,26 +190,36 @@ export default function Invite() {
         const text = await resp.text();
 
         if (resp.status === 401 || resp.status === 403) {
-          setAccepting(false);
           gotoLogin(token);
           return;
         }
 
         setErr(text || 'Failed to accept invite.');
-        setAccepting(false);
         return;
       }
 
-      const acceptData = await resp.json();
-      const bandId = acceptData.bandId || acceptData.band_id;
-      if (!bandId) throw new Error('Accept response missing bandId');
+      // ✅ FIX: handle 204/empty body safely (no resp.json() crash)
+      let bandId: string | undefined;
+      const text = await resp.text();
+      if (text) {
+        try {
+          const payload = JSON.parse(text);
+          bandId = payload?.bandId || payload?.band_id;
+        } catch {
+          console.warn('[InviteMobile] accept response not JSON');
+        }
+      }
+
+      // fallback: invite preview already has bandId
+      if (!bandId && invite?.bandId) bandId = invite.bandId;
+
+      if (!bandId) throw new Error('Invite accepted but bandId missing');
 
       const bandPath = `/bands/${encodeURIComponent(bandId)}`;
 
       const { data: userRes } = await supabase.auth.getUser();
       const user = userRes?.user;
       if (!user) {
-        setAccepting(false);
         gotoLogin(token);
         return;
       }
@@ -215,6 +242,8 @@ export default function Invite() {
     } catch (e: any) {
       console.error('[InviteMobile] onContinue error', e);
       setErr(e?.message || 'Failed to accept invite.');
+    } finally {
+      // ✅ FIX: always release spinner state
       setAccepting(false);
     }
   };
@@ -246,12 +275,7 @@ export default function Invite() {
 
   return (
     <IonPage>
-      <IonContent
-        fullscreen
-        style={{
-          '--background': '#0c0a14',
-        }}
-      >
+      <IonContent fullscreen style={{ '--background': '#0c0a14' }}>
         {/* Close Button */}
         <div
           style={{
@@ -263,7 +287,7 @@ export default function Invite() {
         >
           <IonButton
             fill="clear"
-            onClick={() => nav('/home', { replace: true })}
+            onClick={goHome}
             style={{
               '--color': 'rgba(156,163,175,0.9)',
               '--padding-start': '8px',
@@ -304,13 +328,7 @@ export default function Invite() {
               </span>
             </div>
           ) : err ? (
-            <div
-              style={{
-                width: '100%',
-                maxWidth: 360,
-                textAlign: 'center',
-              }}
-            >
+            <div style={{ width: '100%', maxWidth: 360, textAlign: 'center' }}>
               <div
                 style={{
                   width: 64,
@@ -364,13 +382,7 @@ export default function Invite() {
               </IonButton>
             </div>
           ) : !invite ? null : (
-            <div
-              style={{
-                width: '100%',
-                maxWidth: 360,
-                textAlign: 'center',
-              }}
-            >
+            <div style={{ width: '100%', maxWidth: 360, textAlign: 'center' }}>
               {/* Band Icon */}
               <div
                 style={{
@@ -516,7 +528,7 @@ export default function Invite() {
 
                   <IonButton
                     fill="outline"
-                    onClick={() => nav('/home', { replace: true })}
+                    onClick={goHome}
                     style={{
                       '--border-color': 'rgba(255,255,255,0.12)',
                       '--color': 'rgba(156,163,175,0.9)',

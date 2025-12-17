@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import {
-  IonButton,
   IonContent,
   IonHeader,
   IonIcon,
@@ -8,11 +7,26 @@ import {
   IonSpinner,
   IonToolbar,
 } from '@ionic/react';
-import { chevronBackOutline } from 'ionicons/icons';
+import { chevronBackOutline, libraryOutline } from 'ionicons/icons';
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import BandLibraryTab from '../../components/Bands/BandLibraryTab';
 import { supabase } from '../../lib/supabase';
+
+// ─────────────────────────────────────────────────────────────
+// Theme Colors (Pink/Magenta for Library)
+// ─────────────────────────────────────────────────────────────
+
+const PINK = {
+  primary: '#ec4899',
+  light: '#f472b6',
+  subtle: 'rgba(236, 72, 153, 0.08)',
+  border: 'rgba(236, 72, 153, 0.25)',
+};
+
+// ─────────────────────────────────────────────────────────────
+// Component
+// ─────────────────────────────────────────────────────────────
 
 export default function BandLibraryPage() {
   const { bandId } = useParams<{ bandId: string }>();
@@ -26,7 +40,6 @@ export default function BandLibraryPage() {
     (async () => {
       if (!alive || !bandId) return;
 
-      // Get band info
       const { data: band } = await supabase
         .from('bands')
         .select('name')
@@ -46,56 +59,65 @@ export default function BandLibraryPage() {
 
   return (
     <IonPage>
-      <IonHeader translucent>
+      <IonHeader translucent className="ion-no-border">
         <IonToolbar
           style={{
-            '--background': 'rgba(8,8,12,0.98)',
-            borderBottom: '0.5px solid rgba(255,255,255,0.06)',
+            '--background': 'rgba(8, 8, 14, 0.95)',
+            '--border-width': 0,
           }}
         >
           <div
             style={{
               display: 'flex',
               alignItems: 'center',
-              padding: '16px',
+              padding: '12px 16px',
               gap: 12,
             }}
           >
-            <IonButton
+            {/* Back Button */}
+            <button
               onClick={() => navigate(`/bands/${bandId}`)}
-              fill="clear"
               style={{
-                minWidth: 0,
-                padding: 6,
-                margin: 0,
+                width: 40,
+                height: 40,
+                borderRadius: 12,
+                background: 'rgba(255, 255, 255, 0.04)',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                display: 'grid',
+                placeItems: 'center',
+                color: '#9ca3af',
                 flexShrink: 0,
               }}
             >
-              <IonIcon
-                icon={chevronBackOutline}
-                style={{ color: '#9ca3af', fontSize: 22 }}
-              />
-            </IonButton>
+              <IonIcon icon={chevronBackOutline} style={{ fontSize: 20 }} />
+            </button>
 
+            {/* Title Section */}
             <div style={{ flex: 1 }}>
-              <h1
-                style={{
-                  fontSize: 28,
-                  fontWeight: 800,
-                  color: '#F9FAFB',
-                  margin: 0,
-                  letterSpacing: '-0.8px',
-                  lineHeight: 1.15,
-                }}
-              >
-                Library
-              </h1>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <IonIcon
+                  icon={libraryOutline}
+                  style={{ color: PINK.light, fontSize: 20 }}
+                />
+                <h1
+                  style={{
+                    fontSize: 22,
+                    fontWeight: 700,
+                    color: '#f9fafb',
+                    margin: 0,
+                    letterSpacing: '-0.5px',
+                  }}
+                >
+                  Library
+                </h1>
+              </div>
               {bandName && (
                 <div
                   style={{
                     fontSize: 13,
-                    color: '#9ca3af',
-                    marginTop: 4,
+                    color: '#6b7280',
+                    marginTop: 2,
+                    marginLeft: 28,
                   }}
                 >
                   {bandName}
@@ -110,7 +132,7 @@ export default function BandLibraryPage() {
         fullscreen
         scrollY={true}
         style={{
-          '--background': 'linear-gradient(180deg, #050509 0%, #020109 100%)',
+          '--background': 'linear-gradient(180deg, #08080e 0%, #04040a 100%)',
         }}
       >
         {loading ? (
@@ -119,9 +141,27 @@ export default function BandLibraryPage() {
               display: 'grid',
               placeItems: 'center',
               height: '100%',
+              gap: 12,
             }}
           >
-            <IonSpinner />
+            <div style={{ textAlign: 'center' }}>
+              <IonSpinner
+                style={{
+                  '--color': PINK.primary,
+                  width: 32,
+                  height: 32,
+                }}
+              />
+              <div
+                style={{
+                  color: '#6b7280',
+                  fontSize: 13,
+                  marginTop: 12,
+                }}
+              >
+                Loading library...
+              </div>
+            </div>
           </div>
         ) : (
           <BandLibraryTab bandId={bandId!} />

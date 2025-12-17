@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import {
+  IonActionSheet,
   IonButton,
   IonContent,
   IonHeader,
@@ -22,6 +23,9 @@ import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
 import AvatarImageMobile from '../components/ui/AvatarImageMobile';
 
+import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
+import { Capacitor } from '@capacitor/core';
+import { isUserCancelled } from '../lib/nativeErrors';
 import { supabase } from '../lib/supabase';
 
 // ─────────────────────────────────────────────────────────────
@@ -250,6 +254,8 @@ export default function ProfileBasics() {
 
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
 
+  const [showAvatarPicker, setShowAvatarPicker] = React.useState(false);
+
   // ─────────────────────────────────────────────────────────────
   // Load profile on mount
   // ─────────────────────────────────────────────────────────────
@@ -395,6 +401,10 @@ export default function ProfileBasics() {
   // ─────────────────────────────────────────────────────────────
 
   const onPickFile = () => {
+    if (Capacitor.isNativePlatform()) {
+      setShowAvatarPicker(true);
+      return;
+    }
     fileInputRef.current?.click();
   };
 
@@ -463,6 +473,123 @@ export default function ProfileBasics() {
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
+
+  const uploadAvatarFromNative = async (source: 'camera' | 'library') => {
+    if (!Capacitor.isNativePlatform()) {
+      return;
+    }
+    if (!profile) return;
+
+    setUploadingAvatar(true);
+    setError(null);
+
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const uid = sessionData?.session?.user?.id;
+      if (!uid) throw new Error('Not signed in');
+
+      const blob = await pickNativeAvatarImage(source);
+      const resizedJpeg = await downscaleToJpeg(blob, 1024, 0.85);
+
+      const path = generateAvatarKey(uid, 'jpg');
+
+      const { error: uploadErr } = await supabase.storage
+        .from(AVATAR_BUCKET)
+        .upload(path, resizedJpeg, {
+          cacheControl: '3600',
+          upsert: true,
+          contentType: 'image/jpeg',
+        });
+
+      if (uploadErr) throw uploadErr;
+
+      const { error: updateErr } = await supabase
+        .from('profiles')
+        .update({
+          avatar_url: path,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', profile.id);
+
+      if (updateErr) throw updateErr;
+
+      setProfile((prev) => (prev ? { ...prev, avatar_url: path } : prev));
+      setToastMessage('Photo updated successfully');
+
+      window.dispatchEvent(
+        new CustomEvent('profiles:avatar_changed', {
+          detail: { avatar_url: path, isPreview: false },
+        })
+      );
+    } catch (err: any) {
+      if (isUserCancelled(err)) return;
+
+      console.error(err);
+      setError(err?.message || 'Failed to update photo.');
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
+  async function pickNativeAvatarImage(source: 'camera' | 'library') {
+    const photo = await Camera.getPhoto({
+      quality: 85,
+      allowEditing: true,
+      resultType: CameraResultType.Uri,
+      source: source === 'camera' ? CameraSource.Camera : CameraSource.Photos,
+    });
+
+    const webPath = photo.webPath;
+    if (!webPath) throw new Error('No photo path returned');
+
+    const res = await fetch(webPath);
+    if (!res.ok) throw new Error('Failed to read photo');
+    return await res.blob();
+  }
+
+  async function downscaleToJpeg(
+    input: Blob,
+    maxSize = 1024,
+    quality = 0.85
+  ): Promise<Blob> {
+    const img = document.createElement('img');
+    const url = URL.createObjectURL(input);
+
+    try {
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error('Failed to load image'));
+        img.src = url;
+      });
+
+      const w0 = img.naturalWidth || img.width;
+      const h0 = img.naturalHeight || img.height;
+
+      const scale = Math.min(1, maxSize / Math.max(w0, h0));
+      const w = Math.max(1, Math.round(w0 * scale));
+      const h = Math.max(1, Math.round(h0 * scale));
+
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('No canvas context');
+      ctx.drawImage(img, 0, 0, w, h);
+
+      const out: Blob = await new Promise((resolve, reject) => {
+        canvas.toBlob(
+          (b) => (b ? resolve(b) : reject(new Error('toBlob failed'))),
+          'image/jpeg',
+          quality
+        );
+      });
+
+      return out;
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  }
 
   // ─────────────────────────────────────────────────────────────
   // Render
@@ -945,6 +1072,30 @@ export default function ProfileBasics() {
           </div>
         )}
       </IonContent>
+
+      <IonActionSheet
+        isOpen={showAvatarPicker}
+        cssClass="amplee-action-sheet-dark"
+        onDidDismiss={() => setShowAvatarPicker(false)}
+        header="Update photo"
+        buttons={[
+          {
+            text: 'Take Photo',
+            handler: () => {
+              setShowAvatarPicker(false);
+              void uploadAvatarFromNative('camera');
+            },
+          },
+          {
+            text: 'Choose from Library',
+            handler: () => {
+              setShowAvatarPicker(false);
+              void uploadAvatarFromNative('library');
+            },
+          },
+          { text: 'Cancel', role: 'cancel' },
+        ]}
+      />
 
       {/* Toast */}
       <IonToast

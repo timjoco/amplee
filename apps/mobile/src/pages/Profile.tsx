@@ -245,6 +245,7 @@ export default function Profile() {
               maxWidth: 600,
               margin: '0 auto',
               padding: '0 16px 32px',
+              paddingTop: 16,
             }}
           >
             {/* Avatar Card */}

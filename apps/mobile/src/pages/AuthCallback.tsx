@@ -19,6 +19,17 @@ function safeNext(raw: string | null | undefined) {
   return v;
 }
 
+async function waitForSession(maxMs = 2500, stepMs = 150) {
+  const started = Date.now();
+  while (Date.now() - started < maxMs) {
+    const { data, error } = await supabase.auth.getSession();
+    if (error) throw error;
+    if (data.session) return data.session;
+    await new Promise((r) => setTimeout(r, stepMs));
+  }
+  return null;
+}
+
 export default function AuthCallback() {
   const nav = useNavigate();
   const { search } = useLocation();
@@ -36,14 +47,22 @@ export default function AuthCallback() {
       const api = getApiBase();
       const origin = getAppOrigin();
 
-      // 1) get (or wait for) session
-      const { data: sessionData, error: sessionErr } =
-        await supabase.auth.getSession();
-      if (sessionErr) {
-        if (mounted) setError(sessionErr.message);
+      // Helper: build a callback URL that preserves BOTH invite + next
+      const callbackUrl = (() => {
+        const u = new URL(`${origin}/auth/callback`);
+        if (invite) u.searchParams.set('invite', invite);
+        if (next) u.searchParams.set('next', next);
+        return `${u.pathname}${u.search}`; // relative path for react-router
+      })();
+
+      // 1) Wait briefly for session (magic-link callback can be async)
+      let session = null as Awaited<ReturnType<typeof waitForSession>>;
+      try {
+        session = await waitForSession();
+      } catch (e) {
+        if (mounted) setError(getErrorMessage(e));
         return;
       }
-      const session = sessionData?.session ?? null;
 
       // 2) preview invite, fetch invited email (if invite present)
       let inviteEmail: string | undefined;
@@ -67,7 +86,6 @@ export default function AuthCallback() {
             return;
           }
 
-          // payload shape: your normalizeInvite supports either {invite:{...}} or direct
           const email = (payload?.invite?.email ??
             payload?.email ??
             '') as string;
@@ -78,15 +96,7 @@ export default function AuthCallback() {
         }
       }
 
-      // Helper: build a callback URL that preserves BOTH invite + next
-      const callbackUrl = (() => {
-        const u = new URL(`${origin}/auth/callback`);
-        if (invite) u.searchParams.set('invite', invite);
-        if (next) u.searchParams.set('next', next);
-        return `${u.pathname}${u.search}`; // in-app relative path for react-router
-      })();
-
-      // 3) if invite but no session, bounce to login (prefill email optional) then back here
+      // 3) If invite but no session, bounce to login (optional prefill email) then back here
       if (invite && !session) {
         const loginQs = new URLSearchParams();
         if (inviteEmail) loginQs.set('email', inviteEmail);
@@ -95,7 +105,15 @@ export default function AuthCallback() {
         return;
       }
 
-      // 4) if logged in mismatch email, sign out and force correct login
+      // 4) If NOT invite and still no session, bounce to login preserving next
+      if (!invite && !session) {
+        const loginQs = new URLSearchParams();
+        loginQs.set('next', next);
+        nav(`/login?${loginQs.toString()}`, { replace: true });
+        return;
+      }
+
+      // 5) if logged in mismatch email, sign out and force correct login
       if (invite && session) {
         const userEmail = (session.user?.email ?? '').toLowerCase();
         if (inviteEmail && userEmail && inviteEmail !== userEmail) {
@@ -109,7 +127,7 @@ export default function AuthCallback() {
         }
       }
 
-      // 5) accept invite (and capture bandId if returned)
+      // 6) accept invite (and capture bandId if returned)
       let acceptedBandId: string | undefined;
       if (invite && session) {
         try {
@@ -134,7 +152,6 @@ export default function AuthCallback() {
             throw new Error(msg);
           }
 
-          // support { bandId } or { band_id }
           acceptedBandId = (payload?.bandId ?? payload?.band_id) as
             | string
             | undefined;
@@ -145,7 +162,7 @@ export default function AuthCallback() {
         }
       }
 
-      // 6) ensure we have a user
+      // 7) ensure we have a user
       const { data: userData, error: userErr } = await supabase.auth.getUser();
       if (userErr) {
         if (mounted) setError(userErr.message);
@@ -153,38 +170,31 @@ export default function AuthCallback() {
       }
       const user = userData?.user;
       if (!user) {
-        // no user -> go login, preserving next
         const loginQs = new URLSearchParams();
         loginQs.set('next', next);
         nav(`/login?${loginQs.toString()}`, { replace: true });
         return;
       }
 
-      // Optional: ensure profile exists
+      // 8) Ensure profile exists (you said you have this RPC)
       try {
         const { error: rpcErr } = await supabase.rpc('ensure_profile');
-        if (rpcErr && rpcErr.code !== '42883') {
+        if (rpcErr) {
           console.warn('[ensure_profile] RPC error:', rpcErr.message);
         }
       } catch (e) {
         console.warn('[ensure_profile] failed:', e);
       }
 
-      // 7) route by onboarded
+      // 9) route by onboarded
       const { data: profile, error: pErr } = await supabase
         .from('profiles')
         .select('onboarded')
         .eq('id', user.id)
         .maybeSingle();
 
-      if (pErr) {
-        console.warn('[profile check error]', pErr);
-      }
+      if (pErr) console.warn('[profile check error]', pErr);
 
-      // Final destination rules:
-      // - If user not onboarded => onboarding first, preserve intended destination
-      // - Else => go to next
-      // - If next is still /home but invite acceptance returned bandId, prefer band page
       const inviteDest =
         acceptedBandId && (next === '/home' || next === '/')
           ? `/bands/${encodeURIComponent(acceptedBandId)}`
