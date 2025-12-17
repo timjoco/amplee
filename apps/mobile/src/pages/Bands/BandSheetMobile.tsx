@@ -185,22 +185,19 @@ export default function BandSheetMobile() {
           setRosterMembers(formattedMembers);
         }
 
-        // Fetch next upcoming event
-        const { data: events } = await supabase
-          .from('events')
+        // Fetch next upcoming event (ONLY events I'm invited to)
+        const { data: events, error: nextErr } = await supabase
+          .from('events_with_my_attendance')
           .select('id, title, starts_at, location, type')
           .eq('band_id', bandId)
           .gte('starts_at', new Date().toISOString())
           .order('starts_at', { ascending: true })
           .limit(1);
 
-        if (!alive) return;
+        if (nextErr) throw nextErr;
 
-        if (events && events.length > 0) {
-          setNextEvent(events[0]);
-        } else {
-          setNextEvent(null);
-        }
+        if (events && events.length > 0) setNextEvent(events[0] as any);
+        else setNextEvent(null);
 
         // total events count (all shows/practices for this band)
         const { count: eventsCountExact, error: eventsCountErr } =
@@ -251,6 +248,36 @@ export default function BandSheetMobile() {
   React.useEffect(() => {
     if (!bandId) return;
 
+    const refreshNextEvent = async () => {
+      const { data: events, error: nextErr } = await supabase
+        .from('events_with_my_attendance')
+        .select('id, title, starts_at, location, type')
+        .eq('band_id', bandId)
+        .gte('starts_at', new Date().toISOString())
+        .order('starts_at', { ascending: true })
+        .limit(1);
+
+      if (nextErr) {
+        console.warn('[BandSheetMobile] next event refresh error', nextErr);
+        return;
+      }
+
+      setNextEvent(events && events.length > 0 ? (events[0] as any) : null);
+
+      // optional: refresh visible events count from the gated view
+      const { count: eventsCountExact, error: countErr } = await supabase
+        .from('events_with_my_attendance')
+        .select('id', { head: true, count: 'exact' })
+        .eq('band_id', bandId);
+
+      if (countErr) {
+        console.warn('[BandSheetMobile] events count refresh error', countErr);
+      } else {
+        setEventsCount(eventsCountExact ?? 0);
+      }
+    };
+
+    // 1) events changes (title/time/location/etc)
     const channel = supabase
       .channel(`band:${bandId}:events`)
       .on(
@@ -261,35 +288,27 @@ export default function BandSheetMobile() {
           table: 'events',
           filter: `band_id=eq.${bandId}`,
         },
-        async () => {
-          const { data: events } = await supabase
-            .from('events')
-            .select('id, title, starts_at, location, type')
-            .eq('band_id', bandId)
-            .gte('starts_at', new Date().toISOString())
-            .order('starts_at', { ascending: true })
-            .limit(1);
+        () => {
+          void refreshNextEvent();
+        }
+      )
+      .subscribe();
 
-          if (events && events.length > 0) {
-            setNextEvent(events[0]);
-          } else {
-            setNextEvent(null);
-          }
-
-          // OPTIONAL: also refresh counts on realtime change
-          const { count: eventsCountExact } = await supabase
-            .from('events')
-            .select('id', { head: true, count: 'exact' })
-            .eq('band_id', bandId)
-            .is('archived_at', null);
-
-          setEventsCount(eventsCountExact ?? 0);
+    // 2) invite/roster changes (who can see what)
+    const channel2 = supabase
+      .channel(`band:${bandId}:event_members`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'event_members' },
+        () => {
+          void refreshNextEvent();
         }
       )
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
+      supabase.removeChannel(channel2);
     };
   }, [bandId]);
 

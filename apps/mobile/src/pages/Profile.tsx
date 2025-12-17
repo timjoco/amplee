@@ -18,6 +18,7 @@ import { useNavigate } from 'react-router-dom';
 import AvatarImageMobile from '../components/ui/AvatarImageMobile';
 import { supabase } from '../lib/supabase';
 
+const isAndroid = Capacitor.getPlatform() === 'android';
 type ProfileRow = {
   id: string;
   display_name: string | null;
@@ -223,7 +224,13 @@ export default function Profile() {
   return (
     <IonPage>
       <IonHeader>
-        <IonToolbar>
+        <IonToolbar
+          style={{
+            paddingTop: isAndroid
+              ? 'env(safe-area-inset-top, 24px)'
+              : undefined,
+          }}
+        >
           <div
             style={{
               display: 'flex',
@@ -324,6 +331,9 @@ export default function Profile() {
               margin: '0 auto',
               padding: '0 16px 32px',
               paddingTop: 16,
+              paddingBottom: isAndroid
+                ? 'calc(32px + env(safe-area-inset-bottom, 24px))'
+                : 32,
             }}
           >
             {/* Avatar Card */}

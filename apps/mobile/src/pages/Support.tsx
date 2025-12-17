@@ -29,6 +29,8 @@ import { supabase } from '../lib/supabase';
 const WEB_BASE_URL = 'https://amplee.app';
 const APP_VERSION = '1.0.0-alpha';
 
+const isAndroid = Capacitor.getPlatform() === 'android';
+
 const openExternal = async (path: string) => {
   const url = `${WEB_BASE_URL}${path}`;
   if (Capacitor.isNativePlatform()) {
@@ -82,7 +84,7 @@ const feedbackTypes: { type: FeedbackType; icon: string; label: string }[] = [
   { type: 'general', icon: chatbubbleOutline, label: 'General' },
 ];
 
-export default function Support() {
+export default function LegalSupport() {
   const nav = useNavigate();
   const [feedbackType, setFeedbackType] =
     React.useState<FeedbackType>('general');
@@ -206,7 +208,13 @@ export default function Support() {
   return (
     <IonPage>
       <IonHeader>
-        <IonToolbar>
+        <IonToolbar
+          style={{
+            paddingTop: isAndroid
+              ? 'env(safe-area-inset-top, 24px)'
+              : undefined,
+          }}
+        >
           <div
             style={{
               display: 'flex',
@@ -270,6 +278,9 @@ export default function Support() {
             margin: '0 auto',
             padding: '0 16px 32px',
             paddingTop: 16,
+            paddingBottom: isAndroid
+              ? 'calc(32px + env(safe-area-inset-bottom, 24px))'
+              : 32,
           }}
         >
           {/* Alpha Feedback Section */}
