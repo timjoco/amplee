@@ -1,4 +1,4 @@
-import GlobalCreateMobile from '../components/Global/GlobalCreateMobile';
+import GlobalCreateMobile from '../components/GlobalCreateMobile/GlobalCreateMobile';
 
 export default function GlobalCreateHost() {
   return <GlobalCreateMobile />;

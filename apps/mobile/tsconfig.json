@@ -10,8 +10,7 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
-    "strict": true,
-    "types": ["vite/client"]
+    "strict": true
   },
   "include": ["src"]
 }
