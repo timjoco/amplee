@@ -46,6 +46,7 @@ import Profile from './pages/Profile';
 import ProfileAvailability from './pages/ProfileAvailability';
 import ProfileBasics from './pages/ProfileBasics';
 import ProposedGigSheetMobile from './pages/ProposedGigSheetMobile';
+import Support from './pages/Support';
 import VerifyEmail from './pages/VerifyEmail';
 import GlobalCreateHost from './shared/GlobalCreateHost';
 
@@ -217,6 +218,8 @@ export default function App() {
               path="/bands/:bandId/events/:eventId/settings"
               element={<EventSettingsMobile />}
             />
+
+            <Route path="/support" element={<Support />} />
 
             {/* profile routes */}
             <Route path="/profile" element={<Profile />} />

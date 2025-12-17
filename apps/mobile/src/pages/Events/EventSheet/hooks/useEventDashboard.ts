@@ -41,7 +41,7 @@ type UseEventDashboardReturn = {
   refreshAttendance: () => Promise<void>;
 };
 
-// ✅ Adjust this list to match exactly what your RSVP UI writes to event_members.status
+//  Adjust this list to match exactly what your RSVP UI writes to event_members.status
 const YES_STATUSES = new Set(['accepted', 'going']);
 
 export function useEventDashboard(

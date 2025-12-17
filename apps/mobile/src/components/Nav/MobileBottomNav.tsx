@@ -121,6 +121,7 @@ export default function MobileBottomNav() {
     pathname.startsWith('/profile') ||
     pathname.startsWith('/profile/basics') ||
     pathname.startsWith('/onboarding') ||
+    pathname.startsWith('/support') ||
     /^\/bands\/[^/]+\/events\/[^/]+(\/(chat|rollcall|setlist|notes|files))?\/?$/.test(
       pathname
     ) ||
@@ -132,7 +133,6 @@ export default function MobileBottomNav() {
     /^\/bands\/[^/]+\/proposals\/[^/]+$/.test(pathname) ||
     /^\/bands\/[^/]+\/events\/[^/]+(\/.*)?$/.test(pathname) ||
     /^\/event\/[^/]+(\/.*)?$/.test(pathname) ||
-    // ✅ Song editor only
     /^\/bands\/[^/]+\/songs\/new\/?$/.test(pathname) ||
     /^\/bands\/[^/]+\/songs\/[^/]+\/edit\/?$/.test(pathname);
 

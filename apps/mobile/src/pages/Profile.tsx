@@ -1,4 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { Browser } from '@capacitor/browser';
+import { Capacitor } from '@capacitor/core';
 import {
   IonAlert,
   IonButton,
@@ -10,7 +12,7 @@ import {
   IonText,
   IonToolbar,
 } from '@ionic/react';
-import { chevronBackOutline, logOutOutline } from 'ionicons/icons';
+import { chevronBackOutline, logOutOutline, openOutline } from 'ionicons/icons';
 import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
 import AvatarImageMobile from '../components/ui/AvatarImageMobile';
@@ -141,6 +143,82 @@ export default function Profile() {
       nav('/login');
     }
   };
+
+  const WEB_BASE_URL = 'https://amplee.app';
+
+  const openExternal = async (path: string) => {
+    const url = `${WEB_BASE_URL}${path}`;
+    if (Capacitor.isNativePlatform()) {
+      await Browser.open({ url, presentationStyle: 'popover' });
+    } else {
+      window.open(url, '_blank', 'noopener,noreferrer');
+    }
+  };
+
+  const SettingsNavCard = ({
+    title,
+    subtitle,
+    onClick,
+  }: {
+    title: string;
+    subtitle: string;
+    onClick: () => void;
+  }) => (
+    <div
+      onClick={onClick}
+      style={{
+        background: 'rgba(255,255,255,0.02)',
+        border: '1px solid rgba(255,255,255,0.06)',
+        borderRadius: 16,
+        padding: '20px 24px',
+        marginBottom: 16,
+        cursor: 'pointer',
+        transition: 'all 0.2s ease',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
+        e.currentTarget.style.borderColor = 'rgba(52,211,153,0.3)';
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.background = 'rgba(255,255,255,0.02)';
+        e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)';
+      }}
+    >
+      <div>
+        <h3
+          style={{
+            margin: 0,
+            fontSize: 16,
+            fontWeight: 600,
+            color: '#f9fafb',
+            lineHeight: 1.3,
+          }}
+        >
+          {title}
+        </h3>
+        <p
+          style={{
+            margin: '4px 0 0',
+            fontSize: 13,
+            color: '#9ca3af',
+          }}
+        >
+          {subtitle}
+        </p>
+      </div>
+
+      <IonIcon
+        icon={openOutline}
+        style={{
+          fontSize: 18,
+          color: '#6b7280',
+        }}
+      />
+    </div>
+  );
 
   return (
     <IonPage>
@@ -411,6 +489,62 @@ export default function Profile() {
                   }}
                 >
                   Mark dates you're unavailable
+                </p>
+              </div>
+              <IonIcon
+                icon={chevronBackOutline}
+                style={{
+                  fontSize: 20,
+                  color: '#6b7280',
+                  transform: 'rotate(180deg)',
+                }}
+              />
+            </div>
+
+            {/* Legal & Support Nav Card - place after Account Info Card, before Log Out */}
+            <div
+              onClick={() => nav('/support')}
+              style={{
+                background: 'rgba(255,255,255,0.02)',
+                border: '1px solid rgba(255,255,255,0.06)',
+                borderRadius: 16,
+                padding: '20px 24px',
+                marginBottom: 16,
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
+                e.currentTarget.style.borderColor = 'rgba(52,211,153,0.3)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'rgba(255,255,255,0.02)';
+                e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)';
+              }}
+            >
+              <div>
+                <h3
+                  style={{
+                    margin: 0,
+                    fontSize: 16,
+                    fontWeight: 600,
+                    color: '#f9fafb',
+                    lineHeight: 1.3,
+                  }}
+                >
+                  Support
+                </h3>
+                <p
+                  style={{
+                    margin: '4px 0 0',
+                    fontSize: 13,
+                    color: '#9ca3af',
+                  }}
+                >
+                  Terms, privacy & help
                 </p>
               </div>
               <IonIcon

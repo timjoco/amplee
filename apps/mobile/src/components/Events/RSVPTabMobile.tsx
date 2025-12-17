@@ -141,9 +141,10 @@ export default function RSVPTabMobile({
   };
 
   const handleConfirmSub = async (reason: string) => {
+    //  mark as declined + needs sub (atomic on server side via hook)
     await updateSubRequest(true, reason);
 
-    // If I was "accepted", requesting a sub should reduce confirmed by 1 immediately
+    // optimistic: if I was accepted, reduce confirmed by 1 immediately
     setDisplayCounts((prev) => {
       if (mine !== 'accepted') return prev;
       const nextAccepted = Math.max(0, prev.accepted - 1);
@@ -160,15 +161,6 @@ export default function RSVPTabMobile({
 
   const handleClearSub = async () => {
     await updateSubRequest(false, '');
-
-    // If my attendance is accepted, clearing sub restores confirmed +1 immediately
-    setDisplayCounts((prev) => {
-      if (mine !== 'accepted') return prev;
-      const total = prev.total || 0;
-      const nextAccepted =
-        total > 0 ? Math.min(total, prev.accepted + 1) : prev.accepted + 1;
-      return { ...prev, accepted: nextAccepted };
-    });
   };
 
   React.useEffect(() => {
