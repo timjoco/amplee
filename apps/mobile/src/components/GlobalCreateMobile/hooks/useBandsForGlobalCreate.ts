@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../../../lib/supabase';
-import { BandLite } from '../types';
+import type { BandLite } from '../types';
 
 const mapBands = (rows: any[] | null | undefined): BandLite[] => {
   const map = new Map<string, BandLite>();
@@ -45,7 +45,10 @@ export function useBandsForGlobalCreate(open: boolean) {
     try {
       const {
         data: { user },
+        error: userErr,
       } = await supabase.auth.getUser();
+
+      if (userErr) throw userErr;
 
       if (!user) {
         if (!aliveRef.current) return;
@@ -61,9 +64,17 @@ export function useBandsForGlobalCreate(open: boolean) {
 
       if (error) throw error;
 
-      if (!aliveRef.current) return;
-      setBands(mapBands(data));
-      setBandsLoadedOnce(true);
+      const fetched = mapBands(data);
+
+      // If we already have bands (optimistic) but the refetch returns empty,
+      // assume we’re racing band_members creation/visibility and don’t clobber UI.
+      if (aliveRef.current) {
+        setBands((prev) => {
+          if (fetched.length === 0 && prev.length > 0) return prev;
+          return fetched;
+        });
+        setBandsLoadedOnce(true);
+      }
     } catch (e: any) {
       console.warn(
         '[useBandsForGlobalCreate.ensureBandsLoaded]',
@@ -77,16 +88,21 @@ export function useBandsForGlobalCreate(open: boolean) {
     }
   }, []);
 
-  // load on open (only if not loaded yet)
+  // ✅ load on open:
+  // - first time (bandsLoadedOnce=false)
+  // - OR when previously loaded empty (0 bands → then you create first band)
   useEffect(() => {
     if (!open) return;
-    if (!bandsLoadedOnce) void ensureBandsLoaded();
-  }, [open, bandsLoadedOnce, ensureBandsLoaded]);
+    if (!bandsLoadedOnce || bands.length === 0) {
+      void ensureBandsLoaded();
+    }
+  }, [open, bandsLoadedOnce, bands.length, ensureBandsLoaded]);
 
   const invalidateBands = useCallback(
     (opts?: { refetchIfOpen?: boolean }) => {
-      setBands([]);
+      // ✅ don't clear bands; keep whatever UI has until refetch succeeds
       setBandsLoadedOnce(false);
+
       if (opts?.refetchIfOpen && open) {
         void ensureBandsLoaded();
       }

@@ -101,7 +101,7 @@ export function useDeepLinks() {
 
     return () => {
       listener?.remove();
-      // ✅ FIX: Reset on unmount so it can reinitialize if needed
+      // Reset on unmount so it can reinitialize if needed
       initializedRef.current = false;
     };
   }, [nav]);

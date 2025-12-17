@@ -1,20 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../../../../lib/supabase';
-
-export type InviteStatus = 'pending' | 'accepted' | 'declined';
-
-export type InvitedMemberRow = {
-  user_id: string;
-  status: InviteStatus;
-  updated_at?: string | null;
-  invited_at?: string | null;
-
-  first_name: string | null;
-  last_name: string | null;
-  display_name: string | null;
-  avatar_url: string | null;
-};
+import type { InvitedMemberRow, InviteStatus } from '../types';
 
 export function useEventInvitedMembers(eventId?: string) {
   const [loading, setLoading] = useState(true);

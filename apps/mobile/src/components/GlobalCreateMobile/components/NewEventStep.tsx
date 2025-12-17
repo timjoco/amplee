@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { IonIcon } from '@ionic/react';
 import { chevronForwardOutline } from 'ionicons/icons';
+import { useEffect } from 'react';
 import type { BandLite, InviteMode } from '../types';
 import EventWarnings from './EventWarnings';
 
@@ -32,6 +33,8 @@ type EventFormShape = {
   setSelectedUserIds: (v: string[]) => void;
 };
 
+const FULL_ROSTER_ID = '__full__';
+
 export default function NewEventStep(props: {
   bands: BandLite[];
   loadingBands: boolean;
@@ -59,14 +62,52 @@ export default function NewEventStep(props: {
     onSubmit,
   } = props;
 
+  const inviteMode = (eventForm.inviteMode as InviteMode) ?? 'full';
+
+  // ✅ Keep eventForm.bandId in sync with the selected band
+  useEffect(() => {
+    const id = String(currentBandId ?? '').trim();
+    if (id && eventForm.bandId !== id) eventForm.setBandId(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentBandId]);
+
+  // ✅ If user switches to roster mode, ensure we have a real roster id selected
+  useEffect(() => {
+    if (inviteMode !== 'roster') return;
+    if (loadingInviteData) return;
+    if (!availableRosters.length) return;
+
+    const current = String(eventForm.selectedRosterId ?? '').trim();
+
+    // if empty OR currently set to "__full__", default to first roster
+    if (!current || current === FULL_ROSTER_ID) {
+      eventForm.setSelectedRosterId(String(availableRosters[0].id));
+    }
+  }, [
+    inviteMode,
+    loadingInviteData,
+    availableRosters,
+    eventForm.selectedRosterId,
+    eventForm.setSelectedRosterId,
+  ]);
+
+  // ✅ Require roster ALWAYS (FULL_ROSTER_ID counts as “selected”)
+  const missingRoster = !String(eventForm.selectedRosterId ?? '').trim();
+
+  // ✅ Keep disabled while rosters are loading (prevents “looks enabled but can’t submit”)
+  const inviteNotReady = loadingInviteData;
+
   const totalWarnings =
     (eventForm.conflicts?.length || 0) + (eventForm.sameDayEvents?.length || 0);
   const hasWarnings = totalWarnings > 0;
 
-  const missingInviteSelection =
-    (eventForm.inviteMode as InviteMode) === 'roster'
-      ? !eventForm.selectedRosterId
-      : false;
+  const isSubmitDisabled =
+    eventForm.checkingConflicts ||
+    !eventForm.bandId ||
+    !eventForm.title.trim() ||
+    !eventForm.starts ||
+    missingRoster ||
+    inviteNotReady;
 
   return (
     <div className="gc-form-card gc-form-card-event">
@@ -164,14 +205,17 @@ export default function NewEventStep(props: {
           <button
             type="button"
             className={`gc-toggle-btn ${
-              (eventForm.inviteMode as InviteMode) === 'full'
+              inviteMode === 'full'
                 ? 'gc-toggle-btn-active-event'
                 : 'gc-toggle-btn-inactive'
             }`}
             onClick={() => {
               triggerHaptic();
               eventForm.setInviteMode('full');
-              eventForm.setSelectedRosterId('');
+
+              // ✅ Full band: always populate selectedRosterId
+              eventForm.setSelectedRosterId(FULL_ROSTER_ID);
+
               eventForm.setSelectedUserIds([]);
             }}
           >
@@ -181,7 +225,7 @@ export default function NewEventStep(props: {
           <button
             type="button"
             className={`gc-toggle-btn ${
-              (eventForm.inviteMode as InviteMode) === 'roster'
+              inviteMode === 'roster'
                 ? 'gc-toggle-btn-active-event'
                 : 'gc-toggle-btn-inactive'
             }`}
@@ -189,13 +233,21 @@ export default function NewEventStep(props: {
               triggerHaptic();
               eventForm.setInviteMode('roster');
               eventForm.setSelectedUserIds([]);
+
+              // Optional: if rosters already loaded, preselect first immediately
+              if (!loadingInviteData && availableRosters.length) {
+                const current = String(eventForm.selectedRosterId ?? '').trim();
+                if (!current || current === FULL_ROSTER_ID) {
+                  eventForm.setSelectedRosterId(String(availableRosters[0].id));
+                }
+              }
             }}
           >
             Roster
           </button>
         </div>
 
-        {(eventForm.inviteMode as InviteMode) === 'full' && (
+        {inviteMode === 'full' && (
           <div
             style={{
               marginTop: 10,
@@ -212,32 +264,46 @@ export default function NewEventStep(props: {
           </div>
         )}
 
-        {(eventForm.inviteMode as InviteMode) === 'roster' && (
-          <div style={{ marginTop: 10 }}>
-            <div className="gc-select-wrapper">
-              <select
-                className="gc-select gc-form-input-event"
-                value={eventForm.selectedRosterId}
-                onChange={(e) => eventForm.setSelectedRosterId(e.target.value)}
-                disabled={loadingInviteData}
-              >
-                <option value="">
-                  {loadingInviteData ? 'Loading rosters…' : 'Select roster…'}
-                </option>
-                {availableRosters.map((r) => (
-                  <option key={r.id} value={r.id}>
+        {/* ✅ Always show roster picker; in "full" it’s informational / optional */}
+        <div style={{ marginTop: 10 }}>
+          <div className="gc-select-wrapper">
+            <select
+              className="gc-select gc-form-input-event"
+              value={String(eventForm.selectedRosterId ?? '')}
+              onChange={(e) =>
+                eventForm.setSelectedRosterId(
+                  String(e.target.value ?? '').trim()
+                )
+              }
+              disabled={loadingInviteData}
+            >
+              {/* placeholder */}
+              <option value="" disabled>
+                {loadingInviteData ? 'Loading rosters…' : 'Select roster…'}
+              </option>
+
+              {/* special "full" sentinel */}
+              <option value={FULL_ROSTER_ID}>Full band (everyone)</option>
+
+              {availableRosters.map((r) => {
+                const id = String(r.id ?? '').trim();
+                return (
+                  <option key={id || r.name} value={id}>
                     {r.name}
                   </option>
-                ))}
-              </select>
+                );
+              })}
+            </select>
 
-              <IonIcon
-                icon={chevronForwardOutline}
-                className="gc-select-chevron"
-              />
-            </div>
+            <IonIcon
+              icon={chevronForwardOutline}
+              className="gc-select-chevron"
+            />
+          </div>
 
-            {availableRosters.length === 0 && !loadingInviteData && (
+          {inviteMode === 'roster' &&
+            availableRosters.length === 0 &&
+            !loadingInviteData && (
               <div
                 style={{
                   marginTop: 10,
@@ -254,24 +320,25 @@ export default function NewEventStep(props: {
               </div>
             )}
 
-            {eventForm.selectedRosterId && (
-              <div
-                style={{
-                  marginTop: 10,
-                  padding: 12,
-                  borderRadius: 14,
-                  background: 'rgba(255,255,255,0.03)',
-                  border: '1px solid rgba(255,255,255,0.06)',
-                  color: '#9ca3af',
-                  fontSize: 12,
-                  lineHeight: 1.5,
-                }}
-              >
-                Members from this roster will be invited.
-              </div>
-            )}
-          </div>
-        )}
+          {!!eventForm.selectedRosterId && (
+            <div
+              style={{
+                marginTop: 10,
+                padding: 12,
+                borderRadius: 14,
+                background: 'rgba(255,255,255,0.03)',
+                border: '1px solid rgba(255,255,255,0.06)',
+                color: '#9ca3af',
+                fontSize: 12,
+                lineHeight: 1.5,
+              }}
+            >
+              {eventForm.selectedRosterId === FULL_ROSTER_ID
+                ? 'All band members will be invited.'
+                : 'Members from this roster will be invited.'}
+            </div>
+          )}
+        </div>
       </div>
 
       <EventWarnings
@@ -280,37 +347,21 @@ export default function NewEventStep(props: {
       />
 
       <button
-        className={`gc-submit-btn ${
-          hasWarnings ? 'gc-submit-btn-warning' : 'gc-submit-btn-event'
-        }`}
+        className="gc-submit-btn gc-submit-btn-event"
         onClick={onSubmit}
-        disabled={
-          eventForm.checkingConflicts ||
-          !eventForm.bandId ||
-          !eventForm.title.trim() ||
-          !eventForm.starts ||
-          missingInviteSelection
-        }
-        style={{
-          marginTop: hasWarnings ? 8 : undefined,
-          ...(hasWarnings
-            ? {
-                background:
-                  'linear-gradient(135deg, rgba(251, 191, 36, 0.9) 0%, rgba(245, 158, 11, 0.9) 100%)',
-                boxShadow: '0 4px 14px rgba(251, 191, 36, 0.3)',
-              }
-            : {}),
-        }}
+        disabled={isSubmitDisabled}
         type="button"
       >
         {eventForm.checkingConflicts
           ? 'Checking availability…'
+          : inviteNotReady
+          ? 'Loading invite options…'
+          : missingRoster
+          ? 'Select a roster to continue'
           : hasWarnings
-          ? `Create anyway · ${totalWarnings} warning${
+          ? `Create Event · ${totalWarnings} warning${
               totalWarnings > 1 ? 's' : ''
             }`
-          : missingInviteSelection
-          ? 'Select invitees to continue'
           : 'Create Event'}
       </button>
     </div>

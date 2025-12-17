@@ -15,8 +15,11 @@ export function useNewSongForm(opts: {
   const [bpm, setBpm] = useState('');
   const [origin, setOrigin] = useState<'original' | 'cover'>('original');
   const [originalArtist, setOriginalArtist] = useState('');
-  const [duration, setDuration] = useState('');
+  const [durationSeconds, setDurationSeconds] = useState<number | null>(null);
   const [showKeyPicker, setShowKeyPicker] = useState(false);
+
+  // Legacy string-based duration (kept for backwards compatibility)
+  const [duration, setDuration] = useState('');
 
   const parseDuration = useCallback((str: string): number | null => {
     if (!str.trim()) return null;
@@ -40,6 +43,7 @@ export function useNewSongForm(opts: {
     setOrigin('original');
     setOriginalArtist('');
     setDuration('');
+    setDurationSeconds(null);
     setShowKeyPicker(false);
   }, []);
 
@@ -57,7 +61,8 @@ export function useNewSongForm(opts: {
       if (userErr || !userData.user)
         return showToast('Please sign in first.'), null;
 
-      const durationSeconds = parseDuration(duration);
+      // Use durationSeconds if set, otherwise fall back to parsing duration string
+      const finalDuration = durationSeconds ?? parseDuration(duration);
 
       const { data, error } = await supabase
         .from('songs')
@@ -66,7 +71,7 @@ export function useNewSongForm(opts: {
           title: title.trim(),
           default_key: key.trim() || null,
           default_bpm: bpm ? Number(bpm) : null,
-          duration: durationSeconds,
+          duration: finalDuration,
           origin,
           original_artist:
             origin === 'cover' ? originalArtist.trim() || null : null,
@@ -87,6 +92,7 @@ export function useNewSongForm(opts: {
     key,
     bpm,
     duration,
+    durationSeconds,
     origin,
     originalArtist,
     parseDuration,
@@ -100,6 +106,7 @@ export function useNewSongForm(opts: {
     key,
     bpm,
     duration,
+    durationSeconds,
     origin,
     originalArtist,
     showKeyPicker,
@@ -109,6 +116,7 @@ export function useNewSongForm(opts: {
     setKey,
     setBpm,
     setDuration,
+    setDurationSeconds,
     setOrigin,
     setOriginalArtist,
     setShowKeyPicker,

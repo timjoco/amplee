@@ -250,6 +250,10 @@
   min-width: 0;
 }
 
+.gc-menu-card-disabled {
+  opacity: 0.7;
+}
+
 .gc-menu-card-title {
   font-size: 16px;
   font-weight: 700;
@@ -662,3 +666,7 @@
 .gc-modal-root .native-input {
   font-size: 16px !important;
 }
+
+/* === FIX: Create Event button should NOT look active while disabled === */
+
+/* 

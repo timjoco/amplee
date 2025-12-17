@@ -86,6 +86,7 @@ export function ManageAttendeesCard({
       status: 'pending',
       invited_at: null,
       updated_at: null,
+      needs_sub: false,
     }));
     setAddedMembers((prev) => {
       const existing = new Set(prev.map((m) => m.user_id));

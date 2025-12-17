@@ -251,13 +251,33 @@ export default function GlobalCreateMobile({
     [step, eventForm, songForm, proposalForm]
   );
 
+  const goToStep = useCallback(
+    (next: Step) => {
+      // If the user has bands and the form doesn't have a band selected yet,
+      // default to the first band (sorted by name in your hook).
+      const firstBandId = bands[0]?.id;
+
+      if (firstBandId) {
+        if (next === 'newEvent' && !eventForm.bandId)
+          eventForm.setBandId(firstBandId);
+        if (next === 'newSong' && !songForm.bandId)
+          songForm.setBandId(firstBandId);
+        if (next === 'newProposal' && !proposalForm.bandId)
+          proposalForm.setBandId(firstBandId);
+      }
+
+      setStep(next);
+    },
+    [bands, eventForm, songForm, proposalForm, setStep]
+  );
+
   return (
     <IonModal isOpen={open} onDidDismiss={closeAll} className="gc-modal-root">
       <HeaderBar
         step={step}
         onBack={() => {
           void impact(ImpactStyle.Medium);
-          setStep('menu');
+          goToStep('menu');
         }}
         onClose={closeAll}
       />
@@ -276,8 +296,9 @@ export default function GlobalCreateMobile({
           {step === 'menu' && (
             <MenuStep
               bands={bands}
+              loadingBands={loadingBands}
               pressedButton={pressedButton}
-              onPress={(id, next) => press(id, () => setStep(next))}
+              onPress={(id, next) => press(id, () => goToStep(next))}
             />
           )}
 

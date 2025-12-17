@@ -1,7 +1,18 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { IonIcon } from '@ionic/react';
-import { chevronForwardOutline } from 'ionicons/icons';
+import { IonIcon, IonModal } from '@ionic/react';
+import {
+  chevronForwardOutline,
+  closeOutline,
+  musicalNotesOutline,
+  timeOutline,
+} from 'ionicons/icons';
+import { useMemo, useState } from 'react';
+import { MAJOR_KEYS, MINOR_KEYS } from '../../../lib/music/musicalKeys';
 import type { BandLite } from '../types';
+
+// ─────────────────────────────────────────────────────────────
+// Types
+// ─────────────────────────────────────────────────────────────
 
 type SongFormShape = {
   bandId: string;
@@ -10,6 +21,7 @@ type SongFormShape = {
   originalArtist: string;
   key: string;
   bpm: string | number;
+  durationSeconds: number | null;
 
   setBandId: (v: string) => void;
   setTitle: (v: string) => void;
@@ -17,14 +29,234 @@ type SongFormShape = {
   setOriginalArtist: (v: string) => void;
   setKey: (v: string) => void;
   setBpm: (v: any) => void;
+  setDurationSeconds: (v: number | null) => void;
 };
+
+// ─────────────────────────────────────────────────────────────
+// Styles
+// ─────────────────────────────────────────────────────────────
+
+const styles = {
+  // Key picker modal
+  modalOverlay: {
+    padding: 0,
+    '--background': 'transparent',
+    '--backdrop-opacity': 0.7,
+  } as React.CSSProperties,
+
+  modalContent: {
+    background:
+      'linear-gradient(135deg, rgba(15, 23, 42, 0.98), rgba(30, 41, 59, 0.95))',
+    backdropFilter: 'blur(20px)',
+    WebkitBackdropFilter: 'blur(20px)',
+    borderRadius: 20,
+    border: '1px solid rgba(236, 72, 153, 0.2)',
+    margin: 16,
+    maxHeight: '80vh',
+    overflow: 'hidden',
+    display: 'flex',
+    flexDirection: 'column' as const,
+  },
+
+  modalHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: '16px 20px',
+    borderBottom: '1px solid rgba(236, 72, 153, 0.15)',
+  },
+
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 700,
+    color: '#f9fafb',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 10,
+  },
+
+  modalCloseBtn: {
+    background: 'rgba(236, 72, 153, 0.1)',
+    border: 'none',
+    borderRadius: 10,
+    padding: 8,
+    color: '#f9a8d4',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  modalScrollArea: {
+    flex: 1,
+    overflowY: 'auto' as const,
+    padding: '12px 20px 20px',
+  },
+
+  sectionLabel: {
+    fontSize: 11,
+    fontWeight: 600,
+    textTransform: 'uppercase' as const,
+    letterSpacing: '0.5px',
+    color: 'rgba(249, 168, 212, 0.7)',
+    marginBottom: 10,
+    marginTop: 16,
+  },
+
+  keyGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(4, 1fr)',
+    gap: 8,
+  },
+
+  keyBtn: (active: boolean) => ({
+    background: active
+      ? 'linear-gradient(135deg, rgba(236, 72, 153, 0.4), rgba(168, 85, 247, 0.4))'
+      : 'rgba(30, 41, 59, 0.6)',
+    border: active
+      ? '1px solid rgba(236, 72, 153, 0.6)'
+      : '1px solid rgba(148, 163, 184, 0.15)',
+    borderRadius: 10,
+    padding: '10px 8px',
+    color: active ? '#fdf2f8' : '#cbd5e1',
+    fontSize: 13,
+    fontWeight: active ? 600 : 500,
+    cursor: 'pointer',
+    transition: 'all 0.15s ease',
+    textAlign: 'center' as const,
+  }),
+
+  noneBtn: (active: boolean) => ({
+    background: active ? 'rgba(100, 116, 139, 0.3)' : 'rgba(30, 41, 59, 0.6)',
+    border: active
+      ? '1px solid rgba(148, 163, 184, 0.4)'
+      : '1px solid rgba(148, 163, 184, 0.15)',
+    borderRadius: 10,
+    padding: '10px 12px',
+    color: active ? '#e2e8f0' : '#94a3b8',
+    fontSize: 13,
+    fontWeight: 500,
+    cursor: 'pointer',
+    width: '100%',
+    textAlign: 'left' as const,
+  }),
+
+  // Duration picker
+  durationBox: {
+    background: 'rgba(30, 41, 59, 0.4)',
+    border: '1px solid rgba(236, 72, 153, 0.25)',
+    borderRadius: 12,
+    padding: 14,
+  },
+
+  durationRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+  },
+
+  durationInput: {
+    flex: 1,
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6,
+  },
+
+  durationSelect: {
+    flex: 1,
+    background: 'rgba(15, 23, 42, 0.6)',
+    border: '1px solid rgba(148, 163, 184, 0.2)',
+    borderRadius: 8,
+    padding: '8px 10px',
+    color: '#f1f5f9',
+    fontSize: 15,
+    fontWeight: 500,
+    WebkitAppearance: 'none' as const,
+    appearance: 'none' as const,
+    cursor: 'pointer',
+    textAlign: 'center' as const,
+  },
+
+  durationSeparator: {
+    fontSize: 20,
+    fontWeight: 700,
+    color: '#f9a8d4',
+  },
+
+  durationLabel: {
+    fontSize: 11,
+    color: '#94a3b8',
+    textAlign: 'center' as const,
+    marginTop: 4,
+  },
+
+  durationPreview: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 10,
+    paddingTop: 10,
+    borderTop: '1px solid rgba(148, 163, 184, 0.1)',
+  },
+
+  durationPreviewText: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    fontSize: 13,
+    color: '#94a3b8',
+  },
+
+  durationPreviewValue: {
+    fontWeight: 600,
+    color: '#f9a8d4',
+    fontSize: 15,
+  },
+
+  clearBtn: {
+    background: 'transparent',
+    border: 'none',
+    color: '#f9a8d4',
+    fontSize: 12,
+    fontWeight: 600,
+    cursor: 'pointer',
+    padding: '4px 8px',
+    borderRadius: 6,
+  },
+
+  // Picker button - matches gc-form-input-song styles
+  pickerBtn: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+    width: '100%',
+    cursor: 'pointer',
+  },
+
+  pickerBtnIcon: {
+    fontSize: 18,
+    color: '#f9a8d4',
+  },
+};
+
+// ─────────────────────────────────────────────────────────────
+// Helper
+// ─────────────────────────────────────────────────────────────
+
+function pad2(n: number) {
+  return String(n).padStart(2, '0');
+}
+
+// ─────────────────────────────────────────────────────────────
+// Component
+// ─────────────────────────────────────────────────────────────
 
 export default function NewSongStep(props: {
   bands: BandLite[];
   loadingBands: boolean;
   currentBandId: string;
   onBandChange: (bandId: string) => void;
-
   songForm: SongFormShape;
   onSubmit: () => void;
 }) {
@@ -37,8 +269,34 @@ export default function NewSongStep(props: {
     onSubmit,
   } = props;
 
+  // Key picker modal state
+  const [showKeyModal, setShowKeyModal] = useState(false);
+
+  // Duration UI state
+  const { durMin, durSec } = useMemo(() => {
+    const total = songForm.durationSeconds ?? 0;
+    const m = Math.floor(total / 60);
+    const s = total % 60;
+    return { durMin: m, durSec: s };
+  }, [songForm.durationSeconds]);
+
+  const setDurationParts = (m: number, s: number) => {
+    const mm = Math.max(0, Math.min(59, Number.isFinite(m) ? m : 0));
+    const ss = Math.max(0, Math.min(59, Number.isFinite(s) ? s : 0));
+    const total = mm * 60 + ss;
+    songForm.setDurationSeconds(total > 0 ? total : null);
+  };
+
+  const durationLabel =
+    songForm.durationSeconds && songForm.durationSeconds > 0
+      ? `${durMin}:${pad2(durSec)}`
+      : '—';
+
+  const keyLabel = songForm.key?.trim() ? songForm.key : 'Select key…';
+
   return (
     <div className="gc-form-card gc-form-card-song">
+      {/* Band */}
       <div className="gc-form-group">
         <label className="gc-form-label gc-form-label-song">Band</label>
         <div className="gc-select-wrapper">
@@ -59,6 +317,7 @@ export default function NewSongStep(props: {
         </div>
       </div>
 
+      {/* Title */}
       <div className="gc-form-group">
         <label className="gc-form-label gc-form-label-song">Song title</label>
         <input
@@ -70,6 +329,7 @@ export default function NewSongStep(props: {
         />
       </div>
 
+      {/* Origin */}
       <div className="gc-form-group">
         <label className="gc-form-label gc-form-label-song">Origin</label>
         <div className="gc-toggle-group">
@@ -98,6 +358,7 @@ export default function NewSongStep(props: {
         </div>
       </div>
 
+      {/* Original artist */}
       {songForm.origin === 'cover' && (
         <div className="gc-form-group">
           <label className="gc-form-label gc-form-label-song">
@@ -113,20 +374,107 @@ export default function NewSongStep(props: {
         </div>
       )}
 
+      {/* Key + BPM */}
       <div className="gc-form-row">
+        {/* Key picker */}
         <div className="gc-form-group">
           <label className="gc-form-label gc-form-label-song">
             Key (optional)
           </label>
-          <input
-            type="text"
+
+          <button
+            type="button"
             className="gc-form-input gc-form-input-song"
-            value={songForm.key}
-            onChange={(e) => songForm.setKey(e.target.value)}
-            placeholder="e.g., G, B♭"
-          />
+            style={styles.pickerBtn}
+            onClick={() => setShowKeyModal(true)}
+          >
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {keyLabel}
+            </span>
+            <IonIcon icon={musicalNotesOutline} style={styles.pickerBtnIcon} />
+          </button>
+
+          {/* Key Picker Modal */}
+          <IonModal
+            isOpen={showKeyModal}
+            onDidDismiss={() => setShowKeyModal(false)}
+            className="gc-modal-root"
+            style={styles.modalOverlay}
+          >
+            <div style={styles.modalContent}>
+              {/* Header */}
+              <div style={styles.modalHeader}>
+                <div style={styles.modalTitle}>
+                  <IonIcon
+                    icon={musicalNotesOutline}
+                    style={{ color: '#f9a8d4' }}
+                  />
+                  Select Key
+                </div>
+                <button
+                  type="button"
+                  style={styles.modalCloseBtn}
+                  onClick={() => setShowKeyModal(false)}
+                >
+                  <IonIcon icon={closeOutline} style={{ fontSize: 20 }} />
+                </button>
+              </div>
+
+              {/* Scrollable content */}
+              <div style={styles.modalScrollArea}>
+                {/* None option */}
+                <button
+                  type="button"
+                  style={styles.noneBtn(!songForm.key)}
+                  onClick={() => {
+                    songForm.setKey('');
+                    setShowKeyModal(false);
+                  }}
+                >
+                  None
+                </button>
+
+                {/* Major keys */}
+                <div style={styles.sectionLabel}>Major Keys</div>
+                <div style={styles.keyGrid}>
+                  {MAJOR_KEYS.map((k) => (
+                    <button
+                      key={k}
+                      type="button"
+                      style={styles.keyBtn(songForm.key === k)}
+                      onClick={() => {
+                        songForm.setKey(k);
+                        setShowKeyModal(false);
+                      }}
+                    >
+                      {k}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Minor keys */}
+                <div style={styles.sectionLabel}>Minor Keys</div>
+                <div style={styles.keyGrid}>
+                  {MINOR_KEYS.map((k) => (
+                    <button
+                      key={k}
+                      type="button"
+                      style={styles.keyBtn(songForm.key === k)}
+                      onClick={() => {
+                        songForm.setKey(k);
+                        setShowKeyModal(false);
+                      }}
+                    >
+                      {k}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </IonModal>
         </div>
 
+        {/* BPM */}
         <div className="gc-form-group">
           <label className="gc-form-label gc-form-label-song">
             BPM (optional)
@@ -137,10 +485,84 @@ export default function NewSongStep(props: {
             value={songForm.bpm}
             onChange={(e) => songForm.setBpm(e.target.value)}
             placeholder="e.g., 120"
+            inputMode="numeric"
           />
         </div>
       </div>
 
+      {/* Duration picker - unified box */}
+      <div className="gc-form-group">
+        <label className="gc-form-label gc-form-label-song">
+          Duration (optional)
+        </label>
+
+        <div style={styles.durationBox}>
+          <div style={styles.durationRow}>
+            {/* Minutes */}
+            <div style={styles.durationInput}>
+              <select
+                style={styles.durationSelect}
+                value={durMin}
+                onChange={(e) =>
+                  setDurationParts(Number(e.target.value), durSec)
+                }
+              >
+                {Array.from({ length: 60 }, (_, i) => (
+                  <option key={i} value={i}>
+                    {pad2(i)}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <span style={styles.durationSeparator}>:</span>
+
+            {/* Seconds */}
+            <div style={styles.durationInput}>
+              <select
+                style={styles.durationSelect}
+                value={durSec}
+                onChange={(e) =>
+                  setDurationParts(durMin, Number(e.target.value))
+                }
+              >
+                {Array.from({ length: 60 }, (_, i) => (
+                  <option key={i} value={i}>
+                    {pad2(i)}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Labels */}
+          <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+            <div style={{ flex: 1, ...styles.durationLabel }}>min</div>
+            <div style={{ width: 20 }} />
+            <div style={{ flex: 1, ...styles.durationLabel }}>sec</div>
+          </div>
+
+          {/* Preview & Clear */}
+          <div style={styles.durationPreview}>
+            <div style={styles.durationPreviewText}>
+              <IonIcon icon={timeOutline} style={{ fontSize: 16 }} />
+              <span>Duration:</span>
+              <span style={styles.durationPreviewValue}>{durationLabel}</span>
+            </div>
+            {songForm.durationSeconds ? (
+              <button
+                type="button"
+                style={styles.clearBtn}
+                onClick={() => songForm.setDurationSeconds(null)}
+              >
+                Clear
+              </button>
+            ) : null}
+          </div>
+        </div>
+      </div>
+
+      {/* Submit */}
       <button
         className="gc-submit-btn gc-submit-btn-song"
         onClick={onSubmit}

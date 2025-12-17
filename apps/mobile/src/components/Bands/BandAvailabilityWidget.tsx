@@ -19,7 +19,7 @@ type Props = {
 
 export default function BandAvailabilityWidget({
   bandId,
-  members: _members, // kept for future use
+  members: _members,
   pressedButton,
   handleButtonPress,
 }: Props) {
@@ -28,7 +28,6 @@ export default function BandAvailabilityWidget({
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
-    // Placeholder: wire real availability fetching here later if needed
     setLoading(false);
   }, []);
 
