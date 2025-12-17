@@ -1,21 +1,32 @@
 import SiteFooter from '@/components/Footers/SiteFooter';
 import { Box, Button, Container, Stack, Typography } from '@mui/material';
-import QRCode from 'qrcode';
+import { headers } from 'next/headers';
+import { redirect } from 'next/navigation';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
+function getDeviceType(ua: string): 'ios' | 'android' | 'desktop' {
+  if (/iPhone|iPad|iPod/i.test(ua)) return 'ios';
+  if (/Android/i.test(ua)) return 'android';
+  return 'desktop';
+}
+
 export default async function DownloadPage() {
   const ios = process.env.NEXT_PUBLIC_IOS_STORE_URL || '';
   const android = process.env.NEXT_PUBLIC_ANDROID_STORE_URL || '';
-  const downloadUrl =
-    process.env.NEXT_PUBLIC_DOWNLOAD_URL || 'https://amplee.app/download';
 
-  const qrDataUrl = await QRCode.toDataURL(downloadUrl, {
-    margin: 2,
-    width: 280,
-    color: { dark: '#1a1a2e', light: '#ffffff' },
-  });
+  // Detect device and redirect mobile users directly to their app store
+  const h = await headers();
+  const ua = h.get('user-agent') ?? '';
+  const device = getDeviceType(ua);
+
+  if (device === 'ios' && ios) {
+    redirect(ios);
+  }
+  if (device === 'android' && android) {
+    redirect(android);
+  }
 
   return (
     <Box
@@ -117,133 +128,78 @@ export default async function DownloadPage() {
               </Stack>
             </Box>
 
-            {/* Right side: QR Code + Download Links */}
-            <Box
+            {/* Right side: Download CTAs */}
+            <Stack
+              spacing={2}
               sx={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: 2.5,
-                flexShrink: 0,
+                width: '100%',
+                maxWidth: { xs: 320, md: 280 },
               }}
             >
-              <Box
-                sx={{
-                  p: 2.5,
-                  bgcolor: '#fff',
-                  borderRadius: '20px',
-                  boxShadow: '0 4px 24px rgba(0, 0, 0, 0.3)',
-                }}
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={qrDataUrl}
-                  alt="Scan to download Amplee"
-                  style={{ width: 160, height: 160, display: 'block' }}
-                />
-              </Box>
-              <Typography
-                sx={{
-                  color: 'rgba(232, 230, 240, 0.5)',
-                  fontSize: '0.875rem',
-                  textAlign: 'center',
-                }}
-              >
-                Scan with your phone
-              </Typography>
-
-              {/* Divider */}
-              <Box
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 2,
-                  width: '100%',
-                  maxWidth: 220,
-                }}
-              >
-                <Box
+              {!!ios && (
+                <Button
+                  href={ios}
+                  variant="contained"
+                  size="large"
+                  disableElevation
                   sx={{
-                    flex: 1,
-                    height: '1px',
-                    bgcolor: 'rgba(232, 230, 240, 0.15)',
-                  }}
-                />
-                <Typography
-                  sx={{
-                    color: 'rgba(232, 230, 240, 0.4)',
-                    fontSize: '0.75rem',
+                    py: 2,
+                    fontSize: '1rem',
+                    fontWeight: 700,
+                    borderRadius: '14px',
+                    textTransform: 'none',
+                    bgcolor: '#8B5CF6',
+                    transition: 'all 0.2s ease',
+                    '&:hover': {
+                      bgcolor: '#7C3AED',
+                      transform: 'translateY(-2px)',
+                      boxShadow: '0 8px 24px rgba(139, 92, 246, 0.4)',
+                    },
+                    '&:active': {
+                      transform: 'translateY(0)',
+                    },
                   }}
                 >
-                  or
-                </Typography>
-                <Box
+                  Download for iPhone
+                </Button>
+              )}
+              {!!android && (
+                <Button
+                  href={android}
+                  variant="contained"
+                  size="large"
+                  disableElevation
                   sx={{
-                    flex: 1,
-                    height: '1px',
-                    bgcolor: 'rgba(232, 230, 240, 0.15)',
+                    py: 2,
+                    fontSize: '1rem',
+                    fontWeight: 700,
+                    borderRadius: '14px',
+                    textTransform: 'none',
+                    bgcolor: '#1E1B2E',
+                    border: '1px solid rgba(139, 92, 246, 0.3)',
+                    color: '#C4B5FD',
+                    transition: 'all 0.2s ease',
+                    '&:hover': {
+                      bgcolor: '#252238',
+                      borderColor: '#8B5CF6',
+                      transform: 'translateY(-2px)',
+                      boxShadow: '0 8px 24px rgba(139, 92, 246, 0.2)',
+                    },
+                    '&:active': {
+                      transform: 'translateY(0)',
+                    },
                   }}
-                />
-              </Box>
-
-              {/* Download buttons */}
-              <Stack spacing={1.5} sx={{ width: '100%', maxWidth: 220 }}>
-                {!!ios && (
-                  <Button
-                    href={ios}
-                    variant="contained"
-                    size="medium"
-                    disableElevation
-                    sx={{
-                      py: 1.25,
-                      fontSize: '0.875rem',
-                      fontWeight: 700,
-                      borderRadius: '10px',
-                      textTransform: 'none',
-                      bgcolor: '#8B5CF6',
-                      transition: 'all 0.2s ease',
-                      '&:hover': {
-                        bgcolor: '#7C3AED',
-                        transform: 'translateY(-1px)',
-                      },
-                    }}
-                  >
-                    Download for iPhone
-                  </Button>
-                )}
-                {!!android && (
-                  <Button
-                    href={android}
-                    variant="contained"
-                    size="medium"
-                    disableElevation
-                    sx={{
-                      py: 1.25,
-                      fontSize: '0.875rem',
-                      fontWeight: 700,
-                      borderRadius: '10px',
-                      textTransform: 'none',
-                      bgcolor: '#1E1B2E',
-                      border: '1px solid rgba(139, 92, 246, 0.3)',
-                      color: '#C4B5FD',
-                      transition: 'all 0.2s ease',
-                      '&:hover': {
-                        bgcolor: '#252238',
-                        borderColor: '#8B5CF6',
-                        transform: 'translateY(-1px)',
-                      },
-                    }}
-                  >
-                    Download for Android
-                  </Button>
-                )}
-              </Stack>
+                >
+                  Download for Android
+                </Button>
+              )}
 
               {/* Support link */}
               <Typography
                 sx={{
                   color: 'rgba(232, 230, 240, 0.4)',
                   fontSize: '0.8125rem',
+                  textAlign: 'center',
                   pt: 1,
                   '& a': {
                     color: '#8B5CF6',
@@ -258,7 +214,7 @@ export default async function DownloadPage() {
               >
                 Need help? <a href="/support">Get support</a>
               </Typography>
-            </Box>
+            </Stack>
           </Box>
         </Container>
       </Box>
