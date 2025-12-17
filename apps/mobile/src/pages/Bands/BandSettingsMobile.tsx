@@ -37,8 +37,8 @@ type MemberRow = {
   avatar_path: string | null;
   avatar_updated_at: string | null;
   role: MembershipRole | string | null;
+  can_manage_admins?: boolean | null;
 };
-
 function MyBandRoleEditor({
   bandId,
   currentUserId,
@@ -323,6 +323,8 @@ export default function BandSettingsMobile() {
   const [bandAvatarPath, setBandAvatarPath] = useState<string | null>(null);
   const [myRole, setMyRole] = useState<MembershipRole>('member');
 
+  const [canManageAdmins, setCanManageAdmins] = useState(false);
+
   const [members, setMembers] = useState<MemberRow[]>([]);
   const [membersError, setMembersError] = useState<string | null>(null);
   const [memberBusyId, setMemberBusyId] = useState<string | null>(null);
@@ -366,7 +368,7 @@ export default function BandSettingsMobile() {
         // membership
         const { data: mem, error: memErr } = await supabase
           .from('band_members')
-          .select('role')
+          .select('role, can_manage_admins')
           .eq('band_id', bandId)
           .eq('user_id', user.id)
           .maybeSingle();
@@ -380,6 +382,7 @@ export default function BandSettingsMobile() {
         }
 
         setMyRole((mem.role as MembershipRole) ?? 'member');
+        setCanManageAdmins(!!mem.can_manage_admins);
 
         const { data: band, error: bandErr } = await supabase
           .from('bands')
@@ -401,8 +404,9 @@ export default function BandSettingsMobile() {
         const { data: memRows, error: memRowsErr } = await supabase
           .from('band_members')
           .select(
-            'user_id, role, profiles(display_name, avatar_url, updated_at)'
+            'user_id, role, can_manage_admins, profiles(display_name, avatar_url, updated_at)'
           )
+
           .eq('band_id', bandId)
           .order('created_at', { ascending: true });
 
@@ -416,6 +420,7 @@ export default function BandSettingsMobile() {
             (memRows ?? []).map((r: any) => ({
               user_id: r.user_id,
               role: r.role,
+              can_manage_admins: r.can_manage_admins ?? false,
               name: r.profiles?.display_name || 'Band member',
               avatar_path: r.profiles?.avatar_url || null,
               avatar_updated_at: r.profiles?.updated_at || null,
@@ -490,21 +495,57 @@ export default function BandSettingsMobile() {
     }
   }
 
+  async function refreshMembers() {
+    if (!bandId) return;
+
+    const { data: memRows, error: memRowsErr } = await supabase
+      .from('band_members')
+      .select('user_id, role, profiles(display_name, avatar_url, updated_at)')
+      .eq('band_id', bandId)
+      .order('created_at', { ascending: true });
+
+    if (memRowsErr) {
+      setMembersError(memRowsErr.message);
+      return;
+    }
+
+    const rows: MemberRow[] =
+      (memRows ?? []).map((r: any) => ({
+        user_id: r.user_id,
+        role: r.role,
+        name: r.profiles?.display_name || 'Band member',
+        avatar_path: r.profiles?.avatar_url || null,
+        avatar_updated_at: r.profiles?.updated_at || null,
+      })) ?? [];
+
+    setMembers(rows);
+  }
+
   async function promoteToAdmin(userId: string) {
-    if (myRole !== 'admin') return;
+    if (myRole !== 'admin' || !bandId) return;
+
     try {
       setMemberBusyId(userId);
       setMembersError(null);
 
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('band_members')
-        .update({ role: 'admin' })
-        .match({ band_id: bandId, user_id: userId });
+        .update({ role: 'admin', can_manage_admins: false })
+        .eq('band_id', bandId)
+        .eq('user_id', userId)
+        .select('user_id, role, can_manage_admins');
 
       if (error) throw error;
+      if (!data || data.length === 0) {
+        throw new Error('Promotion did not persist (0 rows updated).');
+      }
 
       setMembers((prev) =>
-        prev.map((m) => (m.user_id === userId ? { ...m, role: 'admin' } : m))
+        prev.map((m) =>
+          m.user_id === userId
+            ? { ...m, role: 'admin', can_manage_admins: false }
+            : m
+        )
       );
     } catch (e: any) {
       setMembersError(e?.message || 'Failed to promote member.');
@@ -515,20 +556,33 @@ export default function BandSettingsMobile() {
 
   async function demoteToMember(userId: string) {
     if (myRole !== 'admin') return;
+    if (!bandId) {
+      setMembersError('Missing band id (cannot demote).');
+      return;
+    }
     if (userId === currentUserId) {
       setMembersError("You can't demote yourself.");
       return;
     }
+
     try {
       setMemberBusyId(userId);
       setMembersError(null);
 
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('band_members')
         .update({ role: 'member' })
-        .match({ band_id: bandId, user_id: userId });
+        .eq('band_id', bandId)
+        .eq('user_id', userId)
+        .select('user_id, role');
 
       if (error) throw error;
+
+      if (!data || data.length === 0) {
+        throw new Error(
+          'Demotion did not persist. (0 rows updated — check bandId/userId match or RLS.)'
+        );
+      }
 
       setMembers((prev) =>
         prev.map((m) => (m.user_id === userId ? { ...m, role: 'member' } : m))
@@ -1033,10 +1087,17 @@ export default function BandSettingsMobile() {
                   >
                     {members.map((m) => {
                       const isSelf = m.user_id === currentUserId;
+                      const isOwner = !!m.can_manage_admins; // <-- add this field to MemberRow + fetch
                       const canPromote =
                         isAdmin && m.role !== 'admin' && !isSelf;
+
+                      // ✅ only “owner/admin-manager” can demote admins
                       const canDemote =
-                        isAdmin && m.role === 'admin' && !isSelf;
+                        isAdmin &&
+                        canManageAdmins &&
+                        m.role === 'admin' &&
+                        !isSelf;
+
                       const isRowBusy = memberBusyId === m.user_id;
 
                       return (
@@ -1059,6 +1120,7 @@ export default function BandSettingsMobile() {
                             updatedAt={m.avatar_updated_at ?? undefined}
                             size={36}
                           />
+
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <p
                               style={{
@@ -1085,6 +1147,7 @@ export default function BandSettingsMobile() {
                                 </span>
                               )}
                             </p>
+
                             <p
                               style={{
                                 margin: '2px 0 0',
@@ -1094,9 +1157,31 @@ export default function BandSettingsMobile() {
                                   m.role === 'admin'
                                     ? 'rgba(251, 191, 36, 0.9)'
                                     : 'rgba(148, 163, 184, 0.7)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 8,
                               }}
                             >
                               {m.role === 'admin' ? 'Admin' : 'Member'}
+
+                              {isOwner && (
+                                <span
+                                  style={{
+                                    fontSize: 10,
+                                    fontWeight: 800,
+                                    padding: '2px 8px',
+                                    borderRadius: 999,
+                                    border:
+                                      '1px solid rgba(168, 85, 247, 0.35)',
+                                    background: 'rgba(168, 85, 247, 0.12)',
+                                    color: 'rgba(216, 180, 254, 0.95)',
+                                    textTransform: 'uppercase',
+                                    letterSpacing: 0.4,
+                                  }}
+                                >
+                                  Owner
+                                </span>
+                              )}
                             </p>
                           </div>
 
@@ -1105,11 +1190,8 @@ export default function BandSettingsMobile() {
                               type="button"
                               disabled={isRowBusy}
                               onClick={() => {
-                                if (canPromote) {
-                                  promoteToAdmin(m.user_id);
-                                } else if (canDemote) {
-                                  demoteToMember(m.user_id);
-                                }
+                                if (canPromote) promoteToAdmin(m.user_id);
+                                else if (canDemote) demoteToMember(m.user_id);
                               }}
                               style={{
                                 padding: '6px 12px',

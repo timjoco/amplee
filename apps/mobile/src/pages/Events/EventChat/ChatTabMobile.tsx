@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { memo } from 'react';
-import { SongPickerModal } from '../../../components/SongPickerModal';
+import { EventChatSongPickerModal } from '../../../components/EventChatSongPickerModal';
 import { MessageActionSheet } from '../EventChat/components/MessageActionSheet';
 import { ChatComposerBar } from './components/ChatComposerBar';
 import { ChatMessagesList } from './components/ChatMessagesList';
@@ -116,7 +116,7 @@ function ChatTabMobileInner({
         />
       )}
 
-      <SongPickerModal
+      <EventChatSongPickerModal
         isOpen={songPickerOpen}
         bandId={bandId}
         onClose={handleSongPickerClose}

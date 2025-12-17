@@ -188,7 +188,7 @@ export function useEventDashboard(
     };
   }, [bandId]);
 
-  // ✅ Real-time: refresh roll call stats when event_members changes
+  //  Real-time: refresh roll call stats when event_members changes
   useEffect(() => {
     if (!eventId) return;
 

@@ -306,7 +306,7 @@ export default function EventSheetMobile() {
 
             <EventQuickTiles
               attendanceStats={attendanceStats}
-              inviteeTotal={inviteeTotal} // ✅ NEW
+              inviteeTotal={inviteeTotal}
               setlistCount={setlistCount}
               filesCount={filesCount}
               hasNotes={hasNotes}

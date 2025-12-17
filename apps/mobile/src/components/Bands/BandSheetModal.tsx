@@ -64,26 +64,12 @@ export default function BandSheetModal({
       try {
         const nowIso = new Date().toISOString();
 
-        console.log('[BandSheetModal] refreshBandSummary start', {
-          bandId,
-          reason,
-          nowIso,
-          mode: 'shows_played',
-        });
-
         const { count, error } = await supabase
           .from('events')
           .select('id', { head: true, count: 'exact' })
           .eq('band_id', bandId)
           .eq('type', 'show')
           .lte('starts_at', nowIso);
-
-        console.log('[BandSheetModal] refreshBandSummary result', {
-          bandId,
-          reason,
-          count,
-          error: error?.message ?? null,
-        });
 
         if (error) return;
         setShowsPlayed(count ?? 0);

@@ -4,7 +4,6 @@ import {
   chevronForwardOutline,
   closeOutline,
   musicalNotesOutline,
-  timeOutline,
 } from 'ionicons/icons';
 import { useMemo, useState } from 'react';
 import { MAJOR_KEYS, MINOR_KEYS } from '../../../lib/music/musicalKeys';
@@ -142,75 +141,16 @@ const styles = {
   }),
 
   // Duration picker
-  durationBox: {
-    background: 'rgba(30, 41, 59, 0.4)',
-    border: '1px solid rgba(236, 72, 153, 0.25)',
-    borderRadius: 12,
-    padding: 14,
-  },
-
   durationRow: {
     display: 'flex',
     alignItems: 'center',
     gap: 8,
   },
 
-  durationInput: {
-    flex: 1,
-    display: 'flex',
-    alignItems: 'center',
-    gap: 6,
-  },
-
-  durationSelect: {
-    flex: 1,
-    background: 'rgba(15, 23, 42, 0.6)',
-    border: '1px solid rgba(148, 163, 184, 0.2)',
-    borderRadius: 8,
-    padding: '8px 10px',
-    color: '#f1f5f9',
-    fontSize: 15,
-    fontWeight: 500,
-    WebkitAppearance: 'none' as const,
-    appearance: 'none' as const,
-    cursor: 'pointer',
-    textAlign: 'center' as const,
-  },
-
   durationSeparator: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 700,
     color: '#f9a8d4',
-  },
-
-  durationLabel: {
-    fontSize: 11,
-    color: '#94a3b8',
-    textAlign: 'center' as const,
-    marginTop: 4,
-  },
-
-  durationPreview: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 10,
-    paddingTop: 10,
-    borderTop: '1px solid rgba(148, 163, 184, 0.1)',
-  },
-
-  durationPreviewText: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-    fontSize: 13,
-    color: '#94a3b8',
-  },
-
-  durationPreviewValue: {
-    fontWeight: 600,
-    color: '#f9a8d4',
-    fontSize: 15,
   },
 
   clearBtn: {
@@ -221,7 +161,7 @@ const styles = {
     fontWeight: 600,
     cursor: 'pointer',
     padding: '4px 8px',
-    borderRadius: 6,
+    marginLeft: 8,
   },
 
   // Picker button - matches gc-form-input-song styles
@@ -286,11 +226,6 @@ export default function NewSongStep(props: {
     const total = mm * 60 + ss;
     songForm.setDurationSeconds(total > 0 ? total : null);
   };
-
-  const durationLabel =
-    songForm.durationSeconds && songForm.durationSeconds > 0
-      ? `${durMin}:${pad2(durSec)}`
-      : '—';
 
   const keyLabel = songForm.key?.trim() ? songForm.key : 'Select key…';
 
@@ -496,69 +431,49 @@ export default function NewSongStep(props: {
           Duration (optional)
         </label>
 
-        <div style={styles.durationBox}>
-          <div style={styles.durationRow}>
-            {/* Minutes */}
-            <div style={styles.durationInput}>
-              <select
-                style={styles.durationSelect}
-                value={durMin}
-                onChange={(e) =>
-                  setDurationParts(Number(e.target.value), durSec)
-                }
-              >
-                {Array.from({ length: 60 }, (_, i) => (
-                  <option key={i} value={i}>
-                    {pad2(i)}
-                  </option>
-                ))}
-              </select>
-            </div>
+        <div
+          className="gc-form-input gc-form-input-song"
+          style={styles.durationRow}
+        >
+          {/* Minutes */}
+          <select
+            className="gc-select gc-form-input-song"
+            style={{ flex: 1, border: 'none', background: 'transparent' }}
+            value={durMin}
+            onChange={(e) => setDurationParts(Number(e.target.value), durSec)}
+          >
+            {Array.from({ length: 60 }, (_, i) => (
+              <option key={i} value={i}>
+                {pad2(i)}
+              </option>
+            ))}
+          </select>
 
-            <span style={styles.durationSeparator}>:</span>
+          <span style={styles.durationSeparator}>:</span>
 
-            {/* Seconds */}
-            <div style={styles.durationInput}>
-              <select
-                style={styles.durationSelect}
-                value={durSec}
-                onChange={(e) =>
-                  setDurationParts(durMin, Number(e.target.value))
-                }
-              >
-                {Array.from({ length: 60 }, (_, i) => (
-                  <option key={i} value={i}>
-                    {pad2(i)}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
+          {/* Seconds */}
+          <select
+            className="gc-select gc-form-input-song"
+            style={{ flex: 1, border: 'none', background: 'transparent' }}
+            value={durSec}
+            onChange={(e) => setDurationParts(durMin, Number(e.target.value))}
+          >
+            {Array.from({ length: 60 }, (_, i) => (
+              <option key={i} value={i}>
+                {pad2(i)}
+              </option>
+            ))}
+          </select>
 
-          {/* Labels */}
-          <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
-            <div style={{ flex: 1, ...styles.durationLabel }}>min</div>
-            <div style={{ width: 20 }} />
-            <div style={{ flex: 1, ...styles.durationLabel }}>sec</div>
-          </div>
-
-          {/* Preview & Clear */}
-          <div style={styles.durationPreview}>
-            <div style={styles.durationPreviewText}>
-              <IonIcon icon={timeOutline} style={{ fontSize: 16 }} />
-              <span>Duration:</span>
-              <span style={styles.durationPreviewValue}>{durationLabel}</span>
-            </div>
-            {songForm.durationSeconds ? (
-              <button
-                type="button"
-                style={styles.clearBtn}
-                onClick={() => songForm.setDurationSeconds(null)}
-              >
-                Clear
-              </button>
-            ) : null}
-          </div>
+          {songForm.durationSeconds ? (
+            <button
+              type="button"
+              style={styles.clearBtn}
+              onClick={() => songForm.setDurationSeconds(null)}
+            >
+              Clear
+            </button>
+          ) : null}
         </div>
       </div>
 

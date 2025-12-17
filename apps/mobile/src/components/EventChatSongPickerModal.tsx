@@ -34,7 +34,7 @@ type SongPickerModalProps = {
   onSelect: (song: Song) => void;
 };
 
-export function SongPickerModal({
+export function EventChatSongPickerModal({
   isOpen,
   bandId,
   onClose,

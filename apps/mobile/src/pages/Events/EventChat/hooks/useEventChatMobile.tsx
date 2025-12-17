@@ -104,7 +104,6 @@ export function useEventChatMobile({
 
   // Scroll when composer focuses
   const handleComposerFocus = useCallback(() => {
-    console.log('[composer focus]');
     smartScrollToBottom('smooth');
     setTimeout(() => smartScrollToBottom('smooth'), 300);
   }, [smartScrollToBottom]);

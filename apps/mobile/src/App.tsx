@@ -29,6 +29,7 @@ import BandSheetMobile from './pages/Bands/BandSheetMobile';
 import BandSongEditRouteMobile from './pages/Bands/BandSongEditRouteMobile';
 import BandSongListRouteMobile from './pages/Bands/BandSongListRouteMobile';
 import BandSongSheetRouteMobile from './pages/Bands/BandSongSheetRouteMobile';
+import SetlistTemplateEditorMobile from './pages/Bands/Setlists/SetlistTemplateEditorMobile';
 import EventChatPageMobile from './pages/Events/EventChat/EventChatPageMobile';
 import EventFilesPageMobile from './pages/Events/EventFilesPageMobile';
 import EventNotesPageMobile from './pages/Events/EventNotesPageMobile';
@@ -45,7 +46,6 @@ import Profile from './pages/Profile';
 import ProfileAvailability from './pages/ProfileAvailability';
 import ProfileBasics from './pages/ProfileBasics';
 import ProposedGigSheetMobile from './pages/ProposedGigSheetMobile';
-import SetlistTemplateEditorMobile from './pages/SetlistTemplateEditorMobile';
 import VerifyEmail from './pages/VerifyEmail';
 import GlobalCreateHost from './shared/GlobalCreateHost';
 
