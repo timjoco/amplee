@@ -37,6 +37,15 @@ export async function getEventAvailabilityConflicts({
   try {
     const dateKey = formatDateKey(startsAt);
 
+    console.log(
+      '[availability] bandId',
+      bandId,
+      'dateKey',
+      dateKey,
+      'userIds?',
+      userIds?.length
+    );
+
     // 1) Get band members (user_id + names/roles)
     let membersQuery = supabase
       .from('band_members')

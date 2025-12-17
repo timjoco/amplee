@@ -809,38 +809,16 @@ export default function BandAvailabilityPage() {
                 )}
 
                 {/* Actions */}
-                {/* Actions */}
                 <div
                   style={{
                     display: 'flex',
+                    justifyContent: 'flex-end',
                     gap: 10,
                     marginTop: 20,
                     paddingTop: 16,
                     borderTop: '1px solid rgba(255,255,255,0.06)',
                   }}
                 >
-                  <button
-                    type="button"
-                    onClick={() =>
-                      navigate(
-                        `/bands/${bandId}/proposals?date=${selectedDate}`
-                      )
-                    }
-                    style={{
-                      flex: 1,
-                      padding: '12px 16px',
-                      borderRadius: 10,
-                      border: '1px solid rgba(139, 92, 246, 0.3)',
-                      background: 'rgba(139, 92, 246, 0.15)',
-                      color: '#c4b5fd',
-                      fontSize: 13,
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    Create Proposal
-                  </button>
-
                   {/* Only admins can create events */}
                   {isAdmin && (
                     <button

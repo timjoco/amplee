@@ -30,6 +30,10 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
 import EventDateTimePicker from '../components/ui/EventDateTimePicker';
+import {
+  EventAvailabilityConflict,
+  getEventAvailabilityConflicts,
+} from '../lib/events/getEventAvailabilityConflicts';
 import { supabase } from '../lib/supabase';
 
 type Option = {
@@ -88,27 +92,82 @@ export default function ProposedGigSheetMobile() {
   const [showEditProposal, setShowEditProposal] = useState(false);
   const [editTitle, setEditTitle] = useState('');
   const [editVenue, setEditVenue] = useState('');
+  const [isAdmin, setIsAdmin] = useState(false);
+
   const [savingProposal, setSavingProposal] = useState(false);
   const [showEditDatePicker, setShowEditDatePicker] = useState(false);
   const [editingOptionId, setEditingOptionId] = useState<string | null>(null);
   const [editingOptionDate, setEditingOptionDate] = useState<string | null>(
     null
   );
+  type AvailabilityForOption = {
+    conflicts: EventAvailabilityConflict[];
+    conflictCount: number;
+  };
+
+  const [availabilityByOptionId, setAvailabilityByOptionId] = useState<
+    Record<string, AvailabilityForOption>
+  >({});
+  const [loadingAvailability, setLoadingAvailability] = useState(false);
+
+  const fetchAvailabilityForOptions = useCallback(
+    async (opts: Option[]) => {
+      if (!bandId) return;
+
+      setLoadingAvailability(true);
+      try {
+        const entries = await Promise.all(
+          opts.map(async (o) => {
+            const startsAt = new Date(o.starts_at);
+            if (Number.isNaN(startsAt.getTime())) {
+              return [
+                o.id,
+                { conflicts: [], conflictCount: 0 } as AvailabilityForOption,
+              ] as const;
+            }
+
+            const conflicts = await getEventAvailabilityConflicts({
+              bandId,
+              startsAt,
+            });
+
+            return [
+              o.id,
+              { conflicts, conflictCount: conflicts.length },
+            ] as const;
+          })
+        );
+
+        setAvailabilityByOptionId(Object.fromEntries(entries));
+      } catch (e) {
+        console.warn('[proposal availability] failed', e);
+        setAvailabilityByOptionId({});
+      } finally {
+        setLoadingAvailability(false);
+      }
+    },
+    [bandId]
+  );
 
   const fetchData = useCallback(async () => {
     if (!bandId || !proposalId) return;
+
     try {
       setLoading(true);
       setError(null);
 
-      const [
-        {
-          data: { user },
-        },
-        membersResult,
-        propResult,
-      ] = await Promise.all([
-        supabase.auth.getUser(),
+      // 1) auth first
+      const {
+        data: { user },
+        error: authErr,
+      } = await supabase.auth.getUser();
+      if (authErr) throw authErr;
+
+      const uid = user?.id ?? '';
+      setMyId(uid || null);
+
+      // 2) fetch everything else in parallel
+      const [membersResult, propResult, myMemberResult] = await Promise.all([
         supabase
           .from('band_members')
           .select('user_id', { count: 'exact', head: true })
@@ -134,11 +193,20 @@ export default function ProposedGigSheetMobile() {
           )
           .eq('id', proposalId)
           .maybeSingle(),
+        uid
+          ? supabase
+              .from('band_members')
+              .select('role')
+              .eq('band_id', bandId)
+              .eq('user_id', uid)
+              .maybeSingle()
+          : Promise.resolve({ data: null, error: null } as any),
       ]);
 
-      const uid = user?.id ?? '';
-      setMyId(uid || null);
       setMembersCount(membersResult.count ?? 0);
+
+      // ✅ real admin check
+      setIsAdmin(myMemberResult.data?.role === 'admin');
 
       if (propResult.error) throw propResult.error;
       const data = propResult.data;
@@ -163,7 +231,7 @@ export default function ProposedGigSheetMobile() {
       );
 
       const sortedOptions = sortOptionsByDate(options);
-
+      void fetchAvailabilityForOptions(sortedOptions);
       // lookup "proposed by"
       if (data.created_by) {
         const { data: profile } = await supabase
@@ -198,13 +266,11 @@ export default function ProposedGigSheetMobile() {
     } finally {
       setLoading(false);
     }
-  }, [bandId, proposalId]);
+  }, [bandId, proposalId, fetchAvailabilityForOptions]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
-
-  const isAdmin = !!(proposal && myId && proposal.created_by === myId);
 
   async function vote(optionId: string, voteVal: 'yes' | 'no') {
     if (!proposalId || !myId) {
@@ -294,6 +360,7 @@ export default function ProposedGigSheetMobile() {
 
           // Sort options by date
           const sortedOptions = sortOptionsByDate(updatedOptions);
+          void fetchAvailabilityForOptions(sortedOptions);
 
           return {
             ...prev,
@@ -390,14 +457,19 @@ export default function ProposedGigSheetMobile() {
       if (delErr) throw delErr;
 
       // remove from local state instead of refetching
-      setProposal((prev) =>
-        prev
-          ? {
-              ...prev,
-              options: prev.options.filter((o) => o.id !== optionId),
-            }
-          : prev
-      );
+      setProposal((prev) => {
+        if (!prev) return prev;
+
+        const nextOptions = prev.options.filter((o) => o.id !== optionId);
+
+        // ✅ refresh availability after option removed
+        void fetchAvailabilityForOptions(nextOptions);
+
+        return {
+          ...prev,
+          options: nextOptions,
+        };
+      });
     } catch (e: any) {
       console.error(e);
       setError(e?.message ?? 'Failed to delete date option');
@@ -491,6 +563,7 @@ export default function ProposedGigSheetMobile() {
 
         // Sort options by date after updating
         const sortedOptions = sortOptionsByDate(updatedOptions);
+        void fetchAvailabilityForOptions(sortedOptions);
 
         return {
           ...prev,
@@ -902,6 +975,10 @@ export default function ProposedGigSheetMobile() {
                   dateStyle: 'medium',
                   timeStyle: 'short',
                 });
+                const avail = availabilityByOptionId[o.id];
+                const conflictCount = avail?.conflictCount;
+
+                const isCheckingThis = conflictCount == null;
 
                 let slidingRef: HTMLIonItemSlidingElement | null = null;
 
@@ -973,6 +1050,68 @@ export default function ProposedGigSheetMobile() {
                               }}
                             >
                               {label}
+                            </div>
+                          </div>
+                          <div
+                            style={{
+                              marginTop: 8,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              gap: 10,
+                            }}
+                          >
+                            <div
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 8,
+                                padding: '6px 10px',
+                                borderRadius: 999,
+                                border: isCheckingThis
+                                  ? '1px solid rgba(148, 163, 184, 0.25)'
+                                  : conflictCount > 0
+                                  ? '1px solid rgba(248, 113, 113, 0.25)'
+                                  : '1px solid rgba(52, 211, 153, 0.25)',
+                                background: isCheckingThis
+                                  ? 'rgba(148, 163, 184, 0.06)'
+                                  : conflictCount > 0
+                                  ? 'rgba(248, 113, 113, 0.08)'
+                                  : 'rgba(52, 211, 153, 0.08)',
+                                color: isCheckingThis
+                                  ? 'rgba(148, 163, 184, 0.85)'
+                                  : conflictCount > 0
+                                  ? 'rgba(248, 113, 113, 0.9)'
+                                  : 'rgba(52, 211, 153, 0.9)',
+                                fontSize: 12.5,
+                                fontWeight: 700,
+                                lineHeight: 1,
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              {isCheckingThis ? (
+                                <>
+                                  <IonSpinner
+                                    name="dots"
+                                    style={{ width: 16, height: 16 }}
+                                  />
+                                  Availability
+                                </>
+                              ) : (
+                                <>
+                                  <IonIcon
+                                    icon={
+                                      conflictCount > 0
+                                        ? closeCircleOutline
+                                        : checkmarkCircleOutline
+                                    }
+                                    style={{ fontSize: 14 }}
+                                  />
+                                  {conflictCount > 0
+                                    ? `${conflictCount} unavailable`
+                                    : 'All available'}
+                                </>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -1053,7 +1192,7 @@ export default function ProposedGigSheetMobile() {
                           </button>
                         </div>
 
-                        {allYes && (
+                        {isAdmin && allYes && (
                           <button
                             type="button"
                             onClick={() => convert(o.id)}

@@ -64,14 +64,14 @@ export default function NewEventStep(props: {
 
   const inviteMode = (eventForm.inviteMode as InviteMode) ?? 'full';
 
-  // ✅ Keep eventForm.bandId in sync with the selected band
+  // Keep eventForm.bandId in sync with the selected band
   useEffect(() => {
     const id = String(currentBandId ?? '').trim();
     if (id && eventForm.bandId !== id) eventForm.setBandId(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentBandId]);
 
-  // ✅ If user switches to roster mode, ensure we have a real roster id selected
+  // If user switches to roster mode, ensure we have a real roster id selected
   useEffect(() => {
     if (inviteMode !== 'roster') return;
     if (loadingInviteData) return;
@@ -91,10 +91,10 @@ export default function NewEventStep(props: {
     eventForm.setSelectedRosterId,
   ]);
 
-  // ✅ Require roster ALWAYS (FULL_ROSTER_ID counts as “selected”)
+  // Require roster ALWAYS (FULL_ROSTER_ID counts as “selected”)
   const missingRoster = !String(eventForm.selectedRosterId ?? '').trim();
 
-  // ✅ Keep disabled while rosters are loading (prevents “looks enabled but can’t submit”)
+  // Keep disabled while rosters are loading (prevents “looks enabled but can’t submit”)
   const inviteNotReady = loadingInviteData;
 
   const totalWarnings =

@@ -47,6 +47,31 @@ export default function RSVPTabMobile({
   const isAccepted = hydrated && !hasSubRequested && mine === 'accepted';
   const isPending = hydrated && !hasSubRequested && mine === 'pending';
 
+  // -------------------------
+  // Optimistic display counts
+  // -------------------------
+  const [displayCounts, setDisplayCounts] = React.useState(() => ({
+    accepted: 0,
+    total: 0,
+  }));
+
+  // Initialize + reconcile from hook counts (avoid flicker while saving)
+  React.useEffect(() => {
+    if (!hydrated) return;
+    if (saving || savingSub) return;
+
+    setDisplayCounts({
+      accepted: counts.accepted ?? 0,
+      total: counts.total ?? 0,
+    });
+  }, [counts.accepted, counts.total, hydrated, saving, savingSub]);
+
+  const acceptedDisplay = displayCounts.accepted;
+  const totalDisplay = displayCounts.total;
+
+  const attendancePercentage =
+    totalDisplay > 0 ? Math.round((acceptedDisplay / totalDisplay) * 100) : 0;
+
   const handleAskConfirm = (target: AttStatus) => {
     if (saving) return;
     setConfirmTarget(target);
@@ -55,33 +80,49 @@ export default function RSVPTabMobile({
   const handleConfirm = async () => {
     if (!confirmTarget) return;
 
-    // If user is accepting AND currently has a sub request:
-    if (confirmTarget === 'accepted' && needsSub) {
+    // If user is accepting/pending AND currently has a sub request, clear it first
+    if (
+      (confirmTarget === 'accepted' || confirmTarget === 'pending') &&
+      needsSub
+    ) {
       await updateSubRequest(false, '');
     }
 
-    // If user is switching to pending while a sub is requested:
-    if (confirmTarget === 'pending' && needsSub) {
-      await updateSubRequest(false, '');
-    }
+    // --- Optimistic: update the numbers shown on this screen immediately ---
+    setDisplayCounts((prev) => {
+      const total = prev.total || (counts.total ?? 0);
+      const prevAccepted = prev.accepted || (counts.accepted ?? 0);
 
-    // --- Optimistic: compute next band accepted count ---
-    if (onLocalBookedChange) {
-      const total = counts.total;
-      const prevAccepted = counts.accepted;
-
-      const wasAccepted = mine === 'accepted';
-      const willBeAccepted = confirmTarget === 'accepted';
+      // We treat "sub requested" as NOT confirmed.
+      const wasAccepted = mine === 'accepted' && !needsSub;
+      const willBeAccepted = confirmTarget === 'accepted'; // sub is cleared above if needed
 
       let nextAccepted = prevAccepted;
 
-      // If I *was* accepted and I'm leaving that state, decrement
       if (wasAccepted && !willBeAccepted) nextAccepted -= 1;
-      // If I *wasn't* accepted and I'm becoming accepted, increment
+      if (!wasAccepted && willBeAccepted) nextAccepted += 1;
+
+      // clamp
+      if (nextAccepted < 0) nextAccepted = 0;
+      if (total > 0 && nextAccepted > total) nextAccepted = total;
+
+      return { accepted: nextAccepted, total };
+    });
+
+    // --- Optimistic: compute next band booked state ---
+    if (onLocalBookedChange) {
+      const total = counts.total ?? 0;
+      const prevAccepted = counts.accepted ?? 0;
+
+      const wasAccepted = mine === 'accepted' && !needsSub;
+      const willBeAccepted = confirmTarget === 'accepted' && !needsSub; // (needsSub is cleared above, but keep safe)
+
+      let nextAccepted = prevAccepted;
+
+      if (wasAccepted && !willBeAccepted) nextAccepted -= 1;
       if (!wasAccepted && willBeAccepted) nextAccepted += 1;
 
       const optimisticIsBooked = total > 0 && nextAccepted === total;
-
       onLocalBookedChange(optimisticIsBooked);
     }
 
@@ -101,6 +142,14 @@ export default function RSVPTabMobile({
 
   const handleConfirmSub = async (reason: string) => {
     await updateSubRequest(true, reason);
+
+    // If I was "accepted", requesting a sub should reduce confirmed by 1 immediately
+    setDisplayCounts((prev) => {
+      if (mine !== 'accepted') return prev;
+      const nextAccepted = Math.max(0, prev.accepted - 1);
+      return { ...prev, accepted: nextAccepted };
+    });
+
     setShowSubPopup(false);
     setShowSubToast(true);
   };
@@ -111,11 +160,16 @@ export default function RSVPTabMobile({
 
   const handleClearSub = async () => {
     await updateSubRequest(false, '');
-  };
 
-  // Calculate attendance percentage
-  const attendancePercentage =
-    counts.total > 0 ? Math.round((counts.accepted / counts.total) * 100) : 0;
+    // If my attendance is accepted, clearing sub restores confirmed +1 immediately
+    setDisplayCounts((prev) => {
+      if (mine !== 'accepted') return prev;
+      const total = prev.total || 0;
+      const nextAccepted =
+        total > 0 ? Math.min(total, prev.accepted + 1) : prev.accepted + 1;
+      return { ...prev, accepted: nextAccepted };
+    });
+  };
 
   React.useEffect(() => {
     if (!onAttendanceSummaryChange) return;
@@ -190,7 +244,7 @@ export default function RSVPTabMobile({
                 marginBottom: 6,
               }}
             >
-              {counts.accepted}/{counts.total}
+              {acceptedDisplay}/{totalDisplay}
             </div>
             <div
               style={{
@@ -211,7 +265,7 @@ export default function RSVPTabMobile({
               height: 72,
               borderRadius: '50%',
               background: `conic-gradient(
-                rgba(52, 211, 153, 0.8) 0% ${attendancePercentage}%, 
+                rgba(52, 211, 153, 0.8) 0% ${attendancePercentage}%,
                 rgba(15, 23, 42, 0.8) ${attendancePercentage}% 100%
               )`,
               display: 'flex',
@@ -402,12 +456,7 @@ export default function RSVPTabMobile({
             </h3>
           </div>
 
-          <div
-            style={{
-              display: 'flex',
-              gap: 10,
-            }}
-          >
+          <div style={{ display: 'flex', gap: 10 }}>
             <button
               type="button"
               disabled={saving || !hydrated}
@@ -605,6 +654,29 @@ export default function RSVPTabMobile({
           >
             Your band leader will be notified automatically
           </p>
+
+          {/* Optional: show a "Clear sub request" action */}
+          {needsSub && (
+            <button
+              type="button"
+              disabled={savingSub}
+              onClick={handleClearSub}
+              style={{
+                width: '100%',
+                marginTop: 10,
+                padding: '12px 16px',
+                borderRadius: 12,
+                border: '1px solid rgba(148, 163, 184, 0.3)',
+                background: 'rgba(15, 23, 42, 0.8)',
+                color: '#9ca3af',
+                fontSize: 14,
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              Clear Sub Request
+            </button>
+          )}
         </div>
 
         {/* CONFIRMATION POPUP */}
@@ -612,7 +684,7 @@ export default function RSVPTabMobile({
           <ConfirmStatusPopup
             target={confirmTarget}
             saving={saving}
-            onCancel={handleCancel}
+            onCancel={() => setConfirmTarget(null)}
             onConfirm={handleConfirm}
           />
         )}
@@ -622,7 +694,7 @@ export default function RSVPTabMobile({
           <SubRequestPopup
             initialReason={subReason}
             saving={savingSub}
-            onCancel={handleCancelSub}
+            onCancel={() => setShowSubPopup(false)}
             onConfirm={handleConfirmSub}
           />
         )}
@@ -750,13 +822,7 @@ function ConfirmStatusPopup({
           {body}
         </p>
 
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 10,
-          }}
-        >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <button
             type="button"
             disabled={saving}
@@ -936,13 +1002,7 @@ function SubRequestPopup({
           />
         </div>
 
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 10,
-          }}
-        >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <button
             type="button"
             disabled={saving}

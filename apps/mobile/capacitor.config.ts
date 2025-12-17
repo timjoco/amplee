@@ -7,7 +7,7 @@ const config: CapacitorConfig = {
   ios: {
     scrollEnabled: false,
   },
-  // server: { url: 'http://192.168.1.113:5173/', cleartext: true },
+  server: { url: 'http://192.168.1.119:5173/', cleartext: true },
   plugins: {
     Keyboard: {
       scrollPadding: false,
