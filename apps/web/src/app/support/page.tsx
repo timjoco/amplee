@@ -29,15 +29,13 @@ export default function SupportPage() {
       <Box sx={{ flex: 1, py: { xs: 8, md: 10 } }}>
         <Container maxWidth="md">
           <Stack spacing={3} alignItems="center" textAlign="center">
-            <LegalHeader title="Terms of Service" />
-
+            <LegalHeader title="Support" />{' '}
             <Typography
               sx={{ color: 'rgba(232, 230, 240, 0.75)', maxWidth: 720 }}
             >
               Need help with invites, login, or something acting weird? Hit us
               up and we’ll get you back to rehearsal-ready.
             </Typography>
-
             <Stack
               direction={{ xs: 'column', sm: 'row' }}
               spacing={2}
