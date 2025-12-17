@@ -15,6 +15,9 @@ const ALLOW_PUBLIC = [
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // ✅ Always bypass API routes (preflight + API calls must not redirect)
+  if (pathname.startsWith('/api')) return NextResponse.next();
+
   // Allow Next internals & common static assets
   const isStatic =
     pathname.startsWith('/_next') ||
@@ -25,6 +28,12 @@ export async function middleware(request: NextRequest) {
 
   if (isStatic) return NextResponse.next();
 
+  // ✅ Allow public band pages
+  // This covers: /b/teem-and-tiger-6ynr
+  if (pathname === '/b' || pathname.startsWith('/b/')) {
+    return NextResponse.next();
+  }
+
   // Allow legal/support/download
   if (
     ALLOW_PUBLIC.some((p) => pathname === p || pathname.startsWith(p + '/'))
@@ -32,20 +41,16 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Optional: keep public band pages if you want them still visible
-  // if (pathname.startsWith('/b/')) return NextResponse.next();
-
   // Bypass for you/testers (ex: ?preview=secret123)
   const bypassKey = request.nextUrl.searchParams.get('preview');
-  const hasBypass = bypassKey === process.env.NEXT_PUBLIC_PREVIEW_KEY; // set in env
+  const hasBypass = bypassKey === process.env.NEXT_PUBLIC_PREVIEW_KEY;
 
   if (hasBypass) {
-    // You can optionally strip the preview param so it doesn't leak
     const url = request.nextUrl.clone();
     url.searchParams.delete('preview');
-    // Attach Supabase middleware for authenticated flows
+
     const res = await createClient(request);
-    // Redirect to cleaned URL (only if it changed)
+
     if (url.toString() !== request.nextUrl.toString()) {
       return NextResponse.redirect(url);
     }
@@ -60,5 +65,6 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
+  // ✅ Exclude /api from middleware entirely
   matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
 };
