@@ -26,6 +26,7 @@ import BandRosterPage from './pages/Bands/BandRosterPage';
 import BandSetlistPageMobile from './pages/Bands/BandSetlistPageMobile';
 import BandSettingsMobile from './pages/Bands/BandSettingsMobile';
 import BandSheetMobile from './pages/Bands/BandSheetMobile';
+import BandSongEditRouteMobile from './pages/Bands/BandSongEditRouteMobile';
 import BandSongListRouteMobile from './pages/Bands/BandSongListRouteMobile';
 import BandSongSheetRouteMobile from './pages/Bands/BandSongSheetRouteMobile';
 import EventChatPageMobile from './pages/Events/EventChat/EventChatPageMobile';
@@ -134,7 +135,6 @@ export default function App() {
             <Route path="/onboarding" element={<OnboardingPageMobile />} />
 
             {/* BAND ROUTES*/}
-            <Route path="/bands/:id" element={<BandSheetMobile />} />
             <Route path="/bands/:bandId" element={<BandSheetMobile />} />
             <Route path="/invite" element={<InviteBandMobile />} />
             <Route path="/bands/:bandId/events" element={<BandEventsPage />} />
@@ -175,6 +175,15 @@ export default function App() {
             <Route
               path="/bands/:bandId/songs/:songId"
               element={<BandSongSheetRouteMobile />}
+            />
+
+            <Route
+              path="/bands/:bandId/songs/new"
+              element={<BandSongEditRouteMobile />}
+            />
+            <Route
+              path="/bands/:bandId/songs/:songId/edit"
+              element={<BandSongEditRouteMobile />}
             />
 
             {/* --- EVENT ROUTES --- */}
