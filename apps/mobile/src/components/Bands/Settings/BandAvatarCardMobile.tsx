@@ -1,8 +1,17 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-'use client';
+import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
+import { Capacitor } from '@capacitor/core';
+import { IonActionSheet, IonIcon, IonSpinner, IonToast } from '@ionic/react';
+import { cameraOutline, imagesOutline } from 'ionicons/icons';
+import * as React from 'react';
 
-import { useEffect, useState } from 'react';
+import { isUserCancelled } from '../../../lib/nativeErrors';
 import { supabase } from '../../../lib/supabase';
+import AvatarImageMobile from '../../ui/AvatarImageMobile';
+
+// If you already created this helper somewhere else, import it.
+// Otherwise, keep the inline helper below.
+// import { isUserCancelled } from '../../../lib/nativeErrors';
 
 type Props = {
   bandId: string;
@@ -10,334 +19,340 @@ type Props = {
   initialPath?: string;
 };
 
+const AVATAR_BUCKET = 'band-avatars';
+
+// ─────────────────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────────────────
+
+function generateAvatarKey(bandId: string, ext: string) {
+  const anyCrypto: any = (globalThis as any).crypto;
+  const id =
+    anyCrypto?.randomUUID?.() ||
+    `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+  return `avatars/${bandId}/${id}.${ext}`;
+}
+
+async function pickNativeAvatarImage(source: 'camera' | 'library') {
+  const photo = await Camera.getPhoto({
+    quality: 85,
+    allowEditing: true,
+    resultType: CameraResultType.Uri,
+    source: source === 'camera' ? CameraSource.Camera : CameraSource.Photos,
+  });
+
+  if (!photo.webPath) throw new Error('No photo path returned');
+
+  const res = await fetch(photo.webPath);
+  const blob = await res.blob();
+  return blob;
+}
+
+async function downscaleToJpeg(
+  input: Blob,
+  maxSize = 1024,
+  quality = 0.85
+): Promise<Blob> {
+  const img = document.createElement('img');
+  const url = URL.createObjectURL(input);
+
+  try {
+    await new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve();
+      img.onerror = () => reject(new Error('Failed to load image'));
+      img.src = url;
+    });
+
+    const w0 = img.naturalWidth || img.width;
+    const h0 = img.naturalHeight || img.height;
+
+    const scale = Math.min(1, maxSize / Math.max(w0, h0));
+    const w = Math.max(1, Math.round(w0 * scale));
+    const h = Math.max(1, Math.round(h0 * scale));
+
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('No canvas context');
+    ctx.drawImage(img, 0, 0, w, h);
+
+    const out: Blob = await new Promise((resolve, reject) => {
+      canvas.toBlob(
+        (b) => (b ? resolve(b) : reject(new Error('toBlob failed'))),
+        'image/jpeg',
+        quality
+      );
+    });
+
+    return out;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Component
+// ─────────────────────────────────────────────────────────────
+
 export default function BandAvatarCardMobile({
   bandId,
   bandName,
   initialPath,
 }: Props) {
-  const [currentPath, setCurrentPath] = useState<string | undefined>(
+  const [avatarPath, setAvatarPath] = React.useState<string | undefined>(
     initialPath
   );
-  const [signedUrl, setSignedUrl] = useState<string | undefined>(undefined);
-  const [signErr, setSignErr] = useState<string | undefined>(undefined);
 
-  const [pendingFile, setPendingFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [uploading, setUploading] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+  const [toastMessage, setToastMessage] = React.useState<string | null>(null);
 
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [showPicker, setShowPicker] = React.useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
 
-  const BAND_AVATAR_BUCKET = 'band-avatars';
+  React.useEffect(() => {
+    setAvatarPath(initialPath);
+  }, [initialPath]);
 
-  function generateBandAvatarKey(bandId: string, ext: string) {
-    const anyCrypto: any = (globalThis as any).crypto;
-    const id =
-      anyCrypto?.randomUUID?.() ||
-      `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-
-    return `${bandId}/${id}.${ext}`;
-  }
-
-  useEffect(() => {
-    let cancelled = false;
-
-    (async () => {
-      setSignErr(undefined);
-      setSignedUrl(undefined);
-
-      if (!currentPath) return;
-
-      // 👇 1) If currentPath is already a full URL, just use it directly
-      const isFullUrl =
-        currentPath.startsWith('http://') || currentPath.startsWith('https://');
-
-      if (isFullUrl) {
-        if (!cancelled) {
-          setSignedUrl(currentPath);
-        }
-        return;
-      }
-
-      // 👇 2) Otherwise treat it as a path inside band-avatars
-      // Normalize in case we accidentally stored "band-avatars/foo/bar.png"
-      let normalizedPath = currentPath;
-      if (normalizedPath.startsWith(`${BAND_AVATAR_BUCKET}/`)) {
-        normalizedPath = normalizedPath.slice(BAND_AVATAR_BUCKET.length + 1);
-      }
-
-      const { data, error } = await supabase.storage
-        .from(BAND_AVATAR_BUCKET)
-        .createSignedUrl(normalizedPath, 3600);
-
-      if (cancelled) return;
-
-      if (error) {
-        console.warn('[BandAvatarCardMobile] signed URL error:', {
-          error,
-          currentPath,
-          normalizedPath,
-        });
-        setSignErr(error.message);
-        setSignedUrl(undefined);
-      } else {
-        setSignedUrl(data?.signedUrl);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [currentPath]);
-
-  function onPick(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0] || null;
-    if (!f) return;
-    if (!f.type.startsWith('image/')) {
-      setError('Please choose an image.');
+  const onPick = () => {
+    if (Capacitor.isNativePlatform()) {
+      setShowPicker(true);
       return;
     }
-    if (f.size > 3 * 1024 * 1024) {
-      setError('Max size is 3MB.');
-      return;
-    }
+    fileInputRef.current?.click();
+  };
+
+  const uploadAndSavePath = async (path: string, contentType?: string) => {
+    // store path in bands table
+    const { error: updateErr } = await supabase
+      .from('bands')
+      .update({
+        avatar_url: path,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', bandId);
+
+    if (updateErr) throw updateErr;
+
+    setAvatarPath(path);
+    setToastMessage('Band photo updated');
+
+    // Optional: let other parts of the app refresh cached avatars
+    window.dispatchEvent(
+      new CustomEvent('bands:avatar_changed', {
+        detail: { band_id: bandId, avatar_url: path },
+      })
+    );
+  };
+
+  const onFileChange: React.ChangeEventHandler<HTMLInputElement> = async (
+    e
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
     setError(null);
-    setSuccessMsg(null);
-    setPendingFile(f);
-    setPreviewUrl(URL.createObjectURL(f));
-    e.currentTarget.value = '';
-  }
 
-  async function onSave() {
-    if (!pendingFile) return;
     try {
-      setSaving(true);
-      setError(null);
-      setSuccessMsg(null);
+      if (!file.type.startsWith('image/')) {
+        throw new Error('Please choose an image file.');
+      }
 
-      const ext = pendingFile.name.split('.').pop()?.toLowerCase() || 'jpg';
-      const path = generateBandAvatarKey(bandId, ext);
+      const ext = file.name.split('.').pop()?.toLowerCase() || 'png';
+      const path = generateAvatarKey(bandId, ext);
 
-      const { error: upErr } = await supabase.storage
-        .from('band-avatars')
-        .upload(path, pendingFile, {
-          upsert: true,
+      const { error: uploadErr } = await supabase.storage
+        .from(AVATAR_BUCKET)
+        .upload(path, file, {
           cacheControl: '3600',
+          upsert: true,
+          contentType: file.type,
         });
-      if (upErr) throw new Error(upErr.message);
 
-      const { error: updErr } = await supabase
-        .from('bands')
-        .update({ avatar_url: path })
-        .eq('id', bandId);
-      if (updErr) throw new Error(updErr.message);
+      if (uploadErr) throw uploadErr;
 
-      setCurrentPath(path);
-      setPendingFile(null);
-      setPreviewUrl(null);
-      setSuccessMsg('Avatar updated!');
-    } catch (e: any) {
-      setError(e?.message || 'Failed to update avatar');
+      await uploadAndSavePath(path, file.type);
+    } catch (err: any) {
+      console.error(err);
+      setError(err?.message || 'Failed to update band photo.');
     } finally {
-      setSaving(false);
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
-  }
+  };
 
-  function onCancel() {
-    setPendingFile(null);
-    setPreviewUrl(null);
+  const uploadFromNative = async (source: 'camera' | 'library') => {
+    setUploading(true);
     setError(null);
-    setSuccessMsg(null);
-  }
 
-  const avatarSrc = previewUrl || signedUrl || undefined;
-  const initials = bandName.trim().slice(0, 2).toUpperCase();
-  const avatarSize = 72;
+    try {
+      const blob = await pickNativeAvatarImage(source);
+      const resizedJpeg = await downscaleToJpeg(blob, 1024, 0.85);
+
+      const path = generateAvatarKey(bandId, 'jpg');
+
+      const { error: uploadErr } = await supabase.storage
+        .from(AVATAR_BUCKET)
+        .upload(path, resizedJpeg, {
+          cacheControl: '3600',
+          upsert: true,
+          contentType: 'image/jpeg',
+        });
+
+      if (uploadErr) throw uploadErr;
+
+      await uploadAndSavePath(path, 'image/jpeg');
+    } catch (err: any) {
+      if (isUserCancelled(err)) return;
+
+      console.error(err);
+      setError(err?.message || 'Failed to update band photo.');
+    } finally {
+      setUploading(false);
+    }
+  };
 
   return (
     <div
       style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 10,
+        background: 'rgba(255,255,255,0.02)',
+        border: '1px solid rgba(255,255,255,0.06)',
+        borderRadius: 18,
+        padding: 16,
       }}
     >
-      <div>
-        <p
-          style={{
-            margin: '4px 0 0',
-            fontSize: 12,
-            color: 'rgba(196,181,253,0.9)',
-          }}
-        >
-          Add a logo or photo so everyone recognizes your band.
-        </p>
-      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <AvatarImageMobile
+          name={bandName}
+          bucket={AVATAR_BUCKET}
+          avatarPath={avatarPath}
+          size={54}
+        />
 
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 12,
-        }}
-      >
-        {/* Avatar preview */}
-        <div
-          style={{
-            width: avatarSize,
-            height: avatarSize,
-            borderRadius: '999px',
-            border: '2px solid rgba(168,85,247,0.85)',
-            background:
-              'radial-gradient(circle at 30% 0%, rgba(196,181,253,0.35), #020617)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            overflow: 'hidden',
-            flexShrink: 0,
-          }}
-        >
-          {avatarSrc ? (
-            <img
-              src={avatarSrc}
-              alt={bandName}
-              style={{
-                width: '100%',
-                height: '100%',
-                objectFit: 'cover',
-              }}
-            />
-          ) : (
-            <span
-              style={{
-                fontSize: 22,
-                fontWeight: 800,
-                color: '#F9FAFB',
-              }}
-            >
-              {initials}
-            </span>
-          )}
-        </div>
-
-        {/* Actions + status */}
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 6,
-            flex: 1,
-          }}
-        >
-          <div
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p
             style={{
-              display: 'flex',
-              flexWrap: 'wrap',
-              gap: 8,
+              margin: 0,
+              fontSize: 13,
+              color: 'rgba(148, 163, 184, 0.85)',
             }}
           >
-            <label
-              style={{
-                padding: '8px 12px',
-                borderRadius: 999,
-                border: '1px solid rgba(148,163,184,0.7)',
-                backgroundColor: '#050816',
-                fontSize: 13,
-                fontWeight: 600,
-                color: '#E5E7EB',
-                cursor: 'pointer',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {previewUrl
-                ? 'Choose another'
-                : currentPath
-                ? 'Change avatar'
-                : 'Add avatar'}
-              <input hidden type="file" accept="image/*" onChange={onPick} />
-            </label>
-
-            {previewUrl && (
-              <>
-                <button
-                  type="button"
-                  onClick={onSave}
-                  disabled={saving}
-                  style={{
-                    padding: '8px 12px',
-                    borderRadius: 999,
-                    border: 'none',
-                    fontSize: 13,
-                    fontWeight: 700,
-                    letterSpacing: 0.2,
-                    cursor: saving ? 'default' : 'pointer',
-                    background:
-                      'linear-gradient(135deg, rgba(147,51,234,0.98), rgba(107,58,157,0.98))',
-                    color: '#F5F3FF',
-                    opacity: saving ? 0.7 : 1,
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {saving ? 'Saving…' : 'Save'}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={onCancel}
-                  style={{
-                    padding: '8px 12px',
-                    borderRadius: 999,
-                    border: '1px solid rgba(148,163,184,0.6)',
-                    backgroundColor: 'transparent',
-                    fontSize: 13,
-                    fontWeight: 600,
-                    color: '#E5E7EB',
-                    cursor: 'pointer',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  Cancel
-                </button>
-              </>
-            )}
-          </div>
-
-          {/* Status + errors */}
-          {signErr && (
-            <p
-              style={{
-                margin: 0,
-                fontSize: 11,
-                color: '#F97373',
-              }}
-            >
-              Signed URL error: {signErr}
-            </p>
-          )}
-          {error && (
-            <p
-              style={{
-                margin: 0,
-                fontSize: 11,
-                color: '#FCA5A5',
-              }}
-            >
-              {error}
-            </p>
-          )}
-          {successMsg && (
-            <p
-              style={{
-                margin: 0,
-                fontSize: 11,
-                color: '#BBF7D0',
-              }}
-            >
-              {successMsg}
-            </p>
-          )}
+            Band avatar
+          </p>
+          <p
+            style={{
+              margin: '4px 0 0',
+              fontSize: 15,
+              fontWeight: 700,
+              color: 'rgba(241,245,249,0.95)',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {bandName}
+          </p>
         </div>
+
+        <button
+          type="button"
+          onClick={onPick}
+          disabled={uploading}
+          style={{
+            padding: '10px 12px',
+            borderRadius: 12,
+            border: '1px solid rgba(139, 92, 246, 0.25)',
+            background: uploading
+              ? 'rgba(139, 92, 246, 0.12)'
+              : 'rgba(139, 92, 246, 0.10)',
+            color: '#c4b5fd',
+            fontSize: 13,
+            fontWeight: 700,
+            cursor: uploading ? 'not-allowed' : 'pointer',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 8,
+            opacity: uploading ? 0.7 : 1,
+          }}
+        >
+          {uploading ? (
+            <>
+              <IonSpinner name="crescent" style={{ width: 14, height: 14 }} />
+              Uploading…
+            </>
+          ) : (
+            <>
+              <IonIcon icon={imagesOutline} />
+              Change
+            </>
+          )}
+        </button>
       </div>
+
+      {/* Web file input fallback */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        style={{ display: 'none' }}
+        onChange={onFileChange}
+      />
+
+      {error && (
+        <div
+          style={{
+            marginTop: 12,
+            padding: '10px 12px',
+            borderRadius: 12,
+            background: 'rgba(248, 113, 113, 0.10)',
+            border: '1px solid rgba(248, 113, 113, 0.20)',
+            color: 'rgba(248, 113, 113, 0.95)',
+            fontSize: 13,
+          }}
+        >
+          {error}
+        </div>
+      )}
+
+      {/* Native picker */}
+      <IonActionSheet
+        isOpen={showPicker}
+        onDidDismiss={() => setShowPicker(false)}
+        header="Update band photo"
+        cssClass="amplee-action-sheet-dark"
+        buttons={[
+          {
+            text: 'Take Photo',
+            icon: cameraOutline,
+            handler: () => {
+              setShowPicker(false);
+              void uploadFromNative('camera');
+            },
+          },
+          {
+            text: 'Choose from Library',
+            icon: imagesOutline,
+            handler: () => {
+              setShowPicker(false);
+              void uploadFromNative('library');
+            },
+          },
+          { text: 'Cancel', role: 'cancel' },
+        ]}
+      />
+
+      <IonToast
+        isOpen={toastMessage !== null}
+        message={toastMessage ?? ''}
+        duration={2000}
+        position="bottom"
+        onDidDismiss={() => setToastMessage(null)}
+        cssClass="amplee-toast-success"
+      />
     </div>
   );
 }

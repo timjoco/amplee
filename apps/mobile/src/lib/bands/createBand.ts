@@ -53,11 +53,16 @@ export async function createBand(
 
   if (avatarFile) {
     const ext = avatarFile.name.split('.').pop()?.toLowerCase() || 'jpg';
-    const path = `${row.id}/${crypto.randomUUID?.() ?? Date.now()}.${ext}`;
+    const id = crypto.randomUUID?.() ?? String(Date.now());
+    const path = `avatars/${row.id}/${id}.${ext}`;
 
     const { error: upErr } = await supabase.storage
       .from('band-avatars')
-      .upload(path, avatarFile, { upsert: true, cacheControl: '3600' });
+      .upload(path, avatarFile, {
+        upsert: true,
+        cacheControl: '3600',
+        contentType: avatarFile.type || undefined,
+      });
     if (upErr) throw new Error(upErr.message);
 
     const { error: updErr } = await supabase
