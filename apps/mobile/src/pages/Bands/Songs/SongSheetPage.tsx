@@ -2,7 +2,6 @@
 import { Capacitor } from '@capacitor/core';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import {
-  IonButton,
   IonContent,
   IonHeader,
   IonIcon,
@@ -15,12 +14,15 @@ import {
   addOutline,
   chatbubblesOutline,
   chevronBackOutline,
+  closeOutline,
   createOutline,
   linkOutline,
   musicalNotesOutline,
   openOutline,
   personCircleOutline,
+  personOutline,
   sendOutline,
+  shieldCheckmarkOutline,
   sparklesOutline,
   speedometerOutline,
   timeOutline,
@@ -30,6 +32,44 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { getAvatarUrl } from '../../../lib/cache/avatarUrlCache';
 import { supabase } from '../../../lib/supabase';
 
+// ─────────────────────────────────────────────────────────────
+// Theme Colors (Pink/Magenta for Library/Songs)
+// ─────────────────────────────────────────────────────────────
+
+const PINK = {
+  primary: '#ec4899',
+  primaryHover: '#db2777',
+  light: '#f472b6',
+  lighter: '#f9a8d4',
+  dark: '#be185d',
+  glow: 'rgba(236, 72, 153, 0.4)',
+  subtle: 'rgba(236, 72, 153, 0.08)',
+  border: 'rgba(236, 72, 153, 0.25)',
+};
+
+const RED = {
+  primary: '#ef4444',
+  light: '#f87171',
+  subtle: 'rgba(239, 68, 68, 0.08)',
+  border: 'rgba(239, 68, 68, 0.25)',
+};
+
+// ─────────────────────────────────────────────────────────────
+// Shared Styles
+// ─────────────────────────────────────────────────────────────
+
+const glassCard = {
+  background: 'rgba(255, 255, 255, 0.02)',
+  backdropFilter: 'blur(12px)',
+  WebkitBackdropFilter: 'blur(12px)',
+  border: '1px solid rgba(255, 255, 255, 0.06)',
+  borderRadius: 16,
+};
+
+// ─────────────────────────────────────────────────────────────
+// Types
+// ─────────────────────────────────────────────────────────────
+
 type SongOrigin = 'original' | 'cover';
 
 type SongRow = {
@@ -38,7 +78,7 @@ type SongRow = {
   title: string;
   default_key: string | null;
   default_bpm: number | null;
-  duration: number | null; // in seconds
+  duration: number | null;
   notes: string | null;
   origin: SongOrigin;
   original_artist: string | null;
@@ -69,6 +109,10 @@ type SongSheetPageProps = {
   onEdit?: (songId: string) => void;
 };
 
+// ─────────────────────────────────────────────────────────────
+// Component
+// ─────────────────────────────────────────────────────────────
+
 export default function SongSheetPage({
   songId,
   onBack,
@@ -83,6 +127,9 @@ export default function SongSheetPage({
 
   const [pressedButton, setPressedButton] = useState<string | null>(null);
 
+  // Song details modal
+  const [showSongDetails, setShowSongDetails] = useState(false);
+
   // Add recording modal
   const [showAddRecording, setShowAddRecording] = useState(false);
   const [newRecordingLabel, setNewRecordingLabel] = useState('');
@@ -94,7 +141,9 @@ export default function SongSheetPage({
   const [sendingComment, setSendingComment] = useState(false);
   const commentInputRef = useRef<HTMLTextAreaElement>(null);
 
-  const detailsRef = useRef<HTMLDivElement | null>(null); // 👈 add this
+  // ─────────────────────────────────────────────────────────────
+  // Helpers
+  // ─────────────────────────────────────────────────────────────
 
   const triggerHaptic = useCallback(async () => {
     if (Capacitor.getPlatform() === 'web') return;
@@ -117,14 +166,49 @@ export default function SongSheetPage({
     [triggerHaptic]
   );
 
-  // Format duration from seconds to mm:ss
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Load song data
+  const formatRelativeTime = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+    });
+  };
+
+  const getRecordingIcon = (url: string) => {
+    const lowerUrl = url.toLowerCase();
+    if (lowerUrl.includes('spotify')) return '🎧';
+    if (lowerUrl.includes('youtube') || lowerUrl.includes('youtu.be'))
+      return '▶️';
+    if (lowerUrl.includes('soundcloud')) return '☁️';
+    if (lowerUrl.includes('apple') || lowerUrl.includes('music.apple'))
+      return '🍎';
+    if (lowerUrl.includes('bandcamp')) return '💿';
+    if (lowerUrl.includes('drive.google')) return '📁';
+    if (lowerUrl.includes('dropbox')) return '📦';
+    return '🔗';
+  };
+
+  // ─────────────────────────────────────────────────────────────
+  // Data Fetching
+  // ─────────────────────────────────────────────────────────────
+
   useEffect(() => {
     if (!songId) return;
 
@@ -210,14 +294,12 @@ export default function SongSheetPage({
         .order('created_at', { ascending: true });
 
       if (!commentsError && commentsData) {
-        // Fetch profiles for all comment authors
         const userIds = [...new Set(commentsData.map((c: any) => c.user_id))];
         const { data: profilesData } = await supabase
           .from('profiles')
           .select('id, display_name, avatar_url')
           .in('id', userIds);
 
-        // Build profiles map with resolved avatar URLs
         const profilesMap = new Map<
           string,
           { display_name: string; avatar_url: string | null }
@@ -257,7 +339,10 @@ export default function SongSheetPage({
     void loadData();
   }, [songId]);
 
-  // Add recording
+  // ─────────────────────────────────────────────────────────────
+  // Actions
+  // ─────────────────────────────────────────────────────────────
+
   const handleAddRecording = async () => {
     if (!song || !newRecordingLabel.trim() || !newRecordingUrl.trim()) return;
 
@@ -288,7 +373,6 @@ export default function SongSheetPage({
     }
   };
 
-  // Delete recording
   const handleDeleteRecording = async (recordingId: string) => {
     triggerHaptic();
 
@@ -305,7 +389,6 @@ export default function SongSheetPage({
     setRecordings((prev) => prev.filter((r) => r.id !== recordingId));
   };
 
-  // Add comment
   const handleAddComment = async () => {
     if (!song || !newComment.trim() || !currentUserId) return;
 
@@ -328,7 +411,6 @@ export default function SongSheetPage({
         return;
       }
 
-      // Fetch the user's profile for display
       const { data: profileData } = await supabase
         .from('profiles')
         .select('display_name, avatar_url')
@@ -357,7 +439,6 @@ export default function SongSheetPage({
     }
   };
 
-  // Delete comment
   const handleDeleteComment = async (commentId: string) => {
     triggerHaptic();
 
@@ -374,82 +455,62 @@ export default function SongSheetPage({
     setComments((prev) => prev.filter((c) => c.id !== commentId));
   };
 
-  // Format relative time
-  const formatRelativeTime = (dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
+  // ─────────────────────────────────────────────────────────────
+  // Loading State
+  // ─────────────────────────────────────────────────────────────
 
-    if (diffMins < 1) return 'just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
-
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-    });
-  };
-
-  // Get icon for recording based on URL
-  const getRecordingIcon = (url: string) => {
-    const lowerUrl = url.toLowerCase();
-    if (lowerUrl.includes('spotify')) return '🎧';
-    if (lowerUrl.includes('youtube') || lowerUrl.includes('youtu.be'))
-      return '▶️';
-    if (lowerUrl.includes('soundcloud')) return '☁️';
-    if (lowerUrl.includes('apple') || lowerUrl.includes('music.apple'))
-      return '🍎';
-    if (lowerUrl.includes('bandcamp')) return '💿';
-    if (lowerUrl.includes('drive.google')) return '📁';
-    if (lowerUrl.includes('dropbox')) return '📦';
-    return '🔗';
-  };
-
-  // Loading state
   if (loading) {
     return (
       <IonPage>
         <IonContent
           fullscreen
           style={{
-            '--background': 'linear-gradient(180deg, #050509 0%, #020109 100%)',
+            '--background': 'linear-gradient(180deg, #08080e 0%, #04040a 100%)',
           }}
         >
           <div
             style={{
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'center',
-              alignItems: 'center',
-              minHeight: '100vh',
+              display: 'grid',
+              placeItems: 'center',
+              height: '100%',
               gap: 12,
             }}
           >
-            <IonSpinner
-              name="crescent"
-              style={{ '--color': '#f472b6', width: 32, height: 32 }}
-            />
-            <span style={{ fontSize: 14, color: '#6b7280' }}>
-              Loading song…
-            </span>
+            <div style={{ textAlign: 'center' }}>
+              <IonSpinner
+                style={{
+                  '--color': PINK.primary,
+                  width: 32,
+                  height: 32,
+                }}
+              />
+              <div
+                style={{
+                  color: '#6b7280',
+                  fontSize: 13,
+                  marginTop: 12,
+                }}
+              >
+                Loading song...
+              </div>
+            </div>
           </div>
         </IonContent>
       </IonPage>
     );
   }
 
-  // Not found state
+  // ─────────────────────────────────────────────────────────────
+  // Not Found State
+  // ─────────────────────────────────────────────────────────────
+
   if (!song) {
     return (
       <IonPage>
         <IonContent
           fullscreen
           style={{
-            '--background': 'linear-gradient(180deg, #050509 0%, #020109 100%)',
+            '--background': 'linear-gradient(180deg, #08080e 0%, #04040a 100%)',
           }}
         >
           <div
@@ -458,7 +519,7 @@ export default function SongSheetPage({
               flexDirection: 'column',
               justifyContent: 'center',
               alignItems: 'center',
-              minHeight: '100vh',
+              height: '100%',
               padding: 24,
               gap: 16,
             }}
@@ -467,22 +528,22 @@ export default function SongSheetPage({
               style={{
                 width: 64,
                 height: 64,
-                borderRadius: 20,
-                background: 'rgba(244, 114, 182, 0.1)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
+                borderRadius: 16,
+                background: PINK.subtle,
+                border: `1px solid ${PINK.border}`,
+                display: 'grid',
+                placeItems: 'center',
               }}
             >
               <IonIcon
                 icon={musicalNotesOutline}
-                style={{ fontSize: 32, color: '#f472b6' }}
+                style={{ fontSize: 28, color: PINK.light }}
               />
             </div>
             <h3
               style={{
                 margin: 0,
-                fontSize: 18,
+                fontSize: 17,
                 fontWeight: 700,
                 color: '#e5e7eb',
               }}
@@ -498,12 +559,11 @@ export default function SongSheetPage({
                 marginTop: 8,
                 padding: '12px 24px',
                 borderRadius: 12,
-                border: '1px solid rgba(148, 163, 184, 0.3)',
                 background: 'transparent',
-                color: '#9ca3af',
+                border: '1px solid rgba(255, 255, 255, 0.15)',
+                color: '#e5e7eb',
                 fontSize: 15,
                 fontWeight: 600,
-                cursor: 'pointer',
               }}
             >
               Go back
@@ -514,13 +574,17 @@ export default function SongSheetPage({
     );
   }
 
+  // ─────────────────────────────────────────────────────────────
+  // Main Render
+  // ─────────────────────────────────────────────────────────────
+
   return (
     <IonPage>
-      <IonHeader translucent>
+      <IonHeader translucent className="ion-no-border">
         <IonToolbar
           style={{
-            '--background': 'rgba(8, 8, 12, 0.98)',
-            borderBottom: '0.5px solid rgba(255, 255, 255, 0.06)',
+            '--background': 'rgba(8, 8, 14, 0.95)',
+            '--border-width': 0,
           }}
         >
           <div
@@ -531,34 +595,30 @@ export default function SongSheetPage({
               gap: 12,
             }}
           >
-            <IonButton
+            {/* Back Button */}
+            <button
               onClick={onBack}
-              fill="clear"
               style={{
-                minWidth: 0,
-                padding: 6,
-                margin: 0,
-                '--padding-start': '0',
-                '--padding-end': '0',
+                width: 40,
+                height: 40,
+                borderRadius: 12,
+                background: 'rgba(255, 255, 255, 0.04)',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                display: 'grid',
+                placeItems: 'center',
+                color: '#9ca3af',
+                flexShrink: 0,
               }}
             >
-              <IonIcon
-                icon={chevronBackOutline}
-                style={{ color: '#F9FAFB', fontSize: 24 }}
-              />
-            </IonButton>
+              <IonIcon icon={chevronBackOutline} style={{ fontSize: 20 }} />
+            </button>
 
-            {/* Tappable header card */}
+            {/* Title Card */}
             <button
               type="button"
               onClick={() => {
                 triggerHaptic();
-                if (detailsRef.current) {
-                  detailsRef.current.scrollIntoView({
-                    behavior: 'smooth',
-                    block: 'start',
-                  });
-                }
+                setShowSongDetails(true);
               }}
               onTouchStart={() => setPressedButton('header')}
               onTouchEnd={() => setPressedButton(null)}
@@ -569,31 +629,32 @@ export default function SongSheetPage({
               style={{
                 flex: 1,
                 minWidth: 0,
-                background:
-                  pressedButton === 'header'
-                    ? 'rgba(244, 114, 182, 0.16)'
-                    : 'rgba(255, 255, 255, 0.04)',
+                ...glassCard,
                 border:
                   pressedButton === 'header'
-                    ? '1px solid rgba(244, 114, 182, 0.4)'
+                    ? `1px solid ${PINK.border}`
                     : '1px solid rgba(255, 255, 255, 0.08)',
-                borderRadius: 14,
+                background:
+                  pressedButton === 'header'
+                    ? PINK.subtle
+                    : 'rgba(255, 255, 255, 0.04)',
                 padding: '10px 14px',
                 display: 'flex',
                 alignItems: 'center',
                 gap: 12,
-                cursor: 'pointer',
+                textAlign: 'left',
+                color: 'inherit',
                 transition: 'all 100ms ease-out',
                 transform:
                   pressedButton === 'header' ? 'scale(0.98)' : 'scale(1)',
               }}
             >
-              <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
                 <span
                   style={{
-                    fontSize: 18,
+                    fontSize: 17,
                     fontWeight: 700,
-                    color: '#F9FAFB',
+                    color: '#f9fafb',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
                     whiteSpace: 'nowrap',
@@ -604,12 +665,12 @@ export default function SongSheetPage({
                   {song.title}
                 </span>
 
-                {/* origin + band */}
                 <span
                   style={{
                     fontSize: 12,
                     color: '#6b7280',
                     display: 'block',
+                    marginTop: 2,
                   }}
                 >
                   {song.origin === 'cover' && song.original_artist
@@ -619,37 +680,72 @@ export default function SongSheetPage({
                     : 'Original'}
                   {song.band_name && ` • ${song.band_name}`}
                 </span>
-
-                {/* Tap for details helper text */}
-                <span
-                  style={{
-                    fontSize: 11,
-                    color: pressedButton === 'header' ? '#f9a8d4' : '#4b5563',
-                    marginTop: 2,
-                  }}
-                >
-                  Tap for details
-                </span>
               </div>
-            </button>
 
-            {onEdit && isAdmin && (
-              <IonButton
-                onClick={() => onEdit(song.id)}
-                fill="clear"
+              {/* Info icon hint */}
+              <div
                 style={{
-                  minWidth: 0,
-                  padding: 6,
-                  margin: 0,
-                  '--padding-start': '0',
-                  '--padding-end': '0',
+                  width: 28,
+                  height: 28,
+                  borderRadius: 8,
+                  background:
+                    pressedButton === 'header'
+                      ? PINK.subtle
+                      : 'rgba(255, 255, 255, 0.04)',
+                  border: `1px solid ${
+                    pressedButton === 'header'
+                      ? PINK.border
+                      : 'rgba(255, 255, 255, 0.08)'
+                  }`,
+                  display: 'grid',
+                  placeItems: 'center',
+                  flexShrink: 0,
                 }}
               >
                 <IonIcon
-                  icon={createOutline}
-                  style={{ color: '#f472b6', fontSize: 22 }}
+                  icon={musicalNotesOutline}
+                  style={{
+                    fontSize: 14,
+                    color: pressedButton === 'header' ? PINK.light : '#6b7280',
+                  }}
                 />
-              </IonButton>
+              </div>
+            </button>
+
+            {/* Role Badge (when not admin or no edit) */}
+            {(!onEdit || !isAdmin) && currentUserId && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '6px 10px',
+                  borderRadius: 10,
+                  background: isAdmin
+                    ? PINK.subtle
+                    : 'rgba(255, 255, 255, 0.04)',
+                  border: `1px solid ${
+                    isAdmin ? PINK.border : 'rgba(255, 255, 255, 0.08)'
+                  }`,
+                }}
+              >
+                <IonIcon
+                  icon={isAdmin ? shieldCheckmarkOutline : personOutline}
+                  style={{
+                    fontSize: 14,
+                    color: isAdmin ? PINK.light : '#6b7280',
+                  }}
+                />
+                <span
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: isAdmin ? PINK.light : '#6b7280',
+                  }}
+                >
+                  {isAdmin ? 'Admin' : 'Member'}
+                </span>
+              </div>
             )}
           </div>
         </IonToolbar>
@@ -658,7 +754,7 @@ export default function SongSheetPage({
       <IonContent
         fullscreen
         style={{
-          '--background': 'linear-gradient(180deg, #050509 0%, #020109 100%)',
+          '--background': 'linear-gradient(180deg, #08080e 0%, #04040a 100%)',
         }}
       >
         <div
@@ -669,126 +765,16 @@ export default function SongSheetPage({
             margin: '0 auto',
           }}
         >
-          {/* Stats row */}
+          {/* Band Notes Section */}
           <div
             style={{
-              display: 'flex',
-              gap: 10,
-              marginBottom: 16,
-              flexWrap: 'wrap',
-            }}
-          >
-            {song.default_key && (
-              <div
-                style={{
-                  flex: '1 1 calc(50% - 5px)',
-                  minWidth: 120,
-                  background: 'rgba(244, 114, 182, 0.08)',
-                  border: '1px solid rgba(244, 114, 182, 0.2)',
-                  borderRadius: 14,
-                  padding: '12px 16px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 10,
-                }}
-              >
-                <IonIcon
-                  icon={musicalNotesOutline}
-                  style={{ fontSize: 20, color: '#f472b6' }}
-                />
-                <div>
-                  <div
-                    style={{ fontSize: 11, color: '#6b7280', marginBottom: 2 }}
-                  >
-                    KEY
-                  </div>
-                  <div
-                    style={{ fontSize: 18, fontWeight: 700, color: '#f472b6' }}
-                  >
-                    {song.default_key}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {song.default_bpm && (
-              <div
-                style={{
-                  flex: '1 1 calc(50% - 5px)',
-                  minWidth: 120,
-                  background: 'rgba(244, 114, 182, 0.08)',
-                  border: '1px solid rgba(244, 114, 182, 0.2)',
-                  borderRadius: 14,
-                  padding: '12px 16px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 10,
-                }}
-              >
-                <IonIcon
-                  icon={speedometerOutline}
-                  style={{ fontSize: 20, color: '#f472b6' }}
-                />
-                <div>
-                  <div
-                    style={{ fontSize: 11, color: '#6b7280', marginBottom: 2 }}
-                  >
-                    BPM
-                  </div>
-                  <div
-                    style={{ fontSize: 18, fontWeight: 700, color: '#f472b6' }}
-                  >
-                    {song.default_bpm}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {song.duration && (
-              <div
-                style={{
-                  flex: '1 1 calc(50% - 5px)',
-                  minWidth: 120,
-                  background: 'rgba(244, 114, 182, 0.08)',
-                  border: '1px solid rgba(244, 114, 182, 0.2)',
-                  borderRadius: 14,
-                  padding: '12px 16px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 10,
-                }}
-              >
-                <IonIcon
-                  icon={timeOutline}
-                  style={{ fontSize: 20, color: '#f472b6' }}
-                />
-                <div>
-                  <div
-                    style={{ fontSize: 11, color: '#6b7280', marginBottom: 2 }}
-                  >
-                    DURATION
-                  </div>
-                  <div
-                    style={{ fontSize: 18, fontWeight: 700, color: '#f472b6' }}
-                  >
-                    {formatDuration(song.duration)}
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Band Notes Section (Comments) */}
-          <div
-            style={{
-              background:
-                'linear-gradient(135deg, rgba(30, 41, 59, 0.4) 0%, rgba(15, 23, 42, 0.3) 100%)',
-              border: '1px solid rgba(71, 85, 105, 0.3)',
-              borderRadius: 20,
+              ...glassCard,
+              border: `1px solid rgba(255, 255, 255, 0.08)`,
               padding: 20,
               marginBottom: 16,
             }}
           >
+            {/* Section Header */}
             <div
               style={{
                 display: 'flex',
@@ -799,15 +785,15 @@ export default function SongSheetPage({
             >
               <IonIcon
                 icon={chatbubblesOutline}
-                style={{ fontSize: 18, color: '#f472b6' }}
+                style={{ fontSize: 18, color: PINK.light }}
               />
               <span
                 style={{
                   fontSize: 13,
-                  fontWeight: 700,
+                  fontWeight: 600,
                   color: '#9ca3af',
                   textTransform: 'uppercase',
-                  letterSpacing: 0.5,
+                  letterSpacing: '0.5px',
                 }}
               >
                 Band Notes
@@ -817,21 +803,23 @@ export default function SongSheetPage({
                   style={{
                     fontSize: 12,
                     color: '#6b7280',
-                    marginLeft: 4,
+                    background: 'rgba(255, 255, 255, 0.04)',
+                    padding: '2px 8px',
+                    borderRadius: 6,
                   }}
                 >
-                  ({comments.length})
+                  {comments.length}
                 </span>
               )}
             </div>
 
-            {/* Comments list */}
+            {/* Comments List */}
             {comments.length > 0 ? (
               <div
                 style={{
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: 12,
+                  gap: 10,
                   marginBottom: 16,
                 }}
               >
@@ -842,9 +830,9 @@ export default function SongSheetPage({
                       display: 'flex',
                       gap: 12,
                       padding: '12px 14px',
-                      borderRadius: 14,
-                      background: 'rgba(15, 23, 42, 0.6)',
-                      border: '1px solid rgba(71, 85, 105, 0.2)',
+                      borderRadius: 12,
+                      background: 'rgba(255, 255, 255, 0.02)',
+                      border: '1px solid rgba(255, 255, 255, 0.06)',
                     }}
                   >
                     {/* Avatar */}
@@ -866,16 +854,16 @@ export default function SongSheetPage({
                           width: 36,
                           height: 36,
                           borderRadius: '50%',
-                          background: 'rgba(244, 114, 182, 0.2)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
+                          background: PINK.subtle,
+                          border: `1px solid ${PINK.border}`,
+                          display: 'grid',
+                          placeItems: 'center',
                           flexShrink: 0,
                         }}
                       >
                         <IonIcon
                           icon={personCircleOutline}
-                          style={{ fontSize: 24, color: '#f472b6' }}
+                          style={{ fontSize: 20, color: PINK.light }}
                         />
                       </div>
                     )}
@@ -894,7 +882,7 @@ export default function SongSheetPage({
                           style={{
                             fontSize: 14,
                             fontWeight: 600,
-                            color: '#F9FAFB',
+                            color: '#f9fafb',
                           }}
                         >
                           {comment.user_name}
@@ -916,7 +904,7 @@ export default function SongSheetPage({
                       </p>
                     </div>
 
-                    {/* Delete button (own comments or admin) */}
+                    {/* Delete (own comments or admin) */}
                     {(comment.user_id === currentUserId || isAdmin) && (
                       <button
                         onClick={() => handleDeleteComment(comment.id)}
@@ -926,9 +914,7 @@ export default function SongSheetPage({
                           background: 'transparent',
                           border: 'none',
                           color: '#4b5563',
-                          cursor: 'pointer',
                           alignSelf: 'flex-start',
-                          transition: 'color 100ms',
                         }}
                       >
                         <IonIcon icon={trashOutline} style={{ fontSize: 16 }} />
@@ -968,7 +954,7 @@ export default function SongSheetPage({
               </div>
             )}
 
-            {/* Add comment input */}
+            {/* Add Comment Input */}
             <div
               style={{
                 display: 'flex',
@@ -980,15 +966,17 @@ export default function SongSheetPage({
                 ref={commentInputRef}
                 value={newComment}
                 onChange={(e) => setNewComment(e.target.value)}
-                placeholder="Add a note…"
+                placeholder="Add a note..."
                 rows={2}
                 style={{
                   flex: 1,
                   padding: '12px 14px',
-                  borderRadius: 14,
-                  border: '1px solid rgba(244, 114, 182, 0.3)',
-                  background: 'rgba(15, 23, 42, 0.8)',
-                  color: '#F9FAFB',
+                  borderRadius: 12,
+                  background: 'rgba(255, 255, 255, 0.04)',
+                  border: `1px solid ${
+                    newComment ? PINK.border : 'rgba(255, 255, 255, 0.08)'
+                  }`,
+                  color: '#f9fafb',
                   fontSize: 15,
                   resize: 'none',
                   outline: 'none',
@@ -1001,53 +989,49 @@ export default function SongSheetPage({
                 style={{
                   width: 48,
                   height: 48,
-                  borderRadius: 14,
+                  borderRadius: 12,
                   border: 'none',
                   background:
                     newComment.trim() && !sendingComment
-                      ? '#f472b6'
-                      : 'rgba(244, 114, 182, 0.3)',
+                      ? PINK.primary
+                      : 'rgba(255, 255, 255, 0.04)',
                   color:
-                    newComment.trim() && !sendingComment ? '#000' : '#6b7280',
-                  cursor:
-                    newComment.trim() && !sendingComment
-                      ? 'pointer'
-                      : 'not-allowed',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
+                    newComment.trim() && !sendingComment ? '#fff' : '#4b5563',
+                  display: 'grid',
+                  placeItems: 'center',
                   flexShrink: 0,
-                  transition: 'all 100ms',
+                  boxShadow:
+                    newComment.trim() && !sendingComment
+                      ? `0 4px 12px ${PINK.glow}`
+                      : 'none',
                 }}
               >
                 {sendingComment ? (
                   <IonSpinner
-                    name="crescent"
-                    style={{ width: 20, height: 20, '--color': '#f472b6' }}
+                    style={{ '--color': PINK.light, width: 20, height: 20 }}
                   />
                 ) : (
-                  <IonIcon icon={sendOutline} style={{ fontSize: 22 }} />
+                  <IonIcon icon={sendOutline} style={{ fontSize: 20 }} />
                 )}
               </button>
             </div>
           </div>
 
-          {/* Recordings Section */}
+          {/* Recordings/Links Section */}
           <div
             style={{
-              background:
-                'linear-gradient(135deg, rgba(30, 41, 59, 0.4) 0%, rgba(15, 23, 42, 0.3) 100%)',
-              border: '1px solid rgba(71, 85, 105, 0.3)',
-              borderRadius: 20,
+              ...glassCard,
+              border: `1px solid ${PINK.border}`,
               padding: 20,
             }}
           >
+            {/* Section Header */}
             <div
               style={{
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                marginBottom: 16,
+                marginBottom: recordings.length > 0 ? 16 : 0,
               }}
             >
               <div
@@ -1059,21 +1043,22 @@ export default function SongSheetPage({
               >
                 <IonIcon
                   icon={linkOutline}
-                  style={{ fontSize: 18, color: '#f472b6' }}
+                  style={{ fontSize: 18, color: PINK.light }}
                 />
                 <span
                   style={{
                     fontSize: 13,
-                    fontWeight: 700,
+                    fontWeight: 600,
                     color: '#9ca3af',
                     textTransform: 'uppercase',
-                    letterSpacing: 0.5,
+                    letterSpacing: '0.5px',
                   }}
                 >
                   Links
                 </span>
               </div>
 
+              {/* Add Link Button (Admin or anyone - depends on your preference) */}
               <button
                 onClick={() =>
                   handleButtonPress('addRecording', () =>
@@ -1085,18 +1070,17 @@ export default function SongSheetPage({
                   alignItems: 'center',
                   gap: 6,
                   padding: '8px 14px',
-                  borderRadius: 20,
-                  border: '1px solid rgba(244, 114, 182, 0.4)',
-                  background: 'rgba(244, 114, 182, 0.15)',
-                  color: '#f472b6',
+                  borderRadius: 10,
+                  background: PINK.subtle,
+                  border: `1px solid ${PINK.border}`,
+                  color: PINK.light,
                   fontSize: 13,
                   fontWeight: 600,
-                  cursor: 'pointer',
-                  transition: 'all 100ms ease-out',
                   transform:
                     pressedButton === 'addRecording'
                       ? 'scale(0.95)'
                       : 'scale(1)',
+                  transition: 'all 100ms ease-out',
                 }}
               >
                 <IonIcon icon={addOutline} style={{ fontSize: 16 }} />
@@ -1104,6 +1088,7 @@ export default function SongSheetPage({
               </button>
             </div>
 
+            {/* Links List */}
             {recordings.length > 0 ? (
               <div
                 style={{
@@ -1121,8 +1106,8 @@ export default function SongSheetPage({
                       gap: 12,
                       padding: '12px 14px',
                       borderRadius: 12,
-                      background: 'rgba(15, 23, 42, 0.6)',
-                      border: '1px solid rgba(71, 85, 105, 0.3)',
+                      background: 'rgba(255, 255, 255, 0.02)',
+                      border: '1px solid rgba(255, 255, 255, 0.06)',
                     }}
                   >
                     <span style={{ fontSize: 24 }}>
@@ -1134,7 +1119,7 @@ export default function SongSheetPage({
                         style={{
                           fontSize: 15,
                           fontWeight: 600,
-                          color: '#F9FAFB',
+                          color: '#f9fafb',
                           marginBottom: 2,
                         }}
                       >
@@ -1160,15 +1145,15 @@ export default function SongSheetPage({
                       style={{
                         padding: 8,
                         borderRadius: 8,
-                        background: 'rgba(244, 114, 182, 0.15)',
-                        color: '#f472b6',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
+                        background: PINK.subtle,
+                        border: `1px solid ${PINK.border}`,
+                        color: PINK.light,
+                        display: 'grid',
+                        placeItems: 'center',
                         textDecoration: 'none',
                       }}
                     >
-                      <IonIcon icon={openOutline} style={{ fontSize: 18 }} />
+                      <IonIcon icon={openOutline} style={{ fontSize: 16 }} />
                     </a>
 
                     {isAdmin && (
@@ -1177,13 +1162,11 @@ export default function SongSheetPage({
                         style={{
                           padding: 8,
                           borderRadius: 8,
-                          background: 'rgba(239, 68, 68, 0.1)',
-                          border: 'none',
-                          color: '#f87171',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
+                          background: RED.subtle,
+                          border: `1px solid ${RED.border}`,
+                          color: RED.light,
+                          display: 'grid',
+                          placeItems: 'center',
                         }}
                       >
                         <IonIcon icon={trashOutline} style={{ fontSize: 16 }} />
@@ -1224,6 +1207,482 @@ export default function SongSheetPage({
           </div>
         </div>
 
+        {/* Song Details Modal */}
+        <IonModal
+          isOpen={showSongDetails}
+          onDidDismiss={() => setShowSongDetails(false)}
+          initialBreakpoint={0.65}
+          breakpoints={[0, 0.5, 0.65, 0.9]}
+        >
+          <IonContent
+            style={{
+              '--background':
+                'linear-gradient(180deg, #0c0a14 0%, #08080e 100%)',
+            }}
+          >
+            <div style={{ padding: 20 }}>
+              {/* Header */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: 14,
+                  marginBottom: 24,
+                  paddingBottom: 20,
+                  borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+                }}
+              >
+                {/* Song Icon */}
+                <div
+                  style={{
+                    width: 56,
+                    height: 56,
+                    borderRadius: 16,
+                    background: PINK.subtle,
+                    border: `1px solid ${PINK.border}`,
+                    display: 'grid',
+                    placeItems: 'center',
+                    flexShrink: 0,
+                  }}
+                >
+                  <IonIcon
+                    icon={musicalNotesOutline}
+                    style={{ fontSize: 26, color: PINK.light }}
+                  />
+                </div>
+
+                {/* Title & Type */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <h2
+                    style={{
+                      margin: 0,
+                      fontSize: 20,
+                      fontWeight: 700,
+                      color: '#f9fafb',
+                      lineHeight: 1.2,
+                    }}
+                  >
+                    {song.title}
+                  </h2>
+
+                  {/* Origin Badge */}
+                  <div
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      marginTop: 8,
+                      padding: '4px 10px',
+                      borderRadius: 8,
+                      background:
+                        song.origin === 'cover'
+                          ? 'rgba(59, 130, 246, 0.08)'
+                          : PINK.subtle,
+                      border: `1px solid ${
+                        song.origin === 'cover'
+                          ? 'rgba(59, 130, 246, 0.25)'
+                          : PINK.border
+                      }`,
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: 12,
+                        fontWeight: 600,
+                        color: song.origin === 'cover' ? '#60a5fa' : PINK.light,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.5px',
+                      }}
+                    >
+                      {song.origin === 'cover' ? 'Cover' : 'Original'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Close Button */}
+                <button
+                  onClick={() => setShowSongDetails(false)}
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 10,
+                    background: 'rgba(255, 255, 255, 0.04)',
+                    border: '1px solid rgba(255, 255, 255, 0.08)',
+                    display: 'grid',
+                    placeItems: 'center',
+                    color: '#9ca3af',
+                    flexShrink: 0,
+                  }}
+                >
+                  <IonIcon icon={closeOutline} style={{ fontSize: 20 }} />
+                </button>
+              </div>
+
+              {/* Details Grid */}
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 12,
+                }}
+              >
+                {/* Original Artist (for covers) */}
+                {song.origin === 'cover' && song.original_artist && (
+                  <div
+                    style={{
+                      ...glassCard,
+                      border: `1px solid rgba(59, 130, 246, 0.25)`,
+                      padding: 16,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 14,
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: 44,
+                        height: 44,
+                        borderRadius: 12,
+                        background: 'rgba(59, 130, 246, 0.08)',
+                        border: '1px solid rgba(59, 130, 246, 0.25)',
+                        display: 'grid',
+                        placeItems: 'center',
+                        flexShrink: 0,
+                      }}
+                    >
+                      <IonIcon
+                        icon={personOutline}
+                        style={{ fontSize: 20, color: '#60a5fa' }}
+                      />
+                    </div>
+                    <div>
+                      <div
+                        style={{
+                          fontSize: 11,
+                          fontWeight: 600,
+                          color: '#6b7280',
+                          marginBottom: 4,
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.5px',
+                        }}
+                      >
+                        Original Artist
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 16,
+                          fontWeight: 600,
+                          color: '#f9fafb',
+                        }}
+                      >
+                        {song.original_artist}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Band */}
+                {song.band_name && (
+                  <div
+                    style={{
+                      ...glassCard,
+                      border: '1px solid rgba(255, 255, 255, 0.08)',
+                      padding: 16,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 14,
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: 44,
+                        height: 44,
+                        borderRadius: 12,
+                        background: 'rgba(255, 255, 255, 0.04)',
+                        border: '1px solid rgba(255, 255, 255, 0.08)',
+                        display: 'grid',
+                        placeItems: 'center',
+                        flexShrink: 0,
+                      }}
+                    >
+                      <IonIcon
+                        icon={shieldCheckmarkOutline}
+                        style={{ fontSize: 20, color: '#9ca3af' }}
+                      />
+                    </div>
+                    <div>
+                      <div
+                        style={{
+                          fontSize: 11,
+                          fontWeight: 600,
+                          color: '#6b7280',
+                          marginBottom: 4,
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.5px',
+                        }}
+                      >
+                        Band
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 16,
+                          fontWeight: 600,
+                          color: '#f9fafb',
+                        }}
+                      >
+                        {song.band_name}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Stats Row */}
+                <div
+                  style={{
+                    display: 'flex',
+                    gap: 10,
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  {/* Key */}
+                  {song.default_key && (
+                    <div
+                      style={{
+                        flex: '1 1 calc(50% - 5px)',
+                        minWidth: 120,
+                        ...glassCard,
+                        border: `1px solid ${PINK.border}`,
+                        padding: 16,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 12,
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: 40,
+                          height: 40,
+                          borderRadius: 10,
+                          background: PINK.subtle,
+                          border: `1px solid ${PINK.border}`,
+                          display: 'grid',
+                          placeItems: 'center',
+                          flexShrink: 0,
+                        }}
+                      >
+                        <IonIcon
+                          icon={musicalNotesOutline}
+                          style={{ fontSize: 18, color: PINK.light }}
+                        />
+                      </div>
+                      <div>
+                        <div
+                          style={{
+                            fontSize: 11,
+                            fontWeight: 600,
+                            color: '#6b7280',
+                            marginBottom: 2,
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.5px',
+                          }}
+                        >
+                          Key
+                        </div>
+                        <div
+                          style={{
+                            fontSize: 22,
+                            fontWeight: 700,
+                            color: PINK.light,
+                          }}
+                        >
+                          {song.default_key}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* BPM */}
+                  {song.default_bpm && (
+                    <div
+                      style={{
+                        flex: '1 1 calc(50% - 5px)',
+                        minWidth: 120,
+                        ...glassCard,
+                        border: `1px solid ${PINK.border}`,
+                        padding: 16,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 12,
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: 40,
+                          height: 40,
+                          borderRadius: 10,
+                          background: PINK.subtle,
+                          border: `1px solid ${PINK.border}`,
+                          display: 'grid',
+                          placeItems: 'center',
+                          flexShrink: 0,
+                        }}
+                      >
+                        <IonIcon
+                          icon={speedometerOutline}
+                          style={{ fontSize: 18, color: PINK.light }}
+                        />
+                      </div>
+                      <div>
+                        <div
+                          style={{
+                            fontSize: 11,
+                            fontWeight: 600,
+                            color: '#6b7280',
+                            marginBottom: 2,
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.5px',
+                          }}
+                        >
+                          BPM
+                        </div>
+                        <div
+                          style={{
+                            fontSize: 22,
+                            fontWeight: 700,
+                            color: PINK.light,
+                          }}
+                        >
+                          {song.default_bpm}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Duration */}
+                  {song.duration && (
+                    <div
+                      style={{
+                        flex: '1 1 calc(50% - 5px)',
+                        minWidth: 120,
+                        ...glassCard,
+                        border: `1px solid ${PINK.border}`,
+                        padding: 16,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 12,
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: 40,
+                          height: 40,
+                          borderRadius: 10,
+                          background: PINK.subtle,
+                          border: `1px solid ${PINK.border}`,
+                          display: 'grid',
+                          placeItems: 'center',
+                          flexShrink: 0,
+                        }}
+                      >
+                        <IonIcon
+                          icon={timeOutline}
+                          style={{ fontSize: 18, color: PINK.light }}
+                        />
+                      </div>
+                      <div>
+                        <div
+                          style={{
+                            fontSize: 11,
+                            fontWeight: 600,
+                            color: '#6b7280',
+                            marginBottom: 2,
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.5px',
+                          }}
+                        >
+                          Duration
+                        </div>
+                        <div
+                          style={{
+                            fontSize: 22,
+                            fontWeight: 700,
+                            color: PINK.light,
+                          }}
+                        >
+                          {formatDuration(song.duration)}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Notes (if any) */}
+                {song.notes && (
+                  <div
+                    style={{
+                      ...glassCard,
+                      border: '1px solid rgba(255, 255, 255, 0.08)',
+                      padding: 16,
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 600,
+                        color: '#6b7280',
+                        marginBottom: 8,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.5px',
+                      }}
+                    >
+                      Notes
+                    </div>
+                    <p
+                      style={{
+                        margin: 0,
+                        fontSize: 14,
+                        color: '#d1d5db',
+                        lineHeight: 1.6,
+                        whiteSpace: 'pre-wrap',
+                      }}
+                    >
+                      {song.notes}
+                    </p>
+                  </div>
+                )}
+
+                {/* Edit Button (Admin Only) */}
+                {onEdit && isAdmin && (
+                  <button
+                    onClick={() => {
+                      setShowSongDetails(false);
+                      onEdit(song.id);
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 8,
+                      padding: '14px 20px',
+                      marginTop: 8,
+                      borderRadius: 12,
+                      background: PINK.primary,
+                      border: 'none',
+                      color: '#fff',
+                      fontSize: 15,
+                      fontWeight: 600,
+                      boxShadow: `0 4px 14px ${PINK.glow}`,
+                    }}
+                  >
+                    <IonIcon icon={createOutline} style={{ fontSize: 18 }} />
+                    Edit Song Details
+                  </button>
+                )}
+              </div>
+            </div>
+          </IonContent>
+        </IonModal>
+
         {/* Add Recording Modal */}
         <IonModal
           isOpen={showAddRecording}
@@ -1237,7 +1696,7 @@ export default function SongSheetPage({
         >
           <IonContent
             style={{
-              '--background': 'rgba(8, 8, 12, 0.98)',
+              '--background': 'rgba(8, 8, 14, 0.98)',
             }}
           >
             <div
@@ -1253,36 +1712,83 @@ export default function SongSheetPage({
                 style={{
                   width: '100%',
                   maxWidth: 380,
-                  borderRadius: 24,
+                  ...glassCard,
+                  border: `1px solid ${PINK.border}`,
                   padding: 24,
-                  background:
-                    'linear-gradient(135deg, rgba(30, 41, 59, 0.6) 0%, rgba(15, 23, 42, 0.8) 100%)',
-                  border: '1px solid rgba(244, 114, 182, 0.3)',
-                  boxShadow: '0 25px 50px rgba(0, 0, 0, 0.5)',
+                  boxShadow: `0 25px 50px rgba(0, 0, 0, 0.5), 0 0 40px ${PINK.glow}`,
                 }}
               >
-                <h3
+                {/* Header */}
+                <div
                   style={{
-                    margin: 0,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
                     marginBottom: 20,
-                    fontSize: 22,
-                    fontWeight: 800,
-                    color: '#F9FAFB',
                   }}
                 >
-                  Add Link
-                </h3>
+                  <div
+                    style={{ display: 'flex', alignItems: 'center', gap: 10 }}
+                  >
+                    <div
+                      style={{
+                        width: 40,
+                        height: 40,
+                        borderRadius: 12,
+                        background: PINK.subtle,
+                        border: `1px solid ${PINK.border}`,
+                        display: 'grid',
+                        placeItems: 'center',
+                      }}
+                    >
+                      <IonIcon
+                        icon={linkOutline}
+                        style={{ fontSize: 20, color: PINK.light }}
+                      />
+                    </div>
+                    <span
+                      style={{
+                        fontSize: 18,
+                        fontWeight: 700,
+                        color: '#f9fafb',
+                      }}
+                    >
+                      Add Link
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setShowAddRecording(false);
+                      setNewRecordingLabel('');
+                      setNewRecordingUrl('');
+                    }}
+                    disabled={savingRecording}
+                    style={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: 8,
+                      background: 'rgba(255, 255, 255, 0.04)',
+                      border: '1px solid rgba(255, 255, 255, 0.08)',
+                      display: 'grid',
+                      placeItems: 'center',
+                      color: '#9ca3af',
+                    }}
+                  >
+                    <IonIcon icon={closeOutline} style={{ fontSize: 18 }} />
+                  </button>
+                </div>
 
+                {/* Label Input */}
                 <div style={{ marginBottom: 16 }}>
                   <label
                     style={{
                       display: 'block',
                       marginBottom: 8,
-                      fontSize: 13,
+                      fontSize: 12,
                       fontWeight: 600,
                       color: '#9ca3af',
                       textTransform: 'uppercase',
-                      letterSpacing: 0.5,
+                      letterSpacing: '0.5px',
                     }}
                   >
                     Label
@@ -1290,30 +1796,35 @@ export default function SongSheetPage({
                   <input
                     value={newRecordingLabel}
                     onChange={(e) => setNewRecordingLabel(e.target.value)}
-                    placeholder="e.g. Original Recording, Tutorial, Our Version"
+                    placeholder="e.g. Original Recording, Tutorial"
                     style={{
                       width: '100%',
-                      borderRadius: 12,
-                      border: '1px solid rgba(244, 114, 182, 0.4)',
                       padding: '14px 16px',
-                      background: 'rgba(15, 23, 42, 0.8)',
-                      color: '#F9FAFB',
-                      fontSize: 16,
+                      borderRadius: 12,
+                      background: 'rgba(255, 255, 255, 0.04)',
+                      border: `1px solid ${
+                        newRecordingLabel
+                          ? PINK.border
+                          : 'rgba(255, 255, 255, 0.08)'
+                      }`,
+                      color: '#f9fafb',
+                      fontSize: 15,
                       outline: 'none',
                     }}
                   />
                 </div>
 
+                {/* URL Input */}
                 <div style={{ marginBottom: 24 }}>
                   <label
                     style={{
                       display: 'block',
                       marginBottom: 8,
-                      fontSize: 13,
+                      fontSize: 12,
                       fontWeight: 600,
                       color: '#9ca3af',
                       textTransform: 'uppercase',
-                      letterSpacing: 0.5,
+                      letterSpacing: '0.5px',
                     }}
                   >
                     URL
@@ -1325,25 +1836,24 @@ export default function SongSheetPage({
                     type="url"
                     style={{
                       width: '100%',
-                      borderRadius: 12,
-                      border: '1px solid rgba(244, 114, 182, 0.4)',
                       padding: '14px 16px',
-                      background: 'rgba(15, 23, 42, 0.8)',
-                      color: '#F9FAFB',
-                      fontSize: 16,
+                      borderRadius: 12,
+                      background: 'rgba(255, 255, 255, 0.04)',
+                      border: `1px solid ${
+                        newRecordingUrl
+                          ? PINK.border
+                          : 'rgba(255, 255, 255, 0.08)'
+                      }`,
+                      color: '#f9fafb',
+                      fontSize: 15,
                       outline: 'none',
                     }}
                   />
                 </div>
 
-                <div
-                  style={{
-                    display: 'flex',
-                    gap: 12,
-                  }}
-                >
+                {/* Actions */}
+                <div style={{ display: 'flex', gap: 10 }}>
                   <button
-                    type="button"
                     disabled={savingRecording}
                     onClick={() => {
                       setShowAddRecording(false);
@@ -1354,18 +1864,16 @@ export default function SongSheetPage({
                       flex: 1,
                       padding: '14px 16px',
                       borderRadius: 12,
-                      border: '1px solid rgba(148, 163, 184, 0.3)',
                       background: 'transparent',
-                      color: '#9ca3af',
+                      border: '1px solid rgba(255, 255, 255, 0.15)',
+                      color: '#e5e7eb',
                       fontSize: 15,
                       fontWeight: 600,
-                      cursor: 'pointer',
                     }}
                   >
                     Cancel
                   </button>
                   <button
-                    type="button"
                     disabled={
                       savingRecording ||
                       !newRecordingLabel.trim() ||
@@ -1376,21 +1884,21 @@ export default function SongSheetPage({
                       flex: 1,
                       padding: '14px 16px',
                       borderRadius: 12,
+                      background: PINK.primary,
                       border: 'none',
-                      background: '#f472b6',
-                      color: '#000',
+                      color: '#fff',
                       fontSize: 15,
-                      fontWeight: 700,
-                      cursor: 'pointer',
+                      fontWeight: 600,
                       opacity:
                         savingRecording ||
                         !newRecordingLabel.trim() ||
                         !newRecordingUrl.trim()
                           ? 0.5
                           : 1,
+                      boxShadow: `0 4px 12px ${PINK.glow}`,
                     }}
                   >
-                    {savingRecording ? 'Adding…' : 'Add'}
+                    {savingRecording ? 'Adding...' : 'Add'}
                   </button>
                 </div>
               </div>

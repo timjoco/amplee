@@ -7,13 +7,13 @@ export default function BandSongSheetRouteMobile() {
 
   if (!bandId || !songId) return null;
 
-  // this is the individual page for each song, the song sheet
   return (
     <SongSheetPage
       songId={songId}
       onBack={() => nav(-1)}
       onEdit={(id) => {
         console.log('Edit song', id);
+        nav(`/bands/${bandId}/songs/${id}/edit`);
       }}
     />
   );

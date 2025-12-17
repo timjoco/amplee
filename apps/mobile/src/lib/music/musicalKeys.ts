@@ -1,0 +1,41 @@
+export const MUSICAL_KEYS = [
+  'C',
+  'C#',
+  'Db',
+  'D',
+  'D#',
+  'Eb',
+  'E',
+  'F',
+  'F#',
+  'Gb',
+  'G',
+  'G#',
+  'Ab',
+  'A',
+  'A#',
+  'Bb',
+  'B',
+  'Cm',
+  'C#m',
+  'Dbm',
+  'Dm',
+  'D#m',
+  'Ebm',
+  'Em',
+  'Fm',
+  'F#m',
+  'Gbm',
+  'Gm',
+  'G#m',
+  'Abm',
+  'Am',
+  'A#m',
+  'Bbm',
+  'Bm',
+] as const;
+
+export type MusicalKey = (typeof MUSICAL_KEYS)[number];
+
+export const MAJOR_KEYS = MUSICAL_KEYS.filter((k) => !k.includes('m'));
+export const MINOR_KEYS = MUSICAL_KEYS.filter((k) => k.includes('m'));
