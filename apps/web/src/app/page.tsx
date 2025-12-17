@@ -39,6 +39,7 @@ export default async function HomePage() {
       <HowItWorksSection />
       {/* <TestimonialsSection /> */}
       <FinalCTA />
+      <SiteFooter />
     </Box>
   );
 }
@@ -1258,6 +1259,74 @@ function FinalCTA() {
             </Typography>
           </Stack>
         </Card>
+      </Container>
+    </Box>
+  );
+}
+
+function SiteFooter() {
+  return (
+    <Box
+      component="footer"
+      sx={{
+        borderTop: '1px solid rgba(139, 92, 246, 0.12)',
+        bgcolor: '#050308',
+        py: 4,
+      }}
+    >
+      <Container maxWidth="lg">
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          spacing={2}
+          alignItems={{ xs: 'flex-start', sm: 'center' }}
+          justifyContent="space-between"
+        >
+          <Typography
+            sx={{ color: 'rgba(232, 230, 240, 0.55)' }}
+            variant="body2"
+          >
+            © {new Date().getFullYear()} Amplee. All rights reserved.
+          </Typography>
+
+          <Stack direction="row" spacing={2} alignItems="center">
+            <Button
+              href="/terms"
+              variant="text"
+              sx={{
+                color: 'rgba(232, 230, 240, 0.7)',
+                textTransform: 'none',
+                fontWeight: 600,
+                '&:hover': { bgcolor: 'rgba(139, 92, 246, 0.08)' },
+              }}
+            >
+              Terms
+            </Button>
+            <Button
+              href="/privacy"
+              variant="text"
+              sx={{
+                color: 'rgba(232, 230, 240, 0.7)',
+                textTransform: 'none',
+                fontWeight: 600,
+                '&:hover': { bgcolor: 'rgba(139, 92, 246, 0.08)' },
+              }}
+            >
+              Privacy
+            </Button>
+            <Button
+              href="mailto:hello.amplee@gmail.com"
+              variant="text"
+              sx={{
+                color: 'rgba(232, 230, 240, 0.7)',
+                textTransform: 'none',
+                fontWeight: 600,
+                '&:hover': { bgcolor: 'rgba(139, 92, 246, 0.08)' },
+              }}
+            >
+              Support
+            </Button>
+          </Stack>
+        </Stack>
       </Container>
     </Box>
   );

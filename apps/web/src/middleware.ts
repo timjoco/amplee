@@ -1,61 +1,64 @@
-// // apps/web/src/middleware.ts
-// import { createClient } from '@/utils/supabase/middleware';
-// import { NextResponse, type NextRequest } from 'next/server';
-
-// export async function middleware(request: NextRequest) {
-//   const { pathname } = request.nextUrl;
-
-//   // === WAITLIST REDIRECT (remove this block after launch) ===
-//   const isAllowedPath =
-//     // pathname === '/waitlist' ||
-//     pathname.startsWith('/b/') || // Public band pages
-//     pathname.startsWith('/api') ||
-//     pathname.startsWith('/_next') ||
-//     pathname.startsWith('/logo') ||
-//     pathname.match(/\.(ico|png|jpg|svg|css|js|woff|woff2)$/);
-
-//   // Optional: bypass with secret param for testing (e.g., ?preview=secret123)
-//   const bypassKey = request.nextUrl.searchParams.get('preview');
-//   const hasBypass = bypassKey === 'your-secret-key'; // Change this!
-
-//   if (!isAllowedPath && !hasBypass) {
-//     return NextResponse.redirect(new URL('/waitlist', request.url));
-//   }
-//   // === END WAITLIST REDIRECT ===
-
-//   // Supabase auth handling
-//   return createClient(request);
-// }
-
-// export const config = {
-//   matcher: [
-//     /*
-//      * Match all request paths except:
-//      * - _next/static (static files)
-//      * - _next/image (image optimization files)
-//      * - favicon.ico (favicon file)
-//      */
-//     '/((?!_next/static|_next/image|favicon.ico).*)',
-//   ],
-// };
-
 // apps/web/src/middleware.ts
 import { createClient } from '@/utils/supabase/middleware';
-import { type NextRequest } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server';
+
+const ALLOW_PUBLIC = [
+  '/download',
+  '/privacy',
+  '/terms',
+  '/support',
+  '/robots.txt',
+  '/sitemap.xml',
+  '/community-guidelines',
+];
 
 export async function middleware(request: NextRequest) {
-  // ✅ No more waitlist redirect – just attach Supabase and continue
-  return createClient(request);
+  const { pathname } = request.nextUrl;
+
+  // Allow Next internals & common static assets
+  const isStatic =
+    pathname.startsWith('/_next') ||
+    pathname.startsWith('/favicon.ico') ||
+    pathname.match(
+      /\.(ico|png|jpg|jpeg|svg|css|js|map|txt|xml|webp|woff|woff2)$/
+    );
+
+  if (isStatic) return NextResponse.next();
+
+  // Allow legal/support/download
+  if (
+    ALLOW_PUBLIC.some((p) => pathname === p || pathname.startsWith(p + '/'))
+  ) {
+    return NextResponse.next();
+  }
+
+  // Optional: keep public band pages if you want them still visible
+  // if (pathname.startsWith('/b/')) return NextResponse.next();
+
+  // Bypass for you/testers (ex: ?preview=secret123)
+  const bypassKey = request.nextUrl.searchParams.get('preview');
+  const hasBypass = bypassKey === process.env.NEXT_PUBLIC_PREVIEW_KEY; // set in env
+
+  if (hasBypass) {
+    // You can optionally strip the preview param so it doesn't leak
+    const url = request.nextUrl.clone();
+    url.searchParams.delete('preview');
+    // Attach Supabase middleware for authenticated flows
+    const res = await createClient(request);
+    // Redirect to cleaned URL (only if it changed)
+    if (url.toString() !== request.nextUrl.toString()) {
+      return NextResponse.redirect(url);
+    }
+    return res;
+  }
+
+  // Redirect everything else to /download
+  const url = request.nextUrl.clone();
+  url.pathname = '/download';
+  url.search = '';
+  return NextResponse.redirect(url);
 }
 
 export const config = {
-  matcher: [
-    /*
-     * Match all request paths except:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     */
-    '/((?!_next/static|_next/image|favicon.ico).*)',
-  ],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
 };

@@ -35,7 +35,6 @@ export default async function EventPage({
     <EventSheet
       eventId={event.id}
       bandId={bandId}
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       initialEvent={event as any}
     />
   );

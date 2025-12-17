@@ -5,13 +5,26 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { supabaseBrowser } from '../../lib/supabaseClient';
 import BottomNav from '../Nav/BottomNav';
-import HeaderPublic from '../Nav/HeaderPublic';
 import SideNav, { SIDE_NAV_WIDTH } from '../Nav/SideNav';
 
 type Props = { children: React.ReactNode; initialAuthed: boolean };
 
 const isEventSheetPath = (p: string) =>
   /^\/bands\/[^/]+\/events\/[^/]+(?:[/?].*)?$/.test(p);
+
+//  Routes that should be true full-bleed (no left/right padding)
+const isPublicNoPadPath = (p: string) =>
+  p === '/' ||
+  p === '/download' ||
+  p.startsWith('/download/') ||
+  p === '/privacy' ||
+  p.startsWith('/privacy/') ||
+  p === '/terms' ||
+  p.startsWith('/terms/') ||
+  p === '/support' ||
+  p.startsWith('/support/') ||
+  p === '/community-guidelines' ||
+  p.startsWith('/communitu-guidelines/');
 
 export default function AppFrameClient({ children, initialAuthed }: Props) {
   const [authed, setAuthed] = useState(initialAuthed);
@@ -45,6 +58,12 @@ export default function AppFrameClient({ children, initialAuthed }: Props) {
     [isMobile, pathname]
   );
 
+  // ✅ Remove padding for public routes (download/legal/support/home) when not authed
+  const noPad = useMemo(
+    () => mounted && !authed && isPublicNoPadPath(pathname || ''),
+    [mounted, authed, pathname]
+  );
+
   return (
     <Box sx={{ minHeight: '100dvh', display: 'flex', bgcolor: 'transparent' }}>
       {showSideNav && <SideNav />}
@@ -59,12 +78,12 @@ export default function AppFrameClient({ children, initialAuthed }: Props) {
           overflowY: 'auto',
           WebkitOverflowScrolling: 'touch',
           overscrollBehaviorY: 'contain',
-          px: { xs: 2, md: 3 },
+          px: noPad ? 0 : { xs: 2, md: 3 },
           pb: { xs: showSideNav && !hideBottomNav ? '68px' : 0, md: 0 },
           transition: 'margin-left .15s ease',
         }}
       >
-        {showPublicHeader && <HeaderPublic />}
+        {/* {showPublicHeader && <HeaderPublic />} */}
         {children}
       </Box>
 
