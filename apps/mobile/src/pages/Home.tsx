@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import logo from '@amplee/assets/logo.png';
 import {
   IonContent,
   IonHeader,
@@ -146,7 +145,9 @@ export default function Home() {
 
       <IonContent
         fullscreen
-        scrollY={true}
+        scrollY
+        className="amp-no-overscroll"
+        forceOverscroll={false}
         style={{
           ['--background' as any]: isEmpty
             ? 'linear-gradient(to bottom, #0f0720, #1a0a2e, #050509)'
@@ -216,18 +217,7 @@ export default function Home() {
                 onMouseLeave={(e) => {
                   e.currentTarget.style.transform = 'scale(1)';
                 }}
-              >
-                <img
-                  src={logo}
-                  alt="Amplee"
-                  style={{
-                    width: 64,
-                    height: 64,
-                    objectFit: 'contain',
-                    filter: 'drop-shadow(0 4px 12px rgba(147, 51, 234, 0.5))',
-                  }}
-                />
-              </div>
+              ></div>
 
               <h1
                 style={{
