@@ -1392,8 +1392,10 @@ export default function EventInboxListMobile({
     );
   }
 
-  // Empty state - unified with proposals style
+  // Empty state
   if (!suppressEmptyState && rows.length === 0 && !loading) {
+    const isArchivedTab = Boolean(showArchived);
+
     return (
       <div
         style={{
@@ -1405,7 +1407,9 @@ export default function EventInboxListMobile({
         <div
           style={{
             background: 'transparent',
-            border: '1px solid rgba(52, 211, 153, 0.2)',
+            border: isArchivedTab
+              ? '1px solid rgba(148, 163, 184, 0.18)'
+              : '1px solid rgba(52, 211, 153, 0.2)',
             borderRadius: 20,
             padding: '32px 24px',
             textAlign: 'center',
@@ -1417,19 +1421,29 @@ export default function EventInboxListMobile({
               width: 64,
               height: 64,
               borderRadius: 16,
-              background: 'rgba(52, 211, 153, 0.1)',
+              background: isArchivedTab
+                ? 'rgba(148, 163, 184, 0.08)'
+                : 'rgba(52, 211, 153, 0.1)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               margin: '0 auto 20px',
-              border: '1px solid rgba(52, 211, 153, 0.2)',
+              border: isArchivedTab
+                ? '1px solid rgba(148, 163, 184, 0.18)'
+                : '1px solid rgba(52, 211, 153, 0.2)',
             }}
           >
             <IonIcon
-              icon={chatbubbleOutline}
-              style={{ fontSize: 32, color: 'rgba(52, 211, 153, 0.9)' }}
+              icon={isArchivedTab ? archiveOutline : chatbubbleOutline}
+              style={{
+                fontSize: 32,
+                color: isArchivedTab
+                  ? 'rgba(148, 163, 184, 0.9)'
+                  : 'rgba(52, 211, 153, 0.9)',
+              }}
             />
           </div>
+
           <IonText color="light">
             <h2
               style={{
@@ -1440,8 +1454,9 @@ export default function EventInboxListMobile({
                 letterSpacing: '-0.01em',
               }}
             >
-              No Events Yet
+              {isArchivedTab ? 'No Archived Events' : 'No Events Yet'}
             </h2>
+
             <p
               style={{
                 margin: 0,
@@ -1450,15 +1465,20 @@ export default function EventInboxListMobile({
                 lineHeight: 1.5,
               }}
             >
-              {isAdmin
+              {isArchivedTab
+                ? isAdmin
+                  ? 'Archived events will show up here after you archive past shows or practices.'
+                  : 'Once an admin archives past events, they’ll appear here.'
+                : isAdmin
                 ? 'Create your first show or practice to get started.'
                 : 'Events will appear here once your band admin schedules them.'}
             </p>
           </IonText>
+
           {ActionsUI}
 
-          {/* Admin-only create button */}
-          {canCreateEvent && (
+          {/* Only show create button on the active (non-archived) tab */}
+          {!isArchivedTab && canCreateEvent && (
             <button
               type="button"
               onClick={openGlobalCreateForBand}
@@ -1475,17 +1495,6 @@ export default function EventInboxListMobile({
                 fontSize: 14.5,
                 fontWeight: 700,
                 cursor: 'pointer',
-                transition: 'all 150ms cubic-bezier(0.4, 0, 0.2, 1)',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'rgba(52, 211, 153, 0.15)';
-                e.currentTarget.style.borderColor = 'rgba(52, 211, 153, 0.4)';
-                e.currentTarget.style.transform = 'translateY(-1px)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'rgba(52, 211, 153, 0.1)';
-                e.currentTarget.style.borderColor = 'rgba(52, 211, 153, 0.25)';
-                e.currentTarget.style.transform = 'translateY(0)';
               }}
             >
               <IonIcon icon={addOutline} style={{ fontSize: 18 }} />
@@ -1527,7 +1536,7 @@ export default function EventInboxListMobile({
                 return;
               }
 
-              // ✅ archived rows open summary modal
+              // archived rows open summary modal
               if (e.archived_at) {
                 ev.preventDefault();
                 ev.stopPropagation();

@@ -378,39 +378,66 @@ export default function ProposedGigSheetMobile() {
 
   async function convert(optionId: string) {
     try {
-      if (!proposal) {
-        throw new Error('No proposal loaded');
-      }
-      if (!myId) {
-        throw new Error('Not signed in');
-      }
+      if (!proposal) throw new Error('No proposal loaded');
+      if (!myId) throw new Error('Not signed in');
+      if (!bandId) throw new Error('Missing bandId');
 
       const opt = proposal.options.find((o) => o.id === optionId);
-      if (!opt) {
-        throw new Error('Option not found for this proposal');
-      }
+      if (!opt) throw new Error('Option not found for this proposal');
 
       setError(null);
       setConverting(optionId);
 
-      const { error: insErr } = await supabase.from('events').insert({
-        band_id: bandId,
-        title: proposal.title ?? 'Show',
-        location: proposal.venue ?? null,
-        starts_at: opt.starts_at,
-        type: 'show',
-        is_cancelled: false,
-        created_by: myId,
-      });
+      // 1) Insert event + return id
+      const { data: created, error: insErr } = await supabase
+        .from('events')
+        .insert({
+          band_id: bandId,
+          title: proposal.title ?? 'Show',
+          location: proposal.venue ?? null,
+          starts_at: opt.starts_at,
+          type: 'show',
+          is_cancelled: false,
+          created_by: myId,
+        })
+        .select('id')
+        .single();
 
-      if (insErr) {
-        throw insErr;
+      if (insErr) throw insErr;
+
+      const eventId = created?.id;
+      if (!eventId) throw new Error('Event insert did not return an id');
+
+      // 2) Default roster = all band members -> create event_members snapshot
+      const { data: members, error: memErr } = await supabase
+        .from('band_members')
+        .select('user_id')
+        .eq('band_id', bandId);
+
+      if (memErr) throw memErr;
+
+      const memberIds = (members ?? [])
+        .map((m: any) => m.user_id)
+        .filter(Boolean);
+
+      if (memberIds.length > 0) {
+        const rows = memberIds.map((user_id: string) => ({
+          event_id: eventId,
+          user_id,
+          status: 'pending',
+          needs_sub: false,
+          sub_reason: '',
+        }));
+
+        const { error: emErr } = await supabase
+          .from('event_members')
+          .insert(rows);
+        if (emErr) throw emErr;
       }
 
-      // delete proposal
+      // 3) Delete proposal (your current behavior)
       await supabase.from('gig_proposals').delete().eq('id', proposal.id);
 
-      // show the alert; navigation handled in onDidDismiss
       setShowConvertAlert(true);
     } catch (e: any) {
       console.error(e);

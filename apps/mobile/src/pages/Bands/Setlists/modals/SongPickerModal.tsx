@@ -39,11 +39,8 @@ export function SongPickerModal({
   const toggleSong = (songId: string) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
-      if (next.has(songId)) {
-        next.delete(songId);
-      } else {
-        next.add(songId);
-      }
+      if (next.has(songId)) next.delete(songId);
+      else next.add(songId);
       return next;
     });
   };
@@ -56,11 +53,15 @@ export function SongPickerModal({
 
   const selectedCount = selectedIds.size;
 
+  // Solid (no gradients)
+  const MODAL_BG = '#08080e';
+  const FOOTER_BG = 'rgba(8, 8, 14, 0.98)';
+
   return (
     <IonModal isOpen={isOpen} onDidDismiss={onClose}>
       <IonContent
         style={{
-          '--background': 'linear-gradient(180deg, #08080e 0%, #04040a 100%)',
+          '--background': MODAL_BG, // removed gradient
         }}
       >
         <div
@@ -108,12 +109,7 @@ export function SongPickerModal({
           </div>
 
           {/* Search */}
-          <div
-            style={{
-              position: 'relative',
-              marginBottom: 16,
-            }}
-          >
+          <div style={{ position: 'relative', marginBottom: 16 }}>
             <IonIcon
               icon={searchOutline}
               style={{
@@ -171,12 +167,7 @@ export function SongPickerModal({
                 </span>
               </div>
             ) : filteredSongs.length === 0 ? (
-              <div
-                style={{
-                  padding: 40,
-                  textAlign: 'center',
-                }}
-              >
+              <div style={{ padding: 40, textAlign: 'center' }}>
                 <IonIcon
                   icon={musicalNotesOutline}
                   style={{
@@ -205,7 +196,6 @@ export function SongPickerModal({
                   const isOriginal = song.origin === 'original';
                   const isCover = song.origin === 'cover';
 
-                  // Format duration
                   const durationLabel = song.duration
                     ? `${Math.floor(song.duration / 60)}:${String(
                         song.duration % 60
@@ -240,10 +230,10 @@ export function SongPickerModal({
                           height: 22,
                           borderRadius: 6,
                           background: isSelected
-                            ? 'linear-gradient(135deg, #ec4899, #a855f7)'
+                            ? 'rgba(236, 72, 153, 0.85)' // removed gradient
                             : 'rgba(255, 255, 255, 0.06)',
                           border: isSelected
-                            ? 'none'
+                            ? '1px solid rgba(236, 72, 153, 0.35)'
                             : '1px solid rgba(255, 255, 255, 0.15)',
                           display: 'flex',
                           alignItems: 'center',
@@ -282,7 +272,6 @@ export function SongPickerModal({
                             {song.title}
                           </span>
 
-                          {/* Origin badge - only show if origin is set */}
                           {song.origin && (
                             <span
                               style={{
@@ -318,7 +307,6 @@ export function SongPickerModal({
                             color: '#6b7280',
                           }}
                         >
-                          {/* Show original artist for covers */}
                           {isCover && song.original_artist && (
                             <>
                               <span style={{ color: '#9ca3af' }}>
@@ -355,8 +343,8 @@ export function SongPickerModal({
                 right: 0,
                 padding: 16,
                 paddingBottom: 'calc(16px + env(safe-area-inset-bottom))',
-                background:
-                  'linear-gradient(to top, rgba(8, 8, 14, 1) 0%, rgba(8, 8, 14, 0.95) 80%, transparent 100%)',
+                background: FOOTER_BG, // removed gradient
+                borderTop: '1px solid rgba(255, 255, 255, 0.06)',
               }}
             >
               <button
@@ -365,8 +353,8 @@ export function SongPickerModal({
                   width: '100%',
                   padding: '14px 20px',
                   borderRadius: 12,
-                  background: 'linear-gradient(135deg, #ec4899, #a855f7)',
-                  border: 'none',
+                  background: 'rgba(236, 72, 153, 0.9)', // removed gradient
+                  border: '1px solid rgba(236, 72, 153, 0.35)',
                   color: '#fff',
                   fontSize: 15,
                   fontWeight: 700,

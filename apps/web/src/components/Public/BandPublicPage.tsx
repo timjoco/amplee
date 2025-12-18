@@ -116,6 +116,28 @@ interface BandPublicPageProps {
   };
 }
 
+const normalizeGenres = (input: string[] | string | null | undefined) => {
+  const arr =
+    input == null ? [] : typeof input === 'string' ? input.split(',') : input;
+
+  const cleaned = arr
+    .map((s) => String(s).trim())
+    .filter(Boolean)
+    .map((s) => s.replace(/\s+/g, ' '));
+
+  // case-insensitive dedupe, keep first casing
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const g of cleaned) {
+    const key = g.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(g);
+  }
+
+  return out.slice(0, 12);
+};
+
 // ============================================
 // MAIN COMPONENT
 // ============================================
@@ -124,6 +146,8 @@ export default function BandPublicPage({
   initialData,
 }: BandPublicPageProps) {
   const [band] = useState<BandData | null>(initialData?.band ?? null);
+  const genres = normalizeGenres(band?.genres);
+
   const [events] = useState<Event[]>(initialData?.events ?? []);
   const [streamingLinks] = useState<StreamingLink[]>(
     initialData?.streamingLinks ?? []
@@ -175,6 +199,8 @@ export default function BandPublicPage({
   const displayEvents = showAllEvents
     ? upcomingEvents
     : upcomingEvents.slice(0, 3);
+
+  const hasUpcomingEvents = upcomingEvents.length > 0;
 
   const formatEventDateTime = (iso: string) => {
     const d = new Date(iso);
@@ -817,17 +843,6 @@ export default function BandPublicPage({
     }
   };
 
-  const getPublicAvatarSrc = (band: BandData | null): string | undefined => {
-    const raw = (band?.public_avatar_url ?? '').trim();
-    if (!raw) return undefined;
-
-    if (raw.startsWith('https://')) return raw;
-
-    return undefined;
-  };
-
-  const publicAvatarSrc = getPublicAvatarSrc(band);
-
   if (loading && !initialData) {
     return (
       <ThemeProvider theme={theme}>
@@ -1057,7 +1072,7 @@ export default function BandPublicPage({
               )}
 
               {/* Genres */}
-              {band.genres && band.genres.length > 0 && (
+              {genres.length > 0 && (
                 <Box
                   sx={{
                     display: 'flex',
@@ -1067,9 +1082,9 @@ export default function BandPublicPage({
                     mb: 4,
                   }}
                 >
-                  {band.genres.map((genre, i) => (
+                  {genres.map((genre) => (
                     <Chip
-                      key={i}
+                      key={genre.toLowerCase()}
                       label={genre}
                       sx={{
                         bgcolor:
@@ -1181,15 +1196,26 @@ export default function BandPublicPage({
           <Box
             sx={{
               display: 'grid',
-              gridTemplateColumns: { xs: '1fr', lg: '1fr 380px' },
+              gridTemplateColumns: {
+                xs: '1fr',
+                lg: hasUpcomingEvents ? '1fr 380px' : '1fr',
+              },
               gap: 4,
               pb: 8,
+              ...(hasUpcomingEvents ? {} : { justifyItems: 'center' }), // center single column when no events
             }}
           >
             {/* Main Content */}
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <Box
+              sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 4,
+                width: '100%',
+                ...(hasUpcomingEvents ? {} : { maxWidth: 860 }), // keep centered column reasonable
+              }}
+            >
               {/* STREAMING SECTION */}
-              {/* LISTEN NOW (Streaming) */}
               {streamingLinks.length > 0 && (
                 <Fade in timeout={800}>
                   <Card sx={{ ...getCardStyle(), p: 3 }}>
@@ -1202,11 +1228,10 @@ export default function BandPublicPage({
                       sx={{
                         display: 'grid',
                         gap: 1.5,
-                        // ✅ Always at least 2 columns on mobile
                         gridTemplateColumns: {
                           xs: 'repeat(2, minmax(0, 1fr))',
                           sm: 'repeat(2, minmax(0, 1fr))',
-                          md: 'repeat(3, minmax(0, 1fr))', // optional: more cols on larger
+                          md: 'repeat(3, minmax(0, 1fr))',
                         },
                       }}
                     >
@@ -1230,7 +1255,7 @@ export default function BandPublicPage({
                               fontSize: '0.85rem',
                               padding: '10px 20px',
                               textTransform: 'none',
-                              width: '100%', // ✅ full width inside grid cell
+                              width: '100%',
                               justifyContent: 'flex-start',
                               transition:
                                 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
@@ -1474,9 +1499,21 @@ export default function BandPublicPage({
               )}
             </Box>
 
-            {/* Sidebar - Events */}
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              {upcomingEvents.length > 0 && (
+            {/* Sidebar - Events (ONLY when upcoming events exist) */}
+            {hasUpcomingEvents && (
+              <Box
+                sx={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 4,
+                  position: { xs: 'static', lg: 'sticky' },
+                  top: { lg: 24 },
+                  alignSelf: { lg: 'flex-start' },
+                  height: { lg: 'fit-content' },
+                  maxHeight: { lg: 'calc(100vh - 48px)' },
+                  overflowY: { lg: 'auto' },
+                }}
+              >
                 <Fade in timeout={1000}>
                   <Card id="events" sx={{ ...getCardStyle(), p: 3 }}>
                     <SectionHeader
@@ -1485,6 +1522,7 @@ export default function BandPublicPage({
                       count={upcomingEvents.length}
                       themeStyle={themeStyle}
                     />
+
                     <Box
                       sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}
                     >
@@ -1501,12 +1539,8 @@ export default function BandPublicPage({
                             sx={{
                               textAlign: 'left',
                               width: '100%',
-                              // ❌ remove this line:
-                              // border: 'none',
                               background: 'transparent',
                               cursor: 'pointer',
-
-                              // card styles
                               display: 'flex',
                               gap: 2,
                               p: 2,
@@ -1559,7 +1593,6 @@ export default function BandPublicPage({
                               },
                             }}
                           >
-                            {/* Date badge */}
                             <Box
                               sx={{
                                 minWidth: 56,
@@ -1599,7 +1632,6 @@ export default function BandPublicPage({
                               </Typography>
                             </Box>
 
-                            {/* Info */}
                             <Box sx={{ flex: 1, minWidth: 0 }}>
                               <Typography
                                 variant="subtitle2"
@@ -1613,6 +1645,7 @@ export default function BandPublicPage({
                               >
                                 {event.title}
                               </Typography>
+
                               <Typography
                                 variant="caption"
                                 color="text.secondary"
@@ -1620,6 +1653,7 @@ export default function BandPublicPage({
                               >
                                 {event.location}
                               </Typography>
+
                               <Typography
                                 variant="caption"
                                 color="text.secondary"
@@ -1633,7 +1667,8 @@ export default function BandPublicPage({
                                   size="small"
                                   href={event.ticket_url}
                                   target="_blank"
-                                  onClick={(e) => e.stopPropagation()} // don't open dialog if they just want tickets
+                                  rel="noopener noreferrer"
+                                  onClick={(e) => e.stopPropagation()}
                                   endIcon={<OpenInNew sx={{ fontSize: 14 }} />}
                                   sx={{
                                     mt: 1,
@@ -1674,9 +1709,7 @@ export default function BandPublicPage({
                                           background: '#404040',
                                           border: 'none',
                                           color: '#FFFFFF',
-                                          '&:hover': {
-                                            background: '#525252',
-                                          },
+                                          '&:hover': { background: '#525252' },
                                         }
                                       : {
                                           background:
@@ -1722,8 +1755,8 @@ export default function BandPublicPage({
                     )}
                   </Card>
                 </Fade>
-              )}
-            </Box>
+              </Box>
+            )}
           </Box>
 
           {/* FOOTER */}
