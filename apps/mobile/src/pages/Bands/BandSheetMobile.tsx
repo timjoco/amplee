@@ -202,10 +202,14 @@ export default function BandSheetMobile() {
         // total events count (all shows/practices for this band)
         const { count: eventsCountExact, error: eventsCountErr } =
           await supabase
-            .from('events')
-            .select('id', { head: true, count: 'exact' })
-            .eq('band_id', bandId)
-            .is('archived_at', null);
+            .from('event_members')
+            .select('event_id, events!inner(id, band_id, archived_at)', {
+              head: true,
+              count: 'exact',
+            })
+            .eq('user_id', user.id)
+            .eq('events.band_id', bandId)
+            .is('events.archived_at', null);
 
         if (!alive) return;
 
@@ -265,11 +269,19 @@ export default function BandSheetMobile() {
       setNextEvent(events && events.length > 0 ? (events[0] as any) : null);
 
       // optional: refresh visible events count from the gated view
-      const { count: eventsCountExact, error: countErr } = await supabase
-        .from('events_with_my_attendance')
-        .select('id', { head: true, count: 'exact' })
-        .eq('band_id', bandId);
+      const { data: auth } = await supabase.auth.getUser();
+      const userId = auth?.user?.id ?? null;
+      if (!userId) return;
 
+      const { count: eventsCountExact, error: countErr } = await supabase
+        .from('event_members')
+        .select('event_id, events!inner(id, band_id, archived_at)', {
+          head: true,
+          count: 'exact',
+        })
+        .eq('user_id', userId)
+        .eq('events.band_id', bandId)
+        .is('events.archived_at', null);
       if (countErr) {
         console.warn('[BandSheetMobile] events count refresh error', countErr);
       } else {

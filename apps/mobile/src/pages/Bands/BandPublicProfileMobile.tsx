@@ -66,6 +66,7 @@ type BandProfileRow = {
   id: string;
   name: string;
   avatar_url: string | null;
+  public_avatar_url: string | null; // ✅ ADD THIS
   public_bio: string | null;
   city: string | null;
   state: string | null;
@@ -798,6 +799,7 @@ export default function BandPublicProfileMobile() {
   // Band data
   const [bandName, setBandName] = useState('Band');
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [publicAvatarUrl, setPublicAvatarUrl] = useState<string | null>(null);
   const [publicSlug, setPublicSlug] = useState<string | null>(null);
   const [publicBio, setPublicBio] = useState('');
   const [genres, setGenres] = useState('');
@@ -912,7 +914,7 @@ export default function BandPublicProfileMobile() {
         const { data: band, error: bandErr } = await supabase
           .from('bands')
           .select(
-            `id, name, avatar_url, public_bio, city, state, public_slug, is_public, public_avatar_enabled, embedded_video_url, gallery_images, public_theme, contact_email, public_allow_contact`
+            `id, name, avatar_url, public_avatar_url, public_bio, city, state, public_slug, is_public, public_avatar_enabled, embedded_video_url, gallery_images, public_theme, contact_email, public_allow_contact`
           )
           .eq('id', bandId)
           .maybeSingle();
@@ -927,6 +929,7 @@ export default function BandPublicProfileMobile() {
         const b = band as BandProfileRow;
         setBandName(b.name);
         setAvatarUrl(b.avatar_url);
+        setPublicAvatarUrl(b.public_avatar_url);
         setPublicBio(b.public_bio ?? '');
         setCity(b.city ?? '');
         setStateVal(b.state ?? '');
@@ -1017,12 +1020,15 @@ export default function BandPublicProfileMobile() {
 
       const { error: updateError } = await supabase
         .from('bands')
-        .update({ avatar_url: newAvatarUrl })
+        .update({
+          public_avatar_url: newAvatarUrl,
+          public_avatar_enabled: true,
+        })
         .eq('id', bandId);
 
       if (updateError) throw updateError;
 
-      setAvatarUrl(newAvatarUrl);
+      setPublicAvatarUrl(newAvatarUrl);
       setToastMessage('Avatar updated! ✨');
       setToastOpen(true);
     } catch (e: any) {
@@ -1274,6 +1280,8 @@ export default function BandPublicProfileMobile() {
     setPublicTheme(theme);
   };
 
+  const avatarPreviewUrl = publicAvatarUrl || null; // public-only
+
   return (
     <IonPage>
       <IonHeader translucent>
@@ -1373,45 +1381,6 @@ export default function BandPublicProfileMobile() {
       </IonHeader>
 
       <IonContent fullscreen scrollY style={{ '--background': '#09090b' }}>
-        {/* Background gradient orbs */}
-        <div
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            pointerEvents: 'none',
-            overflow: 'hidden',
-            zIndex: 0,
-          }}
-        >
-          <div
-            style={{
-              position: 'absolute',
-              top: '-15%',
-              left: '-25%',
-              width: '70%',
-              height: '50%',
-              background:
-                'radial-gradient(circle, rgba(139, 92, 246, 0.12) 0%, transparent 70%)',
-              filter: 'blur(60px)',
-            }}
-          />
-          <div
-            style={{
-              position: 'absolute',
-              bottom: '5%',
-              right: '-15%',
-              width: '55%',
-              height: '45%',
-              background:
-                'radial-gradient(circle, rgba(236, 72, 153, 0.08) 0%, transparent 70%)',
-              filter: 'blur(70px)',
-            }}
-          />
-        </div>
-
         {loading ? (
           <div
             style={{
@@ -1684,13 +1653,13 @@ export default function BandPublicProfileMobile() {
                     transition: 'all 0.2s ease',
                   }}
                 >
-                  {avatarUrl ? (
+                  {avatarPreviewUrl ? (
                     <div
                       style={{
                         width: 80,
                         height: 80,
                         borderRadius: 16,
-                        background: `url(${avatarUrl}) center/cover`,
+                        background: `url(${avatarPreviewUrl}) center/cover`,
                         border: '2px solid rgba(236, 72, 153, 0.3)',
                       }}
                     />

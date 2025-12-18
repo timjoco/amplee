@@ -111,6 +111,8 @@ export default function EventInboxListMobile({
   const isAndroid = isNative && Capacitor.getPlatform() === 'android';
   const isIOS = isNative && Capacitor.getPlatform() === 'ios';
 
+  const [avatarTick, setAvatarTick] = useState(0);
+
   const openArchivedSummary = useCallback(async (row: EventRow) => {
     setSummaryRow(row);
     setShowSummary(true);
@@ -538,13 +540,13 @@ export default function EventInboxListMobile({
       if (!showAvatars || !bandId || !path) return undefined;
 
       // 1. Use cached signed URL if we already have one
-      const cached = getAvatarSigned(bandId);
+      const cached = getAvatarSigned(bandId, path);
       if (cached) return cached;
 
       // 2. If "path" is already a full URL, don't try to sign it.
       if (path.startsWith('http://') || path.startsWith('https://')) {
         // cache it so we don't keep running this on every render
-        setAvatarSigned(bandId, path, 60 * 60);
+        setAvatarSigned(bandId, path, path, 60 * 60);
         return path;
       }
 
@@ -556,11 +558,11 @@ export default function EventInboxListMobile({
       }
 
       const { data, error } = await supabase.storage
-        .from('band-avatars') // ✅ correct bucket
+        .from('band-avatars') // correct bucket
         .createSignedUrl(normalizedPath, 60 * 60);
 
       if (!error && data?.signedUrl) {
-        setAvatarSigned(bandId, data.signedUrl, 60 * 60);
+        setAvatarSigned(bandId, path, data.signedUrl, 60 * 60);
         return data.signedUrl;
       }
 
@@ -575,6 +577,34 @@ export default function EventInboxListMobile({
     },
     [showAvatars]
   );
+
+  useEffect(() => {
+    if (!showAvatars) return;
+
+    let cancelled = false;
+
+    (async () => {
+      let changed = false;
+
+      for (const e of rows) {
+        const band = e.bands;
+        if (!band?.id || !band.avatar_url) continue;
+
+        // if already cached (and path-aware), skip
+        const cached = getAvatarSigned(band.id, band.avatar_url);
+        if (cached) continue;
+
+        const url = await getAvatar(band.id, band.avatar_url);
+        if (url) changed = true;
+      }
+
+      if (!cancelled && changed) setAvatarTick((n) => n + 1);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [rows, showAvatars, getAvatar]);
 
   const openEvent = (bId: string, eventId: string) => {
     nav(`/bands/${bId}/events/${eventId}`);
@@ -1481,13 +1511,10 @@ export default function EventInboxListMobile({
         const isHovered = hoveredId === e.id;
         const isLast = index === rows.length - 1;
 
-        const avatarSrc = band?.id ? getAvatarSigned(band.id) : undefined;
-        if (!avatarSrc && band?.id && band.avatar_url) {
-          void (async () => {
-            const url = await getAvatar(band.id, band.avatar_url!);
-            if (url) setRows((r) => [...r]);
-          })();
-        }
+        const avatarSrc =
+          band?.id && band.avatar_url
+            ? getAvatarSigned(band.id, band.avatar_url)
+            : undefined;
 
         return (
           // Update the row's onClick to handle the press state visually

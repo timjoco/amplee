@@ -9,13 +9,11 @@ import {
 
 type AttendanceStats = {
   accepted: number;
-  total: number; // (still ok to keep, but we won’t use it for invitee count)
+  total: number;
 };
 
 type EventQuickTilesProps = {
   attendanceStats: AttendanceStats;
-
-  /** ✅ NEW: total people invited to this event (event_members count) */
   inviteeTotal: number;
 
   setlistCount: number;

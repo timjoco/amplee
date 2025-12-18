@@ -100,23 +100,30 @@ export function setAvatarPath(bandId: string, path: string | null) {
 
 export function setAvatarSigned(
   bandId: string,
+  path: string,
   signedUrl: string,
   ttlSeconds: number
 ) {
-  const prev = cache.avatars[bandId];
   const exp = Date.now() + ttlSeconds * 1000 - 3_000;
 
   cache.avatars[bandId] = {
-    path: prev?.path ?? null,
+    path, //  always store the path this signed URL corresponds to
     signedUrl,
     exp,
   };
   saveStorage();
 }
 
-export function getAvatarSigned(bandId: string): string | undefined {
+//  path-aware getter: only returns if it matches the current path
+export function getAvatarSigned(
+  bandId: string,
+  path?: string | null
+): string | undefined {
   const a = cache.avatars[bandId];
   if (!a?.signedUrl) return undefined;
+
+  // If caller provides a path, enforce match (prevents stale avatar after change)
+  if (path && a.path && a.path !== path) return undefined;
 
   if (!a.exp || Date.now() > a.exp) {
     // expired → clear signedUrl but keep path
