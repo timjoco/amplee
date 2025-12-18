@@ -443,6 +443,7 @@ ion-content,
 .amp-no-overscroll {
   overscroll-behavior: none;
 }
+
 .amp-no-overscroll::part(scroll) {
   overscroll-behavior: none;
 }

@@ -101,14 +101,7 @@ export default function Home() {
 
   return (
     <IonPage>
-      <IonHeader
-        className="ion-no-border"
-        style={{
-          position: 'sticky',
-          top: 0,
-          zIndex: 100,
-        }}
-      >
+      <IonHeader translucent className="ion-no-border">
         <IonToolbar
           style={{
             '--background': isEmpty
@@ -145,9 +138,9 @@ export default function Home() {
 
       <IonContent
         fullscreen
-        scrollY
-        className="amp-no-overscroll"
+        scrollY={true}
         forceOverscroll={false}
+        className="amp-no-overscroll"
         style={{
           ['--background' as any]: isEmpty
             ? 'linear-gradient(to bottom, #0f0720, #1a0a2e, #050509)'
