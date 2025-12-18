@@ -1,15 +1,15 @@
-export const dynamic = 'force-dynamic';
-
 import BandPublicPage, {
-  BandData,
-  Event,
-  Photo,
-  SocialLink,
-  StreamingLink,
-  Video,
+  type BandData,
+  type Event,
+  type Photo,
+  type SocialLink,
+  type StreamingLink,
+  type Video,
 } from '@/components/Public/BandPublicPage';
 import { supabaseServer } from '@/lib/supabaseServer';
 import type { Metadata } from 'next';
+
+export const dynamic = 'force-dynamic';
 
 // Helper function to convert video URLs to embed format
 function getVideoEmbedUrl(url: string): string | null {
@@ -19,19 +19,49 @@ function getVideoEmbedUrl(url: string): string | null {
   const youtubeMatch = url.match(
     /(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/
   );
-  if (youtubeMatch) {
-    return `https://www.youtube.com/embed/${youtubeMatch[1]}`;
-  }
+  if (youtubeMatch) return `https://www.youtube.com/embed/${youtubeMatch[1]}`;
 
   // Vimeo patterns
   const vimeoMatch = url.match(
     /(?:vimeo\.com\/(?:video\/)?|player\.vimeo\.com\/video\/)(\d+)/
   );
-  if (vimeoMatch) {
-    return `https://player.vimeo.com/video/${vimeoMatch[1]}`;
-  }
+  if (vimeoMatch) return `https://player.vimeo.com/video/${vimeoMatch[1]}`;
 
   return null;
+}
+
+function normalizeTheme(
+  value: string | null
+):
+  | 'cosmic'
+  | 'cosmic-light'
+  | 'matrix'
+  | 'blocky'
+  | 'modest'
+  | 'modest-dark'
+  | 'sakura' {
+  const v = value?.toLowerCase();
+  if (
+    v === 'cosmic' ||
+    v === 'cosmic-light' ||
+    v === 'matrix' ||
+    v === 'blocky' ||
+    v === 'modest' ||
+    v === 'modest-dark' ||
+    v === 'sakura'
+  ) {
+    return v;
+  }
+  // Legacy mappings
+  if (v === 'mystical') return 'blocky';
+  if (v === 'plain') return 'modest';
+  return 'cosmic';
+}
+
+function isUuidLike(s: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+    s
+  );
 }
 
 // Next 15: params is a Promise
@@ -41,10 +71,7 @@ export async function generateMetadata(props: {
   const { slug } = await props.params;
   const supabase = await supabaseServer();
 
-  const isUUID =
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-      slug
-    );
+  const isUUID = isUuidLike(slug);
 
   let bandQuery = supabase
     .from('bands')
@@ -53,12 +80,11 @@ export async function generateMetadata(props: {
       id,
       name,
       public_bio,
-      bio,
       location,
       city,
       state,
-      avatar_url,
-      public_slug
+      public_slug,
+      public_avatar_url
     `
     )
     .eq('is_public', true);
@@ -76,7 +102,7 @@ export async function generateMetadata(props: {
     };
   }
 
-  const bio = band.public_bio ?? band.bio ?? '';
+  const bio = band.public_bio ?? '';
   const location =
     band.location ??
     (band.city && band.state
@@ -102,14 +128,10 @@ export default async function Page(props: {
   const supabase = await supabaseServer();
 
   const DEFAULT_BAND_AVATAR = '/images/default-band-avatar.png';
-
-  const isUUID =
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-      slug
-    );
+  const isUUID = isUuidLike(slug);
 
   // --------------------------
-  // 1. Fetch band (must be public)
+  // 1) Fetch band (must be public)
   // --------------------------
   let bandQuery = supabase
     .from('bands')
@@ -118,11 +140,10 @@ export default async function Page(props: {
       id,
       name,
       public_bio,
-      bio,
+      public_avatar_url,
       location,
       city,
       state,
-      avatar_url,
       public_slug,
       embedded_video_url,
       gallery_images,
@@ -154,22 +175,15 @@ export default async function Page(props: {
     );
   }
 
-  console.log('[PublicBandPage] bandRow:', {
-    embedded_video_url: bandRow.embedded_video_url,
-    gallery_images: bandRow.gallery_images,
-  });
-
   // --------------------------
-  // 2. Fetch genres from band_genres junction table
+  // 2) Fetch genres from band_genres junction table
   // --------------------------
   const { data: bandGenresData, error: genresError } = await supabase
     .from('band_genres')
     .select('genres(name)')
     .eq('band_id', bandRow.id);
 
-  if (genresError) {
-    console.error('[PublicBandPage] genresError:', genresError);
-  }
+  if (genresError) console.error('[PublicBandPage] genresError:', genresError);
 
   const genres: string[] =
     bandGenresData
@@ -183,43 +197,19 @@ export default async function Page(props: {
       ? `${bandRow.city}, ${bandRow.state}`
       : bandRow.city ?? bandRow.state ?? undefined);
 
-  // Normalize theme to one of the four valid options
-  const normalizeTheme = (
-    value: string | null
-  ):
-    | 'cosmic'
-    | 'cosmic-light'
-    | 'matrix'
-    | 'blocky'
-    | 'modest'
-    | 'modest-dark'
-    | 'sakura' => {
-    const v = value?.toLowerCase();
-    if (
-      v === 'cosmic' ||
-      v === 'cosmic-light' ||
-      v === 'matrix' ||
-      v === 'blocky' ||
-      v === 'modest' ||
-      v === 'modest-dark' ||
-      v === 'sakura'
-    ) {
-      return v;
-    }
-    // Legacy mappings
-    if (v === 'mystical') return 'blocky';
-    if (v === 'plain') return 'modest';
-    return 'cosmic';
-  };
-
+  // ✅ Public-only band object
   const band: BandData = {
     id: bandRow.id,
     name: bandRow.name,
-    avatar_url:
-      (bandRow.avatar_url && bandRow.avatar_url.trim().length > 0
-        ? bandRow.avatar_url
-        : DEFAULT_BAND_AVATAR) ?? DEFAULT_BAND_AVATAR,
-    bio: bandRow.public_bio ?? bandRow.bio ?? undefined,
+
+    // IMPORTANT: public route uses ONLY public_avatar_url
+    public_avatar_url:
+      bandRow.public_avatar_url && bandRow.public_avatar_url.trim().length > 0
+        ? bandRow.public_avatar_url
+        : DEFAULT_BAND_AVATAR,
+
+    public_bio: bandRow.public_bio ?? undefined,
+
     location: locationString,
     genres: genres.length > 0 ? genres : undefined,
     public_slug: bandRow.public_slug ?? undefined,
@@ -229,7 +219,7 @@ export default async function Page(props: {
   };
 
   // --------------------------
-  // 3. Fetch upcoming public shows
+  // 3) Fetch upcoming public shows
   // --------------------------
   const nowIso = new Date().toISOString();
 
@@ -255,9 +245,7 @@ export default async function Page(props: {
     .gte('starts_at', nowIso)
     .order('starts_at', { ascending: true });
 
-  if (eventsError) {
-    console.error('[PublicBandPage] eventsError:', eventsError);
-  }
+  if (eventsError) console.error('[PublicBandPage] eventsError:', eventsError);
 
   const events: Event[] =
     eventsRows?.map((e) => ({
@@ -270,7 +258,7 @@ export default async function Page(props: {
     })) ?? [];
 
   // --------------------------
-  // 4. Streaming + Social links from band_streaming_links
+  // 4) Streaming + Social links
   // --------------------------
   type BandStreamingLinkRow = {
     platform_type: string | null;
@@ -283,9 +271,8 @@ export default async function Page(props: {
     .eq('band_id', band.id)
     .order('display_order', { ascending: true });
 
-  if (streamingError) {
+  if (streamingError)
     console.error('[PublicBandPage] streamingError:', streamingError);
-  }
 
   const streamingRows = (streamingRowsRaw ?? []) as BandStreamingLinkRow[];
 
@@ -326,23 +313,15 @@ export default async function Page(props: {
     const platformRaw = row.platform_type ?? 'link';
     const platformKey = platformRaw.toLowerCase();
 
-    const link = {
-      platform: platformKey,
-      url: row.url,
-    };
+    const link = { platform: platformKey, url: row.url };
 
-    if (streamingPlatforms.has(platformKey)) {
-      streamingLinks.push(link);
-    } else if (socialPlatforms.has(platformKey)) {
-      socialLinks.push(link);
-    } else {
-      // default unknowns to socials so they still show up
-      socialLinks.push(link);
-    }
+    if (streamingPlatforms.has(platformKey)) streamingLinks.push(link);
+    else if (socialPlatforms.has(platformKey)) socialLinks.push(link);
+    else socialLinks.push(link);
   }
 
   // --------------------------
-  // 5. Photos from gallery_images JSONB
+  // 5) Photos
   // --------------------------
   const galleryImages = (bandRow.gallery_images ?? []) as string[];
   const photos: Photo[] = galleryImages.map((url: string, index: number) => ({
@@ -351,7 +330,7 @@ export default async function Page(props: {
   }));
 
   // --------------------------
-  // 6. Videos from embedded_video_url
+  // 6) Videos
   // --------------------------
   const videos: Video[] = [];
   if (bandRow.embedded_video_url) {

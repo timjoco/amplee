@@ -58,10 +58,14 @@ export async function middleware(request: NextRequest) {
   }
 
   // Redirect everything else to /download
-  const url = request.nextUrl.clone();
-  url.pathname = '/download';
-  url.search = '';
-  return NextResponse.redirect(url);
+  // DISABLED FOR DEVELOPMENT - Uncomment to re-enable download gate
+  // const url = request.nextUrl.clone();
+  // url.pathname = '/download';
+  // url.search = '';
+  // return NextResponse.redirect(url);
+
+  // Allow all routes during development
+  return await createClient(request);
 }
 
 export const config = {

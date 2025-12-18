@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
 import CheckIcon from '@mui/icons-material/Check';
@@ -46,11 +45,13 @@ export default function EventInboxList({
   bandId,
   showAvatars = true,
   isAdmin,
+  onEventOpen,
 }: {
   onLoaded?: (count: number) => void;
   bandId?: string;
   showAvatars?: boolean;
   isAdmin?: boolean;
+  onEventOpen?: (eventId: string) => void;
 }) {
   const router = useRouter();
   const sb = useMemo(() => supabaseBrowser(), []);
@@ -247,7 +248,13 @@ export default function EventInboxList({
   }, [sb]);
 
   const onOpen = (bId: string, eventId: string) => {
-    router.push(`/bands/${bId}/events/${eventId}`);
+    // If onEventOpen callback provided (inside BandSheet), use it
+    if (onEventOpen) {
+      onEventOpen(eventId);
+    } else {
+      // Dashboard view: use standalone event route
+      router.push(`/events/${eventId}`);
+    }
   };
 
   function EmptyListMessage({ children }: { children: React.ReactNode }) {

@@ -5,14 +5,22 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { supabaseBrowser } from '../../lib/supabaseClient';
 import BottomNav from '../Nav/BottomNav';
+import HeaderPublic from '../Nav/HeaderPublic';
 import SideNav, { SIDE_NAV_WIDTH } from '../Nav/SideNav';
 
 type Props = { children: React.ReactNode; initialAuthed: boolean };
 
-const isEventSheetPath = (p: string) =>
-  /^\/bands\/[^/]+\/events\/[^/]+(?:[/?].*)?$/.test(p);
+// Band pages (including their event sheets) should hide home SideNav
+const isBandPagePath = (p: string) => /^\/bands\/[^/]+(?:[/?].*)?$/.test(p);
 
-//  Routes that should be true full-bleed (no left/right padding)
+// Standalone event pages (from dashboard) - show home SideNav
+const isStandaloneEventPath = (p: string) =>
+  /^\/events\/[^/]+(?:[/?].*)?$/.test(p);
+
+// Public band pages should also hide SideNav
+const isPublicBandPagePath = (p: string) => /^\/b\/[^/]+(?:[/?].*)?$/.test(p);
+
+// Routes that should be true full-bleed (no left/right padding)
 const isPublicNoPadPath = (p: string) =>
   p === '/' ||
   p === '/download' ||
@@ -24,7 +32,7 @@ const isPublicNoPadPath = (p: string) =>
   p === '/support' ||
   p.startsWith('/support/') ||
   p === '/community-guidelines' ||
-  p.startsWith('/communitu-guidelines/');
+  p.startsWith('/community-guidelines/');
 
 export default function AppFrameClient({ children, initialAuthed }: Props) {
   const [authed, setAuthed] = useState(initialAuthed);
@@ -44,24 +52,34 @@ export default function AppFrameClient({ children, initialAuthed }: Props) {
     return () => sub?.subscription?.unsubscribe?.();
   }, []);
 
-  const showSideNav = authed;
+  // Hide home SideNav on band pages (they have BandSheet with band nav)
+  const isBandPage = mounted && isBandPagePath(pathname || '');
+
+  // Show home SideNav for standalone events (from dashboard)
+  const isStandaloneEvent = mounted && isStandaloneEventPath(pathname || '');
 
   const isWaitlist = mounted && pathname?.startsWith('/waitlist');
-  // 🚫 Public band site (e.g. /b/teemandtiger) should NOT show HeaderPublic
   const isPublicBandPage = mounted && pathname?.startsWith('/b/');
+
+  // Never show app SideNav on public band pages (even if authed)
+  const showSideNav =
+    authed && !isPublicBandPage && (!isBandPage || isStandaloneEvent);
 
   const showPublicHeader =
     mounted && !authed && !isWaitlist && !isPublicBandPage;
 
   const hideBottomNav = useMemo(
-    () => isMobile && isEventSheetPath(pathname || ''),
-    [isMobile, pathname]
+    () => isMobile && isBandPage && !isStandaloneEvent,
+    [isMobile, isBandPage, isStandaloneEvent]
   );
 
-  // ✅ Remove padding for public routes (download/legal/support/home) when not authed
+  // Remove padding for public routes, band pages, AND standalone event sheets
   const noPad = useMemo(
-    () => mounted && !authed && isPublicNoPadPath(pathname || ''),
-    [mounted, authed, pathname]
+    () =>
+      (mounted && !authed && isPublicNoPadPath(pathname || '')) ||
+      isBandPage ||
+      isStandaloneEvent, // ← ADD THIS
+    [mounted, authed, pathname, isBandPage, isStandaloneEvent]
   );
 
   return (
@@ -83,7 +101,7 @@ export default function AppFrameClient({ children, initialAuthed }: Props) {
           transition: 'margin-left .15s ease',
         }}
       >
-        {/* {showPublicHeader && <HeaderPublic />} */}
+        {showPublicHeader && <HeaderPublic />}
         {children}
       </Box>
 

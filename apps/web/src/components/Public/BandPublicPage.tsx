@@ -39,7 +39,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { AnimatedBackground } from './BandPublicAnimatedBackground';
 import { SocialIcon, StreamingIcon } from './BandPublicIcons';
@@ -60,18 +60,25 @@ export interface SocialLink {
   url: string;
 }
 
-export interface BandData {
+export type BandData = {
   id: string;
   name: string;
-  avatar_url?: string;
-  bio?: string;
+  public_avatar_url?: string;
+  public_bio?: string;
   location?: string;
   genres?: string[];
   public_slug?: string;
   embedded_video_url?: string;
   gallery_images?: string[];
-  public_theme?: BandThemeStyle;
-}
+  public_theme?:
+    | 'cosmic'
+    | 'cosmic-light'
+    | 'matrix'
+    | 'blocky'
+    | 'modest'
+    | 'modest-dark'
+    | 'sakura';
+};
 
 export interface Event {
   id: string;
@@ -143,6 +150,9 @@ export default function BandPublicPage({
     severity: 'success' | 'error';
   }>({ open: false, message: '', severity: 'success' });
   const [copied, setCopied] = useState(false);
+
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   // Derive theme style from band / initialData
   const themeStyle: BandThemeStyle =
@@ -807,6 +817,17 @@ export default function BandPublicPage({
     }
   };
 
+  const getPublicAvatarSrc = (band: BandData | null): string | undefined => {
+    const raw = (band?.public_avatar_url ?? '').trim();
+    if (!raw) return undefined;
+
+    if (raw.startsWith('https://')) return raw;
+
+    return undefined;
+  };
+
+  const publicAvatarSrc = getPublicAvatarSrc(band);
+
   if (loading && !initialData) {
     return (
       <ThemeProvider theme={theme}>
@@ -921,9 +942,17 @@ export default function BandPublicPage({
                     ...getAvatarGlowStyle(),
                   }}
                 />
+
                 <Avatar
-                  src={band.avatar_url}
+                  src={band.public_avatar_url ?? undefined}
                   alt={band.name}
+                  imgProps={{
+                    referrerPolicy: 'no-referrer', // optional, harmless
+                    onError: (e) => {
+                      // don’t keep retrying a bad URL
+                      (e.currentTarget as HTMLImageElement).src = '';
+                    },
+                  }}
                   sx={{
                     width: { xs: 140, md: 180 },
                     height: { xs: 140, md: 180 },
@@ -1080,7 +1109,7 @@ export default function BandPublicPage({
               )}
 
               {/* Bio */}
-              {band.bio && (
+              {band.public_bio && (
                 <Typography
                   variant="body1"
                   color="text.secondary"
@@ -1090,7 +1119,7 @@ export default function BandPublicPage({
                     fontSize: '1.1rem',
                   }}
                 >
-                  {band.bio}
+                  {band.public_bio}
                 </Typography>
               )}
 

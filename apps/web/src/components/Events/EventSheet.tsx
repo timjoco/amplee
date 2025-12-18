@@ -1,15 +1,20 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import AttachFileIcon from '@mui/icons-material/AttachFile';
+import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
+import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
+import PeopleOutlineIcon from '@mui/icons-material/PeopleOutline';
+import QueueMusicIcon from '@mui/icons-material/QueueMusic';
+import SettingsIcon from '@mui/icons-material/Settings';
 import { CircularProgress, Stack } from '@mui/material';
 import { supabaseBrowser } from '../../lib/supabaseClient';
-import { SIDE_NAV_WIDTH } from '../Nav/SideNav';
-import EventSheetHeader from './EventSheetHeader';
 
 import {
   Box,
   Button,
   Chip,
   Divider,
+  IconButton,
   List,
   ListItem,
   Paper,
@@ -42,24 +47,35 @@ type EventRow = {
   cnt_accepted?: number;
 };
 
+const TAB_CONFIG = [
+  { key: 'chat', label: 'Chat', icon: ChatBubbleOutlineIcon },
+  { key: 'roster', label: 'Roster', icon: PeopleOutlineIcon },
+  { key: 'setlist', label: 'Setlist', icon: QueueMusicIcon },
+  { key: 'notes', label: 'Notes', icon: DescriptionOutlinedIcon },
+  { key: 'files', label: 'Files', icon: AttachFileIcon },
+  { key: 'settings', label: 'Settings', icon: SettingsIcon },
+] as const;
+
 export default function EventSheet({
   eventId,
   bandId,
   initialEvent,
+  onBack,
 }: {
   eventId: string;
   bandId: string;
   bandName?: string;
   initialEvent: EventRow;
+  onBack?: () => void;
 }) {
   const [, setBandName] = useState<string>('Band');
   const [, setError] = useState<string | null>(null);
   const sb = useMemo(() => supabaseBrowser(), []);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
   const [tab, setTab] = useState<
-    'chat' | 'roster' | 'setlist' | 'notes' | 'files'
+    'chat' | 'roster' | 'setlist' | 'notes' | 'files' | 'settings'
   >('chat');
-
   const startsAtLabel = useMemo(() => {
     try {
       const d = new Date(initialEvent.starts_at);
@@ -110,61 +126,147 @@ export default function EventSheet({
   return (
     <Box
       sx={{
-        position: 'fixed',
-        top: 0,
-        right: 0,
-        bottom: 0,
-        left: { xs: 0, md: SIDE_NAV_WIDTH },
-        bgcolor: '#0B0A10',
-        color: 'white',
+        height: '100%',
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
-        overflowX: 'clip',
-        zIndex: (t) => t.zIndex.appBar - 1,
       }}
     >
-      {/* Sticky header (not a scroll host) */}
+      {/* Header with event info and icon navigation - Discord style */}
       <Box
-        component="header"
         sx={{
-          position: 'sticky',
-          top: 0,
-          zIndex: (t) => t.zIndex.appBar ?? 1100,
-          py: { xs: 1.5, sm: 2 },
           flexShrink: 0,
-          background:
-            'linear-gradient(180deg, rgba(11,10,16,0.92), rgba(11,10,16,0.86) 60%, rgba(11,10,16,0))',
-          backdropFilter: 'saturate(140%) blur(6px)',
+          borderBottom: (t) =>
+            `1px solid ${alpha(t.palette.primary.main, 0.12)}`,
+          bgcolor: 'background.paper',
         }}
       >
-        <Box
-          sx={{
-            maxWidth: 2000,
-            mx: 'auto',
-            px: { xs: 1, sm: 2, md: 3, lg: 5, xl: 7 },
-          }}
+        <Stack
+          direction="row"
+          alignItems="center"
+          sx={{ px: 2, py: 1.5, gap: 2 }}
         >
-          <EventSheetHeader
-            backHref="/dashboard"
-            event={{
-              title: initialEvent.title,
-              type: initialEvent.type,
-              location: initialEvent.location,
-              is_booked: initialEvent.is_booked,
+          {/* Back button */}
+          {onBack && (
+            <IconButton
+              onClick={onBack}
+              size="small"
+              sx={{
+                color: 'text.secondary',
+                '&:hover': {
+                  bgcolor: 'action.hover',
+                  color: 'text.primary',
+                },
+              }}
+            >
+              <ArrowBackIcon fontSize="small" />
+            </IconButton>
+          )}
+
+          {/* Event title and details */}
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography
+              variant="h6"
+              sx={{
+                fontWeight: 700,
+                fontSize: '1rem',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {initialEvent.title}
+            </Typography>
+            <Stack direction="row" spacing={1} alignItems="center">
+              <Typography
+                variant="caption"
+                sx={{
+                  color: 'text.secondary',
+                  fontSize: '0.8125rem',
+                }}
+              >
+                {startsAtLabel}
+              </Typography>
+              {initialEvent.location && (
+                <>
+                  <Box
+                    sx={{
+                      width: 3,
+                      height: 3,
+                      borderRadius: '50%',
+                      bgcolor: 'text.secondary',
+                      opacity: 0.5,
+                    }}
+                  />
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: 'text.secondary',
+                      fontSize: '0.8125rem',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {initialEvent.location}
+                  </Typography>
+                </>
+              )}
+            </Stack>
+          </Box>
+
+          {/* Icon navigation - Discord style */}
+          <Stack
+            direction="row"
+            spacing={0.5}
+            sx={{
+              alignItems: 'center',
             }}
-            startsAtLabel={startsAtLabel}
-            eventId={eventId}
-            tab={tab}
-            onTabChange={setTab}
+          >
+            {TAB_CONFIG.map(({ key, label, icon: Icon }) => {
+              const isActive = tab === key;
+              return (
+                <Tooltip key={key} title={label} arrow>
+                  <IconButton
+                    onClick={() => setTab(key)}
+                    size="small"
+                    sx={{
+                      color: isActive ? 'primary.main' : 'text.secondary',
+                      bgcolor: isActive
+                        ? alpha('#7C3AED', 0.12)
+                        : 'transparent',
+                      '&:hover': {
+                        bgcolor: isActive
+                          ? alpha('#7C3AED', 0.18)
+                          : 'action.hover',
+                        color: isActive ? 'primary.main' : 'text.primary',
+                      },
+                    }}
+                  >
+                    <Icon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              );
+            })}
+          </Stack>
+
+          {/* Status chip */}
+          <Chip
+            label={initialEvent.is_booked ? 'Booked' : 'Pending'}
+            color={initialEvent.is_booked ? 'success' : 'warning'}
+            size="small"
+            sx={{
+              fontWeight: 600,
+              height: 24,
+              fontSize: '0.75rem',
+            }}
           />
-        </Box>
+        </Stack>
       </Box>
 
-      {/* Scroll host */}
+      {/* Scroll host for tab content */}
       <Box
         component="main"
-        data-nextjs-scroll-focus-boundary
         sx={{
           flex: 1,
           minHeight: 0,
@@ -172,14 +274,7 @@ export default function EventSheet({
           WebkitOverflowScrolling: 'touch',
         }}
       >
-        <Box
-          sx={{
-            maxWidth: 2000,
-            mx: 'auto',
-            px: { xs: 1, sm: 2, md: 3, lg: 5, xl: 7 },
-            py: { xs: 1, sm: 1.5 }, // breathing room below the sticky header
-          }}
-        >
+        <Box sx={{ p: 3 }}>
           {tab === 'chat' && <ChatTab eventId={eventId} />}
           {tab === 'roster' && (
             <Grid>
@@ -197,6 +292,11 @@ export default function EventSheet({
           {tab === 'files' && (
             <Grid>
               <FilesTab eventId={eventId} />
+            </Grid>
+          )}
+          {tab === 'settings' && (
+            <Grid>
+              <SettingsTab eventId={eventId} isAdmin={isAdmin} />
             </Grid>
           )}
         </Box>
@@ -319,7 +419,7 @@ function RosterPanel({ bandId, eventId }: { bandId: string; eventId: string }) {
       } = ce.detail || ({} as any);
       if (!changedEventId || changedEventId !== eventId || !userId) return;
 
-      // Optimistically update the single row’s status
+      // Optimistically update the single row's status
       setRows((prev) =>
         prev.map((r) => (r.user_id === userId ? { ...r, status: next } : r))
       );
@@ -336,7 +436,7 @@ function RosterPanel({ bandId, eventId }: { bandId: string; eventId: string }) {
   return (
     <Paper
       sx={(t) => ({
-        p: 1.5, // comfy edge padding (restored)
+        p: 1.5,
         borderRadius: 2,
         borderColor: alpha(t.palette.primary.main, 0.14),
         background:
@@ -365,7 +465,6 @@ function RosterPanel({ bandId, eventId }: { bandId: string; eventId: string }) {
           {rows.map((r, i) => (
             <React.Fragment key={r.user_id}>
               <ListItem disableGutters sx={{ px: 1, py: 1 }}>
-                {/* avatar + name (left), status pill (right) */}
                 <Stack
                   direction="row"
                   alignItems="center"
@@ -399,7 +498,6 @@ function RosterPanel({ bandId, eventId }: { bandId: string; eventId: string }) {
                 </Stack>
               </ListItem>
 
-              {/* thin divider between members */}
               {i < rows.length - 1 && (
                 <Divider
                   component="li"
@@ -454,7 +552,7 @@ function NotesTab({ eventId }: { eventId: string }) {
   };
 
   return (
-    <Stack gap={1.25} sx={{ mt: 1 }}>
+    <Stack gap={1.25}>
       <TextField
         multiline
         minRows={6}
@@ -462,7 +560,6 @@ function NotesTab({ eventId }: { eventId: string }) {
         placeholder="Shared notes for this event…"
         value={body}
         onChange={(e) => onChange(e.target.value)}
-        InputProps={{ sx: { bgcolor: '#11131a', color: 'white' } }}
       />
       <Typography variant="caption" sx={{ opacity: 0.7 }}>
         {saving === 'saving' ? 'Saving…' : saving === 'saved' ? 'Saved' : ' '}
@@ -508,7 +605,7 @@ function FilesTab({ eventId }: { eventId: string }) {
   };
 
   return (
-    <Stack gap={1.25} sx={{ mt: 1 }}>
+    <Stack gap={1.25}>
       <Button
         variant="outlined"
         component="label"
@@ -558,5 +655,44 @@ function FilesTab({ eventId }: { eventId: string }) {
         </Stack>
       )}
     </Stack>
+  );
+}
+
+function SettingsTab({
+  eventId,
+  isAdmin,
+}: {
+  eventId: string;
+  isAdmin: boolean;
+}) {
+  return (
+    <Paper
+      sx={(t) => ({
+        p: 3,
+        borderRadius: 2,
+        borderColor: alpha(t.palette.primary.main, 0.14),
+        background:
+          'linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02))',
+      })}
+    >
+      <Typography variant="h6" sx={{ mb: 2, fontWeight: 700 }}>
+        Event Settings
+      </Typography>
+
+      {!isAdmin && (
+        <Typography variant="body2" sx={{ opacity: 0.7 }}>
+          Only admins can modify event settings.
+        </Typography>
+      )}
+
+      {isAdmin && (
+        <Stack spacing={2}>
+          <Typography variant="body2" sx={{ opacity: 0.7 }}>
+            Event settings coming soon...
+          </Typography>
+          {/* Add your event settings form here */}
+        </Stack>
+      )}
+    </Paper>
   );
 }
