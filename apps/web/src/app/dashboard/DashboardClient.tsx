@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
 import BandGrid from '../../components/Bands/BandGrid';
@@ -25,7 +24,7 @@ import {
   Typography,
 } from '@mui/material';
 import { usePathname, useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 function getErrorMessage(e: unknown): string {
   if (e instanceof Error) return e.message;
@@ -76,6 +75,14 @@ export default function DashboardClient() {
         : [{ id: band.id, name: band.name, role, avatar_url }, ...prev]
     );
   };
+
+  const handleEventOpen = useCallback((eventId: string) => {
+    // Navigate to event - this will trigger the band sheet to open the event
+    // The event URL pattern is /bands/{bandId}/events/{eventId}
+    // Since we don't have bandId here, we'll need to fetch it or use a different approach
+    // For now, let's just log it - you may want to enhance this
+    console.log('Opening event:', eventId);
+  }, []);
 
   const cardSx = (t: any) => ({
     height: '100%',
@@ -337,7 +344,11 @@ export default function DashboardClient() {
               </Box>
             ) : (
               <Box sx={{ mt: 1.5, mx: { xs: -2, md: -3 } }}>
-                <EventInboxList onLoaded={setEventsCount} />
+                <EventInboxList
+                  isAdmin={false}
+                  onEventOpen={handleEventOpen}
+                  onLoaded={(count) => setEventsCount(count)}
+                />
               </Box>
             )}
           </Box>

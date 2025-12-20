@@ -34,7 +34,7 @@ export function useEventShell(eventId?: string) {
         data: { user },
       } = await supabase.auth.getUser();
 
-      // ✅ use maybeSingle so “0 rows” becomes data=null (no 406)
+      // use maybeSingle so “0 rows” becomes data=null (no 406)
       const { data: eventData, error: eventErr } = await supabase
         .from('events')
         .select('id, band_id, title, notes')

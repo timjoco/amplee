@@ -103,6 +103,9 @@ export default function BandSheet({ bandId }: Props) {
   const [activeWidget, setActiveWidget] = useState<WidgetKey>('overview');
   const [invites, setInvites] = useState<InvitationRow[]>([]);
   const [activeEventId, setActiveEventId] = useState<string | null>(null);
+  const [eventOpenedFrom, setEventOpenedFrom] = useState<WidgetKey | null>(
+    null
+  );
   const [profile, setProfile] = useState<{
     first_name?: string | null;
     last_name?: string | null;
@@ -115,6 +118,12 @@ export default function BandSheet({ bandId }: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const [bandAvatarUrl, setBandAvatarUrl] = useState<string | null>(null);
+
+  // Check if we're on an event route
+  const eventIdFromPath = useMemo(() => {
+    const match = pathname.match(/\/events\/([^/]+)$/);
+    return match?.[1] || null;
+  }, [pathname]);
 
   const [, setMembers] = useState<MemberRow[]>([]);
   const [sending, setSending] = useState(false);
@@ -277,6 +286,15 @@ export default function BandSheet({ bandId }: Props) {
     };
   }, [sb, bandId, fetchRoster]);
 
+  // Handle event route from URL
+  useEffect(() => {
+    if (eventIdFromPath) {
+      setActiveWidget('events');
+      setActiveEventId(eventIdFromPath);
+      setEventOpenedFrom('events'); // Assume URL navigation came from events tab
+    }
+  }, [eventIdFromPath]);
+
   useEffect(() => {
     const sp = searchParams;
     if (!sp) return;
@@ -323,6 +341,29 @@ export default function BandSheet({ bandId }: Props) {
     };
   }, [sb, bandId, fetchRoster]);
 
+  const handleEventOpen = useCallback(
+    (eventId: string) => {
+      setEventOpenedFrom(activeWidget); // Track where we're opening from
+      setActiveEventId(eventId);
+      setActiveWidget('events');
+    },
+    [activeWidget]
+  );
+
+  const handleBackToEvents = useCallback(() => {
+    setActiveEventId(null);
+    // Return to the widget where the event was opened from
+    if (eventOpenedFrom) {
+      setActiveWidget(eventOpenedFrom);
+      setEventOpenedFrom(null);
+    } else {
+      // Default to events tab if we don't know where it came from
+      setActiveWidget('events');
+    }
+    // Navigate back to the band root to clean up URL
+    router.push(`/bands/${bandId}`);
+  }, [bandId, router, eventOpenedFrom]);
+
   // Profile event listeners for avatar/name changes
   useEffect(() => {
     const onName = (e: Event) => {
@@ -341,13 +382,20 @@ export default function BandSheet({ bandId }: Props) {
       setProfile((p) => (p ? { ...p, avatar_url: ce.detail.avatar_url } : p));
     };
 
+    const onOpenEvent = (e: Event) => {
+      const ce = e as CustomEvent<{ eventId: string }>;
+      handleEventOpen(ce.detail.eventId);
+    };
+
     window.addEventListener('profiles:display_name_changed', onName);
     window.addEventListener('profiles:avatar_changed', onAvatar);
+    window.addEventListener('amplee:open-event', onOpenEvent);
     return () => {
       window.removeEventListener('profiles:display_name_changed', onName);
       window.removeEventListener('profiles:avatar_changed', onAvatar);
+      window.removeEventListener('amplee:open-event', onOpenEvent);
     };
-  }, []);
+  }, [handleEventOpen]);
 
   const sendInvite = useCallback(async () => {
     try {
@@ -414,15 +462,6 @@ export default function BandSheet({ bandId }: Props) {
       setSending(false);
     }
   }, [bandId, inviteEmail, inviteRole, bandName, fetchRoster]);
-
-  const handleEventOpen = useCallback((eventId: string) => {
-    setActiveEventId(eventId);
-    setActiveWidget('events');
-  }, []);
-
-  const handleBackToEvents = useCallback(() => {
-    setActiveEventId(null);
-  }, []);
 
   if (loading) {
     return (

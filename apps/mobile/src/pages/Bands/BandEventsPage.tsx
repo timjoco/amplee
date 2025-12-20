@@ -11,7 +11,7 @@ import {
 import { chevronBackOutline } from 'ionicons/icons';
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import EventsInboxListMobile from '../../components/Events/EventsInboxListMobile';
+import EventsInboxListMobile from '../../components/Events/EventInbox/EventsInboxListMobile';
 import { supabase } from '../../lib/supabase';
 
 export default function BandEventsPage() {

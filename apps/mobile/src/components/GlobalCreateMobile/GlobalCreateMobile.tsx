@@ -27,10 +27,41 @@ import NewProposalStep from './components/NewProposalStep';
 import NewSongStep from './components/NewSongStep';
 import type { GlobalCreateMobileProps, Step } from './types';
 import { mergeLocalBands } from './utils/mergeLocalBands';
-// ─────────────────────────────────────────────────────────────
-// Main Component
-// ─────────────────────────────────────────────────────────────
 
+// ─────────────────────────────────────────────────────────────
+// GlobalCreateMobile
+// ─────────────────────────────────────────────────────────────
+/**
+ * GlobalCreateMobile
+ *
+ * A single modal that lets the user create:
+ * - Band
+ * - Event
+ * - Song
+ * - Proposal
+ *
+ * Design goals (KISS / DRY / bug-resistant):
+ * - Component orchestrates flow (open/close, step routing, navigation).
+ * - Each "form hook" owns its state + validation + submit/reset (single source of truth).
+ * - Shared error surface: hooks can report errors into one banner (`error`).
+ * - Prevent stale state:
+ *   - closeAll() hard-resets step + error + all forms
+ *   - opening clears old errors
+ * - Smooth UX on mobile:
+ *   - pressed states + haptics
+ *   - minimal fetches: load bands only when open; load invite data only on newEvent
+ *
+ * Practical “3 questions” checklist applied:
+ * 1) How does it work / why this approach?
+ *    - “Container + hooks”: keeps rendering simple and logic isolated/testable.
+ * 2) Where could it break?
+ *    - stale errors/forms if not reset → closeAll hard reset
+ *    - unnecessary queries when closed → data hooks gated by `open` and `step`
+ *    - NaN/invalid values → validators in form hooks (bpm/duration/etc)
+ * 3) Simplest/most efficient?
+ *    - Shared helper submitThenCloseAndNav removes repeated boilerplate.
+ *    - Avoid premature abstraction beyond that.
+ */
 export default function GlobalCreateMobile({
   open: openProp,
   onOpenChange,
@@ -38,102 +69,120 @@ export default function GlobalCreateMobile({
 }: GlobalCreateMobileProps) {
   const nav = useNavigate();
 
-  // Support both controlled + uncontrolled usage:
-  //
-  // - Controlled: parent passes `open` + `onOpenChange` and owns the state.
-  // - Uncontrolled: this component owns the open/close state internally.
+  /**
+   * Toast integration note:
+   * Today we pass a noop into form hooks (they call showToast(...) for quick UX).
+   * If/when you want to surface toasts in the modal, swap noop for a real toast impl.
+   */
+  const noop = useCallback(() => {}, []);
+
+  // ─────────────────────────────────────────────────────────────
+  // Controlled vs uncontrolled modal open state
+  // ─────────────────────────────────────────────────────────────
+  // - Controlled: parent passes `open` + `onOpenChange`
+  // - Uncontrolled: this component manages open state internally
   const isControlled = typeof openProp === 'boolean';
-
-  // Internal open state for uncontrolled mode only.
   const [openUnc, setOpenUnc] = useState(false);
-
-  // The actual "source of truth" for whether the modal is open.
   const open = isControlled ? (openProp as boolean) : openUnc;
 
-  // Unified setter that works in both modes:
-  // - controlled → call the parent callback
-  // - uncontrolled → update internal state
+  /**
+   * Unified setter:
+   * - controlled → call the parent callback
+   * - uncontrolled → update internal state
+   */
   const setOpen = useCallback(
     (v: boolean) => (isControlled ? onOpenChange?.(v) : setOpenUnc(v)),
     [isControlled, onOpenChange]
   );
 
-  // Which screen the modal is currently showing (menu/newBand/newEvent/etc).
-  // This drives what UI gets rendered.
+  // ─────────────────────────────────────────────────────────────
+  // Step routing + shared error surface
+  // ─────────────────────────────────────────────────────────────
   const [step, setStep] = useState<Step>('menu');
 
-  // Shared error surface for the modal.
-  // Individual hooks can report errors into here so the UI has one place to render them.
+  /**
+   * Shared error banner shown near the top of the modal.
+   * Form hooks can set this via onError for one consistent UX.
+   */
   const [error, setError] = useState<string | null>(null);
 
   // ─────────────────────────────────────────────────────────────
-  // Form hooks (MUST be declared before hooks that depend on them)
+  // Form hooks (declare before any hooks that depend on them)
   // ─────────────────────────────────────────────────────────────
-  // Each form hook owns its local fields + validation + submit/reset behavior.
-  // We pass `onError` so any failure is surfaced in the shared `error` UI.
-
-  // Band creation form state + submit logic
-  const bandForm = useNewBandForm({
-    showToast: () => {}, // (optional) caller controls toast UX; currently no-op
-    onError: setError, // route errors into the modal's shared error banner
-  });
-
-  // Event creation form state + conflict checking + submit logic
-  const eventForm = useNewEventForm({
-    showToast: () => {},
-    onError: setError,
-  });
-
-  // Song creation form state + submit logic
-  const songForm = useNewSongForm({
-    showToast: () => {},
-    onError: setError,
-  });
-
-  // Proposal creation form state + submit logic
+  /**
+   * Each form hook owns:
+   * - local state (fields)
+   * - validation (client-side guardrails)
+   * - submit logic (server calls)
+   * - reset logic (clear form)
+   *
+   * Recent “bug-proofing” improvements live inside hooks:
+   * - Song: validate BPM + duration to prevent NaN/invalid values reaching DB
+   * - Proposal: normalize whitespace for consistent data
+   * - Event: only full/roster invite mode (no “custom” path), fewer edge cases
+   */
+  const bandForm = useNewBandForm({ showToast: noop, onError: setError });
+  const eventForm = useNewEventForm({ showToast: noop, onError: setError });
+  const songForm = useNewSongForm({ showToast: noop, onError: setError });
   const proposalForm = useNewProposalForm({
-    showToast: () => {},
+    showToast: noop,
     onError: setError,
   });
 
   // ─────────────────────────────────────────────────────────────
-  // Data hooks
+  // Data hooks (gated to avoid wasted work)
   // ─────────────────────────────────────────────────────────────
-
-  // Load the user's bands when the modal is open.
-  // This keeps the band list fresh and avoids loading work when the modal is closed.
+  /**
+   * Loads the user's bands only while the modal is open.
+   * - Keeps menu/selector fresh
+   * - Avoids network work when the modal is closed
+   */
   const { bands, loadingBands, setBands } = useBandsForGlobalCreate(open);
 
-  // Load invite-related data only when needed (newEvent step):
-  // - rosters (saved invite lists)
-  // - (optionally) members, if you later need them for "custom invitee selection"
-  // Gated by `enabled` to prevent unnecessary queries while on other steps.
+  /**
+   * Loads invite-related data ONLY on the newEvent step.
+   * - rosters (saved invite lists)
+   * (We’re not using “custom roster selection” in B, so we keep this narrow.)
+   */
   const { availableRosters, loadingInviteData } = useInviteDataForBand({
     open,
-    enabled: step === 'newEvent', // only fetch invite data when we're creating an event
-    bandId: eventForm.bandId, // fetch rosters/members for the selected band
-    onError: setError, // show fetch errors in the shared error UI
+    enabled: step === 'newEvent',
+    bandId: eventForm.bandId,
+    onError: setError,
   });
 
-  // Centralized haptics wrapper.
-  // Keeping it as a hook means UI components just call `impact(...)` without needing to know about platform checks, try/catch, etc.
+  // ─────────────────────────────────────────────────────────────
+  // UX helpers: haptics + pressed state
+  // ─────────────────────────────────────────────────────────────
+  /**
+   * Centralized haptics wrapper: avoids duplicating platform checks / try-catch.
+   */
   const { impact } = useHaptics();
 
-  // Standard “pressed” UX for menu cards/buttons:
-  // - tracks which button is currently pressed (for CSS)
-  // - delays the action slightly so the pressed state + haptic can be felt
+  /**
+   * Pressed-state UX for menu cards/buttons:
+   * - sets a short pressed highlight
+   * - triggers a haptic
+   * - delays the action slightly so the feedback is felt
+   */
   const { pressedButton, press } = usePressedAction({
     delayMs: 120,
     onBefore: () => {
-      // fire-and-forget: we don't want UI blocked on haptics
+      // fire-and-forget: don’t block UI on haptics
       void impact(ImpactStyle.Medium);
     },
   });
 
-  // Global open/close + deep-link event wiring.
-  // This hook centralizes window event listeners like:
-  // - global-create:open / close
-  // - amplee:global-create (open directly into event/song/proposal with prefilled info)
+  // ─────────────────────────────────────────────────────────────
+  // Global open/close + deep-link wiring
+  // ─────────────────────────────────────────────────────────────
+  /**
+   * Centralizes window-level events so this component remains predictable:
+   * - open/close requests
+   * - “start directly on newEvent/newSong/newProposal” with prefills
+   *
+   * Important: we pass the form objects so the hook can prefill/reset safely.
+   */
   useGlobalCreateEvents({
     setOpen,
     setStep,
@@ -143,24 +192,61 @@ export default function GlobalCreateMobile({
     proposalForm,
   });
 
-  // "Hard reset" of modal state.
-  // We do this on close (and after successful submissions) so:
-  // - reopening starts at the menu
-  // - stale errors don’t persist
-  // - forms don’t keep old values (especially important on mobile)
+  // ─────────────────────────────────────────────────────────────
+  // Close/reset: the main “anti-stale-state” mechanism
+  // ─────────────────────────────────────────────────────────────
+  /**
+   * Hard reset of the entire modal.
+   * This is our #1 “bug prevention” technique:
+   * - no stale error banners on reopen
+   * - no stale form values
+   * - consistent default step
+   */
   const closeAll = useCallback(() => {
     setOpen(false);
     setStep('menu');
     setError(null);
+
     bandForm.reset();
     eventForm.reset();
     songForm.reset();
     proposalForm.reset();
   }, [bandForm, eventForm, songForm, proposalForm, setOpen]);
 
-  // Submit band creation via the band form hook. If creation succeeds, we optimistically merge the new band into the local `bands` list
-  // so the menu/selector updates immediately without waiting for a refetch.
-  // Then we notify parent listeners, reset/close the modal, and navigate into the new band.
+  // ─────────────────────────────────────────────────────────────
+  // DRY helper: submit -> close -> navigate
+  // ─────────────────────────────────────────────────────────────
+  /**
+   * Standard pattern for most creations:
+   * - attempt submit
+   * - if success: close/reset modal + navigate to created resource
+   *
+   * Keeps handlers short + consistent across Song/Proposal/Event.
+   * (Band is special because we also do optimistic band list update.)
+   */
+  const submitThenCloseAndNav = useCallback(
+    async (
+      submitFn: () => Promise<string | null>,
+      to: (id: string) => string
+    ) => {
+      const id = await submitFn();
+      if (!id) return;
+      closeAll();
+      nav(to(id));
+    },
+    [closeAll, nav]
+  );
+
+  // ─────────────────────────────────────────────────────────────
+  // Submit handlers (Band has extra optimistic update logic)
+  // ─────────────────────────────────────────────────────────────
+  /**
+   * Create Band:
+   * - uses bandForm.submit() which returns the created band object
+   * - merges it into local `bands` so UI updates immediately (no refetch lag)
+   * - calls parent callback (if provided)
+   * - closes modal and navigates into the new band
+   */
   const handleSubmitCreateBand = useCallback(async () => {
     const created = await bandForm.submit();
     if (!created) return;
@@ -180,86 +266,113 @@ export default function GlobalCreateMobile({
     nav(`/bands/${created.id}`);
   }, [bandForm, closeAll, nav, onBandCreated, setBands]);
 
-  // Create an event. If we already detected conflicts or same-day events,
-  // we pass a "bypassConflicts" flag so the server-side logic can allow creation anyway.
-  // On success we close/reset and route straight into the new event detail screen.
+  /**
+   * Create Song → navigate to /bands/:bandId/songs/:songId
+   */
+  const handleSubmitCreateSong = useCallback(
+    () =>
+      submitThenCloseAndNav(
+        () => songForm.submit(),
+        (id) => `/bands/${songForm.bandId}/songs/${id}`
+      ),
+    [submitThenCloseAndNav, songForm]
+  );
+
+  /**
+   * Create Proposal → navigate to /bands/:bandId/proposals/:proposalId
+   */
+  const handleSubmitCreateProposal = useCallback(
+    () =>
+      submitThenCloseAndNav(
+        () => proposalForm.submit(),
+        (id) => `/bands/${proposalForm.bandId}/proposals/${id}`
+      ),
+    [submitThenCloseAndNav, proposalForm]
+  );
+
+  /**
+   * Create Event:
+   * - eventForm.submit() can return null if warnings are present (conflicts/same-day)
+   * - If warnings exist and user re-submits, we pass bypassConflicts=true
+   *   so server-side can allow creation anyway
+   */
   const handleSubmitCreateEvent = useCallback(async () => {
     const bypass =
       (eventForm.conflicts?.length || 0) > 0 ||
       (eventForm.sameDayEvents?.length || 0) > 0;
 
-    const id = await eventForm.submit(
-      bypass ? { bypassConflicts: true } : undefined
+    return submitThenCloseAndNav(
+      () => eventForm.submit(bypass ? { bypassConflicts: true } : undefined),
+      (id) => `/bands/${eventForm.bandId}/events/${id}`
     );
-    if (!id) return;
+  }, [eventForm, submitThenCloseAndNav]);
 
-    closeAll();
-    nav(`/bands/${eventForm.bandId}/events/${id}`);
-  }, [eventForm, closeAll, nav]);
-
-  // Create a song, then route into that song.
-  // We close/reset first to avoid leaving the modal mounted with stale form state
-  // and to keep navigation transitions clean on mobile.
-  const handleSubmitCreateSong = useCallback(async () => {
-    const id = await songForm.submit();
-    if (!id) return;
-    closeAll();
-    nav(`/bands/${songForm.bandId}/songs/${id}`);
-  }, [songForm, closeAll, nav]);
-
-  // Create a proposal, then route into that proposal.
-  // Same pattern: submit -> early return if it failed -> close/reset -> navigate.
-  const handleSubmitCreateProposal = useCallback(async () => {
-    const id = await proposalForm.submit();
-    if (!id) return;
-    closeAll();
-    nav(`/bands/${proposalForm.bandId}/proposals/${id}`);
-  }, [proposalForm, closeAll, nav]);
-
-  // Any time the modal opens, clear any previous error message so the user
-  // doesn't see a stale error from a prior attempt/session.
+  // ─────────────────────────────────────────────────────────────
+  // Error hygiene: clear stale errors on open
+  // ─────────────────────────────────────────────────────────────
   useEffect(() => {
     if (open) setError(null);
   }, [open]);
 
-  // Get current band ID based on step
+  // ─────────────────────────────────────────────────────────────
+  // Band selection plumbing
+  // ─────────────────────────────────────────────────────────────
+  /**
+   * Used to keep child step components simple:
+   * - they call onBandChange(...)
+   * - we route it to the correct form hook based on current step
+   */
   const currentBandId =
     step === 'newEvent'
       ? eventForm.bandId
       : step === 'newSong'
       ? songForm.bandId
-      : proposalForm.bandId;
+      : step === 'newProposal'
+      ? proposalForm.bandId
+      : '';
 
-  // Memoized so child step components don’t re-render unnecessarily
-  // when this handler is passed down. Depends on `step` and form APIs
-  // to ensure the correct form is updated when the band changes.
+  /**
+   * Event-specific band selection:
+   * - sets bandId
+   * - resets invite mode to full (B: no custom invite path)
+   * - clears roster selection
+   *
+   * Prevents subtle “wrong band roster” bugs when switching bands.
+   */
+  const selectBandForEvent = useCallback(
+    (id: string) => {
+      eventForm.setBandId(id);
+      eventForm.setInviteMode('full');
+      eventForm.setSelectedRosterId('');
+    },
+    [eventForm]
+  );
+
   const handleBandChange = useCallback(
     (val: string) => {
       if (step === 'newEvent') {
-        eventForm.setBandId(val);
-
-        // reset invite selection when switching bands
-        eventForm.setInviteMode('full');
-        eventForm.setSelectedRosterId('');
-        eventForm.setSelectedUserIds([]);
+        selectBandForEvent(val);
       } else if (step === 'newSong') {
         songForm.setBandId(val);
-      } else {
+      } else if (step === 'newProposal') {
         proposalForm.setBandId(val);
       }
     },
-    [step, eventForm, songForm, proposalForm]
+    [step, selectBandForEvent, songForm, proposalForm]
   );
 
+  /**
+   * Step navigation:
+   * - If user has bands, default-select the first band when entering a creation step.
+   * - Keeps the step UX smooth (no blank selects) and reduces “why can’t I submit?” friction.
+   */
   const goToStep = useCallback(
     (next: Step) => {
-      // If the user has bands and the form doesn't have a band selected yet,
-      // default to the first band (sorted by name in your hook).
       const firstBandId = bands[0]?.id;
 
       if (firstBandId) {
         if (next === 'newEvent' && !eventForm.bandId)
-          eventForm.setBandId(firstBandId);
+          selectBandForEvent(firstBandId);
         if (next === 'newSong' && !songForm.bandId)
           songForm.setBandId(firstBandId);
         if (next === 'newProposal' && !proposalForm.bandId)
@@ -268,9 +381,12 @@ export default function GlobalCreateMobile({
 
       setStep(next);
     },
-    [bands, eventForm, songForm, proposalForm, setStep]
+    [bands, eventForm, songForm, proposalForm, setStep, selectBandForEvent]
   );
 
+  // ─────────────────────────────────────────────────────────────
+  // Render
+  // ─────────────────────────────────────────────────────────────
   return (
     <IonModal isOpen={open} onDidDismiss={closeAll} className="gc-modal-root">
       <HeaderBar
@@ -286,7 +402,7 @@ export default function GlobalCreateMobile({
         <BackgroundFX />
 
         <div className="gc-main-content">
-          {/* Error message */}
+          {/* Shared error banner (hook-reported + createBandErr passthrough) */}
           {(error || bandForm.createBandErr) && (
             <div className="gc-error-box">
               {error || bandForm.createBandErr}
@@ -346,6 +462,7 @@ export default function GlobalCreateMobile({
           )}
         </div>
 
+        {/* EventPickers is mounted once and controlled via eventForm flags to avoid remount jitter */}
         <EventPickers eventForm={eventForm as any} />
       </IonContent>
     </IonModal>

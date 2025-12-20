@@ -1,18 +1,15 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import {
   IonContent,
-  IonHeader,
   IonIcon,
   IonPage,
   IonRefresher,
   IonRefresherContent,
-  IonToolbar,
 } from '@ionic/react';
-import { addCircleOutline } from 'ionicons/icons';
+import { addOutline, chevronForward, gridOutline } from 'ionicons/icons';
 import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
-import BandGridMobile from '../components/Bands/BandGridMobile';
-import EventInboxListMobile from '../components/Events/EventsInboxListMobile';
+import EventInboxListMobile from '../components/Events/EventInbox/EventsInboxListMobile';
 import { getBandsCache, setBandsCache } from '../lib/cache/bandCache';
 import { supabase } from '../lib/supabase';
 import type { BandWithRole } from '../types/bands';
@@ -23,8 +20,18 @@ export default function Home() {
   const initial = getBandsCache();
   const [bands, setBands] = React.useState<BandWithRole[]>(initial.bands);
   const [refreshing, setRefreshing] = React.useState(false);
+  const [selectedBandId, setSelectedBandId] = React.useState<string | 'all'>(
+    'all'
+  );
 
   const isEmpty = bands.length === 0;
+
+  // If only one band, auto-select it
+  React.useEffect(() => {
+    if (bands.length === 1 && selectedBandId === 'all') {
+      setSelectedBandId(bands[0].id);
+    }
+  }, [bands, selectedBandId]);
 
   const loadBands = React.useCallback(async () => {
     setRefreshing(true);
@@ -99,356 +106,512 @@ export default function Home() {
     [bands]
   );
 
+  const selectedBand = React.useMemo(
+    () => bands.find((b) => b.id === selectedBandId),
+    [bands, selectedBandId]
+  );
+
+  // Signed avatar URLs cache
+  const [signedAvatars, setSignedAvatars] = React.useState<
+    Record<string, string>
+  >({});
+
+  // Load signed URLs for band avatars
+  React.useEffect(() => {
+    let cancelled = false;
+
+    const loadAvatars = async () => {
+      const updates: Record<string, string> = {};
+
+      for (const band of bands) {
+        if (!band.avatar_url) continue;
+
+        // Skip if already cached
+        if (signedAvatars[band.id]) continue;
+
+        // If it's already a full URL, use it directly
+        if (
+          band.avatar_url.startsWith('http://') ||
+          band.avatar_url.startsWith('https://')
+        ) {
+          updates[band.id] = band.avatar_url;
+          continue;
+        }
+
+        // Normalize the path (remove bucket prefix if present)
+        let normalizedPath = band.avatar_url;
+        if (normalizedPath.startsWith('band-avatars/')) {
+          normalizedPath = normalizedPath.slice('band-avatars/'.length);
+        }
+
+        try {
+          const { data, error } = await supabase.storage
+            .from('band-avatars')
+            .createSignedUrl(normalizedPath, 60 * 60); // 1 hour
+
+          if (!error && data?.signedUrl) {
+            updates[band.id] = data.signedUrl;
+          }
+        } catch (e) {
+          console.warn('[Home] avatar signed url error', band.id, e);
+        }
+      }
+
+      if (!cancelled && Object.keys(updates).length > 0) {
+        setSignedAvatars((prev) => ({ ...prev, ...updates }));
+      }
+    };
+
+    loadAvatars();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [bands, signedAvatars]);
+
+  // Band colors - you can customize these or pull from band data
+  const getBandColor = (bandId: string) => {
+    // Generate a consistent color based on band ID
+    const colors = [
+      '#8B5CF6',
+      '#EC4899',
+      '#F59E0B',
+      '#06B6D4',
+      '#EF4444',
+      '#84CC16',
+    ];
+    const index =
+      bandId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) %
+      colors.length;
+    return colors[index];
+  };
+
+  // Get first letter or emoji for avatar
+  const getBandAvatar = (band: BandWithRole) => {
+    if (band.avatar_url) return null; // Will show image
+    return band.name.charAt(0).toUpperCase();
+  };
+
   return (
     <IonPage>
-      <IonHeader translucent className="ion-no-border">
-        <IonToolbar
-          style={{
-            '--background': isEmpty
-              ? 'rgba(15, 7, 32, 0.7)'
-              : 'rgba(5, 5, 9, 0.7)',
-            '--border-width': '0',
-            paddingTop: 'env(safe-area-inset-top)',
-            backdropFilter: 'blur(20px) saturate(180%)',
-            WebkitBackdropFilter: 'blur(20px) saturate(180%)',
-          }}
-        >
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: '12px 16px',
-              gap: 8,
-            }}
-          >
-            <span
-              style={{
-                fontSize: 20,
-                fontWeight: 800,
-                letterSpacing: '-0.02em',
-                color: '#fff',
-              }}
-            >
-              amplee
-            </span>
-          </div>
-        </IonToolbar>
-      </IonHeader>
-
       <IonContent
         fullscreen
-        scrollY={true}
-        forceOverscroll={false}
-        className="amp-no-overscroll"
-        style={{
-          ['--background' as any]: isEmpty
-            ? 'linear-gradient(to bottom, #0f0720, #1a0a2e, #050509)'
-            : '#050509',
-          ['--padding-top' as any]: '0px',
-          ['--padding-start' as any]: '0px',
-          ['--padding-end' as any]: '0px',
-          ['--padding-bottom' as any]:
-            'calc(24px + 56px + env(safe-area-inset-bottom))',
-        }}
+        scrollY={false}
+        style={
+          {
+            '--background': '#050509',
+            '--padding-top': '0px',
+            '--padding-start': '0px',
+            '--padding-end': '0px',
+            '--padding-bottom': '0px',
+          } as any
+        }
       >
         <IonRefresher slot="fixed" onIonRefresh={handleRefresh}>
           <IonRefresherContent />
         </IonRefresher>
 
-        {isEmpty && (
-          <>
-            <div
+        {/* Empty State */}
+        {isEmpty && !refreshing && (
+          <div
+            style={{
+              height: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '40px 24px',
+              textAlign: 'center',
+              background: '#050509',
+            }}
+          >
+            <img
+              src="/assets/icon/logo-transparent.png"
+              alt="Amplee"
               style={{
-                position: 'absolute',
-                inset: 0,
-                zIndex: 0,
-                pointerEvents: 'none',
+                width: 96,
+                height: 96,
+                marginBottom: 28,
+                animation: 'fadeInScale 0.6s ease-out forwards',
+                opacity: 0,
               }}
-            ></div>
-          </>
-        )}
+            />
 
-        <div
-          style={{
-            maxWidth: 960,
-            margin: '0 auto',
-            padding: isEmpty ? '40px 16px 24px' : '12px 16px 24px',
-            position: 'relative',
-            zIndex: 1,
-          }}
-        >
-          {isEmpty && !refreshing && (
-            <div
+            <h1
               style={{
-                textAlign: 'center',
-                paddingTop: 40,
-                paddingBottom: 60,
-                animation: 'ampFadeInUp 0.8s ease-out forwards',
+                margin: '0 0 16px',
+                fontSize: 32,
+                fontWeight: 800,
+                letterSpacing: '-0.02em',
+                color: '#fff',
+                animation: 'fadeInUp 0.6s ease-out 0.15s forwards',
+                opacity: 0,
               }}
             >
-              <div
+              Welcome to <span style={{ color: '#9333ea' }}>Amplee</span>
+            </h1>
+
+            <p
+              style={{
+                margin: '0 0 36px',
+                fontSize: 16,
+                color: 'rgba(255, 255, 255, 0.6)',
+                maxWidth: 320,
+                lineHeight: 1.5,
+                animation: 'fadeInUp 0.6s ease-out 0.25s forwards',
+                opacity: 0,
+              }}
+            >
+              Create your first band to connect, collaborate, and amplify your
+              music together.
+            </p>
+
+            <button
+              onClick={handleCreateFirstBand}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                padding: '16px 28px',
+                background: '#9333ea',
+                borderRadius: 16,
+                border: 'none',
+                color: '#fff',
+                fontSize: 16,
+                fontWeight: 700,
+                cursor: 'pointer',
+                boxShadow: '0 6px 20px rgba(147, 51, 234, 0.4)',
+                animation: 'fadeInUp 0.6s ease-out 0.35s forwards',
+                opacity: 0,
+              }}
+            >
+              <IonIcon icon={addOutline} style={{ fontSize: 22 }} />
+              Create Your First Band
+            </button>
+
+            <style>{`
+              @keyframes fadeInScale {
+                from {
+                  opacity: 0;
+                  transform: scale(0.85);
+                }
+                to {
+                  opacity: 1;
+                  transform: scale(1);
+                }
+              }
+              @keyframes fadeInUp {
+                from {
+                  opacity: 0;
+                  transform: translateY(20px);
+                }
+                to {
+                  opacity: 1;
+                  transform: translateY(0);
+                }
+              }
+            `}</style>
+          </div>
+        )}
+
+        {/* Main Layout with Side Nav */}
+        {!isEmpty && (
+          <div
+            style={{
+              display: 'flex',
+              height: '100%',
+              paddingTop: 'env(safe-area-inset-top)',
+            }}
+          >
+            {/* LEFT SIDE NAV - Independent scroll */}
+            <div
+              style={{
+                width: 62,
+                background: '#0a0a0a',
+                borderRight: '1px solid rgba(255,255,255,0.08)',
+                padding: '12px 0',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: 6,
+                overflowY: 'auto',
+                flexShrink: 0,
+                height: '100%',
+              }}
+            >
+              {/* All Bands Button - Only show if more than 1 band */}
+              {bands.length > 1 && (
+                <>
+                  <button
+                    onClick={() => setSelectedBandId('all')}
+                    style={{
+                      width: 44,
+                      height: 44,
+                      borderRadius: 12,
+                      background:
+                        selectedBandId === 'all'
+                          ? 'linear-gradient(135deg, #9333ea 0%, #7c3aed 100%)'
+                          : 'rgba(255,255,255,0.08)',
+                      border: 'none',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      transition: 'all 0.2s ease',
+                      position: 'relative',
+                      boxShadow:
+                        selectedBandId === 'all'
+                          ? '0 4px 12px rgba(147,51,234,0.3)'
+                          : 'none',
+                    }}
+                  >
+                    <IonIcon
+                      icon={gridOutline}
+                      style={{ fontSize: 20, color: '#fff' }}
+                    />
+                    {selectedBandId === 'all' && (
+                      <div
+                        style={{
+                          position: 'absolute',
+                          right: -1,
+                          width: 3,
+                          height: 24,
+                          background: '#fff',
+                          borderRadius: '3px 0 0 3px',
+                        }}
+                      />
+                    )}
+                  </button>
+
+                  <div
+                    style={{
+                      width: 28,
+                      height: 1,
+                      background: 'rgba(255,255,255,0.1)',
+                      margin: '4px 0',
+                    }}
+                  />
+                </>
+              )}
+
+              {/* Band Icons */}
+              {bands.map((band) => {
+                const isSelected = selectedBandId === band.id;
+                const avatarUrl = signedAvatars[band.id];
+                const selectedColor = '#8B5CF6';
+
+                return (
+                  <button
+                    key={band.id}
+                    onClick={() => setSelectedBandId(band.id)}
+                    style={{
+                      width: 46,
+                      height: 46,
+                      borderRadius: 14,
+                      padding: 0,
+                      background: avatarUrl
+                        ? 'transparent'
+                        : isSelected
+                        ? `linear-gradient(135deg, ${selectedColor} 0%, ${selectedColor}bb 100%)`
+                        : 'rgba(255,255,255,0.08)',
+                      border:
+                        isSelected && avatarUrl
+                          ? `2px solid ${selectedColor}`
+                          : 'none',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: 16,
+                      fontWeight: 700,
+                      color: '#fff',
+                      transition: 'all 0.2s ease',
+                      position: 'relative',
+                      boxShadow: isSelected
+                        ? `0 4px 12px ${selectedColor}40`
+                        : 'none',
+                      overflow: 'hidden',
+                    }}
+                  >
+                    {avatarUrl ? (
+                      <img
+                        src={avatarUrl}
+                        alt={band.name}
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'cover',
+                          display: 'block',
+                        }}
+                      />
+                    ) : (
+                      band.name.charAt(0).toUpperCase()
+                    )}
+                    {isSelected && (
+                      <div
+                        style={{
+                          position: 'absolute',
+                          right: -1,
+                          width: 3,
+                          height: 24,
+                          background: '#fff',
+                          borderRadius: '3px 0 0 3px',
+                        }}
+                      />
+                    )}
+                  </button>
+                );
+              })}
+
+              {/* Add Band Button */}
+              <button
+                onClick={handleCreateFirstBand}
                 style={{
-                  display: 'inline-flex',
+                  width: 44,
+                  height: 44,
+                  borderRadius: 12,
+                  background: 'transparent',
+                  border: '2px dashed rgba(255,255,255,0.15)',
+                  cursor: 'pointer',
+                  display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  width: 96,
-                  height: 96,
-                  borderRadius: 24,
-                  marginBottom: 28,
-                  boxShadow: '0 12px 40px rgba(147, 51, 234, 0.4)',
-                  background: 'rgba(137, 35, 232, 0.15)',
-                  backdropFilter: 'blur(20px)',
-                  border: '2px solid rgba(147, 51, 234, 0.3)',
-                  animation: 'ampScaleIn 0.6s ease-out forwards',
-                  position: 'relative',
-                  transition: 'transform 0.3s ease',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = 'scale(1.05)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = 'scale(1)';
-                }}
-              ></div>
-
-              <h1
-                style={{
-                  margin: '0 0 16px',
-                  fontSize: 36,
-                  fontWeight: 800,
-                  letterSpacing: '-0.02em',
-                  lineHeight: 1.2,
-                  animation: 'ampFadeInUp 0.8s ease-out 0.1s forwards',
-                  opacity: 0,
+                  marginTop: 4,
                 }}
               >
-                <div style={{ color: '#ffffff', marginBottom: 4 }}>
-                  WELCOME TO
-                </div>
-                <div
-                  style={{
-                    background:
-                      'linear-gradient(135deg, #c084fc 0%, #9333ea 50%, #7c3aed 100%)',
-                    WebkitBackgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent',
-                    backgroundClip: 'text',
-                  }}
-                >
-                  AMPLEE
-                </div>
-              </h1>
+                <IonIcon
+                  icon={addOutline}
+                  style={{ fontSize: 20, color: 'rgba(255,255,255,0.3)' }}
+                />
+              </button>
+            </div>
 
-              <p
-                style={{
-                  margin: '0 auto 36px',
-                  fontSize: 17,
-                  color: 'rgba(255, 255, 255, 0.7)',
-                  fontWeight: 500,
-                  maxWidth: 380,
-                  lineHeight: 1.6,
-                  animation: 'ampFadeInUp 0.8s ease-out 0.2s forwards',
-                  opacity: 0,
-                }}
-              >
-                Your journey starts here. Create your first band to connect,
-                collaborate, and amplify your music together.
-              </p>
-
+            {/* MAIN CONTENT */}
+            <IonContent
+              style={{
+                '--background': 'transparent',
+                flex: 1,
+              }}
+            >
+              {/* Selected Band Header - Sticky */}
               <div
                 style={{
-                  maxWidth: 420,
-                  margin: '0 auto',
-                  background: 'rgba(15, 7, 32, 0.6)',
-                  backdropFilter: 'blur(30px)',
-                  border: '1px solid rgba(147, 51, 234, 0.25)',
-                  borderRadius: 24,
-                  padding: '32px 28px',
-                  boxShadow:
-                    '0 20px 60px rgba(0, 0, 0, 0.4), 0 0 80px rgba(147, 51, 234, 0.08)',
-                  animation: 'ampFadeInUp 0.8s ease-out 0.3s forwards',
-                  opacity: 0,
+                  padding: '14px 16px',
+                  borderBottom: '1px solid rgba(255,255,255,0.08)',
+                  background: 'rgba(5, 5, 9, 0.95)',
+                  position: 'sticky',
+                  top: 0,
+                  zIndex: 10,
+                  backdropFilter: 'blur(20px)',
                 }}
               >
                 <div
+                  onClick={() => {
+                    if (selectedBandId !== 'all' && selectedBand) {
+                      nav(`/bands/${selectedBand.id}`);
+                    }
+                  }}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'center',
                     gap: 10,
-                    padding: '16px 24px',
-                    background:
-                      'linear-gradient(135deg, #9333ea 0%, #7c3aed 100%)',
-                    borderRadius: 16,
-                    color: '#fff',
-                    fontSize: 16,
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    boxShadow: '0 6px 20px rgba(147, 51, 234, 0.4)',
-                    transition: 'all 0.2s ease',
+                    cursor: selectedBandId !== 'all' ? 'pointer' : 'default',
                   }}
-                  onMouseDown={(e) => {
-                    e.currentTarget.style.transform = 'scale(0.98)';
-                  }}
-                  onMouseUp={(e) => {
-                    e.currentTarget.style.transform = 'scale(1)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.transform = 'scale(1)';
-                  }}
-                  onClick={handleCreateFirstBand}
                 >
-                  <IonIcon icon={addCircleOutline} style={{ fontSize: 24 }} />
-                  <span>Create Your First Band</span>
+                  {/* Only show avatar if viewing "All Bands" or have multiple bands */}
+                  {selectedBandId !== 'all' &&
+                    selectedBand &&
+                    bands.length > 1 && (
+                      <div
+                        style={{
+                          width: 36,
+                          height: 36,
+                          borderRadius: 10,
+                          background: `linear-gradient(135deg, ${getBandColor(
+                            selectedBand.id
+                          )}30 0%, ${getBandColor(selectedBand.id)}15 100%)`,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: signedAvatars[selectedBand.id] ? 0 : 16,
+                          fontWeight: 600,
+                          color: '#fff',
+                          overflow: 'hidden',
+                        }}
+                      >
+                        {signedAvatars[selectedBand.id] ? (
+                          <img
+                            src={signedAvatars[selectedBand.id]}
+                            alt={selectedBand.name}
+                            style={{
+                              width: '100%',
+                              height: '100%',
+                              objectFit: 'cover',
+                            }}
+                          />
+                        ) : (
+                          getBandAvatar(selectedBand)
+                        )}
+                      </div>
+                    )}
+                  <div style={{ flex: 1 }}>
+                    <div
+                      style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+                    >
+                      <h2
+                        style={{
+                          margin: 0,
+                          fontSize: 17,
+                          fontWeight: 600,
+                          color: '#fff',
+                        }}
+                      >
+                        {selectedBandId === 'all'
+                          ? 'All Bands'
+                          : selectedBand?.name}
+                      </h2>
+                      {selectedBandId !== 'all' && (
+                        <IonIcon
+                          icon={chevronForward}
+                          style={{
+                            fontSize: 16,
+                            color: 'rgba(255,255,255,0.4)',
+                          }}
+                        />
+                      )}
+                    </div>
+                    <span
+                      style={{
+                        fontSize: 12,
+                        color: 'rgba(255,255,255,0.45)',
+                      }}
+                    >
+                      {selectedBandId === 'all'
+                        ? `${bands.length} band${bands.length !== 1 ? 's' : ''}`
+                        : 'Tap to view band'}
+                    </span>
+                  </div>
                 </div>
-
-                <p
-                  style={{
-                    margin: '20px 0 0',
-                    fontSize: 13,
-                    color: 'rgba(255, 255, 255, 0.5)',
-                    lineHeight: 1.5,
-                  }}
-                >
-                  Or tap the{' '}
-                  <span
-                    style={{
-                      fontWeight: 700,
-                      color: 'rgba(255, 255, 255, 0.8)',
-                    }}
-                  >
-                    +
-                  </span>{' '}
-                  button in the bottom bar to get started.
-                </p>
               </div>
 
+              {/* Events List */}
               <div
                 style={{
-                  display: 'flex',
-                  justifyContent: 'center',
-                  marginTop: 48,
-                  animation: 'ampFadeIn 1s ease-out 0.5s forwards',
-                  opacity: 0,
-                }}
-              ></div>
-            </div>
-          )}
-
-          {!isEmpty && (
-            <div
-              style={{
-                marginBottom: 36,
-              }}
-            >
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 10,
-                  marginBottom: 14,
-                  paddingLeft: 4,
+                  padding: '0 12px',
+                  paddingBottom: 'calc(24px + env(safe-area-inset-bottom))',
                 }}
               >
-                <h2
-                  style={{
-                    margin: 0,
-                    fontWeight: 700,
-                    fontSize: 20,
-                    letterSpacing: -0.3,
-                    color: '#E5E7EB',
-                  }}
-                >
-                  Bands
-                </h2>
-              </div>
-
-              <div
-                style={{
-                  paddingLeft: 4,
-                }}
-              >
-                <BandGridMobile
-                  bands={bands}
-                  selectedId={undefined}
-                  onSelect={(b) => nav(`/bands/${b.id}`)}
-                  gapPx={12}
-                  avatarSize={88}
+                <EventInboxListMobile
+                  showAvatars={selectedBandId === 'all'}
+                  adminBandIds={adminBandIds}
+                  clientFilterBandId={
+                    selectedBandId !== 'all' ? selectedBandId : undefined
+                  }
                 />
               </div>
-            </div>
-          )}
-
-          {/* Event Chats Section */}
-          {!isEmpty && (
-            <div>
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 10,
-                  marginBottom: 14,
-                  paddingLeft: 4,
-                }}
-              >
-                <h2
-                  style={{
-                    margin: 0,
-                    fontWeight: 700,
-                    fontSize: 20,
-                    letterSpacing: -0.3,
-                    color: '#E5E7EB',
-                  }}
-                >
-                  Events
-                </h2>
-              </div>
-
-              <div
-                style={{
-                  marginLeft: 4,
-                }}
-              >
-                <EventInboxListMobile showAvatars adminBandIds={adminBandIds} />
-              </div>
-            </div>
-          )}
-        </div>
-
-        <style>{`
-
-
-          @keyframes ampScaleIn {
-            from {
-              opacity: 0;
-              transform: scale(0.85);
-            }
-            to {
-              opacity: 1;
-              transform: scale(1);
-            }
-          }
-
-          @keyframes ampFadeIn {
-            from {
-              opacity: 0;
-            }
-            to {
-              opacity: 1;
-            }
-          }
-
-          @keyframes ampFadeInUp {
-            from {
-              opacity: 0;
-              transform: translateY(30px);
-            }
-            to {
-              opacity: 1;
-              transform: translateY(0);
-            }
-          }
-        `}</style>
+            </IonContent>
+          </div>
+        )}
       </IonContent>
     </IonPage>
   );

@@ -34,6 +34,20 @@ export default function EventDetailsCard({
 }: EventDetailsCardProps) {
   const allConfirmed = inviteeTotal > 0 && acceptedCount >= inviteeTotal;
 
+  // Debug logging
+  console.log('[EventDetailsCard] Computing status:', {
+    event_is_cancelled: event.is_cancelled,
+    event_is_booked: event.is_booked,
+    inviteeTotal,
+    acceptedCount,
+    allConfirmed,
+    finalStatus: event.is_cancelled
+      ? 'CANCELLED'
+      : event.is_booked || allConfirmed
+      ? 'BOOKED'
+      : 'PENDING',
+  });
+
   const status = useMemo(() => {
     if (event.is_cancelled) {
       return {
@@ -117,6 +131,15 @@ export default function EventDetailsCard({
                 color: status.color,
                 textTransform: 'uppercase',
                 letterSpacing: 0.5,
+              }}
+              onClick={() => {
+                console.log('[EventDetailsCard] Status badge clicked:', {
+                  event,
+                  inviteeTotal,
+                  acceptedCount,
+                  allConfirmed,
+                  status: status.label,
+                });
               }}
             >
               {status.label}

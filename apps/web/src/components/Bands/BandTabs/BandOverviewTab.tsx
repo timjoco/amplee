@@ -1,8 +1,11 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
-import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
+import EventIcon from '@mui/icons-material/Event';
+import HowToVoteIcon from '@mui/icons-material/HowToVote';
+import LibraryMusicIcon from '@mui/icons-material/LibraryMusic';
+import MusicNoteIcon from '@mui/icons-material/MusicNote';
+import PeopleIcon from '@mui/icons-material/People';
 import PlaceIcon from '@mui/icons-material/Place';
 import {
   Box,
@@ -10,21 +13,14 @@ import {
   Chip,
   CircularProgress,
   Divider,
-  ListItemButton,
-  Paper,
   Stack,
   Typography,
 } from '@mui/material';
-import Grid from '@mui/material/Grid';
 import { alpha } from '@mui/material/styles';
 import NextLink from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabaseBrowser } from '../../../lib/supabaseClient';
 import AvatarImage from '../../ui/AvatarImage';
-import RolePill from '../../ui/RolePill';
-
-import { ProposedGigsOverviewSection } from '../../Events/Proposals/ProposedGigsOverviewSection';
-import { BandSummaryOverviewSection } from './BandSummaryOverviewSection';
 
 type EventRow = {
   is_cancelled: any;
@@ -36,20 +32,44 @@ type EventRow = {
   location: string | null;
 };
 
-type RosterRow = {
+type ProposalRow = {
+  id: string;
+  title: string;
+  created_at: string;
+  vote_count?: number;
+};
+
+type MemberRow = {
   user_id: string;
   name: string;
   avatar_url?: string | null;
-  updated_at?: string | null;
   role: 'admin' | 'member';
   title?: string | null;
+};
+
+type ActivityItem = {
+  id: string;
+  type: 'event' | 'proposal' | 'song' | 'practice';
+  title: string;
+  subtitle: string;
+  timestamp: string;
+  user_name?: string;
+  user_avatar?: string;
 };
 
 export default function BandOverviewTab({ bandId }: { bandId: string }) {
   const sb = useMemo(() => supabaseBrowser(), []);
   const [loading, setLoading] = useState(true);
-  const [nextEvent, setNextEvent] = useState<EventRow | null>(null);
-  const [roster, setRoster] = useState<RosterRow[]>([]);
+  const [upcomingEvents, setUpcomingEvents] = useState<EventRow[]>([]);
+  const [proposals, setProposals] = useState<ProposalRow[]>([]);
+  const [members, setMembers] = useState<MemberRow[]>([]);
+  const [recentActivity, setRecentActivity] = useState<ActivityItem[]>([]);
+  const [stats, setStats] = useState({
+    totalEvents: 0,
+    totalProposals: 0,
+    totalSongs: 0,
+    totalMembers: 0,
+  });
   const [err, setErr] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
 
@@ -63,86 +83,163 @@ export default function BandOverviewTab({ bandId }: { bandId: string }) {
       }),
     []
   );
-  const sectionTitleSx = {
-    mt: 1,
-    mb: 1,
-    letterSpacing: 0.3,
-    fontWeight: 700,
-  } as const;
 
-  const gotoTab = (tab: 'overview' | 'events' | 'proposals' | 'roster') =>
+  const getRelativeTime = (timestamp: string) => {
+    const now = new Date();
+    const then = new Date(timestamp);
+    const diffMs = now.getTime() - then.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffMins < 1) return 'just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return then.toLocaleDateString();
+  };
+
+  const handleEventOpen = useCallback((eventId: string) => {
     window.dispatchEvent(
-      new CustomEvent('amplee:band-tab', { detail: { tab } })
+      new CustomEvent('amplee:open-event', { detail: { eventId } })
     );
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
     setErr(null);
 
     try {
-      const { data: events, error: eErr } = await sb
-        .from('events')
-        .select('id, band_id, title, type, starts_at, location, is_cancelled')
-        .eq('band_id', bandId)
-        .gte('starts_at', new Date().toISOString())
-        .order('starts_at', { ascending: true })
-        .limit(1);
-      if (eErr) throw eErr;
-      const e = (events?.[0] as EventRow) ?? null;
-      setNextEvent(e ?? null);
-
-      const { data: members, error: mErr } = await sb
-        .from('band_members')
-        .select('user_id, role, title')
-        .eq('band_id', bandId);
-      if (mErr) throw mErr;
-
       const {
         data: { user },
       } = await sb.auth.getUser();
 
       let admin = false;
       if (user) {
-        const { data: bm, error: bmErr } = await sb
+        const { data: bm } = await sb
           .from('band_members')
           .select('role')
           .eq('band_id', bandId)
           .eq('user_id', user.id)
           .maybeSingle();
-
-        if (bmErr) throw bmErr;
         admin = bm?.role === 'admin';
       }
       setIsAdmin(admin);
 
-      const ids = (members ?? []).map((m: any) => m.user_id);
-      if (ids.length === 0) {
-        setRoster([]);
-        return;
+      // Fetch upcoming events
+      const { data: events, error: eErr } = await sb
+        .from('events')
+        .select('id, band_id, title, type, starts_at, location, is_cancelled')
+        .eq('band_id', bandId)
+        .gte('starts_at', new Date().toISOString())
+        .order('starts_at', { ascending: true })
+        .limit(10);
+      if (eErr) throw eErr;
+      setUpcomingEvents((events ?? []) as EventRow[]);
+
+      // Fetch proposals
+      const { data: proposalsData } = await sb
+        .from('proposals')
+        .select('id, title, created_at, status')
+        .eq('band_id', bandId)
+        .eq('status', 'active')
+        .order('created_at', { ascending: false })
+        .limit(10);
+      setProposals(
+        (proposalsData ?? []).map((p: any) => ({
+          id: p.id,
+          title: p.title,
+          created_at: p.created_at,
+        }))
+      );
+
+      // Fetch members
+      const { data: membersData } = await sb
+        .from('band_members')
+        .select('user_id, role, title')
+        .eq('band_id', bandId);
+
+      const userIds = (membersData ?? []).map((m: any) => m.user_id);
+      if (userIds.length > 0) {
+        const { data: profiles } = await sb
+          .from('profiles')
+          .select('id, display_name, first_name, avatar_url')
+          .in('id', userIds);
+
+        const profilesById = new Map(
+          (profiles ?? []).map((p: any) => [p.id, p])
+        );
+
+        setMembers(
+          (membersData ?? []).map((m: any) => {
+            const profile = profilesById.get(m.user_id);
+            return {
+              user_id: m.user_id,
+              name: profile?.display_name ?? profile?.first_name ?? 'Member',
+              avatar_url: profile?.avatar_url,
+              role: m.role,
+              title: m.title,
+            };
+          })
+        );
       }
 
-      const { data: profiles, error: pErr } = await sb
-        .from('profiles')
-        .select('id, display_name, first_name, avatar_url, updated_at')
-        .in('id', ids);
-      if (pErr) throw pErr;
+      // Build stats
+      const monthStart = new Date();
+      monthStart.setDate(1);
+      monthStart.setHours(0, 0, 0, 0);
 
-      const byId = new Map<string, any>(
-        (profiles ?? []).map((p: any) => [p.id, p])
-      );
-      const merged: RosterRow[] = (members ?? []).map((m: any) => {
-        const p = byId.get(m.user_id) || {};
-        return {
-          user_id: m.user_id,
-          name: p.display_name ?? p.first_name ?? 'Member',
-          avatar_url: p.avatar_url ?? null,
-          updated_at: p.updated_at ?? null,
-          role: m.role === 'admin' ? 'admin' : 'member',
-          title: m.title ?? null,
-        };
+      const { count: monthEvents } = await sb
+        .from('events')
+        .select('*', { count: 'exact', head: true })
+        .eq('band_id', bandId)
+        .gte('starts_at', monthStart.toISOString());
+
+      const { count: totalProposals } = await sb
+        .from('proposals')
+        .select('*', { count: 'exact', head: true })
+        .eq('band_id', bandId)
+        .eq('status', 'active');
+
+      const { count: totalSongs } = await sb
+        .from('band_songs')
+        .select('*', { count: 'exact', head: true })
+        .eq('band_id', bandId);
+
+      setStats({
+        totalEvents: monthEvents ?? 0,
+        totalProposals: totalProposals ?? 0,
+        totalSongs: totalSongs ?? 0,
+        totalMembers: userIds.length,
       });
 
-      setRoster(merged);
+      // Build activity feed
+      const activity: ActivityItem[] = [];
+      (proposalsData ?? []).slice(0, 3).forEach((p: any) => {
+        activity.push({
+          id: `proposal-${p.id}`,
+          type: 'proposal',
+          title: p.title,
+          subtitle: 'New proposal created',
+          timestamp: p.created_at,
+        });
+      });
+
+      (events ?? []).slice(0, 3).forEach((e: any) => {
+        activity.push({
+          id: `event-${e.id}`,
+          type: 'event',
+          title: e.title,
+          subtitle: e.type === 'show' ? 'Show scheduled' : 'Practice scheduled',
+          timestamp: e.starts_at || new Date().toISOString(),
+        });
+      });
+
+      activity.sort(
+        (a, b) =>
+          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+      );
+      setRecentActivity(activity.slice(0, 10));
     } catch (e: any) {
       setErr(e?.message || 'Failed to load overview');
     } finally {
@@ -154,284 +251,668 @@ export default function BandOverviewTab({ bandId }: { bandId: string }) {
     void load();
   }, [load]);
 
+  if (loading) {
+    return (
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          minHeight: 400,
+        }}
+      >
+        <Stack alignItems="center" spacing={2}>
+          <CircularProgress size={48} />
+          <Typography>Loading overview…</Typography>
+        </Stack>
+      </Box>
+    );
+  }
+
+  if (err) {
+    return (
+      <Box sx={{ p: 3 }}>
+        <Typography color="error">{err}</Typography>
+      </Box>
+    );
+  }
+
   return (
-    <Box sx={{ px: { xs: 2, md: 3 }, py: { xs: 2, md: 3 } }}>
-      <Grid container spacing={2.5} sx={{ pb: 1, alignItems: 'stretch' }}>
-        <Grid size={{ xs: 12, md: 8 }} sx={{ height: '100%' }}>
-          <Typography variant="subtitle1" sx={sectionTitleSx}>
-            Next Upcoming Event
-          </Typography>
+    <Box
+      sx={{
+        display: 'flex',
+        height: '100%',
+        overflow: 'hidden',
+      }}
+    >
+      {/* Main Content Area */}
+      <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+        {/* Top Bar */}
+        <Box
+          sx={{
+            px: 3,
+            py: 2.5,
+            borderBottom: (t) =>
+              `1px solid ${alpha(t.palette.primary.main, 0.12)}`,
+          }}
+        >
+          <Stack
+            direction="row"
+            alignItems="center"
+            justifyContent="space-between"
+          >
+            <Stack direction="row" alignItems="center" spacing={2}>
+              <PeopleIcon sx={{ fontSize: 24, opacity: 0.7 }} />
+              <Typography variant="h6" fontWeight={700} letterSpacing={0.3}>
+                Overview
+              </Typography>
+            </Stack>
 
-          <CardLike loading={loading} err={err}>
-            {!nextEvent ? (
-              isAdmin ? (
-                <EmptyHint
-                  text="No upcoming events scheduled."
-                  actionLabel="Create event"
-                  href={`/bands/${bandId}/events/new`}
-                />
-              ) : (
-                <Stack spacing={2}>
-                  <Typography sx={{ opacity: 0.7 }}>
-                    No Upcoming Events Scheduled.
-                  </Typography>
-                </Stack>
-              )
-            ) : (
-              <>
-                <ListItemButton
-                  component={NextLink}
-                  href={`/bands/${bandId}/events/${nextEvent.id}`}
-                  sx={(t) => ({
-                    px: 1.25,
-                    py: 1.25,
-                    alignItems: 'flex-start',
-                    '&:hover': {
-                      backgroundColor: alpha(t.palette.primary.main, 0.06),
-                      borderColor: alpha(t.palette.primary.main, 0.16),
-                      borderRadius: 2,
-                    },
-                  })}
-                >
-                  <Box
-                    sx={{
-                      display: 'grid',
-                      gridTemplateColumns: '1fr auto',
-                      columnGap: 1,
-                      width: '100%',
-                      minWidth: 0,
-                    }}
-                  >
-                    {/* Content */}
-                    <Stack spacing={1.25} sx={{ minWidth: 0 }}>
-                      <Typography
-                        variant="h6"
-                        fontWeight={900}
-                        letterSpacing={0.2}
-                        noWrap
-                        title={nextEvent.title}
-                      >
-                        {nextEvent.title}
-                      </Typography>
-
-                      <Stack
-                        direction="row"
-                        spacing={1.5}
-                        alignItems="center"
-                        sx={{ flexWrap: 'wrap' }}
-                      >
-                        {nextEvent.location && (
-                          <RowIconText
-                            icon={<PlaceIcon fontSize="small" />}
-                            text={nextEvent.location}
-                          />
-                        )}
-                        {nextEvent.starts_at && (
-                          <RowIconText
-                            icon={<CalendarMonthIcon fontSize="small" />}
-                            text={timeFmt.format(new Date(nextEvent.starts_at))}
-                          />
-                        )}
-                      </Stack>
-                    </Stack>
-                  </Box>
-                </ListItemButton>
-
-                <Divider />
-
-                <Stack direction="row" spacing={1} sx={{ pt: 1 }}>
-                  <Button
-                    onClick={() => gotoTab('events')}
-                    variant="outlined"
-                    sx={{ fontWeight: 900, borderRadius: 2 }}
-                  >
-                    View all events
-                  </Button>
-                </Stack>
-              </>
-            )}
-          </CardLike>
-        </Grid>
-        <Grid size={{ xs: 12, md: 4 }} sx={{ height: '100%' }}>
-          <Typography variant="subtitle1" sx={sectionTitleSx}>
-            Band Summary
-          </Typography>
-          <BandSummaryOverviewSection bandId={bandId} CardLike={CardLike} />
-        </Grid>
-      </Grid>
-      <Grid container spacing={2.5} sx={{ pb: 1, alignItems: 'stretch' }}>
-        {/* second row on overview*/}
-        <Grid size={{ xs: 12, md: 8 }} sx={{ height: '100%' }}>
-          <ProposedGigsOverviewSection
-            bandId={bandId}
-            maxItems={3}
-            sectionTitleSx={sectionTitleSx}
-            CardLike={CardLike}
-            EmptyHint={EmptyHint}
-            isAdmin={isAdmin}
-            gotoTab={gotoTab}
-          />
-        </Grid>
-        <Grid size={{ xs: 12, md: 4 }} sx={{ height: '100%' }}>
-          <Typography variant="subtitle1" sx={sectionTitleSx}>
-            Band Members
-          </Typography>
-          <CardLike loading={loading} err={err}>
-            <Stack divider={<Divider sx={{ opacity: 0.12 }} />} spacing={0.75}>
-              {roster.slice(0, 8).map((r) => (
-                <Stack
-                  key={r.user_id}
-                  direction="row"
-                  alignItems="center"
-                  spacing={1}
-                  sx={{ py: 0.5 }}
-                >
-                  <AvatarImage
-                    name={r.name}
-                    bucket="profile-avatars"
-                    srcGuess={r.avatar_url || undefined}
-                    size={32}
-                  />
-                  <Box sx={{ minWidth: 0, flex: 1 }}>
-                    <Typography noWrap fontWeight={700}>
-                      {r.name}
-                    </Typography>
-                  </Box>
-
-                  {r.title && (
-                    <Chip
-                      size="small"
-                      label={r.title}
-                      sx={{
-                        mr: 1,
-                        textTransform: 'capitalize',
-                        height: 24,
-                        borderRadius: 12,
-                        border: (t) =>
-                          `1px solid ${alpha(t.palette.primary.main, 0.24)}`,
-                      }}
-                    />
-                  )}
-                  <RolePill role={r.role} size="small" />
-                </Stack>
-              ))}
-
-              {roster.length > 8 && (
-                <Typography variant="caption" sx={{ opacity: 0.7, pt: 0.5 }}>
-                  +{roster.length - 8} more
-                </Typography>
-              )}
-              <Divider />
-
-              <Stack direction="row" spacing={1} sx={{ pt: 1 }}>
+            {isAdmin && (
+              <Stack direction="row" spacing={1}>
                 <Button
                   component={NextLink}
-                  href={`/bands/${bandId}?tab=roster`}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    gotoTab('roster');
+                  href={`/bands/${bandId}/events/new`}
+                  size="small"
+                  variant="contained"
+                  sx={{
+                    borderRadius: 2,
+                    textTransform: 'none',
+                    fontWeight: 600,
+                    bgcolor: '#10B981',
+                    '&:hover': { bgcolor: '#059669' },
                   }}
-                  variant="outlined"
-                  sx={{ fontWeight: 900, borderRadius: 2 }}
                 >
-                  View full roster
+                  New Event
                 </Button>
               </Stack>
+            )}
+          </Stack>
+        </Box>
+
+        {/* Content Area - Scrollable */}
+        <Box sx={{ flex: 1, overflow: 'auto' }}>
+          {/* Upcoming Events Section */}
+          <Box sx={{ px: 3, py: 3 }}>
+            <Typography
+              variant="overline"
+              sx={{
+                fontWeight: 700,
+                letterSpacing: 1,
+                opacity: 0.6,
+                fontSize: '0.75rem',
+                mb: 2,
+                display: 'block',
+              }}
+            >
+              Upcoming Events — {upcomingEvents.length}
+            </Typography>
+
+            {upcomingEvents.length === 0 ? (
+              <Box
+                sx={(t) => ({
+                  py: 6,
+                  textAlign: 'center',
+                  border: `1px dashed ${alpha(t.palette.primary.main, 0.2)}`,
+                  borderRadius: 2,
+                })}
+              >
+                <EventIcon sx={{ fontSize: 48, opacity: 0.3, mb: 1 }} />
+                <Typography variant="body2" sx={{ opacity: 0.6 }}>
+                  No upcoming events scheduled
+                </Typography>
+              </Box>
+            ) : (
+              <Stack spacing={0}>
+                {upcomingEvents.slice(0, 5).map((event, idx) => (
+                  <Box key={event.id}>
+                    <Box
+                      onClick={() => handleEventOpen(event.id)}
+                      sx={(t) => ({
+                        px: 2,
+                        py: 2.5,
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease',
+                        borderRadius: 2,
+                        '&:hover': {
+                          bgcolor: alpha(t.palette.primary.main, 0.04),
+                        },
+                      })}
+                    >
+                      <Stack direction="row" spacing={2} alignItems="center">
+                        <Box
+                          sx={{
+                            width: 48,
+                            height: 48,
+                            borderRadius: '50%',
+                            bgcolor: alpha('#10B981', 0.15),
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0,
+                          }}
+                        >
+                          <EventIcon sx={{ color: '#10B981', fontSize: 24 }} />
+                        </Box>
+
+                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                          <Typography
+                            variant="body1"
+                            fontWeight={700}
+                            sx={{ mb: 0.5 }}
+                            noWrap
+                          >
+                            {event.title}
+                          </Typography>
+                          <Stack
+                            direction="row"
+                            spacing={2}
+                            sx={{ flexWrap: 'wrap' }}
+                          >
+                            {event.starts_at && (
+                              <Stack
+                                direction="row"
+                                spacing={0.5}
+                                alignItems="center"
+                              >
+                                <CalendarMonthIcon
+                                  sx={{ fontSize: 16, opacity: 0.6 }}
+                                />
+                                <Typography
+                                  variant="body2"
+                                  sx={{ opacity: 0.7 }}
+                                >
+                                  {timeFmt.format(new Date(event.starts_at))}
+                                </Typography>
+                              </Stack>
+                            )}
+                            {event.location && (
+                              <Stack
+                                direction="row"
+                                spacing={0.5}
+                                alignItems="center"
+                              >
+                                <PlaceIcon
+                                  sx={{ fontSize: 16, opacity: 0.6 }}
+                                />
+                                <Typography
+                                  variant="body2"
+                                  sx={{ opacity: 0.7 }}
+                                >
+                                  {event.location}
+                                </Typography>
+                              </Stack>
+                            )}
+                          </Stack>
+                        </Box>
+
+                        <Chip
+                          label={event.type}
+                          size="small"
+                          sx={{
+                            textTransform: 'capitalize',
+                            bgcolor: alpha('#10B981', 0.1),
+                            color: '#10B981',
+                            fontWeight: 600,
+                            border: `1px solid ${alpha('#10B981', 0.2)}`,
+                          }}
+                        />
+                      </Stack>
+                    </Box>
+                    {idx < upcomingEvents.slice(0, 5).length - 1 && (
+                      <Divider sx={{ opacity: 0.1 }} />
+                    )}
+                  </Box>
+                ))}
+              </Stack>
+            )}
+          </Box>
+
+          <Divider sx={{ opacity: 0.12 }} />
+
+          {/* Active Proposals Section */}
+          <Box sx={{ px: 3, py: 3 }}>
+            <Stack
+              direction="row"
+              alignItems="center"
+              justifyContent="space-between"
+              sx={{ mb: 2 }}
+            >
+              <Typography
+                variant="overline"
+                sx={{
+                  fontWeight: 700,
+                  letterSpacing: 1,
+                  opacity: 0.6,
+                  fontSize: '0.75rem',
+                }}
+              >
+                Active Proposals — {proposals.length}
+              </Typography>
+              {isAdmin && proposals.length > 0 && (
+                <Button
+                  component={NextLink}
+                  href={`/bands/${bandId}/proposals`}
+                  size="small"
+                  sx={{
+                    textTransform: 'none',
+                    fontWeight: 600,
+                    fontSize: '0.8125rem',
+                  }}
+                >
+                  View All
+                </Button>
+              )}
             </Stack>
-          </CardLike>
-        </Grid>
-      </Grid>
+
+            {proposals.length === 0 ? (
+              <Box
+                sx={(t) => ({
+                  py: 6,
+                  textAlign: 'center',
+                  border: `1px dashed ${alpha(t.palette.primary.main, 0.2)}`,
+                  borderRadius: 2,
+                })}
+              >
+                <HowToVoteIcon sx={{ fontSize: 48, opacity: 0.3, mb: 1 }} />
+                <Typography variant="body2" sx={{ opacity: 0.6 }}>
+                  No active proposals
+                </Typography>
+              </Box>
+            ) : (
+              <Stack spacing={0}>
+                {proposals.slice(0, 3).map((proposal, idx) => (
+                  <Box key={proposal.id}>
+                    <Box
+                      component={NextLink}
+                      href={`/bands/${bandId}/proposals/${proposal.id}`}
+                      sx={(t) => ({
+                        px: 2,
+                        py: 2.5,
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease',
+                        borderRadius: 2,
+                        textDecoration: 'none',
+                        color: 'inherit',
+                        display: 'block',
+                        '&:hover': {
+                          bgcolor: alpha(t.palette.primary.main, 0.04),
+                        },
+                      })}
+                    >
+                      <Stack direction="row" spacing={2} alignItems="center">
+                        <Box
+                          sx={{
+                            width: 48,
+                            height: 48,
+                            borderRadius: '50%',
+                            bgcolor: alpha('#F59E0B', 0.15),
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0,
+                          }}
+                        >
+                          <HowToVoteIcon
+                            sx={{ color: '#F59E0B', fontSize: 24 }}
+                          />
+                        </Box>
+
+                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                          <Typography
+                            variant="body1"
+                            fontWeight={700}
+                            sx={{ mb: 0.5 }}
+                            noWrap
+                          >
+                            {proposal.title}
+                          </Typography>
+                          <Typography variant="body2" sx={{ opacity: 0.7 }}>
+                            Created {getRelativeTime(proposal.created_at)} •
+                            Pending votes
+                          </Typography>
+                        </Box>
+
+                        <Chip
+                          label="Active"
+                          size="small"
+                          sx={{
+                            bgcolor: alpha('#F59E0B', 0.1),
+                            color: '#F59E0B',
+                            fontWeight: 600,
+                            border: `1px solid ${alpha('#F59E0B', 0.2)}`,
+                          }}
+                        />
+                      </Stack>
+                    </Box>
+                    {idx < proposals.slice(0, 3).length - 1 && (
+                      <Divider sx={{ opacity: 0.1 }} />
+                    )}
+                  </Box>
+                ))}
+              </Stack>
+            )}
+          </Box>
+
+          <Divider sx={{ opacity: 0.12 }} />
+
+          {/* Band Members Section */}
+          <Box sx={{ px: 3, py: 3 }}>
+            <Stack
+              direction="row"
+              alignItems="center"
+              justifyContent="space-between"
+              sx={{ mb: 2 }}
+            >
+              <Typography
+                variant="overline"
+                sx={{
+                  fontWeight: 700,
+                  letterSpacing: 1,
+                  opacity: 0.6,
+                  fontSize: '0.75rem',
+                }}
+              >
+                Band Members — {members.length}
+              </Typography>
+              {members.length > 5 && (
+                <Button
+                  size="small"
+                  sx={{
+                    textTransform: 'none',
+                    fontWeight: 600,
+                    fontSize: '0.8125rem',
+                  }}
+                  onClick={() =>
+                    window.dispatchEvent(
+                      new CustomEvent('amplee:band-tab', {
+                        detail: { tab: 'roster' },
+                      })
+                    )
+                  }
+                >
+                  View All
+                </Button>
+              )}
+            </Stack>
+
+            <Stack spacing={0}>
+              {members.slice(0, 5).map((member, idx) => (
+                <Box key={member.user_id}>
+                  <Box
+                    sx={(t) => ({
+                      px: 2,
+                      py: 2,
+                      transition: 'all 0.15s ease',
+                      borderRadius: 2,
+                      '&:hover': {
+                        bgcolor: alpha(t.palette.primary.main, 0.04),
+                      },
+                    })}
+                  >
+                    <Stack direction="row" spacing={2} alignItems="center">
+                      <Box sx={{ position: 'relative' }}>
+                        <AvatarImage
+                          name={member.name}
+                          bucket="profile-avatars"
+                          srcGuess={member.avatar_url || undefined}
+                          size={40}
+                        />
+                        <Box
+                          sx={{
+                            position: 'absolute',
+                            bottom: -2,
+                            right: -2,
+                            width: 14,
+                            height: 14,
+                            borderRadius: '50%',
+                            bgcolor: '#10B981',
+                            border: '3px solid',
+                            borderColor: 'background.default',
+                          }}
+                        />
+                      </Box>
+
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Typography variant="body1" fontWeight={700} noWrap>
+                          {member.name}
+                        </Typography>
+                        {member.title && (
+                          <Typography
+                            variant="body2"
+                            sx={{ opacity: 0.7 }}
+                            noWrap
+                          >
+                            {member.title}
+                          </Typography>
+                        )}
+                      </Box>
+
+                      {member.role === 'admin' && (
+                        <Chip
+                          label="Admin"
+                          size="small"
+                          sx={{
+                            bgcolor: alpha('#A78BFA', 0.1),
+                            color: '#A78BFA',
+                            fontWeight: 600,
+                            height: 24,
+                            fontSize: '0.75rem',
+                          }}
+                        />
+                      )}
+                    </Stack>
+                  </Box>
+                  {idx < members.slice(0, 5).length - 1 && (
+                    <Divider sx={{ opacity: 0.1 }} />
+                  )}
+                </Box>
+              ))}
+            </Stack>
+          </Box>
+        </Box>
+      </Box>
+
+      {/* Right Sidebar - Active Now */}
+      <Box
+        sx={{
+          width: 320,
+          flexShrink: 0,
+          borderLeft: (t) => `1px solid ${alpha(t.palette.primary.main, 0.12)}`,
+          display: { xs: 'none', xl: 'flex' },
+          flexDirection: 'column',
+          overflow: 'hidden',
+        }}
+      >
+        <ActiveNowSidebar
+          stats={stats}
+          recentActivity={recentActivity.slice(0, 5)}
+          getRelativeTime={getRelativeTime}
+        />
+      </Box>
     </Box>
   );
 }
 
-function CardLike({
-  title,
-  children,
-  loading,
-  err,
+// Active Now Sidebar
+function ActiveNowSidebar({
+  stats,
+  recentActivity,
+  getRelativeTime,
 }: {
-  title?: string;
-  children: React.ReactNode;
-  loading?: boolean;
-  err?: string | null;
+  stats: {
+    totalEvents: number;
+    totalProposals: number;
+    totalSongs: number;
+    totalMembers: number;
+  };
+  recentActivity: ActivityItem[];
+  getRelativeTime: (ts: string) => string;
 }) {
-  return (
-    <Paper
-      sx={(t) => ({
-        height: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        flexGrow: 1,
-        p: { xs: 2, md: 2.5 },
-        borderRadius: 2,
-        border: `1px solid ${alpha(t.palette.primary.main, 0.18)}`,
-        background:
-          'linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02))',
-      })}
-    >
-      <Stack spacing={1.5}>
-        <Typography variant="h6" fontWeight={900} letterSpacing={0.2}>
-          {title}
-        </Typography>
+  const getActivityIcon = (type: string) => {
+    switch (type) {
+      case 'event':
+        return <EventIcon sx={{ fontSize: 16 }} />;
+      case 'proposal':
+        return <HowToVoteIcon sx={{ fontSize: 16 }} />;
+      case 'song':
+        return <MusicNoteIcon sx={{ fontSize: 16 }} />;
+      default:
+        return <EventIcon sx={{ fontSize: 16 }} />;
+    }
+  };
 
-        {loading ? (
-          <Stack direction="row" alignItems="center" spacing={1}>
-            <CircularProgress size={18} />
-            <Typography variant="body2">Loading…</Typography>
-          </Stack>
-        ) : err ? (
-          <Typography variant="body2" color="error">
-            {err}
-          </Typography>
-        ) : (
-          children
-        )}
+  const getActivityColor = (type: string) => {
+    switch (type) {
+      case 'event':
+        return '#10B981';
+      case 'proposal':
+        return '#F59E0B';
+      case 'song':
+        return '#EC4899';
+      default:
+        return '#6B7280';
+    }
+  };
+
+  return (
+    <Box sx={{ p: 3 }}>
+      <Typography
+        variant="subtitle2"
+        sx={{
+          fontWeight: 700,
+          letterSpacing: 0.5,
+          opacity: 0.7,
+          mb: 2,
+        }}
+      >
+        ACTIVE NOW
+      </Typography>
+
+      {/* Quick Stats */}
+      <Stack spacing={2} sx={{ mb: 3 }}>
+        <StatRow
+          icon={<EventIcon />}
+          label="Events This Month"
+          value={stats.totalEvents}
+          color="#10B981"
+        />
+        <StatRow
+          icon={<HowToVoteIcon />}
+          label="Active Proposals"
+          value={stats.totalProposals}
+          color="#F59E0B"
+        />
+        <StatRow
+          icon={<LibraryMusicIcon />}
+          label="Songs in Library"
+          value={stats.totalSongs}
+          color="#EC4899"
+        />
+        <StatRow
+          icon={<PeopleIcon />}
+          label="Band Members"
+          value={stats.totalMembers}
+          color="#A78BFA"
+        />
       </Stack>
-    </Paper>
+
+      <Divider sx={{ my: 2, opacity: 0.1 }} />
+
+      {/* Recent Activity */}
+      <Typography
+        variant="subtitle2"
+        sx={{
+          fontWeight: 700,
+          letterSpacing: 0.5,
+          opacity: 0.7,
+          mb: 2,
+        }}
+      >
+        RECENT ACTIVITY
+      </Typography>
+
+      <Stack spacing={2}>
+        {recentActivity.map((item) => (
+          <Stack key={item.id} direction="row" spacing={1.5}>
+            <Box
+              sx={{
+                width: 32,
+                height: 32,
+                borderRadius: '50%',
+                bgcolor: alpha(getActivityColor(item.type), 0.15),
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: getActivityColor(item.type),
+                flexShrink: 0,
+              }}
+            >
+              {getActivityIcon(item.type)}
+            </Box>
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+              <Typography
+                variant="body2"
+                fontWeight={700}
+                noWrap
+                sx={{ fontSize: '0.8125rem' }}
+              >
+                {item.title}
+              </Typography>
+              <Typography
+                variant="caption"
+                sx={{ opacity: 0.6, fontSize: '0.75rem' }}
+              >
+                {getRelativeTime(item.timestamp)}
+              </Typography>
+            </Box>
+          </Stack>
+        ))}
+      </Stack>
+    </Box>
   );
 }
 
-function RowIconText({ icon, text }: { icon: React.ReactNode; text: string }) {
+function StatRow({
+  icon,
+  label,
+  value,
+  color,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: number;
+  color: string;
+}) {
   return (
-    <Stack direction="row" spacing={0.75} alignItems="center">
-      <Box sx={{ opacity: 0.9, display: 'inline-flex', alignItems: 'center' }}>
+    <Stack direction="row" spacing={1.5} alignItems="center">
+      <Box
+        sx={{
+          width: 32,
+          height: 32,
+          borderRadius: 1.5,
+          bgcolor: alpha(color, 0.15),
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: color,
+          flexShrink: 0,
+        }}
+      >
         {icon}
       </Box>
-      <Typography variant="body2" sx={{ opacity: 0.9 }}>
-        {text}
-      </Typography>
-    </Stack>
-  );
-}
-
-function EmptyHint({
-  text,
-  actionLabel,
-  href,
-}: {
-  text: string;
-  actionLabel?: string;
-  href?: string;
-}) {
-  return (
-    <Stack spacing={1}>
-      <Typography variant="body2" sx={{ opacity: 0.85 }}>
-        {text}
-      </Typography>
-      {actionLabel && href && (
-        <Box>
-          <Button
-            component={NextLink}
-            href={href}
-            variant="outlined"
-            endIcon={<ArrowForwardIcon />}
-            sx={{ fontWeight: 900, borderRadius: 2 }}
-          >
-            {actionLabel}
-          </Button>
-        </Box>
-      )}
+      <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Typography variant="body2" fontWeight={700} noWrap>
+          {value}
+        </Typography>
+        <Typography
+          variant="caption"
+          sx={{ opacity: 0.6, fontSize: '0.75rem' }}
+          noWrap
+        >
+          {label}
+        </Typography>
+      </Box>
     </Stack>
   );
 }

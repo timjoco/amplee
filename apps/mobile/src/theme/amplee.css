@@ -438,12 +438,3 @@ ion-content,
   -webkit-overflow-scrolling: touch;
   touch-action: pan-y;
 }
-
-/* Hard-disable overscroll + scroll chaining (Android stretch/bounce) */
-.amp-no-overscroll {
-  overscroll-behavior: none;
-}
-
-.amp-no-overscroll::part(scroll) {
-  overscroll-behavior: none;
-}
