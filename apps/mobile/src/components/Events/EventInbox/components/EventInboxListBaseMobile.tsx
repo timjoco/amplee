@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { IonIcon, IonSpinner, IonText } from '@ionic/react';
 import { addOutline, archiveOutline, chatbubbleOutline } from 'ionicons/icons';
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import type { InboxScope } from '../hooks/useEventInboxData';
@@ -12,6 +12,7 @@ import type { EventRow } from '../../../../lib/cache/eventInboxCache';
 import { supabase } from '../../../../lib/supabase';
 import { usePressActions } from '../hooks/usePressActions';
 import { useSignedBandAvatar } from '../hooks/useSignedBandAvatar';
+import { getConflictGroups } from '../utils/format';
 import ArchivedSummaryModal from './ArchivedSummaryModal';
 import ArchiveEventModal from './ArchiveEventModal';
 import EmptyStateCard from './EmptyStateCard';
@@ -187,6 +188,36 @@ export default function EventInboxListBaseMobile({
     showAvatars,
   });
 
+  const conflictGroups = getConflictGroups(displayRows);
+
+  // Group rows for rendering
+  const groupedRows = useMemo(() => {
+    const result: Array<
+      | { type: 'single'; event: EventRow }
+      | { type: 'conflict'; events: EventRow[] }
+    > = [];
+
+    const processed = new Set<string>();
+
+    displayRows.forEach((e) => {
+      if (processed.has(e.id)) return;
+
+      const group = conflictGroups.get(e.id);
+
+      if (group && group.size > 1) {
+        // Grab all events in this conflict group (in display order)
+        const groupEvents = displayRows.filter((r) => group.has(r.id));
+        groupEvents.forEach((ge) => processed.add(ge.id));
+        result.push({ type: 'conflict', events: groupEvents });
+      } else {
+        processed.add(e.id);
+        result.push({ type: 'single', event: e });
+      }
+    });
+
+    return result;
+  }, [displayRows, conflictGroups]);
+
   const isArchivedTab = Boolean(showArchived);
 
   if (loading && rows.length === 0) {
@@ -246,7 +277,12 @@ export default function EventInboxListBaseMobile({
   }
 
   return (
-    <div style={{ paddingBlock: 4 }}>
+    <div
+      style={{
+        paddingTop: 4,
+        paddingBottom: 'calc(48px + env(safe-area-inset-bottom))',
+      }}
+    >
       <ArchiveEventModal
         showActions={showActions}
         setShowActions={setShowActions}
@@ -278,31 +314,113 @@ export default function EventInboxListBaseMobile({
         summary={summary}
       />
 
-      {displayRows.map((e) => (
-        <EventInboxRowMobile
-          key={e.id}
-          row={e}
-          lastMsg={lastMsgs[e.id]}
-          showAvatars={showAvatars}
-          avatarSrc={getAvatarSrc(e)}
-          renderAvatarInitials={renderAvatarInitials}
-          isPressed={pressedId === e.id}
-          isHovered={hoveredId === e.id}
-          onMouseEnter={() => bindPressHandlers.onMouseEnter(e.id)}
-          onMouseLeave={() => bindPressHandlers.onMouseLeave()}
-          {...bindPressHandlers.getHandlers(e.id)}
-          onClick={() => {
-            if (e.archived_at) {
-              void openArchivedSummary(e);
-            } else {
-              openEvent(e.band_id, e.id);
-            }
-          }}
-          onSongNavigate={(songId) =>
-            nav(`/bands/${e.band_id}/songs/${songId}`)
-          }
-        />
-      ))}
+      {groupedRows.map((item, idx) => {
+        if (item.type === 'single') {
+          const e = item.event;
+          return (
+            <EventInboxRowMobile
+              key={e.id}
+              row={e}
+              lastMsg={lastMsgs[e.id]}
+              showAvatars={showAvatars}
+              avatarSrc={getAvatarSrc(e)}
+              renderAvatarInitials={renderAvatarInitials}
+              isPressed={pressedId === e.id}
+              isHovered={hoveredId === e.id}
+              onMouseEnter={() => bindPressHandlers.onMouseEnter(e.id)}
+              onMouseLeave={() => bindPressHandlers.onMouseLeave()}
+              {...bindPressHandlers.getHandlers(e.id)}
+              onClick={() => {
+                if (e.archived_at) {
+                  void openArchivedSummary(e);
+                } else {
+                  openEvent(e.band_id, e.id);
+                }
+              }}
+              onSongNavigate={(songId) =>
+                nav(`/bands/${e.band_id}/songs/${songId}`)
+              }
+            />
+          );
+        }
+
+        // Conflict group
+        return (
+          <div
+            key={`conflict-${item.events[0].id}`}
+            style={{
+              margin: '8px 12px',
+              borderRadius: 12,
+              border: '2px solid rgba(251, 146, 60, 0.6)',
+              background: 'rgba(251, 146, 60, 0.06)',
+              overflow: 'hidden',
+              position: 'relative',
+            }}
+          >
+            {/* Conflict label */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '8px 12px',
+                background: 'rgba(251, 146, 60, 0.12)',
+                borderBottom: '1px solid rgba(251, 146, 60, 0.2)',
+              }}
+            >
+              <span style={{ fontSize: 14 }}>⚠️</span>
+              <span
+                style={{
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: 'rgba(251, 146, 60, 0.9)',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                }}
+              >
+                Time Conflict
+              </span>
+              <span
+                style={{
+                  fontSize: 12,
+                  color: 'rgba(251, 146, 60, 0.7)',
+                }}
+              >
+                · {item.events.length} events overlap
+              </span>
+            </div>
+
+            {/* Conflict group events */}
+            {item.events.map((e, eventIdx) => (
+              <EventInboxRowMobile
+                key={e.id}
+                row={e}
+                lastMsg={lastMsgs[e.id]}
+                showAvatars={showAvatars}
+                avatarSrc={getAvatarSrc(e)}
+                renderAvatarInitials={renderAvatarInitials}
+                isPressed={pressedId === e.id}
+                isHovered={hoveredId === e.id}
+                inConflictGroup
+                isLastInGroup={eventIdx === item.events.length - 1}
+                onMouseEnter={() => bindPressHandlers.onMouseEnter(e.id)}
+                onMouseLeave={() => bindPressHandlers.onMouseLeave()}
+                {...bindPressHandlers.getHandlers(e.id)}
+                onClick={() => {
+                  if (e.archived_at) {
+                    void openArchivedSummary(e);
+                  } else {
+                    openEvent(e.band_id, e.id);
+                  }
+                }}
+                onSongNavigate={(songId) =>
+                  nav(`/bands/${e.band_id}/songs/${songId}`)
+                }
+              />
+            ))}
+          </div>
+        );
+      })}
 
       {canCreateEvent && displayRows.length > 0 && (
         <div style={{ padding: '12px 16px' }}>

@@ -1,4 +1,3 @@
-import logo from '@amplee/assets/logo.png';
 import {
   IonButton,
   IonContent,
@@ -70,6 +69,8 @@ export default function Login() {
   // Invite param is optional; next is the path we should return to.
   const invite = qs.get('invite');
   const next = useMemo(() => safeNext(qs.get('next') ?? '/home'), [qs]);
+
+  const LOGO_SRC = '/assets/icon/logo-transparent.png';
 
   // Persist email
   useEffect(() => {
@@ -151,11 +152,10 @@ export default function Login() {
       try {
         const redirectTo = buildRedirectTo();
 
-        const { error } = await supabase.auth.signInWithOtp({
+        const { data, error } = await supabase.auth.signInWithOtp({
           email: email.trim(),
           options: { emailRedirectTo: redirectTo },
         });
-        if (error) throw error;
 
         setStatus('sent');
         setMessage('We emailed you a login link and a 6-digit code.');
@@ -340,7 +340,7 @@ export default function Login() {
               }}
             >
               <img
-                src={logo}
+                src={LOGO_SRC}
                 alt="Amplee"
                 style={{
                   width: 64,

@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import logo from '@amplee/assets/logo.png';
 import {
   IonButton,
   IonContent,
@@ -32,6 +31,8 @@ export default function OnboardingPageMobile() {
   const [lastName, setLastName] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [location, setLocation] = useState('');
+
+  const LOGO_SRC = '/assets/icon/logo-transparent.png';
 
   useEffect(() => {
     let active = true;
@@ -225,7 +226,7 @@ export default function OnboardingPageMobile() {
                 }}
               >
                 <img
-                  src={logo}
+                  src={LOGO_SRC}
                   alt="Amplee"
                   style={{
                     width: 64,

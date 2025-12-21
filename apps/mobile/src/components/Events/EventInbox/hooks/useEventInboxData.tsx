@@ -182,6 +182,7 @@ export function useEventInboxData({
     let myStatusMap: Record<string, 'accepted' | 'declined' | 'pending'> = {};
     let attendanceCounts: Record<string, { total: number; accepted: number }> =
       {};
+    let userEventIds: Set<string> = new Set(); // Track which events user is in
 
     if (eventIds.length > 0) {
       const { data: members, error: memErr } = await supabase
@@ -207,6 +208,7 @@ export function useEventInboxData({
           // my status
           if (String(row.user_id) === userId) {
             myStatusMap[eId] = status as any;
+            userEventIds.add(eId); // User is in this event
           }
         }
       }
@@ -215,52 +217,55 @@ export function useEventInboxData({
     const toTs = (s?: string | null) =>
       s ? new Date(s).getTime() : Number.POSITIVE_INFINITY;
 
-    const normalized: EventRow[] = (events ?? []).map((e: any) => {
-      const eventId = String(e.id);
-      const counts = attendanceCounts[eventId] || { total: 0, accepted: 0 };
-      const allConfirmed = counts.total > 0 && counts.accepted >= counts.total;
-      const computedBooked = Boolean(e.is_booked) || allConfirmed;
+    const normalized: EventRow[] = (events ?? [])
+      .filter((e: any) => userEventIds.has(String(e.id))) // Only show events user is member of
+      .map((e: any) => {
+        const eventId = String(e.id);
+        const counts = attendanceCounts[eventId] || { total: 0, accepted: 0 };
+        const allConfirmed =
+          counts.total > 0 && counts.accepted >= counts.total;
+        const computedBooked = Boolean(e.is_booked) || allConfirmed;
 
-      const myStatus = myStatusMap[eventId] || 'pending';
-      const myEventStatus: EventRow['my_event_status'] =
-        myStatus === 'accepted'
-          ? 'confirmed'
-          : myStatus === 'declined'
-          ? 'cancelled'
-          : 'pending';
+        const myStatus = myStatusMap[eventId] || 'pending';
+        const myEventStatus: EventRow['my_event_status'] =
+          myStatus === 'accepted'
+            ? 'confirmed'
+            : myStatus === 'declined'
+            ? 'cancelled'
+            : 'pending';
 
-      const band = Array.isArray(e.bands)
-        ? e.bands[0]
+        const band = Array.isArray(e.bands)
+          ? e.bands[0]
+            ? {
+                id: String(e.bands[0].id),
+                name: String(e.bands[0].name ?? ''),
+                avatar_url: e.bands[0].avatar_url ?? null,
+              }
+            : null
+          : e.bands
           ? {
-              id: String(e.bands[0].id),
-              name: String(e.bands[0].name ?? ''),
-              avatar_url: e.bands[0].avatar_url ?? null,
+              id: String(e.bands.id),
+              name: String(e.bands.name ?? ''),
+              avatar_url: e.bands.avatar_url ?? null,
             }
-          : null
-        : e.bands
-        ? {
-            id: String(e.bands.id),
-            name: String(e.bands.name ?? ''),
-            avatar_url: e.bands.avatar_url ?? null,
-          }
-        : null;
+          : null;
 
-      return {
-        id: eventId,
-        band_id: String(e.band_id),
-        title: String(e.title ?? ''),
-        type: e.type === 'practice' ? 'practice' : 'show',
-        starts_at: e.starts_at ?? null,
-        ends_at: e.ends_at ?? null,
-        location: e.location ?? null,
-        notes: e.notes ?? null,
-        is_booked: computedBooked,
-        is_cancelled: Boolean(e.is_cancelled),
-        archived_at: e.archived_at ?? null,
-        my_event_status: myEventStatus,
-        bands: band,
-      };
-    });
+        return {
+          id: eventId,
+          band_id: String(e.band_id),
+          title: String(e.title ?? ''),
+          type: e.type === 'practice' ? 'practice' : 'show',
+          starts_at: e.starts_at ?? null,
+          ends_at: e.ends_at ?? null,
+          location: e.location ?? null,
+          notes: e.notes ?? null,
+          is_booked: computedBooked,
+          is_cancelled: Boolean(e.is_cancelled),
+          archived_at: e.archived_at ?? null,
+          my_event_status: myEventStatus,
+          bands: band,
+        };
+      });
 
     // Filter archived vs active
     const filtered = normalized.filter((ev) =>

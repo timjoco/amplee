@@ -14,6 +14,10 @@ export default function EventInboxRowMobile({
   renderAvatarInitials,
   isPressed,
   isHovered,
+  inConflictGroup, // ← make sure this is here
+  isLastInGroup,
+  hasConflict,
+  conflictPosition,
   onClick,
   onMouseEnter,
   onMouseLeave,
@@ -25,6 +29,13 @@ export default function EventInboxRowMobile({
   showAvatars: boolean;
   avatarSrc?: string;
   renderAvatarInitials: (name?: string | null) => React.ReactNode;
+  conflictPosition?: {
+    isFirst: boolean;
+    isLast: boolean;
+  } | null;
+  isLastInGroup?: boolean;
+  inConflictGroup?: boolean;
+  hasConflict?: boolean;
   isPressed: boolean;
   isHovered: boolean;
   onClick: () => void;
@@ -33,6 +44,39 @@ export default function EventInboxRowMobile({
   onSongNavigate: (songId: string) => void;
 } & React.HTMLAttributes<HTMLDivElement>) {
   const band = e.bands;
+
+  // Add this helper inside the component, before the return
+  const getConflictStyles = (): React.CSSProperties => {
+    if (!hasConflict || !conflictPosition) return {};
+
+    const { isFirst, isLast } = conflictPosition;
+    const borderColor = 'rgba(251, 146, 60, 0.6)';
+    const bgColor = 'rgba(251, 146, 60, 0.08)';
+
+    return {
+      background: isPressed
+        ? 'rgba(142, 142, 147, 0.18)'
+        : isHovered
+        ? 'rgba(255, 255, 255, 0.04)'
+        : bgColor,
+      borderLeft: `2px solid ${borderColor}`,
+      borderRight: `2px solid ${borderColor}`,
+      borderTop: isFirst ? `2px solid ${borderColor}` : 'none',
+      borderBottom: isLast ? `2px solid ${borderColor}` : 'none',
+      borderRadius:
+        isFirst && isLast
+          ? 12
+          : isFirst
+          ? '12px 12px 0 0'
+          : isLast
+          ? '0 0 12px 12px'
+          : 0,
+      marginLeft: 8,
+      marginRight: 8,
+    };
+  };
+
+  const conflictStyles = getConflictStyles();
 
   return (
     <div
@@ -44,15 +88,18 @@ export default function EventInboxRowMobile({
         display: 'flex',
         gap: 12,
         padding: '16px 12px',
-        borderRadius: 12,
         cursor: 'pointer',
+        transition: 'background 80ms ease-out',
+        borderBottom: hasConflict
+          ? 'none'
+          : '1px solid rgba(255, 255, 255, 0.06)',
         background: isPressed
           ? 'rgba(142, 142, 147, 0.18)'
           : isHovered
           ? 'rgba(255, 255, 255, 0.04)'
           : 'transparent',
-        transition: 'background 80ms ease-out',
-        borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+        borderRadius: 12,
+        ...conflictStyles,
       }}
     >
       {showAvatars && (
@@ -122,14 +169,8 @@ export default function EventInboxRowMobile({
               fontWeight: 600,
               padding: '3px 8px',
               borderRadius: 6,
-              background:
-                e.type === 'show'
-                  ? 'rgba(168, 85, 247, 0.15)'
-                  : 'rgba(59, 130, 246, 0.15)',
-              color:
-                e.type === 'show'
-                  ? 'rgba(192, 132, 252, 0.9)'
-                  : 'rgba(96, 165, 250, 0.9)',
+              background: 'rgba(168, 85, 247, 0.15)',
+              color: 'rgba(192, 132, 252, 0.9)',
               whiteSpace: 'nowrap',
               textTransform: 'capitalize',
             }}
