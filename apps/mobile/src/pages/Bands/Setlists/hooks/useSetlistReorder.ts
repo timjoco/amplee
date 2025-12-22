@@ -6,8 +6,15 @@ import type { SetlistTemplateItemRow } from '../types/setlistTypes';
 
 /**
  * Reorder hook for setlist template items.
- * Provides DnD onDragEnd handling + persistence (upsert) of updated order_index
- * back to Supabase, plus a savingReorder flag for UI feedback.
+ *
+ * Key points:
+ * - UI reorder is optimistic (we update local state immediately for snappy drag UX)
+ * - Persistence is handled via an RPC that updates order_index in one transaction
+ * - We intentionally DO NOT use upsert for reorder:
+ *    PostgREST "upsert" goes through an INSERT code path, which triggers RLS WITH CHECK
+ *    and can fail with "new row violates row-level security policy" even when updating.
+ * - RLS is the source of truth: only band admins can persist reorder. Non-admins
+ *   should still see the list, but drag is disabled elsewhere (useSortable disabled).
  */
 export function useSetlistReorder(args: {
   setlistId?: string;
@@ -18,25 +25,47 @@ export function useSetlistReorder(args: {
   const { setlistId, setItems, triggerHaptic } = args;
   const [savingReorder, setSavingReorder] = useState(false);
 
+  /**
+   * Persist the current client order to the server.
+   *
+   * We call a server-side function:
+   *   reorder_setlist_template_items(template_id, ids[])
+   *
+   * Why RPC?
+   * - Single request (better on mobile)
+   * - Atomic update in Postgres (no partial order writes)
+   * - Avoids PostgREST upsert INSERT path that can trip RLS "WITH CHECK"
+   *
+   * Security:
+   * - Function is SECURITY INVOKER (default). Updates still go through RLS on
+   *   setlist_template_items, so only admins can update order_index.
+   */
   const saveOrder = useCallback(
     async (rows: SetlistTemplateItemRow[]) => {
-      if (!rows.length || !setlistId) return;
+      if (!setlistId) return;
+
+      // Nothing to persist
+      if (!rows.length) return;
+
       setSavingReorder(true);
       try {
-        const payload = rows.map((r) => ({
-          ...r,
-          template_id: r.template_id ?? setlistId,
-          musical_key: r.musical_key ?? null,
-          bpm: r.bpm ?? null,
-          notes: r.notes ?? null,
-          duration_seconds: r.duration_seconds ?? null,
-        }));
+        // IDs in the exact order we want them displayed.
+        // The RPC sets order_index based on array position.
+        const ids = rows.map((r) => r.id);
 
-        const { error } = await supabase
-          .from('setlist_template_items')
-          .upsert(payload);
+        const { error } = await supabase.rpc('reorder_setlist_template_items', {
+          p_template_id: setlistId,
+          p_ids: ids,
+        });
 
-        if (error) console.error('[SetlistTemplate] save order error', error);
+        if (error) {
+          // Common case: 42501 / permission denied / RLS failure if user isn't admin
+          // or if their membership changed while the screen is open.
+          console.error('[SetlistTemplate] save order error', error);
+          // Optional UX improvement:
+          // - show toast ("Only admins can reorder songs")
+          // - refetch items to re-sync order if needed
+        }
       } finally {
         setSavingReorder(false);
       }
@@ -44,6 +73,12 @@ export function useSetlistReorder(args: {
     [setlistId]
   );
 
+  /**
+   * Optimistic drag end:
+   * - compute new order in memory
+   * - renumber order_index locally (for UI + consistency)
+   * - persist via saveOrder (best-effort; server remains source of truth)
+   */
   const handleDragEnd = useCallback(
     (event: DragEndEvent) => {
       const { active, over } = event;
@@ -61,7 +96,10 @@ export function useSetlistReorder(args: {
           order_index: i,
         }));
 
+        // Persist best-effort (do not block UI). If this fails, we should ideally
+        // show a toast and/or refetch to re-sync.
         void saveOrder(moved);
+
         return moved;
       });
     },

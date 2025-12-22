@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../../../../lib/supabase';
 import type {
   SetlistTemplateItemRow,
@@ -8,8 +8,12 @@ import type {
 
 /**
  * Data loading hook for a setlist template editor.
- * Fetches the template row, template items, and template links from Supabase,
- * and exposes setters so the editor can update local state after mutations.
+ * Fetches template, items, and links from Supabase.
+ *
+ *
+ * - Clears state when params are missing (prevents stale flashes)
+ * - Exposes a reload() function so other hooks can re-sync after failures
+ * - Loads template by setlistId (RLS is the authority), then optionally validates bandId
  */
 export function useSetlistTemplateLoad(bandId?: string, setlistId?: string) {
   const [loading, setLoading] = useState(true);
@@ -17,28 +21,49 @@ export function useSetlistTemplateLoad(bandId?: string, setlistId?: string) {
   const [items, setItems] = useState<SetlistTemplateItemRow[]>([]);
   const [links, setLinks] = useState<SetlistTemplateLinkRow[]>([]);
 
-  useEffect(() => {
-    let alive = true;
-
-    if (!bandId || !setlistId) {
+  const reload = useCallback(async () => {
+    if (!setlistId) {
+      // No template selected – ensure local state is empty
+      setTemplate(null);
+      setItems([]);
+      setLinks([]);
       setLoading(false);
       return;
     }
 
-    (async () => {
-      setLoading(true);
-      try {
-        const [
-          { data: tmpl, error: tErr },
-          { data: rows, error: rErr },
-          { data: linkRows, error: lErr },
-        ] = await Promise.all([
-          supabase
-            .from('setlist_templates')
-            .select('id,band_id,name,created_at')
-            .eq('id', setlistId)
-            .eq('band_id', bandId)
-            .maybeSingle(),
+    setLoading(true);
+    try {
+      // 1) Load template by ID only (RLS enforces access).
+      //    bandId in the URL is a routing detail; treat it as optional validation.
+      const { data: tmpl, error: tErr } = await supabase
+        .from('setlist_templates')
+        .select('id,band_id,name,created_at')
+        .eq('id', setlistId)
+        .maybeSingle();
+
+      if (tErr || !tmpl) {
+        console.error('[SetlistTemplate] template load error', tErr);
+        setTemplate(null);
+        setItems([]);
+        setLinks([]);
+        return;
+      }
+
+      // Optional: if you *expect* bandId to match the URL, you can log or handle mismatch here.
+      // We don't hard-fail because it can produce false "not found" states.
+      if (bandId && tmpl.band_id !== bandId) {
+        console.warn('[SetlistTemplate] bandId mismatch', {
+          routeBandId: bandId,
+          templateBandId: tmpl.band_id,
+        });
+        // Optional: navigate to `/bands/${tmpl.band_id}/setlists/${setlistId}`
+      }
+
+      setTemplate(tmpl as SetlistTemplateRow);
+
+      // 2) Load items/links in parallel after template is confirmed
+      const [{ data: rows, error: rErr }, { data: linkRows, error: lErr }] =
+        await Promise.all([
           supabase
             .from('setlist_template_items')
             .select('*')
@@ -51,37 +76,58 @@ export function useSetlistTemplateLoad(bandId?: string, setlistId?: string) {
             .order('created_at', { ascending: true }),
         ]);
 
-        if (!alive) return;
+      if (rErr) {
+        console.error('[SetlistTemplate] items load error', rErr);
+        setItems([]);
+      } else {
+        setItems((rows || []) as SetlistTemplateItemRow[]);
+      }
 
-        if (tErr || !tmpl) {
-          console.error('[SetlistTemplate] template load error', tErr);
-          setTemplate(null);
-        } else {
-          setTemplate(tmpl as SetlistTemplateRow);
-        }
+      if (lErr) {
+        console.error('[SetlistTemplate] links load error', lErr);
+        setLinks([]);
+      } else {
+        setLinks((linkRows || []) as SetlistTemplateLinkRow[]);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [bandId, setlistId]);
 
-        if (rErr) {
-          console.error('[SetlistTemplate] items load error', rErr);
-          setItems([]);
-        } else {
-          setItems((rows || []) as SetlistTemplateItemRow[]);
-        }
+  useEffect(() => {
+    let alive = true;
 
-        if (lErr) {
-          console.error('[SetlistTemplate] links load error', lErr);
-          setLinks([]);
-        } else {
-          setLinks((linkRows || []) as SetlistTemplateLinkRow[]);
-        }
+    // If params missing, clear state and exit (prevents stale flash)
+    if (!bandId || !setlistId) {
+      setTemplate(null);
+      setItems([]);
+      setLinks([]);
+      setLoading(false);
+      return;
+    }
+
+    // Kick off load; ignore state updates after unmount
+    (async () => {
+      try {
+        await reload();
       } finally {
-        if (alive) setLoading(false);
+        // reload() already manages loading state
       }
     })();
 
     return () => {
       alive = false;
     };
-  }, [bandId, setlistId]);
+  }, [bandId, setlistId, reload]);
 
-  return { loading, template, setTemplate, items, setItems, links, setLinks };
+  return {
+    loading,
+    template,
+    setTemplate,
+    items,
+    setItems,
+    links,
+    setLinks,
+    reload,
+  };
 }

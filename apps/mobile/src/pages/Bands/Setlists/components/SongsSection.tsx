@@ -172,22 +172,16 @@ export function SongsSection({
       ) : (
         /* Song List */
         <DndContext
-          sensors={isAdmin ? sensors : []}
+          sensors={sensors}
           collisionDetection={closestCenter}
-          onDragEnd={isAdmin ? onDragEnd : () => {}}
+          onDragEnd={isAdmin ? onDragEnd : undefined}
           modifiers={[restrictToVerticalAxis]}
         >
           <SortableContext
             items={items.map((r) => r.id)}
             strategy={verticalListSortingStrategy}
           >
-            <div
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 8,
-              }}
-            >
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {items.map((row, index) => (
                 <SortableTemplateItemCard
                   key={row.id}

@@ -53,7 +53,6 @@ export function SongPickerModal({
 
   const selectedCount = selectedIds.size;
 
-  // Solid (no gradients)
   const MODAL_BG = '#08080e';
   const FOOTER_BG = 'rgba(8, 8, 14, 0.98)';
 
@@ -61,13 +60,13 @@ export function SongPickerModal({
     <IonModal isOpen={isOpen} onDidDismiss={onClose}>
       <IonContent
         style={{
-          '--background': MODAL_BG, // removed gradient
+          '--background': MODAL_BG,
         }}
       >
         <div
           style={{
             padding: 16,
-            paddingTop: 20,
+            paddingTop: 'calc(16px + env(safe-area-inset-top))',
             height: '100%',
             display: 'flex',
             flexDirection: 'column',

@@ -134,7 +134,8 @@ export default function MobileBottomNav() {
     /^\/bands\/[^/]+\/events\/[^/]+(\/.*)?$/.test(pathname) ||
     /^\/event\/[^/]+(\/.*)?$/.test(pathname) ||
     /^\/bands\/[^/]+\/songs\/new\/?$/.test(pathname) ||
-    /^\/bands\/[^/]+\/songs\/[^/]+\/edit\/?$/.test(pathname);
+    /^\/bands\/[^/]+\/songs\/[^/]+\/edit\/?$/.test(pathname) ||
+    /^\/bands\/[^/]+\/songs\/[^/]+\/?$/.test(pathname);
 
   if (hidden) return null;
 

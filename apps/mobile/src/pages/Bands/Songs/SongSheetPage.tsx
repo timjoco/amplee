@@ -711,42 +711,6 @@ export default function SongSheetPage({
                 />
               </div>
             </button>
-
-            {/* Role Badge (when not admin or no edit) */}
-            {(!onEdit || !isAdmin) && currentUserId && (
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  padding: '6px 10px',
-                  borderRadius: 10,
-                  background: isAdmin
-                    ? PINK.subtle
-                    : 'rgba(255, 255, 255, 0.04)',
-                  border: `1px solid ${
-                    isAdmin ? PINK.border : 'rgba(255, 255, 255, 0.08)'
-                  }`,
-                }}
-              >
-                <IonIcon
-                  icon={isAdmin ? shieldCheckmarkOutline : personOutline}
-                  style={{
-                    fontSize: 14,
-                    color: isAdmin ? PINK.light : '#6b7280',
-                  }}
-                />
-                <span
-                  style={{
-                    fontSize: 12,
-                    fontWeight: 600,
-                    color: isAdmin ? PINK.light : '#6b7280',
-                  }}
-                >
-                  {isAdmin ? 'Admin' : 'Member'}
-                </span>
-              </div>
-            )}
           </div>
         </IonToolbar>
       </IonHeader>

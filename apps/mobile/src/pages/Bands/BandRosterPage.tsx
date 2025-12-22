@@ -639,6 +639,10 @@ export default function BandRosterPage() {
         className="roster-content"
         style={{
           '--background': 'linear-gradient(180deg, #08080e 0%, #04040a 100%)',
+          '--padding-bottom': 'calc(env(safe-area-inset-bottom) + 76px)',
+          '--padding-start': '0px',
+          '--padding-end': '0px',
+          '--padding-top': '0px',
         }}
       >
         {loading ? (
@@ -675,7 +679,7 @@ export default function BandRosterPage() {
               padding: 16,
               maxWidth: 600,
               margin: '0 auto',
-              paddingBottom: 40,
+              paddingBottom: 0,
             }}
           >
             {/* Error Banner */}
@@ -1334,6 +1338,7 @@ export default function BandRosterPage() {
             style={{
               '--background':
                 'linear-gradient(180deg, #08080e 0%, #04040a 100%)',
+              '--padding-bottom': 'calc(env(safe-area-inset-bottom) + 20px)',
             }}
           >
             <div
@@ -1646,6 +1651,7 @@ export default function BandRosterPage() {
             style={{
               '--background':
                 'linear-gradient(180deg, #0c0a14 0%, #08080e 100%)',
+              '--padding-bottom': 'calc(env(safe-area-inset-bottom) + 20px)',
             }}
           >
             {activeMember ? (

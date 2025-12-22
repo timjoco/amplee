@@ -14,7 +14,7 @@ export default function EventInboxRowMobile({
   renderAvatarInitials,
   isPressed,
   isHovered,
-  inConflictGroup, // ← make sure this is here
+  inConflictGroup,
   isLastInGroup,
   hasConflict,
   conflictPosition,
