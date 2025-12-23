@@ -1023,33 +1023,36 @@ export default function SongSheetPage({
               </div>
 
               {/* Add Link Button (Admin or anyone - depends on your preference) */}
-              <button
-                onClick={() =>
-                  handleButtonPress('addRecording', () =>
-                    setShowAddRecording(true)
-                  )
-                }
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  padding: '8px 14px',
-                  borderRadius: 10,
-                  background: PINK.subtle,
-                  border: `1px solid ${PINK.border}`,
-                  color: PINK.light,
-                  fontSize: 13,
-                  fontWeight: 600,
-                  transform:
-                    pressedButton === 'addRecording'
-                      ? 'scale(0.95)'
-                      : 'scale(1)',
-                  transition: 'all 100ms ease-out',
-                }}
-              >
-                <IonIcon icon={addOutline} style={{ fontSize: 16 }} />
-                Add
-              </button>
+
+              {isAdmin && (
+                <button
+                  onClick={() =>
+                    handleButtonPress('addRecording', () =>
+                      setShowAddRecording(true)
+                    )
+                  }
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    padding: '8px 14px',
+                    borderRadius: 10,
+                    background: PINK.subtle,
+                    border: `1px solid ${PINK.border}`,
+                    color: PINK.light,
+                    fontSize: 13,
+                    fontWeight: 600,
+                    transform:
+                      pressedButton === 'addRecording'
+                        ? 'scale(0.95)'
+                        : 'scale(1)',
+                    transition: 'all 100ms ease-out',
+                  }}
+                >
+                  <IonIcon icon={addOutline} style={{ fontSize: 16 }} />
+                  Add
+                </button>
+              )}
             </div>
 
             {/* Links List */}

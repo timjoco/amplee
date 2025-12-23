@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { IonIcon, IonText } from '@ionic/react';
 import { addOutline } from 'ionicons/icons';
 
@@ -9,13 +8,14 @@ export default function EmptyStateCard({
   onCreate,
   icon,
 }: {
-  variant: 'active' | 'archived';
+  variant: 'active' | 'archived' | 'declined'; // UPDATE THIS
   isAdmin: boolean;
   canCreateEvent: boolean;
   onCreate?: () => void;
   icon: string;
 }) {
   const isArchived = variant === 'archived';
+  const isDeclined = variant === 'declined'; // ADD THIS
 
   return (
     <div style={{ padding: '16px', maxWidth: 600, margin: '0 auto' }}>
@@ -24,6 +24,8 @@ export default function EmptyStateCard({
           background: 'transparent',
           border: isArchived
             ? '1px solid rgba(148, 163, 184, 0.18)'
+            : isDeclined
+            ? '1px solid rgba(239, 68, 68, 0.2)'
             : '1px solid rgba(52, 211, 153, 0.2)',
           borderRadius: 20,
           padding: '32px 24px',
@@ -38,6 +40,8 @@ export default function EmptyStateCard({
             borderRadius: 16,
             background: isArchived
               ? 'rgba(148, 163, 184, 0.08)'
+              : isDeclined
+              ? 'rgba(239, 68, 68, 0.1)'
               : 'rgba(52, 211, 153, 0.1)',
             display: 'flex',
             alignItems: 'center',
@@ -45,6 +49,8 @@ export default function EmptyStateCard({
             margin: '0 auto 20px',
             border: isArchived
               ? '1px solid rgba(148, 163, 184, 0.18)'
+              : isDeclined
+              ? '1px solid rgba(239, 68, 68, 0.2)'
               : '1px solid rgba(52, 211, 153, 0.2)',
           }}
         >
@@ -54,6 +60,8 @@ export default function EmptyStateCard({
               fontSize: 32,
               color: isArchived
                 ? 'rgba(148, 163, 184, 0.9)'
+                : isDeclined
+                ? 'rgba(239, 68, 68, 0.9)'
                 : 'rgba(52, 211, 153, 0.9)',
             }}
           />
@@ -69,7 +77,11 @@ export default function EmptyStateCard({
               letterSpacing: '-0.01em',
             }}
           >
-            {isArchived ? 'No Archived Events' : 'No Events Yet'}
+            {isArchived
+              ? 'No Archived Events'
+              : isDeclined
+              ? 'No Declined Events'
+              : 'No Events Yet'}
           </h2>
 
           <p
@@ -84,13 +96,15 @@ export default function EmptyStateCard({
               ? isAdmin
                 ? 'Archived events will show up here after you archive past shows or practices.'
                 : 'Once an admin archives past events, they will appear here.'
+              : isDeclined
+              ? "Events you've declined will appear here. You can always change your RSVP if your plans change."
               : isAdmin
               ? 'Create your first show or practice to get started.'
               : 'Events will appear here once your band admin schedules them.'}
           </p>
         </IonText>
 
-        {!isArchived && canCreateEvent && (
+        {!isArchived && !isDeclined && canCreateEvent && (
           <button
             type="button"
             onClick={onCreate}

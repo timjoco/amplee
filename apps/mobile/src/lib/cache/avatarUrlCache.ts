@@ -5,11 +5,32 @@ type CachedUrl = {
 };
 
 const cache = new Map<string, CachedUrl>();
+const preloadedImages = new Set<string>();
 
 function isFullUrl(value: string | null | undefined): boolean {
   return (
     !!value && (value.startsWith('http://') || value.startsWith('https://'))
   );
+}
+
+// Preload image to force browser caching
+function preloadImage(url: string): Promise<void> {
+  if (preloadedImages.has(url)) {
+    return Promise.resolve();
+  }
+
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      preloadedImages.add(url);
+      resolve();
+    };
+    img.onerror = () => {
+      // Still resolve to not block the flow
+      resolve();
+    };
+    img.src = url;
+  });
 }
 
 export async function getAvatarUrl(
@@ -20,6 +41,7 @@ export async function getAvatarUrl(
 
   // 0) If it's already a full URL, just use it
   if (isFullUrl(path)) {
+    preloadImage(path); // Preload even if it's a direct URL
     return path;
   }
 
@@ -34,6 +56,7 @@ export async function getAvatarUrl(
   // 2) In-memory cache
   const cached = cache.get(key);
   if (cached) {
+    preloadImage(cached.url); // Ensure it's preloaded
     return cached.url;
   }
 
@@ -54,5 +77,9 @@ export async function getAvatarUrl(
 
   const url = data.signedUrl;
   cache.set(key, { url });
+
+  // Preload the image immediately after caching
+  preloadImage(url);
+
   return url;
 }

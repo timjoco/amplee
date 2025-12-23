@@ -18,6 +18,7 @@ type Params = {
   scope: InboxScope;
   bandId?: string;
   showArchived?: boolean;
+  showDeclined?: boolean;
   showAvatars?: boolean;
   onLoaded?: (count: number) => void;
   clientFilterBandId?: string;
@@ -27,6 +28,7 @@ export function useEventInboxData({
   scope,
   bandId,
   showArchived = false,
+  showDeclined = false,
   showAvatars = true,
   onLoaded,
   clientFilterBandId,
@@ -180,14 +182,15 @@ export function useEventInboxData({
 
     // 2) Pull event_members ONCE for these eventIds (derive my status + counts)
     let myStatusMap: Record<string, 'accepted' | 'declined' | 'pending'> = {};
+    let myNeedsSubMap: Record<string, boolean> = {};
     let attendanceCounts: Record<string, { total: number; accepted: number }> =
       {};
-    let userEventIds: Set<string> = new Set(); // Track which events user is in
+    let userEventIds: Set<string> = new Set();
 
     if (eventIds.length > 0) {
       const { data: members, error: memErr } = await supabase
         .from('event_members')
-        .select('event_id, user_id, status')
+        .select('event_id, user_id, status, needs_sub')
         .in('event_id', eventIds);
 
       if (memErr) {
@@ -198,17 +201,23 @@ export function useEventInboxData({
         for (const row of members as any[]) {
           const eId = String(row.event_id);
           const status = String(row.status ?? '');
+          const needsSub = Boolean(row.needs_sub);
 
-          // counts
+          // Initialize counts
           if (!attendanceCounts[eId])
             attendanceCounts[eId] = { total: 0, accepted: 0 };
+
           attendanceCounts[eId].total += 1;
-          if (YES_STATUSES.has(status)) attendanceCounts[eId].accepted += 1;
+
+          if (YES_STATUSES.has(status)) {
+            attendanceCounts[eId].accepted += 1;
+          }
 
           // my status
           if (String(row.user_id) === userId) {
             myStatusMap[eId] = status as any;
-            userEventIds.add(eId); // User is in this event
+            myNeedsSubMap[eId] = needsSub;
+            userEventIds.add(eId);
           }
         }
       }
@@ -218,15 +227,17 @@ export function useEventInboxData({
       s ? new Date(s).getTime() : Number.POSITIVE_INFINITY;
 
     const normalized: EventRow[] = (events ?? [])
-      .filter((e: any) => userEventIds.has(String(e.id))) // Only show events user is member of
+      .filter((e: any) => userEventIds.has(String(e.id)))
       .map((e: any) => {
         const eventId = String(e.id);
-        const counts = attendanceCounts[eventId] || { total: 0, accepted: 0 };
-        const allConfirmed =
-          counts.total > 0 && counts.accepted >= counts.total;
-        const computedBooked = Boolean(e.is_booked) || allConfirmed;
+        const counts = attendanceCounts[eventId] || {
+          total: 0,
+          accepted: 0,
+        };
 
         const myStatus = myStatusMap[eventId] || 'pending';
+        const myNeedsSub = myNeedsSubMap[eventId] || false;
+
         const myEventStatus: EventRow['my_event_status'] =
           myStatus === 'accepted'
             ? 'confirmed'
@@ -259,18 +270,28 @@ export function useEventInboxData({
           ends_at: e.ends_at ?? null,
           location: e.location ?? null,
           notes: e.notes ?? null,
-          is_booked: computedBooked,
+          is_booked: Boolean(e.is_booked),
           is_cancelled: Boolean(e.is_cancelled),
           archived_at: e.archived_at ?? null,
           my_event_status: myEventStatus,
+          my_needs_sub: myNeedsSub,
           bands: band,
         };
       });
 
     // Filter archived vs active
-    const filtered = normalized.filter((ev) =>
-      showArchived ? Boolean(ev.archived_at) : !ev.archived_at
-    );
+    const filtered = normalized.filter((ev) => {
+      // Archived tab: only archived events
+      if (showArchived) return Boolean(ev.archived_at);
+
+      // Declined tab: only declined events (not archived)
+      if (showDeclined) {
+        return !ev.archived_at && ev.my_event_status === 'cancelled';
+      }
+
+      // Active tab: not archived AND not declined
+      return !ev.archived_at && ev.my_event_status !== 'cancelled';
+    });
 
     // Sort upcoming first; past descending unless archived tab (archived sorted ascending)
     const upcoming = filtered
@@ -340,7 +361,7 @@ export function useEventInboxData({
       setLastMsgs({});
       if (scope === 'home') setLastMsgsBulk({});
     }
-  }, [scope, bandId, showArchived, showAvatars, onLoaded]);
+  }, [scope, bandId, showArchived, showAvatars, onLoaded, showDeclined]);
 
   // initial load / reload
   useEffect(() => {

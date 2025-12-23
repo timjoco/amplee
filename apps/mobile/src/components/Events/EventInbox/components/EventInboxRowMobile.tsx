@@ -18,6 +18,7 @@ export default function EventInboxRowMobile({
   isLastInGroup,
   hasConflict,
   conflictPosition,
+  showDeclined,
   onClick,
   onMouseEnter,
   onMouseLeave,
@@ -38,6 +39,7 @@ export default function EventInboxRowMobile({
   hasConflict?: boolean;
   isPressed: boolean;
   isHovered: boolean;
+  showDeclined?: boolean;
   onClick: () => void;
   onMouseEnter: () => void;
   onMouseLeave: () => void;
@@ -45,7 +47,6 @@ export default function EventInboxRowMobile({
 } & React.HTMLAttributes<HTMLDivElement>) {
   const band = e.bands;
 
-  // Add this helper inside the component, before the return
   const getConflictStyles = (): React.CSSProperties => {
     if (!hasConflict || !conflictPosition) return {};
 
@@ -149,20 +150,29 @@ export default function EventInboxRowMobile({
             {e.title || 'Event'}
           </span>
 
-          <span
-            style={{
-              fontSize: 13,
-              fontWeight: 500,
-              color: 'rgba(148, 163, 184, 0.7)',
-              whiteSpace: 'nowrap',
-              flexShrink: 0,
-            }}
-          >
-            {getRelativeTime(e.starts_at)}
-          </span>
+          {!showDeclined && (
+            <span
+              style={{
+                fontSize: 13,
+                fontWeight: 500,
+                color: 'rgba(148, 163, 184, 0.7)',
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
+              }}
+            >
+              {getRelativeTime(e.starts_at)}
+            </span>
+          )}
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            flexWrap: 'wrap',
+          }}
+        >
           <span
             style={{
               fontSize: 11,
@@ -199,6 +209,41 @@ export default function EventInboxRowMobile({
           >
             {e.is_cancelled ? 'Cancelled' : e.is_booked ? 'Booked' : 'Pending'}
           </div>
+
+          {showDeclined && (
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 600,
+                padding: '3px 8px',
+                borderRadius: 6,
+                background: e.my_needs_sub
+                  ? 'rgba(59, 130, 246, 0.2)'
+                  : 'rgba(239, 68, 68, 0.2)',
+                border: e.my_needs_sub
+                  ? '1px solid rgba(59, 130, 246, 0.4)'
+                  : '1px solid rgba(239, 68, 68, 0.4)',
+                color: e.my_needs_sub ? '#93C5FD' : '#FCA5A5',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {e.my_needs_sub ? 'Sub Requested' : 'Declined'}
+            </div>
+          )}
+
+          {showDeclined && (
+            <span
+              style={{
+                fontSize: 11,
+                fontWeight: 500,
+                color: 'rgba(148, 163, 184, 0.7)',
+                whiteSpace: 'nowrap',
+                marginLeft: 'auto',
+              }}
+            >
+              {getRelativeTime(e.starts_at)}
+            </span>
+          )}
         </div>
 
         {lastMsg?.body && (

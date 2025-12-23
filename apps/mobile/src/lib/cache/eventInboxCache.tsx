@@ -12,10 +12,10 @@ export type EventRow = {
   is_cancelled: boolean;
   is_booked: boolean;
   my_event_status: 'pending' | 'confirmed' | 'cancelled';
+  my_needs_sub?: boolean;
   bands: { id: string; name: string; avatar_url: string | null } | null;
   archived_at?: string | null;
 };
-
 // 🔧 allow null path
 type AvatarEntry = { path: string | null; signedUrl?: string; exp?: number };
 
@@ -26,7 +26,7 @@ type CacheShape = {
   updatedAt: number; // ms
 };
 
-// 🔧 bump key to flush old bad data (optional but recommended)
+// bump key to flush old bad data (optional but recommended)
 const STORAGE_KEY = 'amplee:eventInbox:v2';
 
 export const EVENTS_TTL_MS = 2 * 60 * 1000;
@@ -71,7 +71,7 @@ export function setLastMsgsBulk(map: Record<string, LastMsg>) {
   saveStorage();
 }
 
-// 🔧 PATH-AWARE: reset signedUrl when the path changes
+// PATH-AWARE: reset signedUrl when the path changes
 export function setAvatarPath(bandId: string, path: string | null) {
   // no path → drop avatar entry entirely
   if (!path) {

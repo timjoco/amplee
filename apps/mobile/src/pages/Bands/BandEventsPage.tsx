@@ -14,13 +14,15 @@ import { useNavigate, useParams } from 'react-router-dom';
 import EventsInboxListMobile from '../../components/Events/EventInbox/EventsInboxListMobile';
 import { supabase } from '../../lib/supabase';
 
+type EventTab = 'active' | 'declined' | 'archived';
+
 export default function BandEventsPage() {
   const { bandId } = useParams<{ bandId: string }>();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [bandName, setBandName] = useState('');
-  const [showArchived, setShowArchived] = useState(false);
+  const [activeTab, setActiveTab] = useState<EventTab>('active');
 
   useEffect(() => {
     let alive = true;
@@ -146,18 +148,23 @@ export default function BandEventsPage() {
             <div style={{ display: 'flex', gap: 10, padding: '8px 0 12px' }}>
               <button
                 type="button"
-                onClick={() => setShowArchived(false)}
+                onClick={() => setActiveTab('active')}
                 style={{
                   padding: '8px 12px',
                   borderRadius: 999,
                   border: '1px solid rgba(255,255,255,0.08)',
-                  background: !showArchived
-                    ? 'rgba(52,211,153,0.16)'
-                    : 'transparent',
-                  color: !showArchived ? '#34d399' : 'rgba(148,163,184,0.9)',
+                  background:
+                    activeTab === 'active'
+                      ? 'rgba(52,211,153,0.16)'
+                      : 'transparent',
+                  color:
+                    activeTab === 'active'
+                      ? '#34d399'
+                      : 'rgba(148,163,184,0.9)',
                   fontWeight: 700,
                   fontSize: 13,
                   cursor: 'pointer',
+                  transition: 'all 0.15s ease',
                 }}
               >
                 Active
@@ -165,18 +172,47 @@ export default function BandEventsPage() {
 
               <button
                 type="button"
-                onClick={() => setShowArchived(true)}
+                onClick={() => setActiveTab('declined')}
                 style={{
                   padding: '8px 12px',
                   borderRadius: 999,
                   border: '1px solid rgba(255,255,255,0.08)',
-                  background: showArchived
-                    ? 'rgba(248,113,113,0.16)'
-                    : 'transparent',
-                  color: showArchived ? '#f87171' : 'rgba(148,163,184,0.9)',
+                  background:
+                    activeTab === 'declined'
+                      ? 'rgba(239,68,68,0.16)'
+                      : 'transparent',
+                  color:
+                    activeTab === 'declined'
+                      ? '#ef4444'
+                      : 'rgba(148,163,184,0.9)',
                   fontWeight: 700,
                   fontSize: 13,
                   cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                Declined
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab('archived')}
+                style={{
+                  padding: '8px 12px',
+                  borderRadius: 999,
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  background:
+                    activeTab === 'archived'
+                      ? 'rgba(148,163,184,0.16)'
+                      : 'transparent',
+                  color:
+                    activeTab === 'archived'
+                      ? '#94a3b8'
+                      : 'rgba(148,163,184,0.9)',
+                  fontWeight: 700,
+                  fontSize: 13,
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
                 }}
               >
                 Archived
@@ -188,7 +224,9 @@ export default function BandEventsPage() {
               showAvatars
               enableCreateForBand
               isAdmin={isAdmin}
-              showArchived={showArchived}
+              showArchived={activeTab === 'archived'}
+              showDeclined={activeTab === 'declined'}
+              showActive={activeTab === 'active'}
             />
           </div>
         )}

@@ -96,13 +96,6 @@ export default function EventSetlistTabMobile({
 
   const [songs, setSongs] = useState<Song[]>([]);
 
-  // Push summary up only when song count changes
-  useEffect(() => {
-    if (!onSummaryChange) return;
-    onSummaryChange({ songCount: rows.length });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows.length]);
-
   const loadEventSetlist = useCallback(async () => {
     if (!eventId) return;
 
@@ -207,6 +200,24 @@ export default function EventSetlistTabMobile({
     return map;
   }, [songs]);
 
+  // ✅ NEW: Correct “song count” = only rows that resolve to a real song
+  const computedSongCount = useMemo(() => {
+    let n = 0;
+    for (const r of rows) {
+      const key = (r.title ?? '').trim().toLowerCase();
+      const resolved = r.song_id ?? (key ? songIdByTitle.get(key) : undefined);
+      if (resolved) n += 1;
+    }
+    return n;
+  }, [rows, songIdByTitle]);
+
+  // ✅ UPDATED: Push summary up only when computedSongCount changes
+  useEffect(() => {
+    if (!onSummaryChange) return;
+    onSummaryChange({ songCount: computedSongCount });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [computedSongCount]);
+
   const ensureTemplatesLoaded = useCallback(async () => {
     if (!bandId) return;
 
@@ -282,7 +293,7 @@ export default function EventSetlistTabMobile({
 
         if (insErr) return;
 
-        const { error: updateErr } = await supabase
+        await supabase
           .from('events')
           .update({ setlist_template_id: templateId })
           .eq('id', eventId);
@@ -299,7 +310,7 @@ export default function EventSetlistTabMobile({
         setApplyingTemplate(false);
       }
     },
-    [eventId, bandId, applyingTemplate, templates, loadEventSetlist]
+    [eventId, applyingTemplate, templates, loadEventSetlist]
   );
 
   const hasSongs = rows.length > 0;
@@ -394,9 +405,7 @@ export default function EventSetlistTabMobile({
           {isAdmin && (
             <button
               type="button"
-              onClick={() => {
-                void ensureTemplatesLoaded();
-              }}
+              onClick={() => void ensureTemplatesLoaded()}
               disabled={loadingTemplates || applyingTemplate}
               style={{
                 display: 'flex',
@@ -490,7 +499,8 @@ export default function EventSetlistTabMobile({
                   lineHeight: 1,
                 }}
               >
-                {rows.length}
+                {/* ✅ UPDATED: use computedSongCount */}
+                {computedSongCount}
               </div>
               <div
                 style={{
@@ -502,7 +512,8 @@ export default function EventSetlistTabMobile({
                   letterSpacing: '0.5px',
                 }}
               >
-                {rows.length === 1 ? 'Song' : 'Songs'}
+                {/* ✅ UPDATED: use computedSongCount */}
+                {computedSongCount === 1 ? 'Song' : 'Songs'}
               </div>
             </div>
           </div>
@@ -533,9 +544,7 @@ export default function EventSetlistTabMobile({
           {isAdmin && (
             <button
               type="button"
-              onClick={() => {
-                void ensureTemplatesLoaded();
-              }}
+              onClick={() => void ensureTemplatesLoaded()}
               disabled={loadingTemplates || applyingTemplate}
               style={{
                 display: 'flex',
@@ -706,9 +715,7 @@ export default function EventSetlistTabMobile({
                       <button
                         key={t.id}
                         type="button"
-                        onClick={() => {
-                          void applyTemplate(t.id);
-                        }}
+                        onClick={() => void applyTemplate(t.id)}
                         style={{
                           width: '100%',
                           padding: '14px 16px',

@@ -2,11 +2,13 @@
 import { IonIcon, IonSpinner, IonText, IonToast } from '@ionic/react';
 import {
   checkmarkCircleOutline,
+  closeCircleOutline,
   helpCircleOutline,
   personOutline,
 } from 'ionicons/icons';
 import * as React from 'react';
 import { useAttendance, type AttStatus } from '../../hooks/useAttendance';
+import { supabase } from '../../lib/supabase';
 
 type AttendanceSummary = {
   accepted: number;
@@ -39,6 +41,7 @@ export default function RSVPTabMobile({
 
   const [showSubPopup, setShowSubPopup] = React.useState(false);
   const [showSubToast, setShowSubToast] = React.useState(false);
+  const [isAdmin, setIsAdmin] = React.useState(false);
   const [confirmTarget, setConfirmTarget] = React.useState<AttStatus | null>(
     null
   );
@@ -47,6 +50,35 @@ export default function RSVPTabMobile({
   const isAccepted = hydrated && !hasSubRequested && mine === 'accepted';
   const isPending = hydrated && !hasSubRequested && mine === 'pending';
 
+  React.useEffect(() => {
+    async function checkAdmin() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Get event's band_id and check if user is admin
+      const { data: event } = await supabase
+        .from('events')
+        .select('band_id')
+        .eq('id', eventId)
+        .single();
+
+      if (!event) return;
+
+      const { data: member } = await supabase
+        .from('band_members')
+        .select('role')
+        .eq('band_id', event.band_id)
+        .eq('user_id', user.id)
+        .single();
+
+      setIsAdmin(member?.role === 'admin');
+    }
+
+    checkAdmin();
+  }, [eventId]);
+
   // -------------------------
   // Optimistic display counts
   // -------------------------
@@ -54,6 +86,8 @@ export default function RSVPTabMobile({
     accepted: 0,
     total: 0,
   }));
+
+  const isDeclined = hydrated && !hasSubRequested && mine === 'declined';
 
   // Initialize + reconcile from hook counts (avoid flicker while saving)
   React.useEffect(() => {
@@ -184,30 +218,28 @@ export default function RSVPTabMobile({
     <>
       <div
         style={{
-          padding: '16px 16px 80px 16px',
+          padding: '20px 16px 80px 16px',
           minHeight: '100%',
           color: '#E5E7EB',
-          position: 'relative',
-          background:
-            'linear-gradient(180deg, rgba(5,5,9,0) 0%, rgba(5,5,9,0.3) 100%)',
+          background: '#050509',
         }}
       >
         {/* error */}
         {error && (
           <div
             style={{
-              borderRadius: 16,
-              border: '1px solid rgba(248,113,113,0.4)',
+              borderRadius: 12,
+              border: '2px solid #EF4444',
               padding: 16,
               fontSize: 14,
-              background:
-                'linear-gradient(135deg, rgba(127, 29, 29, 0.2), rgba(127, 29, 29, 0.1))',
-              marginBottom: 16,
-              backdropFilter: 'blur(10px)',
+              background: 'rgba(239, 68, 68, 0.1)',
+              marginBottom: 20,
             }}
           >
             <IonText color="danger">
-              <p style={{ margin: 0, fontWeight: 600 }}>{error}</p>
+              <p style={{ margin: 0, fontWeight: 600, color: '#FCA5A5' }}>
+                {error}
+              </p>
             </IonText>
           </div>
         )}
@@ -215,12 +247,11 @@ export default function RSVPTabMobile({
         {/* STATS HEADER */}
         <div
           style={{
-            background:
-              'linear-gradient(135deg, rgba(52, 211, 153, 0.08), rgba(52, 211, 153, 0.04))',
-            border: '1px solid rgba(52, 211, 153, 0.2)',
+            background: 'rgba(52, 211, 153, 0.05)',
+            border: '2px solid rgba(52, 211, 153, 0.2)',
             borderRadius: 16,
-            padding: '20px',
-            marginBottom: 16,
+            padding: '24px',
+            marginBottom: 20,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
@@ -229,22 +260,23 @@ export default function RSVPTabMobile({
           <div>
             <div
               style={{
-                fontSize: 32,
+                fontSize: 40,
                 fontWeight: 800,
-                color: 'rgba(52, 211, 153, 0.95)',
+                color: '#34D399',
                 lineHeight: 1,
-                marginBottom: 6,
+                marginBottom: 8,
+                letterSpacing: -1,
               }}
             >
               {acceptedDisplay}/{totalDisplay}
             </div>
             <div
               style={{
-                fontSize: 12,
-                fontWeight: 600,
-                color: '#9ca3af',
+                fontSize: 13,
+                fontWeight: 700,
+                color: '#6B7280',
                 textTransform: 'uppercase',
-                letterSpacing: 0.5,
+                letterSpacing: 1,
               }}
             >
               Confirmed
@@ -253,13 +285,13 @@ export default function RSVPTabMobile({
 
           <div
             style={{
-              width: 72,
-              height: 72,
+              width: 80,
+              height: 80,
               borderRadius: '50%',
               background: `conic-gradient(
-                rgba(52, 211, 153, 0.8) 0% ${attendancePercentage}%,
-                rgba(15, 23, 42, 0.8) ${attendancePercentage}% 100%
-              )`,
+              #34D399 0% ${attendancePercentage}%,
+              rgba(52, 211, 153, 0.1) ${attendancePercentage}% 100%
+            )`,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -268,17 +300,16 @@ export default function RSVPTabMobile({
           >
             <div
               style={{
-                width: 56,
-                height: 56,
+                width: 64,
+                height: 64,
                 borderRadius: '50%',
-                background:
-                  'linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(15, 23, 42, 0.9))',
+                background: '#050509',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: 16,
+                fontSize: 18,
                 fontWeight: 800,
-                color: 'rgba(52, 211, 153, 0.95)',
+                color: '#34D399',
               }}
             >
               {attendancePercentage}%
@@ -289,46 +320,53 @@ export default function RSVPTabMobile({
         {/* YOUR STATUS CARD */}
         <div
           style={{
-            background:
-              'linear-gradient(135deg, rgba(15, 23, 42, 0.8), rgba(15, 23, 42, 0.6))',
-            border: hasSubRequested
-              ? '1px solid rgba(59, 130, 246, 0.4)'
-              : isAccepted
-              ? '1px solid rgba(52, 211, 153, 0.4)'
-              : '1px solid rgba(251, 191, 36, 0.4)',
+            background: '#0F172A',
+            border: `2px solid ${
+              hasSubRequested
+                ? 'rgba(59, 130, 246, 0.3)'
+                : isAccepted
+                ? 'rgba(52, 211, 153, 0.3)'
+                : isDeclined
+                ? 'rgba(239, 68, 68, 0.3)'
+                : 'rgba(251, 191, 36, 0.3)'
+            }`,
             borderRadius: 16,
-            padding: 16,
-            marginBottom: 16,
-            backdropFilter: 'blur(10px)',
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.4)',
+            padding: 20,
+            marginBottom: 20,
           }}
         >
           <div
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: 12,
-              marginBottom: 12,
+              gap: 16,
             }}
           >
             <div
               style={{
-                width: 40,
-                height: 40,
-                borderRadius: 10,
+                width: 48,
+                height: 48,
+                borderRadius: 12,
                 background: hasSubRequested
-                  ? 'linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(59, 130, 246, 0.1))'
+                  ? 'rgba(59, 130, 246, 0.15)'
                   : isAccepted
-                  ? 'linear-gradient(135deg, rgba(52, 211, 153, 0.2), rgba(52, 211, 153, 0.1))'
-                  : 'linear-gradient(135deg, rgba(251, 191, 36, 0.2), rgba(251, 191, 36, 0.1))',
-                border: hasSubRequested
-                  ? '1px solid rgba(59, 130, 246, 0.4)'
-                  : isAccepted
-                  ? '1px solid rgba(52, 211, 153, 0.4)'
-                  : '1px solid rgba(251, 191, 36, 0.4)',
+                  ? 'rgba(52, 211, 153, 0.15)'
+                  : isDeclined
+                  ? 'rgba(239, 68, 68, 0.15)'
+                  : 'rgba(251, 191, 36, 0.15)',
+                border: `2px solid ${
+                  hasSubRequested
+                    ? 'rgba(59, 130, 246, 0.4)'
+                    : isAccepted
+                    ? 'rgba(52, 211, 153, 0.4)'
+                    : isDeclined
+                    ? 'rgba(239, 68, 68, 0.4)'
+                    : 'rgba(251, 191, 36, 0.4)'
+                }`,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
+                flexShrink: 0,
               }}
             >
               <IonIcon
@@ -337,40 +375,46 @@ export default function RSVPTabMobile({
                     ? personOutline
                     : isAccepted
                     ? checkmarkCircleOutline
+                    : isDeclined
+                    ? closeCircleOutline
                     : helpCircleOutline
                 }
                 style={{
-                  fontSize: 20,
+                  fontSize: 24,
                   color: hasSubRequested
-                    ? 'rgba(59, 130, 246, 0.95)'
+                    ? '#3B82F6'
                     : isAccepted
-                    ? 'rgba(52, 211, 153, 0.95)'
-                    : 'rgba(251, 191, 36, 0.95)',
+                    ? '#34D399'
+                    : isDeclined
+                    ? '#EF4444'
+                    : '#FBBf24',
                 }}
               />
             </div>
             <div style={{ flex: 1 }}>
               <div
                 style={{
-                  fontSize: 13,
+                  fontSize: 12,
                   fontWeight: 700,
-                  color: '#9ca3af',
+                  color: '#6B7280',
                   textTransform: 'uppercase',
-                  letterSpacing: 0.5,
-                  marginBottom: 4,
+                  letterSpacing: 1,
+                  marginBottom: 6,
                 }}
               >
                 Your Status
               </div>
               <div
                 style={{
-                  fontSize: 16,
+                  fontSize: 18,
                   fontWeight: 700,
                   color: hasSubRequested
-                    ? 'rgba(147, 197, 253, 0.95)'
+                    ? '#93C5FD'
                     : isAccepted
-                    ? 'rgba(52, 211, 153, 0.95)'
-                    : 'rgba(251, 191, 36, 0.95)',
+                    ? '#34D399'
+                    : isDeclined
+                    ? '#FCA5A5'
+                    : '#FBBf24',
                 }}
               >
                 {!hydrated
@@ -379,6 +423,8 @@ export default function RSVPTabMobile({
                   ? 'Sub Requested'
                   : isAccepted
                   ? "I'm In! ✓"
+                  : isDeclined
+                  ? "Can't Attend"
                   : 'Not Sure Yet'}
               </div>
             </div>
@@ -387,21 +433,19 @@ export default function RSVPTabMobile({
           {hasSubRequested && subReason && (
             <div
               style={{
-                padding: 12,
-                background: 'rgba(59, 130, 246, 0.1)',
-                border: '1px solid rgba(59, 130, 246, 0.3)',
-                borderRadius: 12,
-                marginTop: 12,
+                marginTop: 16,
+                paddingTop: 16,
+                borderTop: '1px solid rgba(59, 130, 246, 0.2)',
               }}
             >
               <div
                 style={{
                   fontSize: 11,
                   fontWeight: 700,
-                  color: 'rgba(147, 197, 253, 0.8)',
+                  color: '#6B7280',
                   textTransform: 'uppercase',
-                  letterSpacing: 0.5,
-                  marginBottom: 6,
+                  letterSpacing: 1,
+                  marginBottom: 8,
                 }}
               >
                 Your Reason:
@@ -409,9 +453,9 @@ export default function RSVPTabMobile({
               <div
                 style={{
                   fontSize: 14,
-                  color: '#d1d5db',
+                  color: '#D1D5DB',
                   fontStyle: 'italic',
-                  lineHeight: 1.5,
+                  lineHeight: 1.6,
                 }}
               >
                 {subReason}
@@ -423,214 +467,208 @@ export default function RSVPTabMobile({
         {/* CAN YOU MAKE THE SHOW? */}
         <div
           style={{
-            background:
-              'linear-gradient(135deg, rgba(15, 23, 42, 0.8), rgba(15, 23, 42, 0.6))',
-            border: '1px solid rgba(52, 211, 153, 0.25)',
+            background: '#0F172A',
+            border: '2px solid rgba(52, 211, 153, 0.2)',
             borderRadius: 16,
-            padding: 16,
-            marginBottom: 16,
-            backdropFilter: 'blur(10px)',
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.4)',
+            padding: 20,
+            marginBottom: 20,
           }}
         >
-          <div style={{ marginBottom: 14 }}>
-            <h3
+          <h3
+            style={{
+              margin: 0,
+              marginBottom: 16,
+              fontSize: 14,
+              fontWeight: 700,
+              color: '#34D399',
+              textTransform: 'uppercase',
+              letterSpacing: 1,
+            }}
+          >
+            Can You Make It?
+          </h3>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {/* First row: Yes and Not Sure */}
+            <div style={{ display: 'flex', gap: 12 }}>
+              <button
+                type="button"
+                disabled={saving || !hydrated}
+                onClick={() => handleAskConfirm('accepted')}
+                style={{
+                  flex: 1,
+                  padding: '16px',
+                  borderRadius: 12,
+                  fontSize: 15,
+                  fontWeight: 700,
+                  textAlign: 'center',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                  border: isAccepted
+                    ? '2px solid #34D399'
+                    : '2px solid rgba(52, 211, 153, 0.2)',
+                  background: isAccepted ? '#34D399' : '#0F172A',
+                  color: isAccepted ? '#000000' : '#34D399',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                  opacity: !hydrated || saving ? 0.5 : 1,
+                }}
+              >
+                {saving && isAccepted && (
+                  <IonSpinner
+                    name="crescent"
+                    style={{ width: 16, height: 16 }}
+                  />
+                )}
+                <IonIcon
+                  icon={checkmarkCircleOutline}
+                  style={{ fontSize: 20 }}
+                />
+                Yes, I'm In
+              </button>
+
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => handleAskConfirm('pending')}
+                style={{
+                  flex: 1,
+                  padding: '16px',
+                  borderRadius: 12,
+                  fontSize: 15,
+                  fontWeight: 700,
+                  textAlign: 'center',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                  border: isPending
+                    ? '2px solid #FBBf24'
+                    : '2px solid rgba(251, 191, 36, 0.2)',
+                  background: isPending ? 'rgba(251, 191, 36, 0.2)' : '#0F172A',
+                  color: isPending ? '#FBBf24' : '#94A3B8',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                  opacity: saving ? 0.5 : 1,
+                }}
+              >
+                {saving && isPending && (
+                  <IonSpinner
+                    name="crescent"
+                    style={{ width: 16, height: 16 }}
+                  />
+                )}
+                <IonIcon icon={helpCircleOutline} style={{ fontSize: 20 }} />
+                Not Sure
+              </button>
+            </div>
+
+            {/* Second row: Can't Make It - full width */}
+            {/* Second row: Can't Make It - full width */}
+            <button
+              type="button"
+              disabled={saving || !hydrated || isAdmin} // ADD isAdmin here
+              onClick={() => handleAskConfirm('declined')}
               style={{
-                margin: 0,
+                width: '100%',
+                padding: '16px',
+                borderRadius: 12,
                 fontSize: 15,
                 fontWeight: 700,
-                color: 'rgba(52, 211, 153, 0.95)',
-                textTransform: 'uppercase',
-                letterSpacing: 0.8,
-              }}
-            >
-              Can You Make It?
-            </h3>
-          </div>
-
-          <div style={{ display: 'flex', gap: 10 }}>
-            <button
-              type="button"
-              disabled={saving || !hydrated}
-              onClick={() => handleAskConfirm('accepted')}
-              style={{
-                flex: 1,
-                padding: '14px 16px',
-                borderRadius: 12,
-                fontSize: 14,
-                fontWeight: 700,
                 textAlign: 'center',
-                cursor: 'pointer',
-                transition: 'all 0.2s ease',
-                border: isAccepted
-                  ? '2px solid rgba(52, 211, 153, 0.6)'
-                  : '1px solid rgba(52, 211, 153, 0.3)',
-                background: isAccepted
-                  ? 'rgba(52, 211, 153, 0.95)'
-                  : 'rgba(15, 23, 42, 0.8)',
-                color: isAccepted ? '#000000' : 'rgba(52, 211, 153, 0.95)',
-                boxShadow: isAccepted
-                  ? '0 8px 20px rgba(52, 211, 153, 0.2)'
-                  : '0 4px 12px rgba(0, 0, 0, 0.4)',
+                cursor: isAdmin ? 'not-allowed' : 'pointer', // ADD this
+                transition: 'all 0.15s ease',
+                border: isDeclined
+                  ? '2px solid #EF4444'
+                  : '2px solid rgba(239, 68, 68, 0.2)',
+                background: isDeclined ? 'rgba(239, 68, 68, 0.2)' : '#0F172A',
+                color: isDeclined ? '#FCA5A5' : '#94A3B8',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: 8,
-              }}
-              onMouseEnter={(e) => {
-                if (!isAccepted && hydrated && !saving) {
-                  e.currentTarget.style.borderColor = 'rgba(52, 211, 153, 0.5)';
-                  e.currentTarget.style.transform = 'translateY(-2px)';
-                  e.currentTarget.style.boxShadow =
-                    '0 8px 20px rgba(52, 211, 153, 0.15)';
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (!isAccepted) {
-                  e.currentTarget.style.borderColor = 'rgba(52, 211, 153, 0.3)';
-                  e.currentTarget.style.transform = 'translateY(0)';
-                  e.currentTarget.style.boxShadow =
-                    '0 4px 12px rgba(0, 0, 0, 0.4)';
-                }
+                opacity: isAdmin ? 0.4 : !hydrated || saving ? 0.5 : 1, // UPDATE this
               }}
             >
-              {saving && isAccepted && (
+              {saving && isDeclined && (
                 <IonSpinner name="crescent" style={{ width: 16, height: 16 }} />
               )}
-              <IonIcon icon={checkmarkCircleOutline} style={{ fontSize: 18 }} />
-              Yes, I'm In
+              <IonIcon icon={closeCircleOutline} style={{ fontSize: 20 }} />
+              Can't Make It
             </button>
 
-            <button
-              type="button"
-              disabled={saving}
-              onClick={() => handleAskConfirm('pending')}
-              style={{
-                flex: 1,
-                padding: '14px 16px',
-                borderRadius: 12,
-                fontSize: 14,
-                fontWeight: 700,
-                textAlign: 'center',
-                cursor: 'pointer',
-                transition: 'all 0.2s ease',
-                border: isPending
-                  ? '2px solid rgba(251, 191, 36, 0.6)'
-                  : '1px solid rgba(148, 163, 184, 0.3)',
-                background: isPending
-                  ? 'rgba(251, 191, 36, 0.2)'
-                  : 'rgba(15, 23, 42, 0.8)',
-                color: isPending
-                  ? 'rgba(254, 243, 199, 0.95)'
-                  : 'rgba(148, 163, 184, 0.95)',
-                boxShadow: isPending
-                  ? '0 8px 20px rgba(251, 191, 36, 0.15)'
-                  : '0 4px 12px rgba(0, 0, 0, 0.4)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 8,
-              }}
-              onMouseEnter={(e) => {
-                if (!isPending && !saving) {
-                  e.currentTarget.style.borderColor = 'rgba(251, 191, 36, 0.4)';
-                  e.currentTarget.style.transform = 'translateY(-2px)';
-                  e.currentTarget.style.boxShadow =
-                    '0 8px 20px rgba(251, 191, 36, 0.15)';
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (!isPending) {
-                  e.currentTarget.style.borderColor =
-                    'rgba(148, 163, 184, 0.3)';
-                  e.currentTarget.style.transform = 'translateY(0)';
-                  e.currentTarget.style.boxShadow =
-                    '0 4px 12px rgba(0, 0, 0, 0.4)';
-                }
-              }}
-            >
-              {saving && isPending && (
-                <IonSpinner name="crescent" style={{ width: 16, height: 16 }} />
-              )}
-              <IonIcon icon={helpCircleOutline} style={{ fontSize: 18 }} />
-              Not Sure
-            </button>
+            {/* ADD helper text below the button */}
+            {isAdmin && (
+              <p
+                style={{
+                  fontSize: 13,
+                  color: '#6B7280',
+                  textAlign: 'center',
+                  marginTop: 12,
+                  marginBottom: 0,
+                }}
+              >
+                As a band admin, you cannot decline events. Request a sub if you
+                can't attend.
+              </p>
+            )}
           </div>
         </div>
 
         {/* DO YOU NEED A SUB? */}
         <div
           style={{
-            background:
-              'linear-gradient(135deg, rgba(15, 23, 42, 0.8), rgba(15, 23, 42, 0.6))',
-            border: '1px solid rgba(59, 130, 246, 0.3)',
+            background: '#0F172A',
+            border: '2px solid rgba(59, 130, 246, 0.2)',
             borderRadius: 16,
-            padding: 16,
-            backdropFilter: 'blur(10px)',
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.4)',
+            padding: 20,
           }}
         >
-          <div style={{ marginBottom: 14 }}>
-            <h3
-              style={{
-                margin: 0,
-                fontSize: 15,
-                fontWeight: 700,
-                color: 'rgba(147, 197, 253, 0.95)',
-                textTransform: 'uppercase',
-                letterSpacing: 0.8,
-              }}
-            >
-              Need a Substitute?
-            </h3>
-          </div>
+          <h3
+            style={{
+              margin: 0,
+              marginBottom: 16,
+              fontSize: 14,
+              fontWeight: 700,
+              color: '#3B82F6',
+              textTransform: 'uppercase',
+              letterSpacing: 1,
+            }}
+          >
+            Need a Substitute?
+          </h3>
 
           <button
             type="button"
             onClick={handleOpenSubPopup}
-            disabled={savingSub}
+            disabled={savingSub || isDeclined}
             style={{
               width: '100%',
-              padding: '14px 16px',
+              padding: '16px',
               borderRadius: 12,
-              fontSize: 14,
+              fontSize: 15,
               fontWeight: 700,
               textAlign: 'center',
-              cursor: 'pointer',
-              transition: 'all 0.2s ease',
+              cursor: isDeclined ? 'not-allowed' : 'pointer',
+              transition: 'all 0.15s ease',
+              opacity: isDeclined ? 0.4 : 1,
               border: needsSub
-                ? '2px solid rgba(59, 130, 246, 0.6)'
-                : '1px solid rgba(59, 130, 246, 0.3)',
-              background: needsSub
-                ? 'rgba(59, 130, 246, 0.95)'
-                : 'rgba(15, 23, 42, 0.8)',
-              color: needsSub ? '#000000' : 'rgba(147, 197, 253, 0.95)',
-              boxShadow: needsSub
-                ? '0 8px 20px rgba(59, 130, 246, 0.2)'
-                : '0 4px 12px rgba(0, 0, 0, 0.4)',
+                ? '2px solid #3B82F6'
+                : '2px solid rgba(59, 130, 246, 0.2)',
+              background: needsSub ? '#3B82F6' : '#0F172A',
+              color: needsSub ? '#000000' : '#93C5FD',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               gap: 8,
             }}
-            onMouseEnter={(e) => {
-              if (!savingSub) {
-                e.currentTarget.style.transform = 'translateY(-2px)';
-                e.currentTarget.style.boxShadow =
-                  '0 8px 20px rgba(59, 130, 246, 0.25)';
-              }
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = 'translateY(0)';
-              e.currentTarget.style.boxShadow = needsSub
-                ? '0 8px 20px rgba(59, 130, 246, 0.2)'
-                : '0 4px 12px rgba(0, 0, 0, 0.4)';
-            }}
           >
             {savingSub && (
               <IonSpinner name="crescent" style={{ width: 16, height: 16 }} />
             )}
-            <IonIcon icon={personOutline} style={{ fontSize: 18 }} />
+            <IonIcon icon={personOutline} style={{ fontSize: 20 }} />
             {needsSub ? 'Update Sub Request' : 'Request a Sub'}
           </button>
 
@@ -639,7 +677,7 @@ export default function RSVPTabMobile({
               marginTop: 12,
               marginBottom: 0,
               fontSize: 13,
-              color: '#9ca3af',
+              color: '#6B7280',
               textAlign: 'center',
               lineHeight: 1.5,
             }}
@@ -647,7 +685,6 @@ export default function RSVPTabMobile({
             Your band leader will be notified automatically
           </p>
 
-          {/* Optional: show a "Clear sub request" action */}
           {needsSub && (
             <button
               type="button"
@@ -655,15 +692,16 @@ export default function RSVPTabMobile({
               onClick={handleClearSub}
               style={{
                 width: '100%',
-                marginTop: 10,
-                padding: '12px 16px',
+                marginTop: 12,
+                padding: '14px 16px',
                 borderRadius: 12,
-                border: '1px solid rgba(148, 163, 184, 0.3)',
-                background: 'rgba(15, 23, 42, 0.8)',
-                color: '#9ca3af',
+                border: '2px solid rgba(148, 163, 184, 0.2)',
+                background: '#0F172A',
+                color: '#94A3B8',
                 fontSize: 14,
                 fontWeight: 600,
                 cursor: 'pointer',
+                transition: 'all 0.15s ease',
               }}
             >
               Clear Sub Request
@@ -701,10 +739,10 @@ export default function RSVPTabMobile({
         position="top"
         style={
           {
-            '--background': 'rgba(52, 211, 153, 0.95)',
+            '--background': '#34D399',
             '--color': '#000000',
             '--border-radius': '12px',
-            fontWeight: 600,
+            fontWeight: 700,
           } as any
         }
       />
@@ -726,11 +764,62 @@ function ConfirmStatusPopup({
   onConfirm: () => void;
 }) {
   const isYes = target === 'accepted';
+  const isPending = target === 'pending';
+  const isDeclined = target === 'declined';
 
-  const title = isYes ? 'Confirm Attendance' : 'Mark as Pending';
+  const title = isYes
+    ? 'Confirm Attendance'
+    : isDeclined
+    ? 'Decline Event'
+    : 'Mark as Pending';
+
   const body = isYes
     ? "You'll be marked as attending this show."
+    : isDeclined
+    ? "You'll be marked as unable to attend this show."
     : "You'll be marked as pending for this show.";
+
+  const icon = isYes
+    ? checkmarkCircleOutline
+    : isDeclined
+    ? closeCircleOutline
+    : helpCircleOutline;
+
+  const borderColor = isYes
+    ? 'rgba(52, 211, 153, 0.4)'
+    : isDeclined
+    ? 'rgba(239, 68, 68, 0.4)'
+    : 'rgba(251, 191, 36, 0.4)';
+
+  const bgGradient = isYes
+    ? 'linear-gradient(135deg, rgba(52, 211, 153, 0.2), rgba(52, 211, 153, 0.1))'
+    : isDeclined
+    ? 'linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(239, 68, 68, 0.1))'
+    : 'linear-gradient(135deg, rgba(251, 191, 36, 0.2), rgba(251, 191, 36, 0.1))';
+
+  const iconBorder = isYes
+    ? '1px solid rgba(52, 211, 153, 0.4)'
+    : isDeclined
+    ? '1px solid rgba(239, 68, 68, 0.4)'
+    : '1px solid rgba(251, 191, 36, 0.4)';
+
+  const iconColor = isYes
+    ? 'rgba(52, 211, 153, 0.95)'
+    : isDeclined
+    ? 'rgba(252, 165, 165, 0.95)'
+    : 'rgba(251, 191, 36, 0.95)';
+
+  const buttonBorder = isYes
+    ? '1px solid rgba(52, 211, 153, 0.5)'
+    : isDeclined
+    ? '1px solid rgba(239, 68, 68, 0.5)'
+    : '1px solid rgba(251, 191, 36, 0.5)';
+
+  const buttonBg = isYes
+    ? 'rgba(52, 211, 153, 0.95)'
+    : isDeclined
+    ? 'rgba(239, 68, 68, 0.95)'
+    : 'rgba(251, 191, 36, 0.95)';
 
   return (
     <div
@@ -755,9 +844,7 @@ function ConfirmStatusPopup({
           borderRadius: 20,
           background:
             'linear-gradient(135deg, rgba(15, 23, 42, 0.98), rgba(15, 23, 42, 0.95))',
-          border: isYes
-            ? '1px solid rgba(52, 211, 153, 0.4)'
-            : '1px solid rgba(251, 191, 36, 0.4)',
+          border: `1px solid ${borderColor}`,
           padding: 24,
           boxShadow: '0 20px 50px rgba(0, 0, 0, 0.8)',
         }}
@@ -767,12 +854,8 @@ function ConfirmStatusPopup({
             width: 56,
             height: 56,
             borderRadius: '50%',
-            background: isYes
-              ? 'linear-gradient(135deg, rgba(52, 211, 153, 0.2), rgba(52, 211, 153, 0.1))'
-              : 'linear-gradient(135deg, rgba(251, 191, 36, 0.2), rgba(251, 191, 36, 0.1))',
-            border: isYes
-              ? '1px solid rgba(52, 211, 153, 0.4)'
-              : '1px solid rgba(251, 191, 36, 0.4)',
+            background: bgGradient,
+            border: iconBorder,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -780,12 +863,10 @@ function ConfirmStatusPopup({
           }}
         >
           <IonIcon
-            icon={isYes ? checkmarkCircleOutline : helpCircleOutline}
+            icon={icon}
             style={{
               fontSize: 28,
-              color: isYes
-                ? 'rgba(52, 211, 153, 0.95)'
-                : 'rgba(251, 191, 36, 0.95)',
+              color: iconColor,
             }}
           />
         </div>
@@ -823,12 +904,8 @@ function ConfirmStatusPopup({
               width: '100%',
               padding: '14px 16px',
               borderRadius: 12,
-              border: isYes
-                ? '1px solid rgba(52, 211, 153, 0.5)'
-                : '1px solid rgba(251, 191, 36, 0.5)',
-              background: isYes
-                ? 'rgba(52, 211, 153, 0.95)'
-                : 'rgba(251, 191, 36, 0.95)',
+              border: buttonBorder,
+              background: buttonBg,
               color: '#000000',
               fontSize: 15,
               fontWeight: 700,

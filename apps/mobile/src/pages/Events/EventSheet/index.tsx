@@ -7,6 +7,7 @@ import {
   IonHeader,
   IonIcon,
   IonPage,
+  IonSpinner,
   IonText,
   IonToolbar,
 } from '@ionic/react';
@@ -29,11 +30,14 @@ export default function EventSheetMobile() {
 
   const { bandId, eventId } = useParams<{ bandId: string; eventId: string }>();
 
-  // Consolidated data hook
+  // Consolidated data hook with access control
   const {
     event,
     loading,
     isAdmin,
+    canAccess,
+    isBandMember,
+    isInvited,
     attendanceStats,
     inviteeTotal,
     setlistCount,
@@ -139,6 +143,233 @@ export default function EventSheetMobile() {
     }
   };
 
+  const handleStatusChange = async (
+    isBooked: boolean,
+    isCancelled: boolean
+  ) => {
+    if (!event || !isAdmin) return;
+
+    try {
+      const { error } = await supabase
+        .from('events')
+        .update({
+          is_booked: isBooked,
+          is_cancelled: isCancelled,
+        })
+        .eq('id', event.id);
+
+      if (error) {
+        console.error('[event status change] error', error.message);
+        throw error;
+      }
+
+      setEvent((prev) =>
+        prev
+          ? {
+              ...prev,
+              is_booked: isBooked,
+              is_cancelled: isCancelled,
+            }
+          : prev
+      );
+    } catch (err) {
+      console.error('Failed to update event status', err);
+      throw err;
+    }
+  };
+
+  // Show loading while determining access OR while loading event data (if access granted)
+  if (loading || canAccess === null || (canAccess === true && !event)) {
+    return (
+      <IonPage ref={pageRef as any}>
+        <IonHeader translucent>
+          <IonToolbar
+            style={{
+              '--background': 'rgba(8,8,12,0.98)',
+              borderBottom: '0.5px solid rgba(255,255,255,0.06)',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                padding: '12px 16px',
+                gap: 12,
+              }}
+            >
+              <IonButton
+                onClick={handleBack}
+                fill="clear"
+                style={{
+                  minWidth: 0,
+                  padding: 6,
+                  margin: 0,
+                  '--padding-start': '0',
+                  '--padding-end': '0',
+                }}
+              >
+                <IonIcon
+                  icon={chevronBackOutline}
+                  style={{ color: '#F9FAFB', fontSize: 24 }}
+                />
+              </IonButton>
+            </div>
+          </IonToolbar>
+        </IonHeader>
+
+        <IonContent
+          fullscreen
+          style={{
+            '--background': 'linear-gradient(180deg, #050509 0%, #020109 100%)',
+          }}
+        >
+          <div
+            style={{ display: 'grid', placeItems: 'center', height: '100%' }}
+          >
+            <div style={{ display: 'grid', placeItems: 'center', gap: 12 }}>
+              <IonSpinner name="crescent" />
+              <IonText color="medium">
+                <p style={{ margin: 0 }}>Loading event…</p>
+              </IonText>
+            </div>
+          </div>
+        </IonContent>
+      </IonPage>
+    );
+  }
+
+  // Handle access denied - only show after access is confirmed false
+  if (canAccess === false) {
+    return (
+      <IonPage ref={pageRef as any}>
+        <IonHeader translucent>
+          <IonToolbar
+            style={{
+              '--background': 'rgba(8,8,12,0.98)',
+              borderBottom: '0.5px solid rgba(255,255,255,0.06)',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                padding: '12px 16px',
+                gap: 12,
+              }}
+            >
+              <IonButton
+                onClick={handleBack}
+                fill="clear"
+                style={{
+                  minWidth: 0,
+                  padding: 6,
+                  margin: 0,
+                  '--padding-start': '0',
+                  '--padding-end': '0',
+                }}
+              >
+                <IonIcon
+                  icon={chevronBackOutline}
+                  style={{ color: '#F9FAFB', fontSize: 24 }}
+                />
+              </IonButton>
+            </div>
+          </IonToolbar>
+        </IonHeader>
+
+        <IonContent
+          fullscreen
+          style={{
+            '--background': 'linear-gradient(180deg, #050509 0%, #020109 100%)',
+          }}
+        >
+          <div
+            style={{
+              display: 'grid',
+              placeItems: 'center',
+              height: '100%',
+              padding: '32px',
+              textAlign: 'center',
+            }}
+          >
+            <div>
+              <IonText color="medium">
+                <h2 style={{ fontSize: '20px', marginBottom: '12px' }}>
+                  Access Denied
+                </h2>
+                <p style={{ fontSize: '14px', lineHeight: 1.5 }}>
+                  You don't have permission to view this event. Only band
+                  members and invited users can access event details.
+                </p>
+              </IonText>
+            </div>
+          </div>
+        </IonContent>
+      </IonPage>
+    );
+  }
+
+  // At this point: !loading && canAccess === true && event exists
+  // (The loading check above handles the case where event is still null)
+
+  // TypeScript safety check - this should never hit due to loading condition above
+  if (!event) {
+    return (
+      <IonPage ref={pageRef as any}>
+        <IonHeader translucent>
+          <IonToolbar
+            style={{
+              '--background': 'rgba(8,8,12,0.98)',
+              borderBottom: '0.5px solid rgba(255,255,255,0.06)',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                padding: '12px 16px',
+                gap: 12,
+              }}
+            >
+              <IonButton
+                onClick={handleBack}
+                fill="clear"
+                style={{
+                  minWidth: 0,
+                  padding: 6,
+                  margin: 0,
+                  '--padding-start': '0',
+                  '--padding-end': '0',
+                }}
+              >
+                <IonIcon
+                  icon={chevronBackOutline}
+                  style={{ color: '#F9FAFB', fontSize: 24 }}
+                />
+              </IonButton>
+            </div>
+          </IonToolbar>
+        </IonHeader>
+
+        <IonContent
+          fullscreen
+          style={{
+            '--background': 'linear-gradient(180deg, #050509 0%, #020109 100%)',
+          }}
+        >
+          <div
+            style={{ display: 'grid', placeItems: 'center', height: '100%' }}
+          >
+            <IonText color="medium">
+              <p>Event not found.</p>
+            </IonText>
+          </div>
+        </IonContent>
+      </IonPage>
+    );
+  }
+
+  // Main UI - now TypeScript knows event is definitely not null
   return (
     <IonPage ref={pageRef as any}>
       <IonHeader translucent>
@@ -220,7 +451,7 @@ export default function EventSheetMobile() {
                     lineHeight: 1.2,
                   }}
                 >
-                  {event?.title ?? (loading ? 'Loading…' : 'Event')}
+                  {event.title ?? 'Event'}
                 </span>
                 <span
                   style={{
@@ -261,79 +492,59 @@ export default function EventSheetMobile() {
           '--background': 'linear-gradient(180deg, #050509 0%, #020109 100%)',
         }}
       >
-        {loading && (
-          <div
-            style={{ display: 'grid', placeItems: 'center', height: '100%' }}
-          >
-            <IonText color="medium">
-              <p>Loading event…</p>
-            </IonText>
-          </div>
-        )}
+        <div
+          style={{
+            padding: '16px',
+            maxWidth: '600px',
+            margin: '0 auto',
+          }}
+        >
+          <EventDetailsCard
+            event={event}
+            inviteeTotal={inviteeTotal}
+            acceptedCount={attendanceStats.accepted}
+            isAdmin={isAdmin}
+            onStatusChange={handleStatusChange}
+          />
+          <EventChatCTA
+            onPress={() =>
+              handleButtonPress('chat', () =>
+                nav(`/bands/${event.band_id}/events/${event.id}/chat`)
+              )
+            }
+            isPressed={pressedButton === 'chat'}
+            unreadCount={unreadMessages}
+          />
 
-        {!loading && !event && (
-          <div
-            style={{ display: 'grid', placeItems: 'center', height: '100%' }}
-          >
-            <IonText color="medium">
-              <p>Event not found.</p>
-            </IonText>
-          </div>
-        )}
-
-        {!loading && event && (
-          <div
-            style={{
-              padding: '16px',
-              maxWidth: '600px',
-              margin: '0 auto',
-            }}
-          >
-            <EventDetailsCard
-              event={event}
-              inviteeTotal={inviteeTotal}
-              acceptedCount={attendanceStats.accepted}
-            />
-            <EventChatCTA
-              onPress={() =>
-                handleButtonPress('chat', () =>
-                  nav(`/bands/${event.band_id}/events/${event.id}/chat`)
-                )
-              }
-              isPressed={pressedButton === 'chat'}
-              unreadCount={unreadMessages}
-            />
-
-            <EventQuickTiles
-              attendanceStats={attendanceStats}
-              inviteeTotal={inviteeTotal}
-              setlistCount={setlistCount}
-              filesCount={filesCount}
-              hasNotes={hasNotes}
-              pressedButton={pressedButton}
-              onPressRollCall={() =>
-                handleButtonPress('rollcall', () =>
-                  nav(`/bands/${event.band_id}/events/${event.id}/rollcall`)
-                )
-              }
-              onPressSetlist={() =>
-                handleButtonPress('setlist', () =>
-                  nav(`/bands/${event.band_id}/events/${event.id}/setlist`)
-                )
-              }
-              onPressNotes={() =>
-                handleButtonPress('notes', () =>
-                  nav(`/bands/${event.band_id}/events/${event.id}/notes`)
-                )
-              }
-              onPressFiles={() =>
-                handleButtonPress('files', () =>
-                  nav(`/bands/${event.band_id}/events/${event.id}/files`)
-                )
-              }
-            />
-          </div>
-        )}
+          <EventQuickTiles
+            attendanceStats={attendanceStats}
+            inviteeTotal={inviteeTotal}
+            setlistCount={setlistCount}
+            filesCount={filesCount}
+            hasNotes={hasNotes}
+            pressedButton={pressedButton}
+            onPressRollCall={() =>
+              handleButtonPress('rollcall', () =>
+                nav(`/bands/${event.band_id}/events/${event.id}/rollcall`)
+              )
+            }
+            onPressSetlist={() =>
+              handleButtonPress('setlist', () =>
+                nav(`/bands/${event.band_id}/events/${event.id}/setlist`)
+              )
+            }
+            onPressNotes={() =>
+              handleButtonPress('notes', () =>
+                nav(`/bands/${event.band_id}/events/${event.id}/notes`)
+              )
+            }
+            onPressFiles={() =>
+              handleButtonPress('files', () =>
+                nav(`/bands/${event.band_id}/events/${event.id}/files`)
+              )
+            }
+          />
+        </div>
       </IonContent>
     </IonPage>
   );

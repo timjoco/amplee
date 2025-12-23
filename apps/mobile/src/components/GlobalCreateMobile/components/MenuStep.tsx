@@ -19,14 +19,6 @@ export default function MenuStep(props: {
   const hasBands = bands.length > 0;
   const canCreate = hasBands && !loadingBands;
 
-  // DEBUG: quick visibility into the actual state
-  // eslint-disable-next-line no-console
-  console.log('[MenuStep]', {
-    hasBands,
-    bandCount: bands.length,
-    loadingBands,
-  });
-
   return (
     <div className="gc-menu-container">
       <button

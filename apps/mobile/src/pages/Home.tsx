@@ -10,6 +10,7 @@ import { addOutline, chevronForward, gridOutline } from 'ionicons/icons';
 import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
 import EventInboxListMobile from '../components/Events/EventInbox/EventsInboxListMobile';
+import { getAvatarUrl } from '../lib/cache/avatarUrlCache';
 import { getBandsCache, setBandsCache } from '../lib/cache/bandCache';
 import { supabase } from '../lib/supabase';
 import type { BandWithRole } from '../types/bands';
@@ -111,54 +112,36 @@ export default function Home() {
     [bands, selectedBandId]
   );
 
-  // Signed avatar URLs cache
+  // Signed avatar URLs - using persistent cache
   const [signedAvatars, setSignedAvatars] = React.useState<
     Record<string, string>
   >({});
 
-  // Load signed URLs for band avatars
+  // Load signed URLs for band avatars - only when bands change
   React.useEffect(() => {
     let cancelled = false;
 
     const loadAvatars = async () => {
       const updates: Record<string, string> = {};
 
-      for (const band of bands) {
-        if (!band.avatar_url) continue;
+      // Load all avatars in parallel
+      await Promise.all(
+        bands.map(async (band) => {
+          if (!band.avatar_url) return;
 
-        // Skip if already cached
-        if (signedAvatars[band.id]) continue;
-
-        // If it's already a full URL, use it directly
-        if (
-          band.avatar_url.startsWith('http://') ||
-          band.avatar_url.startsWith('https://')
-        ) {
-          updates[band.id] = band.avatar_url;
-          continue;
-        }
-
-        // Normalize the path (remove bucket prefix if present)
-        let normalizedPath = band.avatar_url;
-        if (normalizedPath.startsWith('band-avatars/')) {
-          normalizedPath = normalizedPath.slice('band-avatars/'.length);
-        }
-
-        try {
-          const { data, error } = await supabase.storage
-            .from('band-avatars')
-            .createSignedUrl(normalizedPath, 60 * 60); // 1 hour
-
-          if (!error && data?.signedUrl) {
-            updates[band.id] = data.signedUrl;
+          try {
+            const url = await getAvatarUrl('band-avatars', band.avatar_url);
+            if (url && !cancelled) {
+              updates[band.id] = url;
+            }
+          } catch (e) {
+            console.warn('[Home] avatar error', band.id, e);
           }
-        } catch (e) {
-          console.warn('[Home] avatar signed url error', band.id, e);
-        }
-      }
+        })
+      );
 
       if (!cancelled && Object.keys(updates).length > 0) {
-        setSignedAvatars((prev) => ({ ...prev, ...updates }));
+        setSignedAvatars(updates);
       }
     };
 
@@ -167,7 +150,7 @@ export default function Home() {
     return () => {
       cancelled = true;
     };
-  }, [bands, signedAvatars]);
+  }, [bands]);
 
   // Band colors - you can customize these or pull from band data
   const getBandColor = (bandId: string) => {
@@ -314,304 +297,309 @@ export default function Home() {
           </div>
         )}
 
-        {/* Main Layout with Side Nav */}
-        {!isEmpty && (
+        {/* Main Layout with Side Nav - ALWAYS RENDERED */}
+        <div
+          style={{
+            display: 'flex',
+            height: '100%',
+            paddingTop: 'env(safe-area-inset-top)',
+            opacity: isEmpty ? 0 : 1,
+            pointerEvents: isEmpty ? 'none' : 'auto',
+            transition: 'opacity 0.2s ease',
+          }}
+        >
+          {/* LEFT SIDE NAV - Always mounted, just hidden when empty */}
           <div
             style={{
+              width: 62,
+              background: '#0a0a0a',
+              borderRight: '1px solid rgba(255,255,255,0.08)',
+              padding: '12px 0',
               display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 6,
+              overflowY: 'auto',
+              flexShrink: 0,
               height: '100%',
-              paddingTop: 'env(safe-area-inset-top)',
             }}
           >
-            {/* LEFT SIDE NAV - Independent scroll */}
-            <div
-              style={{
-                width: 62,
-                background: '#0a0a0a',
-                borderRight: '1px solid rgba(255,255,255,0.08)',
-                padding: '12px 0',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: 6,
-                overflowY: 'auto',
-                flexShrink: 0,
-                height: '100%',
-              }}
-            >
-              {/* All Bands Button - Only show if more than 1 band */}
-              {bands.length > 1 && (
-                <>
-                  <button
-                    onClick={() => setSelectedBandId('all')}
-                    style={{
-                      width: 44,
-                      height: 44,
-                      borderRadius: 12,
-                      background:
-                        selectedBandId === 'all'
-                          ? 'linear-gradient(135deg, #9333ea 0%, #7c3aed 100%)'
-                          : 'rgba(255,255,255,0.08)',
-                      border: 'none',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      transition: 'all 0.2s ease',
-                      position: 'relative',
-                      boxShadow:
-                        selectedBandId === 'all'
-                          ? '0 4px 12px rgba(147,51,234,0.3)'
-                          : 'none',
-                    }}
-                  >
-                    <IonIcon
-                      icon={gridOutline}
-                      style={{ fontSize: 20, color: '#fff' }}
-                    />
-                    {selectedBandId === 'all' && (
-                      <div
-                        style={{
-                          position: 'absolute',
-                          right: -1,
-                          width: 3,
-                          height: 24,
-                          background: '#fff',
-                          borderRadius: '3px 0 0 3px',
-                        }}
-                      />
-                    )}
-                  </button>
-
-                  <div
-                    style={{
-                      width: 28,
-                      height: 1,
-                      background: 'rgba(255,255,255,0.1)',
-                      margin: '4px 0',
-                    }}
-                  />
-                </>
-              )}
-
-              {/* Band Icons */}
-              {bands.map((band) => {
-                const isSelected = selectedBandId === band.id;
-                const avatarUrl = signedAvatars[band.id];
-                const selectedColor = '#8B5CF6';
-
-                return (
-                  <button
-                    key={band.id}
-                    onClick={() => setSelectedBandId(band.id)}
-                    style={{
-                      width: 46,
-                      height: 46,
-                      borderRadius: 14,
-                      padding: 0,
-                      background: avatarUrl
-                        ? 'transparent'
-                        : isSelected
-                        ? `linear-gradient(135deg, ${selectedColor} 0%, ${selectedColor}bb 100%)`
-                        : 'rgba(255,255,255,0.08)',
-                      border:
-                        isSelected && avatarUrl
-                          ? `2px solid ${selectedColor}`
-                          : 'none',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: 16,
-                      fontWeight: 700,
-                      color: '#fff',
-                      transition: 'all 0.2s ease',
-                      position: 'relative',
-                      boxShadow: isSelected
-                        ? `0 4px 12px ${selectedColor}40`
-                        : 'none',
-                      overflow: 'hidden',
-                    }}
-                  >
-                    {avatarUrl ? (
-                      <img
-                        src={avatarUrl}
-                        alt={band.name}
-                        style={{
-                          width: '100%',
-                          height: '100%',
-                          objectFit: 'cover',
-                          display: 'block',
-                        }}
-                      />
-                    ) : (
-                      band.name.charAt(0).toUpperCase()
-                    )}
-                    {isSelected && (
-                      <div
-                        style={{
-                          position: 'absolute',
-                          right: -1,
-                          width: 3,
-                          height: 24,
-                          background: '#fff',
-                          borderRadius: '3px 0 0 3px',
-                        }}
-                      />
-                    )}
-                  </button>
-                );
-              })}
-
-              {/* Add Band Button */}
-              <button
-                onClick={handleCreateFirstBand}
-                style={{
-                  width: 44,
-                  height: 44,
-                  borderRadius: 12,
-                  background: 'transparent',
-                  border: '2px dashed rgba(255,255,255,0.15)',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  marginTop: 4,
-                }}
-              >
-                <IonIcon
-                  icon={addOutline}
-                  style={{ fontSize: 20, color: 'rgba(255,255,255,0.3)' }}
-                />
-              </button>
-            </div>
-
-            {/* MAIN CONTENT */}
-            <IonContent
-              style={{
-                '--background': 'transparent',
-                flex: 1,
-              }}
-            >
-              {/* Selected Band Header - Sticky */}
-              <div
-                style={{
-                  padding: '14px 16px',
-                  borderBottom: '1px solid rgba(255,255,255,0.08)',
-                  background: 'rgba(5, 5, 9, 0.95)',
-                  position: 'sticky',
-                  top: 0,
-                  zIndex: 10,
-                  backdropFilter: 'blur(20px)',
-                }}
-              >
-                <div
-                  onClick={() => {
-                    if (selectedBandId !== 'all' && selectedBand) {
-                      nav(`/bands/${selectedBand.id}`);
-                    }
-                  }}
+            {/* All Bands Button - Only show if more than 1 band */}
+            {bands.length > 1 && (
+              <>
+                <button
+                  onClick={() => setSelectedBandId('all')}
                   style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 12,
+                    background:
+                      selectedBandId === 'all'
+                        ? 'linear-gradient(135deg, #9333ea 0%, #7c3aed 100%)'
+                        : 'rgba(255,255,255,0.08)',
+                    border: 'none',
+                    cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: 10,
-                    cursor: selectedBandId !== 'all' ? 'pointer' : 'default',
+                    justifyContent: 'center',
+                    transition: 'all 0.2s ease',
+                    position: 'relative',
+                    boxShadow:
+                      selectedBandId === 'all'
+                        ? '0 4px 12px rgba(147,51,234,0.3)'
+                        : 'none',
                   }}
                 >
-                  {/* Only show avatar if viewing "All Bands" or have multiple bands */}
-                  {selectedBandId !== 'all' &&
-                    selectedBand &&
-                    bands.length > 1 && (
-                      <div
-                        style={{
-                          width: 36,
-                          height: 36,
-                          borderRadius: 10,
-                          background: `linear-gradient(135deg, ${getBandColor(
-                            selectedBand.id
-                          )}30 0%, ${getBandColor(selectedBand.id)}15 100%)`,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontSize: signedAvatars[selectedBand.id] ? 0 : 16,
-                          fontWeight: 600,
-                          color: '#fff',
-                          overflow: 'hidden',
-                        }}
-                      >
-                        {signedAvatars[selectedBand.id] ? (
-                          <img
-                            src={signedAvatars[selectedBand.id]}
-                            alt={selectedBand.name}
-                            style={{
-                              width: '100%',
-                              height: '100%',
-                              objectFit: 'cover',
-                            }}
-                          />
-                        ) : (
-                          getBandAvatar(selectedBand)
-                        )}
-                      </div>
-                    )}
-                  <div style={{ flex: 1 }}>
+                  <IonIcon
+                    icon={gridOutline}
+                    style={{ fontSize: 20, color: '#fff' }}
+                  />
+                  {selectedBandId === 'all' && (
                     <div
-                      style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+                      style={{
+                        position: 'absolute',
+                        right: -1,
+                        width: 3,
+                        height: 24,
+                        background: '#fff',
+                        borderRadius: '3px 0 0 3px',
+                      }}
+                    />
+                  )}
+                </button>
+
+                <div
+                  style={{
+                    width: 28,
+                    height: 1,
+                    background: 'rgba(255,255,255,0.1)',
+                    margin: '4px 0',
+                  }}
+                />
+              </>
+            )}
+
+            {/* Band Icons */}
+            {bands.map((band) => {
+              const isSelected = selectedBandId === band.id;
+              const avatarUrl = signedAvatars[band.id];
+              const selectedColor = '#8B5CF6';
+
+              return (
+                <button
+                  key={band.id}
+                  onClick={() => setSelectedBandId(band.id)}
+                  style={{
+                    width: 46,
+                    height: 46,
+                    borderRadius: 14,
+                    padding: 0,
+                    background: avatarUrl
+                      ? 'transparent'
+                      : isSelected
+                      ? `linear-gradient(135deg, ${selectedColor} 0%, ${selectedColor}bb 100%)`
+                      : 'rgba(255,255,255,0.08)',
+                    border:
+                      isSelected && avatarUrl
+                        ? `2px solid ${selectedColor}`
+                        : 'none',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: 16,
+                    fontWeight: 700,
+                    color: '#fff',
+                    transition: 'all 0.2s ease',
+                    position: 'relative',
+                    boxShadow: isSelected
+                      ? `0 4px 12px ${selectedColor}40`
+                      : 'none',
+                    overflow: 'hidden',
+                  }}
+                >
+                  {avatarUrl ? (
+                    <img
+                      src={avatarUrl}
+                      alt={band.name}
+                      loading="eager"
+                      decoding="async"
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover',
+                        display: 'block',
+                      }}
+                    />
+                  ) : (
+                    band.name.charAt(0).toUpperCase()
+                  )}
+                  {isSelected && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        right: -1,
+                        width: 3,
+                        height: 24,
+                        background: '#fff',
+                        borderRadius: '3px 0 0 3px',
+                      }}
+                    />
+                  )}
+                </button>
+              );
+            })}
+
+            {/* Add Band Button */}
+            <button
+              onClick={handleCreateFirstBand}
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 12,
+                background: 'transparent',
+                border: '2px dashed rgba(255,255,255,0.15)',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginTop: 4,
+              }}
+            >
+              <IonIcon
+                icon={addOutline}
+                style={{ fontSize: 20, color: 'rgba(255,255,255,0.3)' }}
+              />
+            </button>
+          </div>
+
+          {/* MAIN CONTENT */}
+          <IonContent
+            style={{
+              '--background': 'transparent',
+              flex: 1,
+            }}
+          >
+            {/* Selected Band Header - Sticky */}
+            <div
+              style={{
+                padding: '14px 16px',
+                borderBottom: '1px solid rgba(255,255,255,0.08)',
+                background: 'rgba(5, 5, 9, 0.95)',
+                position: 'sticky',
+                top: 0,
+                zIndex: 10,
+                backdropFilter: 'blur(20px)',
+              }}
+            >
+              <div
+                onClick={() => {
+                  if (selectedBandId !== 'all' && selectedBand) {
+                    nav(`/bands/${selectedBand.id}`);
+                  }
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  cursor: selectedBandId !== 'all' ? 'pointer' : 'default',
+                }}
+              >
+                {/* Only show avatar if viewing "All Bands" or have multiple bands */}
+                {selectedBandId !== 'all' &&
+                  selectedBand &&
+                  bands.length > 1 && (
+                    <div
+                      style={{
+                        width: 36,
+                        height: 36,
+                        borderRadius: 10,
+                        background: `linear-gradient(135deg, ${getBandColor(
+                          selectedBand.id
+                        )}30 0%, ${getBandColor(selectedBand.id)}15 100%)`,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: signedAvatars[selectedBand.id] ? 0 : 16,
+                        fontWeight: 600,
+                        color: '#fff',
+                        overflow: 'hidden',
+                      }}
                     >
-                      <h2
-                        style={{
-                          margin: 0,
-                          fontSize: 17,
-                          fontWeight: 600,
-                          color: '#fff',
-                        }}
-                      >
-                        {selectedBandId === 'all'
-                          ? 'All Bands'
-                          : selectedBand?.name}
-                      </h2>
-                      {selectedBandId !== 'all' && (
-                        <IonIcon
-                          icon={chevronForward}
+                      {signedAvatars[selectedBand.id] ? (
+                        <img
+                          src={signedAvatars[selectedBand.id]}
+                          alt={selectedBand.name}
+                          loading="eager"
+                          decoding="async"
                           style={{
-                            fontSize: 16,
-                            color: 'rgba(255,255,255,0.4)',
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'cover',
                           }}
                         />
+                      ) : (
+                        getBandAvatar(selectedBand)
                       )}
                     </div>
-                    <span
+                  )}
+                <div style={{ flex: 1 }}>
+                  <div
+                    style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+                  >
+                    <h2
                       style={{
-                        fontSize: 12,
-                        color: 'rgba(255,255,255,0.45)',
+                        margin: 0,
+                        fontSize: 17,
+                        fontWeight: 600,
+                        color: '#fff',
                       }}
                     >
                       {selectedBandId === 'all'
-                        ? `${bands.length} band${bands.length !== 1 ? 's' : ''}`
-                        : 'Tap to view band'}
-                    </span>
+                        ? 'All Bands'
+                        : selectedBand?.name}
+                    </h2>
+                    {selectedBandId !== 'all' && (
+                      <IonIcon
+                        icon={chevronForward}
+                        style={{
+                          fontSize: 16,
+                          color: 'rgba(255,255,255,0.4)',
+                        }}
+                      />
+                    )}
                   </div>
+                  <span
+                    style={{
+                      fontSize: 12,
+                      color: 'rgba(255,255,255,0.45)',
+                    }}
+                  >
+                    {selectedBandId === 'all'
+                      ? `${bands.length} band${bands.length !== 1 ? 's' : ''}`
+                      : 'Tap to view band'}
+                  </span>
                 </div>
               </div>
+            </div>
 
-              {/* Events List */}
-              <div
-                style={{
-                  padding: '0 12px',
-                  paddingBottom: 'calc(24px + env(safe-area-inset-bottom))',
-                }}
-              >
-                <EventInboxListMobile
-                  showAvatars={selectedBandId === 'all'}
-                  adminBandIds={adminBandIds}
-                  clientFilterBandId={
-                    selectedBandId !== 'all' ? selectedBandId : undefined
-                  }
-                />
-              </div>
-            </IonContent>
-          </div>
-        )}
+            {/* Events List */}
+            <div
+              style={{
+                padding: '0 12px',
+                paddingBottom: 'calc(24px + env(safe-area-inset-bottom))',
+              }}
+            >
+              <EventInboxListMobile
+                showAvatars={selectedBandId === 'all'}
+                adminBandIds={adminBandIds}
+                clientFilterBandId={
+                  selectedBandId !== 'all' ? selectedBandId : undefined
+                }
+              />
+            </div>
+          </IonContent>
+        </div>
       </IonContent>
     </IonPage>
   );

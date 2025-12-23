@@ -1,13 +1,7 @@
 import { IonIcon } from '@ionic/react';
-import {
-  calendarOutline,
-  checkmarkCircle,
-  closeCircle,
-  helpCircle,
-  locationOutline,
-  timeOutline,
-} from 'ionicons/icons';
+import { calendarOutline, locationOutline, timeOutline } from 'ionicons/icons';
 import { useMemo } from 'react';
+import EventStatusToggle from './EventStatusToggle';
 
 type EventType = 'show' | 'practice';
 
@@ -21,43 +15,19 @@ type Event = {
 
 type EventDetailsCardProps = {
   event: Event;
-
   inviteeTotal: number;
   acceptedCount: number;
+  isAdmin: boolean;
+  onStatusChange: (isBooked: boolean, isCancelled: boolean) => Promise<void>;
 };
 
 export default function EventDetailsCard({
   event,
   inviteeTotal,
   acceptedCount,
+  isAdmin,
+  onStatusChange,
 }: EventDetailsCardProps) {
-  const allConfirmed = inviteeTotal > 0 && acceptedCount >= inviteeTotal;
-
-  const status = useMemo(() => {
-    if (event.is_cancelled) {
-      return {
-        label: 'Cancelled',
-        color: '#fca5a5',
-        icon: closeCircle,
-      };
-    }
-
-    // ✅ treat as booked if DB says booked OR everyone is in
-    if (event.is_booked || allConfirmed) {
-      return {
-        label: 'Booked',
-        color: '#6ee7b7',
-        icon: checkmarkCircle,
-      };
-    }
-
-    return {
-      label: 'Pending',
-      color: '#fde68a',
-      icon: helpCircle,
-    };
-  }, [event.is_cancelled, event.is_booked, allConfirmed]);
-
   const timeUntilEvent = useMemo(() => {
     if (!event.starts_at) return null;
     const now = new Date();
@@ -105,21 +75,12 @@ export default function EventDetailsCard({
               marginBottom: 4,
             }}
           >
-            <IonIcon
-              icon={status.icon}
-              style={{ fontSize: 20, color: status.color }}
+            <EventStatusToggle
+              currentIsBooked={event.is_booked}
+              currentIsCancelled={event.is_cancelled}
+              isAdmin={isAdmin}
+              onStatusChange={onStatusChange}
             />
-            <span
-              style={{
-                fontSize: 14,
-                fontWeight: 700,
-                color: status.color,
-                textTransform: 'uppercase',
-                letterSpacing: 0.5,
-              }}
-            >
-              {status.label}
-            </span>
           </div>
 
           <div
@@ -129,7 +90,7 @@ export default function EventDetailsCard({
             }}
           >
             {event.type === 'practice' ? 'Practice Session' : 'Show'}
-            {/* optional helper line */}
+            {/* Show attendance count if there are invitees */}
             {!event.is_cancelled && inviteeTotal > 0 && (
               <>
                 {' • '}

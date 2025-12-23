@@ -2,6 +2,7 @@
 
 import EventInboxArchivedMobile from './components/EventInboxArchivedMobile';
 import EventInboxBandMobile from './components/EventInboxBandMobile';
+import EventInboxDeclinedMobile from './components/EventInboxDeclinedMobile';
 import EventInboxHomeMobile from './components/EventInboxHomeMobile';
 
 export default function EventInboxListMobile({
@@ -13,6 +14,8 @@ export default function EventInboxListMobile({
   adminBandIds = [],
   suppressEmptyState = false,
   showArchived = false,
+  showDeclined = false,
+  showActive = true,
   clientFilterBandId,
 }: {
   onLoaded?: (count: number) => void;
@@ -23,6 +26,8 @@ export default function EventInboxListMobile({
   adminBandIds?: string[];
   suppressEmptyState?: boolean;
   showArchived?: boolean;
+  showDeclined?: boolean;
+  showActive?: boolean;
   clientFilterBandId?: string;
 }) {
   // Archived view wins if requested
@@ -40,7 +45,22 @@ export default function EventInboxListMobile({
     );
   }
 
-  // Band-scoped view
+  // Declined view
+  if (showDeclined) {
+    return (
+      <EventInboxDeclinedMobile
+        onLoaded={onLoaded}
+        bandId={bandId}
+        showAvatars={showAvatars}
+        isAdmin={isAdmin}
+        adminBandIds={adminBandIds}
+        suppressEmptyState={suppressEmptyState}
+        clientFilterBandId={clientFilterBandId}
+      />
+    );
+  }
+
+  // Band-scoped view (active events only)
   if (bandId) {
     return (
       <EventInboxBandMobile
@@ -56,7 +76,7 @@ export default function EventInboxListMobile({
     );
   }
 
-  // Home view (all bands)
+  // Home view (all bands, active events only)
   return (
     <EventInboxHomeMobile
       onLoaded={onLoaded}

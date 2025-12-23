@@ -1,7 +1,12 @@
 /* eslint-disable @next/next/no-img-element */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { IonIcon, IonSpinner, IonText } from '@ionic/react';
-import { addOutline, archiveOutline, chatbubbleOutline } from 'ionicons/icons';
+import {
+  addOutline,
+  archiveOutline,
+  chatbubbleOutline,
+  closeCircleOutline,
+} from 'ionicons/icons';
 import { useCallback, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
@@ -28,6 +33,7 @@ export default function EventInboxListBaseMobile({
   suppressEmptyState = false,
   showArchived = false,
   clientFilterBandId,
+  showDeclined = false,
   onLoaded,
 }: {
   scope: InboxScope;
@@ -39,6 +45,7 @@ export default function EventInboxListBaseMobile({
   suppressEmptyState?: boolean;
   showArchived?: boolean;
   clientFilterBandId?: string;
+  showDeclined?: boolean;
   onLoaded?: (count: number) => void;
 }) {
   const nav = useNavigate();
@@ -50,6 +57,7 @@ export default function EventInboxListBaseMobile({
       bandId,
       showArchived,
       showAvatars,
+      showDeclined,
       onLoaded,
       clientFilterBandId,
     });
@@ -219,6 +227,7 @@ export default function EventInboxListBaseMobile({
   }, [displayRows, conflictGroups]);
 
   const isArchivedTab = Boolean(showArchived);
+  const isDeclinedTab = Boolean(showDeclined);
 
   if (loading && rows.length === 0) {
     if (suppressEmptyState) return null;
@@ -246,11 +255,19 @@ export default function EventInboxListBaseMobile({
     return (
       <>
         <EmptyStateCard
-          variant={isArchivedTab ? 'archived' : 'active'}
+          variant={
+            isArchivedTab ? 'archived' : isDeclinedTab ? 'declined' : 'active'
+          }
           isAdmin={isAdmin}
           canCreateEvent={canCreateEvent}
           onCreate={openGlobalCreateForBand}
-          icon={isArchivedTab ? archiveOutline : chatbubbleOutline}
+          icon={
+            isArchivedTab
+              ? archiveOutline
+              : isDeclinedTab
+              ? closeCircleOutline
+              : chatbubbleOutline
+          }
         />
 
         {/* ActionSheet still needs to exist for long-press (even though empty state) */}
@@ -324,6 +341,7 @@ export default function EventInboxListBaseMobile({
               lastMsg={lastMsgs[e.id]}
               showAvatars={showAvatars}
               avatarSrc={getAvatarSrc(e)}
+              showDeclined={showDeclined}
               renderAvatarInitials={renderAvatarInitials}
               isPressed={pressedId === e.id}
               isHovered={hoveredId === e.id}
@@ -398,6 +416,7 @@ export default function EventInboxListBaseMobile({
                 lastMsg={lastMsgs[e.id]}
                 showAvatars={showAvatars}
                 avatarSrc={getAvatarSrc(e)}
+                showDeclined={showDeclined}
                 renderAvatarInitials={renderAvatarInitials}
                 isPressed={pressedId === e.id}
                 isHovered={hoveredId === e.id}
