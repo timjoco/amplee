@@ -40,6 +40,10 @@ export function useEventMessages({
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const didInitialScrollRef = useRef(false);
 
+  // Refs for callbacks used in realtime subscription to avoid re-subscriptions
+  const fetchPreviewRef = useRef(fetchPreviewForMessage);
+  fetchPreviewRef.current = fetchPreviewForMessage;
+
   messagesRef.current = messages;
 
   const isNearBottom = useCallback(() => {
@@ -58,6 +62,10 @@ export function useEventMessages({
     },
     [isNearBottom]
   );
+
+  // Ref for smartScrollToBottom to use in realtime callback
+  const smartScrollRef = useRef(smartScrollToBottom);
+  smartScrollRef.current = smartScrollToBottom;
 
   const loadMoreMessages = useCallback(async () => {
     if (loadingMore || !hasMoreMessages || messagesRef.current.length === 0) {
@@ -221,7 +229,7 @@ export function useEventMessages({
     }
   }, [loading, messages.length]);
 
-  // Realtime inserts
+  // Realtime inserts - only depends on eventId to avoid re-subscriptions
   useEffect(() => {
     const ch = supabase
       .channel(`event:${eventId}:insert`)
@@ -275,8 +283,9 @@ export function useEventMessages({
             return [...prev, enriched];
           });
 
-          void fetchPreviewForMessage(enriched);
-          smartScrollToBottom('smooth');
+          // Use refs to call latest callbacks without having them in deps
+          void fetchPreviewRef.current(enriched);
+          smartScrollRef.current('smooth');
         }
       )
       .subscribe();
@@ -284,7 +293,7 @@ export function useEventMessages({
     return () => {
       supabase.removeChannel(ch);
     };
-  }, [eventId, profilesById, fetchPreviewForMessage, smartScrollToBottom]);
+  }, [eventId, profilesById]);
 
   const isEmpty = !loading && messages.length === 0;
 

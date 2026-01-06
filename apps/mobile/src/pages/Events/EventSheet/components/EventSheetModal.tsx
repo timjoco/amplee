@@ -497,6 +497,9 @@ function RosterPanelMobile({ eventId }: { eventId: string }) {
   const [rows, setRows] = useState<RosterRow[]>([]);
   const [loading, setLoading] = useState(true);
   const initialLoadDone = useRef(false);
+  // Track user IDs for realtime filtering without causing re-subscriptions
+  const userIdsRef = useRef<Set<string>>(new Set());
+  const loadRosterRef = useRef<() => Promise<void>>();
 
   const loadRoster = useCallback(async () => {
     if (!initialLoadDone.current) setLoading(true);
@@ -561,20 +564,27 @@ function RosterPanelMobile({ eventId }: { eventId: string }) {
       });
 
       setRows(mapped);
+      // Update ref for realtime filtering (doesn't trigger re-subscriptions)
+      userIdsRef.current = new Set(mapped.map((r) => r.user_id));
     } finally {
       initialLoadDone.current = true;
       setLoading(false);
     }
   }, [eventId]);
 
+  // Keep ref updated so realtime callbacks can call latest version
+  loadRosterRef.current = loadRoster;
+
   useEffect(() => {
     initialLoadDone.current = false;
     setRows([]);
+    userIdsRef.current = new Set();
     setLoading(true);
     void loadRoster();
   }, [loadRoster]);
 
   // Realtime: event_members changes for this event
+  // NOTE: Only depends on eventId - uses ref for loadRoster to avoid re-subscriptions
   useEffect(() => {
     const ch = supabase
       .channel(`event:${eventId}:event-members`)
@@ -587,8 +597,8 @@ function RosterPanelMobile({ eventId }: { eventId: string }) {
           filter: `event_id=eq.${eventId}`,
         },
         () => {
-          // simplest + safest: re-fetch roster (avoids edge cases for INSERT/DELETE)
-          void loadRoster();
+          // Use ref to get latest loadRoster without having it in deps
+          void loadRosterRef.current?.();
         }
       )
       .subscribe();
@@ -596,15 +606,11 @@ function RosterPanelMobile({ eventId }: { eventId: string }) {
     return () => {
       supabase.removeChannel(ch);
     };
-  }, [eventId, loadRoster]);
+  }, [eventId]);
 
   // Realtime: profile updates (patch rows if displayed users change)
+  // NOTE: Only depends on eventId - uses userIdsRef to filter without re-subscriptions
   useEffect(() => {
-    if (rows.length === 0) return;
-
-    const ids = rows.map((r) => r.user_id);
-    const idSet = new Set(ids);
-
     const chProf = supabase
       .channel(`event:${eventId}:profiles-roster`)
       .on(
@@ -615,7 +621,8 @@ function RosterPanelMobile({ eventId }: { eventId: string }) {
           if (!p) return;
 
           const userId = p.id as string;
-          if (!idSet.has(userId)) return;
+          // Use ref instead of closure over rows - avoids re-subscription on rows change
+          if (!userIdsRef.current.has(userId)) return;
 
           const name = (p.display_name ?? p.first_name ?? 'Member') as string;
           const avatar_url = (p.avatar_url ?? null) as string | null;
@@ -633,7 +640,7 @@ function RosterPanelMobile({ eventId }: { eventId: string }) {
     return () => {
       supabase.removeChannel(chProf);
     };
-  }, [eventId, rows]);
+  }, [eventId]);
 
   const statusStyle = (s: RosterStatus) => {
     if (s === 'accepted') {

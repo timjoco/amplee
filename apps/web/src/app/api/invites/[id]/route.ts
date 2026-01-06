@@ -49,6 +49,20 @@ async function getParamId(ctx: { params: any }) {
   return p.id as string;
 }
 
+/**
+ * Obfuscate email to prevent information disclosure.
+ * "john.doe@example.com" -> "j***@example.com"
+ */
+function obfuscateEmail(email: string | null): string | null {
+  if (!email) return null;
+  const atIndex = email.indexOf('@');
+  if (atIndex <= 0) return '***';
+  const local = email.slice(0, atIndex);
+  const domain = email.slice(atIndex);
+  if (local.length <= 1) return `${local}***${domain}`;
+  return `${local[0]}***${domain}`;
+}
+
 export async function GET(req: NextRequest, ctx: { params: any }) {
   try {
     const token = await getParamId(ctx);
@@ -109,7 +123,8 @@ export async function GET(req: NextRequest, ctx: { params: any }) {
           status: invite.status,
           role: invite.role,
           band_id: invite.band_id,
-          email: invite.email,
+          // Obfuscate email to prevent information disclosure
+          email: obfuscateEmail(invite.email),
           created_at: invite.created_at,
           accepted: invite.status === 'accepted',
           bandName: bandName,

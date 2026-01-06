@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   getAttendanceCache,
   setAttendanceCache,
@@ -14,6 +14,8 @@ const coerceStatus = (s: any): AttStatus =>
     : 'pending';
 
 export function useAttendance(eventId: string) {
+  // Ref to hold latest load function for use in realtime callback
+  const loadRef = useRef<() => Promise<void>>();
   const [mine, setMine] = useState<AttStatus>('pending');
   const [counts, setCounts] = useState<{ accepted: number; total: number }>({
     accepted: 0,
@@ -110,12 +112,16 @@ export function useAttendance(eventId: string) {
     setHydrated(true);
   }, [eventId, cacheEventKey]);
 
+  // Keep ref updated so realtime callback uses latest load function
+  loadRef.current = load;
+
+  // Initial load when eventId changes
   useEffect(() => {
-    let active = true;
+    void load();
+  }, [load]);
 
-    if (active) void load();
-
-    // Realtime: listen to event_members
+  // Realtime subscription - only depends on eventId to avoid re-subscriptions
+  useEffect(() => {
     const ch = supabase
       .channel(`event:${eventId}:attendance:v2`)
       .on(
@@ -127,16 +133,16 @@ export function useAttendance(eventId: string) {
           filter: `event_id=eq.${eventId}`,
         },
         () => {
-          void load();
+          // Use ref to call latest load without having it in deps
+          void loadRef.current?.();
         }
       )
       .subscribe();
 
     return () => {
-      active = false;
       supabase.removeChannel(ch);
     };
-  }, [eventId, load]);
+  }, [eventId]);
 
   const update = useCallback(
     async (nextInput: AttStatus) => {

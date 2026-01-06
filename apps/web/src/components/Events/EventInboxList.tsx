@@ -27,7 +27,6 @@ import {
 import { alpha } from '@mui/material/styles';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabaseBrowser } from '../../lib/supabaseClient';
-import AvatarImage from '../ui/AvatarImage';
 
 type EventRow = {
   id: string;
@@ -47,12 +46,6 @@ type EventRow = {
     name: string;
     avatar_url: string | null;
   } | null;
-};
-
-type LastMsg = {
-  event_id: string;
-  body: string;
-  created_at: string;
 };
 
 type ArchivedEventData = {
@@ -82,7 +75,6 @@ export default function EventInboxList({
   const sb = useMemo(() => supabaseBrowser(), []);
   const [loading, setLoading] = useState(true);
   const [events, setEvents] = useState<EventRow[]>([]);
-  const [lastMsgs, setLastMsgs] = useState<Record<string, LastMsg>>({});
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [showArchivedView, setShowArchivedView] = useState(false);
 
@@ -116,33 +108,6 @@ export default function EventInboxList({
       }),
     []
   );
-
-  const getRelativeTime = (dateStr: string | null) => {
-    if (!dateStr) return '';
-    const date = new Date(dateStr);
-    const now = new Date();
-    const diffMs = date.getTime() - now.getTime();
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-    if (diffDays === 0) {
-      return date.toLocaleTimeString(undefined, {
-        hour: 'numeric',
-        minute: '2-digit',
-        hour12: true,
-      });
-    } else if (diffDays === 1) {
-      return 'Tomorrow';
-    } else if (diffDays === -1) {
-      return 'Yesterday';
-    } else if (diffDays > 1 && diffDays <= 7) {
-      return date.toLocaleDateString(undefined, { weekday: 'short' });
-    } else {
-      return date.toLocaleDateString(undefined, {
-        month: 'short',
-        day: 'numeric',
-      });
-    }
-  };
 
   const loadEvents = useCallback(async () => {
     setLoading(true);
@@ -229,15 +194,6 @@ export default function EventInboxList({
         showArchivedView ? Boolean(e.archived_at) : !e.archived_at
       );
 
-      console.log(
-        '[EventInboxList] Total events:',
-        normalized.length,
-        'Filtered:',
-        filtered.length,
-        'Archived view:',
-        showArchivedView
-      );
-
       // Sort: upcoming first (chronological), then past (reverse chronological)
       const now = Date.now();
       const toTs = (s?: string | null) =>
@@ -249,45 +205,15 @@ export default function EventInboxList({
 
       const past = filtered
         .filter((e) => !e.starts_at || toTs(e.starts_at) < now)
-        .sort((a, b) => toTs(b.starts_at) - toTs(a.starts_at)); // Most recent past first
-
-      console.log(
-        '[EventInboxList] Upcoming:',
-        upcoming.length,
-        'Past:',
-        past.length
-      );
+        .sort((a, b) => toTs(b.starts_at) - toTs(a.starts_at));
 
       const sorted = showArchivedView
-        ? [...past, ...upcoming] // For archived: show oldest to newest
-        : [...upcoming, ...past]; // For active: upcoming first, then recent past
+        ? [...past, ...upcoming]
+        : [...upcoming, ...past];
       setEvents(sorted);
 
       // Notify parent of event count
       onLoaded?.(sorted.length);
-
-      // Fetch last messages
-      if (sorted.length > 0) {
-        const targetIds = sorted.map((e) => e.id);
-        const { data: msgs } = await sb
-          .from('event_messages')
-          .select('event_id, body, created_at')
-          .in('event_id', targetIds)
-          .order('created_at', { ascending: false })
-          .limit(1000);
-
-        const map: Record<string, LastMsg> = {};
-        for (const m of msgs ?? []) {
-          const existing = map[m.event_id];
-          if (
-            !existing ||
-            new Date(m.created_at) > new Date(existing.created_at)
-          ) {
-            map[m.event_id] = m as LastMsg;
-          }
-        }
-        setLastMsgs(map);
-      }
     } catch (e) {
       console.error('Failed to load events:', e);
     } finally {
@@ -311,7 +237,6 @@ export default function EventInboxList({
           table: 'events',
         },
         () => {
-          // Reload events when any event changes
           void loadEvents();
         }
       )
@@ -371,7 +296,6 @@ export default function EventInboxList({
 
       if (error) throw error;
 
-      // Remove from list
       setEvents((prev) => prev.filter((e) => e.id !== archiveTarget.id));
       closeArchiveModal();
     } catch (e) {
@@ -438,207 +362,317 @@ export default function EventInboxList({
 
   if (events.length === 0) {
     return (
-      <Box
-        sx={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          minHeight: 400,
-        }}
-      >
-        <EventIcon sx={{ fontSize: 64, opacity: 0.3, mb: 2 }} />
-        <Typography variant="h6" sx={{ mb: 1, opacity: 0.7 }}>
-          {showArchivedView ? 'No archived events' : 'No upcoming events'}
-        </Typography>
-        {isAdmin && !showArchivedView && bandId && (
-          <Button
-            variant="contained"
-            href={`/bands/${bandId}/events/new`}
-            sx={{
-              mt: 2,
-              borderRadius: 2,
-              fontWeight: 700,
-              textTransform: 'none',
-              bgcolor: '#10B981',
-              '&:hover': { bgcolor: '#059669' },
-            }}
+      <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+        {/* Header */}
+        <Box
+          sx={{
+            px: 3,
+            py: 2.5,
+            borderBottom: (t) =>
+              `1px solid ${alpha(t.palette.primary.main, 0.12)}`,
+          }}
+        >
+          <Stack
+            direction="row"
+            alignItems="center"
+            justifyContent="space-between"
           >
-            Create Event
-          </Button>
-        )}
+            <Stack direction="row" alignItems="center" spacing={2}>
+              <EventIcon sx={{ fontSize: 24, opacity: 0.7 }} />
+              <Typography variant="h6" fontWeight={700} letterSpacing={0.3}>
+                Events
+              </Typography>
+            </Stack>
+
+            {isAdmin && bandId && (
+              <Button
+                href={`/bands/${bandId}/events/new`}
+                size="small"
+                variant="contained"
+                sx={{
+                  borderRadius: 2,
+                  textTransform: 'none',
+                  fontWeight: 600,
+                  bgcolor: '#10B981',
+                  '&:hover': { bgcolor: '#059669' },
+                }}
+              >
+                New Event
+              </Button>
+            )}
+          </Stack>
+        </Box>
+
+        {/* Empty State */}
+        <Box
+          sx={{
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            minHeight: 400,
+          }}
+        >
+          <Box
+            sx={(t) => ({
+              py: 6,
+              px: 4,
+              textAlign: 'center',
+              border: `1px dashed ${alpha(t.palette.primary.main, 0.2)}`,
+              borderRadius: 2,
+            })}
+          >
+            <EventIcon sx={{ fontSize: 48, opacity: 0.3, mb: 1 }} />
+            <Typography variant="body2" sx={{ opacity: 0.6 }}>
+              {showArchivedView
+                ? 'No archived events'
+                : 'No upcoming events scheduled'}
+            </Typography>
+          </Box>
+        </Box>
       </Box>
     );
   }
 
   return (
-    <Box>
-      {/* Archive Toggle - Only show in band context */}
-      {bandId && (
-        <Box
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      {/* Header */}
+      <Box
+        sx={{
+          px: 3,
+          py: 2.5,
+          borderBottom: (t) =>
+            `1px solid ${alpha(t.palette.primary.main, 0.12)}`,
+        }}
+      >
+        <Stack
+          direction="row"
+          alignItems="center"
+          justifyContent="space-between"
+        >
+          <Stack direction="row" alignItems="center" spacing={2}>
+            <EventIcon sx={{ fontSize: 24, opacity: 0.7 }} />
+            <Typography variant="h6" fontWeight={700} letterSpacing={0.3}>
+              Events
+            </Typography>
+          </Stack>
+
+          <Stack direction="row" spacing={1} alignItems="center">
+            {/* Archive Toggle */}
+            {bandId && (
+              <Stack direction="row" spacing={0.5} sx={{ mr: 1 }}>
+                <Button
+                  size="small"
+                  variant={!showArchivedView ? 'contained' : 'text'}
+                  onClick={() => setShowArchivedView(false)}
+                  sx={{
+                    borderRadius: 2,
+                    textTransform: 'none',
+                    fontWeight: 600,
+                    minWidth: 'auto',
+                    px: 1.5,
+                    bgcolor: !showArchivedView
+                      ? alpha('#7C3AED', 0.15)
+                      : 'transparent',
+                    color: !showArchivedView ? '#A78BFA' : 'text.secondary',
+                    '&:hover': {
+                      bgcolor: alpha('#7C3AED', 0.1),
+                    },
+                  }}
+                >
+                  Active
+                </Button>
+                <Button
+                  size="small"
+                  variant={showArchivedView ? 'contained' : 'text'}
+                  onClick={() => setShowArchivedView(true)}
+                  sx={{
+                    borderRadius: 2,
+                    textTransform: 'none',
+                    fontWeight: 600,
+                    minWidth: 'auto',
+                    px: 1.5,
+                    bgcolor: showArchivedView
+                      ? alpha('#7C3AED', 0.15)
+                      : 'transparent',
+                    color: showArchivedView ? '#A78BFA' : 'text.secondary',
+                    '&:hover': {
+                      bgcolor: alpha('#7C3AED', 0.1),
+                    },
+                  }}
+                >
+                  Archived
+                </Button>
+              </Stack>
+            )}
+
+            {isAdmin && bandId && (
+              <Button
+                href={`/bands/${bandId}/events/new`}
+                size="small"
+                variant="contained"
+                sx={{
+                  borderRadius: 2,
+                  textTransform: 'none',
+                  fontWeight: 600,
+                  bgcolor: '#10B981',
+                  '&:hover': { bgcolor: '#059669' },
+                }}
+              >
+                New Event
+              </Button>
+            )}
+          </Stack>
+        </Stack>
+      </Box>
+
+      {/* Content Area */}
+      <Box sx={{ flex: 1, overflow: 'auto', px: 3, py: 3 }}>
+        <Typography
+          variant="overline"
           sx={{
-            px: 2,
-            py: 2,
-            borderBottom: (t) =>
-              `1px solid ${alpha(t.palette.primary.main, 0.12)}`,
+            fontWeight: 700,
+            letterSpacing: 1,
+            opacity: 0.6,
+            fontSize: '0.75rem',
+            mb: 2,
+            display: 'block',
           }}
         >
-          <Stack direction="row" spacing={1}>
-            <Button
-              size="small"
-              variant={!showArchivedView ? 'contained' : 'outlined'}
-              onClick={() => setShowArchivedView(false)}
-              sx={{
-                borderRadius: 2,
-                textTransform: 'none',
-                fontWeight: 600,
-              }}
-            >
-              Active
-            </Button>
-            <Button
-              size="small"
-              variant={showArchivedView ? 'contained' : 'outlined'}
-              onClick={() => setShowArchivedView(true)}
-              sx={{
-                borderRadius: 2,
-                textTransform: 'none',
-                fontWeight: 600,
-              }}
-            >
-              Archived
-            </Button>
-          </Stack>
-        </Box>
-      )}
+          {showArchivedView ? 'Archived' : 'Upcoming'} Events — {events.length}
+        </Typography>
 
-      <Stack spacing={0}>
-        {events.map((event, idx) => {
-          const when = getRelativeTime(event.starts_at);
-          const lm = lastMsgs[event.id];
-          const fallbackPreview =
-            event.location || `${event.type === 'show' ? 'Show' : 'Practice'}`;
-          const isPast = event.starts_at
-            ? new Date(event.starts_at).getTime() < Date.now()
-            : false;
-          const canArchive = isAdmin && isPast && !event.archived_at;
+        <Stack spacing={0}>
+          {events.map((event, idx) => {
+            const isPast = event.starts_at
+              ? new Date(event.starts_at).getTime() < Date.now()
+              : false;
+            const canArchive = isAdmin && isPast && !event.archived_at;
+            const eventColor = event.type === 'show' ? '#10B981' : '#60A5FA';
 
-          return (
-            <Box key={event.id}>
-              <Box
-                onClick={() => {
-                  if (event.archived_at) {
-                    void openArchivedSummary(event);
-                  } else {
-                    onEventOpen(event.id);
-                  }
-                }}
-                onMouseEnter={() => setHoveredId(event.id)}
-                onMouseLeave={() => setHoveredId(null)}
-                sx={(t) => ({
-                  px: 2,
-                  py: 2.5,
-                  cursor: 'pointer',
-                  transition: 'all 0.15s ease',
-                  borderRadius: 2,
-                  position: 'relative',
-                  '&:hover': {
-                    bgcolor: alpha(t.palette.primary.main, 0.04),
-                  },
-                })}
-              >
-                <Stack direction="row" spacing={2} alignItems="center">
-                  {/* Avatar */}
-                  {event.bands && (
-                    <Box sx={{ position: 'relative' }}>
-                      <AvatarImage
-                        name={event.bands.name}
-                        bucket="band-avatars"
-                        srcGuess={event.bands.avatar_url || undefined}
-                        size={48}
-                      />
-                    </Box>
-                  )}
-
-                  {/* Content */}
-                  <Box sx={{ flex: 1, minWidth: 0 }}>
-                    <Stack
-                      direction="row"
-                      spacing={1}
-                      alignItems="center"
-                      sx={{ mb: 0.5 }}
+            return (
+              <Box key={event.id}>
+                <Box
+                  onClick={() => {
+                    if (event.archived_at) {
+                      void openArchivedSummary(event);
+                    } else {
+                      onEventOpen(event.id);
+                    }
+                  }}
+                  onMouseEnter={() => setHoveredId(event.id)}
+                  onMouseLeave={() => setHoveredId(null)}
+                  sx={(t) => ({
+                    px: 2,
+                    py: 2.5,
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                    borderRadius: 2,
+                    position: 'relative',
+                    '&:hover': {
+                      bgcolor: alpha(t.palette.primary.main, 0.04),
+                    },
+                  })}
+                >
+                  <Stack direction="row" spacing={2} alignItems="center">
+                    {/* Event Icon */}
+                    <Box
+                      sx={{
+                        width: 48,
+                        height: 48,
+                        borderRadius: '50%',
+                        bgcolor: alpha(eventColor, 0.15),
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0,
+                      }}
                     >
+                      <EventIcon sx={{ color: eventColor, fontSize: 24 }} />
+                    </Box>
+
+                    {/* Content */}
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
                       <Typography
                         variant="body1"
                         fontWeight={700}
+                        sx={{ mb: 0.5 }}
                         noWrap
-                        sx={{ flex: 1 }}
                       >
                         {event.title}
                       </Typography>
+                      <Stack
+                        direction="row"
+                        spacing={2}
+                        sx={{ flexWrap: 'wrap' }}
+                      >
+                        {event.starts_at && (
+                          <Stack
+                            direction="row"
+                            spacing={0.5}
+                            alignItems="center"
+                          >
+                            <CalendarMonthIcon
+                              sx={{ fontSize: 16, opacity: 0.6 }}
+                            />
+                            <Typography variant="body2" sx={{ opacity: 0.7 }}>
+                              {timeFmt.format(new Date(event.starts_at))}
+                            </Typography>
+                          </Stack>
+                        )}
+                        {event.location && (
+                          <Stack
+                            direction="row"
+                            spacing={0.5}
+                            alignItems="center"
+                          >
+                            <LocationOnIcon
+                              sx={{ fontSize: 16, opacity: 0.6 }}
+                            />
+                            <Typography variant="body2" sx={{ opacity: 0.7 }}>
+                              {event.location}
+                            </Typography>
+                          </Stack>
+                        )}
+                      </Stack>
+                    </Box>
 
-                      {when && (
-                        <Typography
-                          variant="caption"
-                          sx={{ opacity: 0.6, flexShrink: 0 }}
-                        >
-                          {when}
-                        </Typography>
-                      )}
-                    </Stack>
+                    {/* Type Chip */}
+                    <Chip
+                      label={event.type}
+                      size="small"
+                      sx={{
+                        textTransform: 'capitalize',
+                        bgcolor: alpha(eventColor, 0.1),
+                        color: eventColor,
+                        fontWeight: 600,
+                        border: `1px solid ${alpha(eventColor, 0.2)}`,
+                      }}
+                    />
 
-                    <Stack direction="row" spacing={1} alignItems="center">
-                      <Chip
-                        label={event.type}
+                    {/* Actions Menu - Show for past events if admin */}
+                    {canArchive && (
+                      <IconButton
                         size="small"
+                        onClick={(e) => handleContextMenu(e, event)}
                         sx={{
-                          textTransform: 'capitalize',
-                          bgcolor: alpha(
-                            event.type === 'show' ? '#A78BFA' : '#60A5FA',
-                            0.15
-                          ),
-                          color: event.type === 'show' ? '#A78BFA' : '#60A5FA',
-                          fontWeight: 600,
-                          height: 20,
-                          fontSize: '0.75rem',
-                        }}
-                      />
-
-                      <Typography
-                        variant="body2"
-                        sx={{
-                          opacity: 0.7,
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
+                          flexShrink: 0,
+                          opacity: hoveredId === event.id ? 1 : 0,
+                          transition: 'opacity 0.2s',
                         }}
                       >
-                        {lm?.body || fallbackPreview}
-                      </Typography>
-                    </Stack>
-                  </Box>
-
-                  {/* Actions Menu - Show for past events if admin */}
-                  {canArchive && (
-                    <IconButton
-                      size="small"
-                      onClick={(e) => handleContextMenu(e, event)}
-                      sx={{
-                        flexShrink: 0,
-                        opacity: hoveredId === event.id ? 1 : 0,
-                        transition: 'opacity 0.2s',
-                      }}
-                    >
-                      <MoreVertIcon />
-                    </IconButton>
-                  )}
-                </Stack>
+                        <MoreVertIcon />
+                      </IconButton>
+                    )}
+                  </Stack>
+                </Box>
+                {idx < events.length - 1 && <Divider sx={{ opacity: 0.1 }} />}
               </Box>
-              {idx < events.length - 1 && <Divider sx={{ opacity: 0.1 }} />}
-            </Box>
-          );
-        })}
-      </Stack>
+            );
+          })}
+        </Stack>
+      </Box>
 
       {/* Context Menu */}
       <Menu
@@ -844,7 +878,7 @@ export default function EventInboxList({
                       sx={{
                         fontSize: 18,
                         color:
-                          summaryData.type === 'show' ? '#A78BFA' : '#60A5FA',
+                          summaryData.type === 'show' ? '#10B981' : '#60A5FA',
                       }}
                     />
                     <Typography

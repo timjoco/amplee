@@ -482,6 +482,12 @@ export default function BandSheet({ bandId }: Props) {
     );
   }
 
+  // Determine if content needs its own padding (widgets that have their own header)
+  const widgetsWithOwnLayout = ['overview', 'events', 'proposals'];
+  const needsPadding =
+    !widgetsWithOwnLayout.includes(activeWidget) ||
+    (activeWidget === 'events' && activeEventId);
+
   return (
     <Box
       sx={{
@@ -656,35 +662,36 @@ export default function BandSheet({ bandId }: Props) {
           flexDirection: 'column',
         }}
       >
-        {/* Band Header - Only show when NOT viewing an event */}
-        {!(activeWidget === 'events' && activeEventId) && (
-          <Box
-            sx={{
-              px: 3,
-              py: 2,
-              borderBottom: (t) =>
-                `1px solid ${alpha(t.palette.primary.main, 0.12)}`,
-              bgcolor: 'background.paper',
-            }}
-          >
-            <Stack direction="row" spacing={2} alignItems="center">
-              <AvatarImage
-                name={bandName}
-                bucket="band-avatars"
-                srcGuess={bandAvatarUrl || undefined}
-                size={56}
-              />
-              <Box sx={{ flex: 1, minWidth: 0 }}>
-                <BandTitleMenu
-                  bandId={bandId}
-                  bandName={bandName}
-                  onInvite={() => setInviteOpen(true)}
-                  isAdmin={myRole === 'admin'}
+        {/* Band Header - Only show when NOT viewing an event AND not on a widget with its own header */}
+        {!(activeWidget === 'events' && activeEventId) &&
+          !widgetsWithOwnLayout.includes(activeWidget) && (
+            <Box
+              sx={{
+                px: 3,
+                py: 2,
+                borderBottom: (t) =>
+                  `1px solid ${alpha(t.palette.primary.main, 0.12)}`,
+                bgcolor: 'background.paper',
+              }}
+            >
+              <Stack direction="row" spacing={2} alignItems="center">
+                <AvatarImage
+                  name={bandName}
+                  bucket="band-avatars"
+                  srcGuess={bandAvatarUrl || undefined}
+                  size={56}
                 />
-              </Box>
-            </Stack>
-          </Box>
-        )}
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <BandTitleMenu
+                    bandId={bandId}
+                    bandName={bandName}
+                    onInvite={() => setInviteOpen(true)}
+                    isAdmin={myRole === 'admin'}
+                  />
+                </Box>
+              </Stack>
+            </Box>
+          )}
         {error && (
           <Box sx={{ p: 3 }}>
             <Alert
@@ -706,7 +713,7 @@ export default function BandSheet({ bandId }: Props) {
           sx={{
             flex: 1,
             overflow: 'auto',
-            p: activeWidget === 'events' && activeEventId ? 0 : 3,
+            p: needsPadding ? 3 : 0,
           }}
         >
           {activeWidget === 'overview' && <BandOverviewTab bandId={bandId} />}
