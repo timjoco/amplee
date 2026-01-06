@@ -25,27 +25,27 @@ import BandPublicProfileMobile from './pages/Bands/BandPublicProfileMobile';
 import BandRosterPage from './pages/Bands/BandRosterPage';
 import BandSetlistPageMobile from './pages/Bands/BandSetlistPageMobile';
 import BandSettingsMobile from './pages/Bands/BandSettingsMobile';
-import BandSheetMobile from './pages/Bands/BandSheetMobile';
+import BandSheetMobile from './pages/Bands/BandSheet';
 import BandSongEditRouteMobile from './pages/Bands/BandSongEditRouteMobile';
 import BandSongListRouteMobile from './pages/Bands/BandSongListRouteMobile';
 import BandSongSheetRouteMobile from './pages/Bands/BandSongSheetRouteMobile';
 import SetlistTemplateEditorMobile from './pages/Bands/Setlists/SetlistTemplateEditorMobile';
 import EventChatPageMobile from './pages/Events/EventChat/EventChatPageMobile';
-import EventFilesPageMobile from './pages/Events/EventFilesPageMobile';
-import EventNotesPageMobile from './pages/Events/EventNotesPageMobile';
+import EventFilesPage from './pages/Events/EventFiles';
+import EventNotesPage from './pages/Events/EventNotes';
 import EventRollCallPageMobile from './pages/Events/EventRollCallPageMobile';
 import EventSetlistPageMobile from './pages/Events/EventSetlistPageMobile';
 import EventSettingsMobile from './pages/Events/EventSettings';
 import EventSheetMobile from './pages/Events/EventSheet';
 import Home from './pages/Home';
 import Invite from './pages/Invite';
-import InviteBandMobile from './pages/InviteBandMobile';
+import InviteBandPage from './pages/Invite/Band';
 import Login from './pages/Login';
 import OnboardingPageMobile from './pages/OnboardingPageMobile';
 import Profile from './pages/Profile';
 import ProfileAvailability from './pages/ProfileAvailability';
-import ProfileBasics from './pages/ProfileBasics';
-import ProposedGigSheetMobile from './pages/ProposedGigSheetMobile';
+import ProfileBasicsPage from './pages/Profile/Basics';
+import ProposedGigSheet from './pages/ProposedGig';
 import Support from './pages/Support';
 import VerifyEmail from './pages/VerifyEmail';
 import GlobalCreateHost from './shared/GlobalCreateHost';
@@ -137,7 +137,7 @@ export default function App() {
 
             {/* BAND ROUTES*/}
             <Route path="/bands/:bandId" element={<BandSheetMobile />} />
-            <Route path="/invite" element={<InviteBandMobile />} />
+            <Route path="/invite" element={<InviteBandPage />} />
             <Route path="/bands/:bandId/events" element={<BandEventsPage />} />
             <Route
               path="/bands/:bandId/public"
@@ -158,7 +158,7 @@ export default function App() {
             />
             <Route
               path="/bands/:bandId/proposals/:proposalId"
-              element={<ProposedGigSheetMobile />}
+              element={<ProposedGigSheet />}
             />
 
             <Route
@@ -208,11 +208,11 @@ export default function App() {
             />
             <Route
               path="/bands/:bandId/events/:eventId/notes"
-              element={<EventNotesPageMobile />}
+              element={<EventNotesPage />}
             />
             <Route
               path="/bands/:bandId/events/:eventId/files"
-              element={<EventFilesPageMobile />}
+              element={<EventFilesPage />}
             />
             <Route
               path="/bands/:bandId/events/:eventId/settings"
@@ -223,7 +223,7 @@ export default function App() {
 
             {/* profile routes */}
             <Route path="/profile" element={<Profile />} />
-            <Route path="/profile/basics" element={<ProfileBasics />} />
+            <Route path="/profile/basics" element={<ProfileBasicsPage />} />
             <Route
               path="/profile/availability"
               element={<ProfileAvailability />}
