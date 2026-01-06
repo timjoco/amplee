@@ -133,7 +133,8 @@ export default function BandLibraryPage() {
         scrollY={true}
         style={{
           '--background': 'linear-gradient(180deg, #08080e 0%, #04040a 100%)',
-        }}
+          '--padding-bottom': 'calc(env(safe-area-inset-bottom) + 24px)',
+        } as React.CSSProperties}
       >
         {loading ? (
           <div

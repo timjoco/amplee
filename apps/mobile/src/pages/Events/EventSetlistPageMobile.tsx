@@ -145,7 +145,14 @@ export default function EventSetlistPageMobile() {
         </IonToolbar>
       </IonHeader>
 
-      <IonContent fullscreen scrollY={true}>
+      <IonContent
+        fullscreen
+        scrollY={true}
+        style={{
+          '--background': '#050509',
+          '--padding-bottom': 'calc(env(safe-area-inset-bottom) + 24px)',
+        } as React.CSSProperties}
+      >
         {loading || !eventId || !bandId ? (
           <div
             style={{

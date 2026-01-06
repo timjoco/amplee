@@ -131,7 +131,8 @@ export default function BandEventsPage() {
         scrollY={true}
         style={{
           '--background': 'linear-gradient(180deg, #050509 0%, #020109 100%)',
-        }}
+          '--padding-bottom': 'calc(env(safe-area-inset-bottom) + 24px)',
+        } as React.CSSProperties}
       >
         {loading ? (
           <div

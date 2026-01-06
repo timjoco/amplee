@@ -121,8 +121,9 @@ export default function EventRollCallPageMobile() {
         fullscreen
         scrollY={true}
         style={{
-          ['--background' as any]: '#050509',
-        }}
+          '--background': '#050509',
+          '--padding-bottom': 'calc(env(safe-area-inset-bottom) + 24px)',
+        } as React.CSSProperties}
       >
         {loading || !eventId ? (
           <div
