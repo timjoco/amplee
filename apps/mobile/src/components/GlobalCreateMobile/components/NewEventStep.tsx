@@ -30,7 +30,6 @@ type EventFormShape = {
 
   setInviteMode: (v: InviteMode) => void;
   setSelectedRosterId: (v: string) => void;
-  setSelectedUserIds: (v: string[]) => void;
 };
 
 const FULL_ROSTER_ID = '__full__';
@@ -215,8 +214,6 @@ export default function NewEventStep(props: {
 
               // ✅ Full band: always populate selectedRosterId
               eventForm.setSelectedRosterId(FULL_ROSTER_ID);
-
-              eventForm.setSelectedUserIds([]);
             }}
           >
             Full band
@@ -232,7 +229,6 @@ export default function NewEventStep(props: {
             onClick={() => {
               triggerHaptic();
               eventForm.setInviteMode('roster');
-              eventForm.setSelectedUserIds([]);
 
               // Optional: if rosters already loaded, preselect first immediately
               if (!loadingInviteData && availableRosters.length) {
