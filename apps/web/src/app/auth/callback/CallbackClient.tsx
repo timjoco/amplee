@@ -36,65 +36,17 @@ export default function CallbackClient() {
       }
       const session = sessionData?.session ?? null;
 
-      // 2) If there is an invite, preview it first (GET /api/invites/[id])
-      let inviteEmail: string | undefined;
-      if (invite) {
-        try {
-          const metaRes = await fetch(
-            `/api/invites/${encodeURIComponent(invite)}`,
-            {
-              method: 'GET',
-            }
-          );
-
-          // Safely parse
-          const metaCT = metaRes.headers.get('content-type') || '';
-          const metaPayload = metaCT.includes('application/json')
-            ? await metaRes.json()
-            : await metaRes.text();
-
-          if (!metaRes.ok) {
-            const msg =
-              typeof metaPayload === 'string'
-                ? metaPayload
-                : metaPayload?.error ??
-                  'This invite link is invalid or already used.';
-            if (mounted) setError(msg);
-            return;
-          }
-
-          inviteEmail = (metaPayload?.invite?.email || '').toLowerCase();
-        } catch (e: any) {
-          if (mounted) setError(e?.message ?? 'Failed to load invite.');
-          return;
-        }
-      }
-
-      // 3) If we have an invite but no session, send to login prefilled, then bounce back here
+      // 2) If we have an invite but no session, send to login then bounce back here
+      // Note: We don't prefill email because the GET endpoint returns obfuscated emails for privacy
       if (invite && !session) {
         router.replace(
-          `/login?email=${encodeURIComponent(
-            inviteEmail || ''
-          )}&next=${encodeURIComponent(`/auth/callback?invite=${invite}`)}`
+          `/login?next=${encodeURIComponent(`/auth/callback?invite=${invite}`)}`
         );
         return;
       }
 
-      // 4) If logged in under a different email than the invite, sign out and force correct login
-      if (invite && session) {
-        const userEmail = session.user?.email?.toLowerCase?.() || '';
-        if (inviteEmail && userEmail && inviteEmail !== userEmail) {
-          await supabase.auth.signOut();
-          router.replace(
-            `/login?email=${encodeURIComponent(
-              inviteEmail
-            )}&next=${encodeURIComponent(`/auth/callback?invite=${invite}`)}`
-          );
-          return;
-        }
-      }
-
-      // 5) Accept the invite (POST /api/invites/[id]/accept) now that we’re logged in as the invitee
+      // 3) Accept the invite (POST /api/invites/[id]/accept) now that we're logged in
+      // Note: Email validation is handled server-side in the accept endpoint
       if (invite && session) {
         try {
           const acceptRes = await fetch(
