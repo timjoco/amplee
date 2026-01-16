@@ -3,6 +3,7 @@ import { Capacitor } from '@capacitor/core';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { fetchProfile, getProfileSync } from '../../../../lib/cache/profileCache';
 import { supabase } from '../../../../lib/supabase';
 import type { ChatMsg } from '../components/ChatMessagesList';
 import {
@@ -162,15 +163,17 @@ export function useEventChatMobile({
 
     const userId = user.id as string;
 
+    // Use centralized profile cache
     let me = profilesById.current.get(userId);
     if (!me) {
-      const { data } = await supabase
-        .from('profiles')
-        .select('id, display_name, avatar_url, updated_at')
-        .eq('id', userId)
-        .single();
-      if (data) {
-        me = data;
+      me = getProfileSync(userId);
+      if (me) {
+        profilesById.current.set(userId, me);
+      }
+    }
+    if (!me) {
+      me = await fetchProfile(userId);
+      if (me) {
         profilesById.current.set(userId, me);
       } else {
         me = { id: userId };

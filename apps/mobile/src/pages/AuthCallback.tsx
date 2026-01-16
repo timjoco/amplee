@@ -64,42 +64,10 @@ export default function AuthCallback() {
         return;
       }
 
-      // 2) preview invite, fetch invited email (if invite present)
-      let inviteEmail: string | undefined;
-      if (invite) {
-        try {
-          const res = await fetch(
-            `${api}/api/invites/${encodeURIComponent(invite)}`
-          );
-          const ct = res.headers.get('content-type') || '';
-          const payload = ct.includes('application/json')
-            ? await res.json()
-            : await res.text();
-
-          if (!res.ok) {
-            const msg =
-              typeof payload === 'string'
-                ? payload
-                : payload?.error ||
-                  'This invite link is invalid or already used.';
-            if (mounted) setError(msg);
-            return;
-          }
-
-          const email = (payload?.invite?.email ??
-            payload?.email ??
-            '') as string;
-          inviteEmail = email.toLowerCase();
-        } catch (e) {
-          if (mounted) setError(getErrorMessage(e));
-          return;
-        }
-      }
-
-      // 3) If invite but no session, bounce to login (optional prefill email) then back here
+      // 2) If invite but no session, bounce to login then back here
+      // Note: We don't prefill email because the GET endpoint returns obfuscated emails for privacy
       if (invite && !session) {
         const loginQs = new URLSearchParams();
-        if (inviteEmail) loginQs.set('email', inviteEmail);
         loginQs.set('next', callbackUrl);
         nav(`/login?${loginQs.toString()}`, { replace: true });
         return;
@@ -113,21 +81,8 @@ export default function AuthCallback() {
         return;
       }
 
-      // 5) if logged in mismatch email, sign out and force correct login
-      if (invite && session) {
-        const userEmail = (session.user?.email ?? '').toLowerCase();
-        if (inviteEmail && userEmail && inviteEmail !== userEmail) {
-          await supabase.auth.signOut();
-
-          const loginQs = new URLSearchParams();
-          if (inviteEmail) loginQs.set('email', inviteEmail);
-          loginQs.set('next', callbackUrl);
-          nav(`/login?${loginQs.toString()}`, { replace: true });
-          return;
-        }
-      }
-
-      // 6) accept invite (and capture bandId if returned)
+      // 5) accept invite (and capture bandId if returned)
+      // Note: Email validation is handled server-side in the accept endpoint
       let acceptedBandId: string | undefined;
       if (invite && session) {
         try {

@@ -43,6 +43,7 @@ import InviteBandPage from './pages/Invite/Band';
 import Login from './pages/Login';
 import OnboardingPageMobile from './pages/OnboardingPageMobile';
 import Profile from './pages/Profile';
+import AccountManagement from './pages/Profile/AccountManagement';
 import ProfileAvailability from './pages/ProfileAvailability';
 import ProfileBasicsPage from './pages/Profile/Basics';
 import ProposedGigSheet from './pages/ProposedGig';
@@ -224,6 +225,7 @@ export default function App() {
             {/* profile routes */}
             <Route path="/profile" element={<Profile />} />
             <Route path="/profile/basics" element={<ProfileBasicsPage />} />
+            <Route path="/profile/account" element={<AccountManagement />} />
             <Route
               path="/profile/availability"
               element={<ProfileAvailability />}

@@ -6,6 +6,11 @@ import {
   useState,
   type MutableRefObject,
 } from 'react';
+import {
+  fetchProfile,
+  getProfileSync,
+  setProfiles,
+} from '../../../../lib/cache/profileCache';
 import { supabase } from '../../../../lib/supabase';
 import type { ChatMsg } from '../components/ChatMessagesList';
 
@@ -104,6 +109,13 @@ export function useEventMessages({
       return;
     }
 
+    // Cache profiles from joined data
+    const profiles = (data ?? [])
+      .map((m: any) => m.profiles)
+      .filter((p: any) => p?.id);
+    if (profiles.length > 0) {
+      setProfiles(profiles);
+    }
     (data ?? []).forEach((m: any) => {
       if (m.profiles?.id) profilesById.current.set(m.profiles.id, m.profiles);
     });
@@ -185,6 +197,13 @@ export function useEventMessages({
         return;
       }
 
+      // Cache profiles from joined data
+      const profiles = (data ?? [])
+        .map((m: any) => m.profiles)
+        .filter((p: any) => p?.id);
+      if (profiles.length > 0) {
+        setProfiles(profiles);
+      }
       (data ?? []).forEach((m: any) => {
         if (m.profiles?.id) profilesById.current.set(m.profiles.id, m.profiles);
       });
@@ -244,15 +263,19 @@ export function useEventMessages({
         async (payload) => {
           const row = payload.new as ChatMsg;
 
+          // Check local ref first, then centralized cache, then fetch
           let prof = profilesById.current.get(row.user_id);
           if (!prof) {
-            const { data } = await supabase
-              .from('profiles')
-              .select('id, display_name, avatar_url, updated_at')
-              .eq('id', row.user_id)
-              .single();
-            if (data) {
-              prof = data;
+            // Try sync cache first (no network call)
+            prof = getProfileSync(row.user_id);
+            if (prof) {
+              profilesById.current.set(row.user_id, prof);
+            }
+          }
+          if (!prof) {
+            // Fetch with deduplication (won't duplicate if already fetching)
+            prof = await fetchProfile(row.user_id);
+            if (prof) {
               profilesById.current.set(row.user_id, prof);
             }
           }
@@ -260,7 +283,7 @@ export function useEventMessages({
           const enriched: ChatMsg = {
             ...row,
             id: String(row.id),
-            profiles: prof,
+            profiles: prof ?? undefined,
             status: 'sent',
           };
 

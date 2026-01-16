@@ -2,7 +2,10 @@
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useEffect, useState } from 'react';
-import { supabase } from '../../lib/supabase';
+import {
+  getAvatarUrl,
+  getAvatarUrlSync,
+} from '../../lib/cache/avatarUrlCache';
 
 type Props = {
   name: string;
@@ -14,10 +17,10 @@ type Props = {
   style?: React.CSSProperties;
 };
 
-const avatarUrlCache = new Map<string, string>();
-
-function buildKey(bucket: string, path: string, updatedAt?: string | null) {
-  return `${bucket}:${path}:${updatedAt ?? ''}`;
+function isFullUrl(value: string | null | undefined): boolean {
+  return (
+    !!value && (value.startsWith('http://') || value.startsWith('https://'))
+  );
 }
 
 export default function AvatarImageMobile({
@@ -25,19 +28,19 @@ export default function AvatarImageMobile({
   bucket,
   avatarPath,
   srcGuess,
-  updatedAt,
   size = 36,
   style,
 }: Props) {
-  const [url, setUrl] = useState<string | null>(null);
+  // Try sync cache first for instant render
+  const cachedUrl = avatarPath ? getAvatarUrlSync(bucket, avatarPath) : null;
+  const initialUrl = srcGuess && isFullUrl(srcGuess) ? srcGuess : cachedUrl;
+
+  const [url, setUrl] = useState<string | null>(initialUrl);
 
   useEffect(() => {
     let cancelled = false;
 
-    const isFullUrl = (value: string | null | undefined) =>
-      !!value && (value.startsWith('http://') || value.startsWith('https://'));
-
-    // 1) If caller already has a usable URL, just use that and skip storage
+    // 1) If caller already has a usable URL, just use that
     if (srcGuess && isFullUrl(srcGuess)) {
       setUrl(srcGuess);
       return;
@@ -48,46 +51,23 @@ export default function AvatarImageMobile({
       return;
     }
 
-    // 2) If avatarPath itself is a full URL, also use it directly
+    // 2) If avatarPath itself is a full URL, use it directly
     if (isFullUrl(avatarPath)) {
       setUrl(avatarPath);
       return;
     }
 
-    // 3) avatarPath is a relative path inside the bucket → sign it
-
-    const key = buildKey(bucket, avatarPath, updatedAt);
-    const cached = avatarUrlCache.get(key);
+    // 3) Check sync cache (already done in initial state, but recheck on deps change)
+    const cached = getAvatarUrlSync(bucket, avatarPath);
     if (cached) {
       setUrl(cached);
       return;
     }
 
+    // 4) Fetch from centralized cache (will sign URL if needed)
     (async () => {
-      // Optional: normalize if you ever accidentally store "bucket/bucket/..."
-      let normalizedPath = avatarPath;
-      if (normalizedPath.startsWith(`${bucket}/`)) {
-        normalizedPath = normalizedPath.slice(bucket.length + 1);
-      }
-
-      const { data, error } = await supabase.storage
-        .from(bucket)
-        .createSignedUrl(normalizedPath, 60 * 60 * 24); // ✅ number, 24h
-
-      if (error) {
-        console.warn('[avatar signedUrl error]', {
-          error,
-          bucket,
-          avatarPath,
-          normalizedPath,
-        });
-        if (!cancelled) setUrl(null);
-        return;
-      }
-
-      const signed = data?.signedUrl ?? null;
-      if (!cancelled && signed) {
-        avatarUrlCache.set(key, signed);
+      const signed = await getAvatarUrl(bucket, avatarPath);
+      if (!cancelled) {
         setUrl(signed);
       }
     })();
@@ -95,7 +75,7 @@ export default function AvatarImageMobile({
     return () => {
       cancelled = true;
     };
-  }, [bucket, avatarPath, srcGuess, updatedAt]);
+  }, [bucket, avatarPath, srcGuess]);
 
   const initials =
     name

@@ -8,7 +8,7 @@ import { LogoutCard } from './components/LogoutCard';
 import { NavCard } from './components/NavCard';
 import { ProfileHeader } from './components/ProfileHeader';
 import { useProfile } from './hooks/useProfile';
-import { computeDisplayName, computeFullName } from './utils';
+import { computeDisplayName } from './utils';
 
 const isAndroid = Capacitor.getPlatform() === 'android';
 
@@ -26,8 +26,6 @@ export default function Profile() {
 
   const displayName = computeDisplayName(profile, authUser);
   const location = profile?.location || 'Add your location';
-  const email = authUser?.email as string | undefined;
-  const fullName = computeFullName(profile);
 
   return (
     <IonPage>
@@ -111,7 +109,7 @@ export default function Profile() {
               onClick={() => nav('/support')}
             />
 
-            <AccountInfoCard email={email} fullName={fullName} />
+            <AccountInfoCard />
 
             <LogoutCard onClick={() => setLogoutAlertOpen(true)} />
           </div>

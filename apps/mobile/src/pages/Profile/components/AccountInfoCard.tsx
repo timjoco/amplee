@@ -1,43 +1,64 @@
-type Props = {
-  email: string | undefined;
-  fullName: string;
-};
+import { IonIcon } from '@ionic/react';
+import { chevronBackOutline } from 'ionicons/icons';
+import { useNavigate } from 'react-router-dom';
 
-export function AccountInfoCard({ email, fullName }: Props) {
+export function AccountInfoCard() {
+  const navigate = useNavigate();
+
   return (
     <div
+      onClick={() => navigate('/profile/account')}
       style={{
         background: 'rgba(255,255,255,0.02)',
         border: '1px solid rgba(255,255,255,0.06)',
         borderRadius: 16,
         padding: '20px 24px',
         marginBottom: 16,
+        cursor: 'pointer',
+        transition: 'all 0.2s ease',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
+        e.currentTarget.style.borderColor = 'rgba(52,211,153,0.3)';
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.background = 'rgba(255,255,255,0.02)';
+        e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)';
       }}
     >
-      <h3
-        style={{
-          margin: '0 0 12px',
-          fontSize: 12,
-          fontWeight: 600,
-          color: '#9ca3af',
-          textTransform: 'uppercase',
-          letterSpacing: '0.5px',
-        }}
-      >
-        Account
-      </h3>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <div>
-          <span style={{ fontSize: 13, color: '#6b7280' }}>Email: </span>
-          <span style={{ fontSize: 13, color: '#e5e7eb' }}>
-            {email ?? 'Add your email'}
-          </span>
-        </div>
-        <div>
-          <span style={{ fontSize: 13, color: '#6b7280' }}>Name: </span>
-          <span style={{ fontSize: 13, color: '#e5e7eb' }}>{fullName}</span>
-        </div>
+      <div>
+        <h3
+          style={{
+            margin: 0,
+            fontSize: 16,
+            fontWeight: 600,
+            color: '#f9fafb',
+            lineHeight: 1.3,
+          }}
+        >
+          Account
+        </h3>
+        <p
+          style={{
+            margin: '4px 0 0',
+            fontSize: 13,
+            color: '#9ca3af',
+          }}
+        >
+          Manage your account
+        </p>
       </div>
+      <IonIcon
+        icon={chevronBackOutline}
+        style={{
+          fontSize: 20,
+          color: '#6b7280',
+          transform: 'rotate(180deg)',
+        }}
+      />
     </div>
   );
 }

@@ -167,14 +167,8 @@ export default function Invite() {
         return;
       }
 
-      const sessionEmail = (data.session.user.email ?? '').toLowerCase();
-      const inviteEmail = (invite.email ?? '').toLowerCase();
-      if (inviteEmail && sessionEmail && inviteEmail !== sessionEmail) {
-        setErr(
-          `You are signed in as ${sessionEmail}, but this invite is for ${inviteEmail}. Sign out and sign in as the invited email.`
-        );
-        return;
-      }
+      // Note: Email validation is handled server-side in the accept endpoint.
+      // We don't check here because the GET endpoint returns obfuscated emails for privacy.
 
       const acceptUrl = `${apiBase}/api/invites/${encodeURIComponent(
         token
