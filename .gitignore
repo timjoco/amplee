@@ -37,6 +37,10 @@ yarn-error.log*
 apps/web/.env.local
 apps/mobile/.env.local
 
+# ---- Firebase/Google Services (contains API keys) ----
+**/GoogleService-Info.plist
+**/google-services.json
+
 # ---- Vercel ----
 .vercel
 
