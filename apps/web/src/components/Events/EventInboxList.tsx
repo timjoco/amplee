@@ -2,12 +2,14 @@
 
 import ArchiveIcon from '@mui/icons-material/Archive';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
+import ChatBubbleIcon from '@mui/icons-material/ChatBubble';
 import CloseIcon from '@mui/icons-material/Close';
 import EventIcon from '@mui/icons-material/Event';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import MusicNoteIcon from '@mui/icons-material/MusicNote';
 import {
+  Badge,
   Box,
   Button,
   Chip,
@@ -69,14 +71,15 @@ export default function EventInboxList({
 }: {
   bandId?: string;
   isAdmin: boolean;
-  onEventOpen: (eventId: string) => void;
+  onEventOpen: (eventId: string, bandId: string) => void;
   onLoaded?: (count: number) => void;
 }) {
   const sb = useMemo(() => supabaseBrowser(), []);
   const [loading, setLoading] = useState(true);
   const [events, setEvents] = useState<EventRow[]>([]);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
-  const [showArchivedView, setShowArchivedView] = useState(false);
+  const [eventFilter, setEventFilter] = useState<'active' | 'archived' | 'cancelled'>('active');
+  const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
 
   // Archive modal state
   const [archiveModalOpen, setArchiveModalOpen] = useState(false);
@@ -109,6 +112,30 @@ export default function EventInboxList({
     []
   );
 
+  // Fetch unread counts for a list of event IDs
+  const fetchUnreadCounts = useCallback(async (eventIds: string[]) => {
+    if (eventIds.length === 0) return;
+
+    try {
+      const { data, error } = await sb.rpc('get_event_unread_counts', {
+        p_event_ids: eventIds,
+      });
+
+      if (error) {
+        console.error('Failed to fetch unread counts:', error);
+        return;
+      }
+
+      const counts: Record<string, number> = {};
+      for (const row of data ?? []) {
+        counts[row.event_id] = row.unread_count;
+      }
+      setUnreadCounts(counts);
+    } catch (e) {
+      console.error('Error fetching unread counts:', e);
+    }
+  }, [sb]);
+
   const loadEvents = useCallback(async () => {
     setLoading(true);
     try {
@@ -136,16 +163,33 @@ export default function EventInboxList({
         return;
       }
 
+      // Query events directly instead of using the view (which has RLS issues after SECURITY INVOKER change)
       const { data: eventsData, error: eventsErr } = await sb
-        .from('events_with_my_attendance')
+        .from('events')
         .select(
-          'id, band_id, title, type, starts_at, ends_at, location, notes, is_booked, is_cancelled, my_event_status, bands(id, name, avatar_url)'
+          'id, band_id, title, type, starts_at, ends_at, location, notes, is_booked, is_cancelled, archived_at, bands(id, name, avatar_url)'
         )
         .in('band_id', bandIds)
         .order('starts_at', { ascending: true })
         .limit(200);
 
       if (eventsErr) throw eventsErr;
+
+      // Fetch user's attendance status for these events
+      const eventIds = (eventsData ?? []).map((e: any) => e.id);
+      const attendanceMap: Record<string, string> = {};
+
+      if (eventIds.length > 0) {
+        const { data: attendanceData } = await sb
+          .from('event_attendance')
+          .select('event_id, status')
+          .eq('user_id', user.id)
+          .in('event_id', eventIds);
+
+        for (const a of attendanceData ?? []) {
+          attendanceMap[String(a.event_id)] = a.status;
+        }
+      }
 
       const base: EventRow[] = (eventsData ?? []).map((e: any) => ({
         id: String(e.id),
@@ -158,8 +202,8 @@ export default function EventInboxList({
         notes: e.notes ?? null,
         is_booked: Boolean(e.is_booked),
         is_cancelled: Boolean(e.is_cancelled),
-        archived_at: null,
-        my_event_status: e.my_event_status ?? 'pending',
+        archived_at: e.archived_at ?? null,
+        my_event_status: (attendanceMap[String(e.id)] as EventRow['my_event_status']) ?? 'pending',
         bands: e.bands
           ? {
               id: String(e.bands.id),
@@ -169,30 +213,17 @@ export default function EventInboxList({
           : null,
       }));
 
-      const ids = base.map((r) => r.id);
-
-      // Fetch archived_at separately
-      const archivedMap: Record<string, string | null> = {};
-      if (ids.length) {
-        const { data: archRows } = await sb
-          .from('events')
-          .select('id, archived_at')
-          .in('id', ids);
-
-        for (const r of archRows ?? []) {
-          archivedMap[String(r.id)] = r.archived_at ?? null;
+      // Filter by event status
+      const filtered = base.filter((e) => {
+        if (eventFilter === 'cancelled') {
+          return e.is_cancelled && !e.archived_at;
         }
-      }
-
-      const normalized = base.map((r) => ({
-        ...r,
-        archived_at: archivedMap[r.id] ?? null,
-      }));
-
-      // Filter by archived status only - don't filter out past events
-      const filtered = normalized.filter((e) =>
-        showArchivedView ? Boolean(e.archived_at) : !e.archived_at
-      );
+        if (eventFilter === 'archived') {
+          return Boolean(e.archived_at);
+        }
+        // Active: not cancelled and not archived
+        return !e.is_cancelled && !e.archived_at;
+      });
 
       // Sort: upcoming first (chronological), then past (reverse chronological)
       const now = Date.now();
@@ -207,10 +238,16 @@ export default function EventInboxList({
         .filter((e) => !e.starts_at || toTs(e.starts_at) < now)
         .sort((a, b) => toTs(b.starts_at) - toTs(a.starts_at));
 
-      const sorted = showArchivedView
-        ? [...past, ...upcoming]
-        : [...upcoming, ...past];
+      // Archived/cancelled show past first, active shows upcoming first
+      const sorted = eventFilter === 'active'
+        ? [...upcoming, ...past]
+        : [...past, ...upcoming];
       setEvents(sorted);
+
+      // Fetch unread counts for active events
+      if (eventFilter === 'active' && sorted.length > 0) {
+        void fetchUnreadCounts(sorted.map(e => e.id));
+      }
 
       // Notify parent of event count
       onLoaded?.(sorted.length);
@@ -219,7 +256,7 @@ export default function EventInboxList({
     } finally {
       setLoading(false);
     }
-  }, [sb, bandId, showArchivedView, onLoaded]);
+  }, [sb, bandId, eventFilter, onLoaded, fetchUnreadCounts]);
 
   useEffect(() => {
     void loadEvents();
@@ -246,6 +283,35 @@ export default function EventInboxList({
       sb.removeChannel(channel);
     };
   }, [sb, bandId, loadEvents]);
+
+  // Real-time subscription for new messages (to update unread counts)
+  useEffect(() => {
+    if (events.length === 0 || eventFilter !== 'active') return;
+
+    const eventIds = events.map(e => e.id);
+    const channel = sb
+      .channel(`event-messages-unread-${bandId || 'all'}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'event_messages',
+        },
+        (payload) => {
+          const newMessage = payload.new as { event_id: string; user_id: string };
+          // Only refresh if the message is for one of our events
+          if (eventIds.includes(newMessage.event_id)) {
+            void fetchUnreadCounts(eventIds);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      sb.removeChannel(channel);
+    };
+  }, [sb, bandId, events, eventFilter, fetchUnreadCounts]);
 
   const openArchiveModal = (event: EventRow) => {
     setArchiveTarget(event);
@@ -384,22 +450,54 @@ export default function EventInboxList({
               </Typography>
             </Stack>
 
-            {isAdmin && bandId && (
-              <Button
-                href={`/bands/${bandId}/events/new`}
-                size="small"
-                variant="contained"
-                sx={{
-                  borderRadius: 2,
-                  textTransform: 'none',
-                  fontWeight: 600,
-                  bgcolor: '#10B981',
-                  '&:hover': { bgcolor: '#059669' },
-                }}
-              >
-                New Event
-              </Button>
-            )}
+            <Stack direction="row" spacing={1} alignItems="center">
+              {/* Event Filter Tabs */}
+              {bandId && (
+                <Stack direction="row" spacing={0.5} sx={{ mr: 1 }}>
+                  {(['active', 'cancelled', 'archived'] as const).map((filter) => (
+                    <Button
+                      key={filter}
+                      size="small"
+                      variant={eventFilter === filter ? 'contained' : 'text'}
+                      onClick={() => setEventFilter(filter)}
+                      sx={{
+                        borderRadius: 2,
+                        textTransform: 'capitalize',
+                        fontWeight: 600,
+                        minWidth: 'auto',
+                        px: 1.5,
+                        bgcolor: eventFilter === filter
+                          ? alpha('#7C3AED', 0.15)
+                          : 'transparent',
+                        color: eventFilter === filter ? '#A78BFA' : 'text.secondary',
+                        '&:hover': {
+                          bgcolor: alpha('#7C3AED', 0.1),
+                        },
+                      }}
+                    >
+                      {filter}
+                    </Button>
+                  ))}
+                </Stack>
+              )}
+
+              {isAdmin && bandId && (
+                <Button
+                  href={`/bands/${bandId}/events/new`}
+                  size="small"
+                  variant="contained"
+                  sx={{
+                    borderRadius: 2,
+                    textTransform: 'none',
+                    fontWeight: 600,
+                    bgcolor: '#10B981',
+                    '&:hover': { bgcolor: '#059669' },
+                  }}
+                >
+                  New Event
+                </Button>
+              )}
+            </Stack>
           </Stack>
         </Box>
 
@@ -425,9 +523,11 @@ export default function EventInboxList({
           >
             <EventIcon sx={{ fontSize: 48, opacity: 0.3, mb: 1 }} />
             <Typography variant="body2" sx={{ opacity: 0.6 }}>
-              {showArchivedView
-                ? 'No archived events'
-                : 'No upcoming events scheduled'}
+              {eventFilter === 'active'
+                ? 'No upcoming events scheduled'
+                : eventFilter === 'cancelled'
+                ? 'No cancelled events'
+                : 'No archived events'}
             </Typography>
           </Box>
         </Box>
@@ -459,51 +559,33 @@ export default function EventInboxList({
           </Stack>
 
           <Stack direction="row" spacing={1} alignItems="center">
-            {/* Archive Toggle */}
+            {/* Event Filter Tabs */}
             {bandId && (
               <Stack direction="row" spacing={0.5} sx={{ mr: 1 }}>
-                <Button
-                  size="small"
-                  variant={!showArchivedView ? 'contained' : 'text'}
-                  onClick={() => setShowArchivedView(false)}
-                  sx={{
-                    borderRadius: 2,
-                    textTransform: 'none',
-                    fontWeight: 600,
-                    minWidth: 'auto',
-                    px: 1.5,
-                    bgcolor: !showArchivedView
-                      ? alpha('#7C3AED', 0.15)
-                      : 'transparent',
-                    color: !showArchivedView ? '#A78BFA' : 'text.secondary',
-                    '&:hover': {
-                      bgcolor: alpha('#7C3AED', 0.1),
-                    },
-                  }}
-                >
-                  Active
-                </Button>
-                <Button
-                  size="small"
-                  variant={showArchivedView ? 'contained' : 'text'}
-                  onClick={() => setShowArchivedView(true)}
-                  sx={{
-                    borderRadius: 2,
-                    textTransform: 'none',
-                    fontWeight: 600,
-                    minWidth: 'auto',
-                    px: 1.5,
-                    bgcolor: showArchivedView
-                      ? alpha('#7C3AED', 0.15)
-                      : 'transparent',
-                    color: showArchivedView ? '#A78BFA' : 'text.secondary',
-                    '&:hover': {
-                      bgcolor: alpha('#7C3AED', 0.1),
-                    },
-                  }}
-                >
-                  Archived
-                </Button>
+                {(['active', 'cancelled', 'archived'] as const).map((filter) => (
+                  <Button
+                    key={filter}
+                    size="small"
+                    variant={eventFilter === filter ? 'contained' : 'text'}
+                    onClick={() => setEventFilter(filter)}
+                    sx={{
+                      borderRadius: 2,
+                      textTransform: 'capitalize',
+                      fontWeight: 600,
+                      minWidth: 'auto',
+                      px: 1.5,
+                      bgcolor: eventFilter === filter
+                        ? alpha('#7C3AED', 0.15)
+                        : 'transparent',
+                      color: eventFilter === filter ? '#A78BFA' : 'text.secondary',
+                      '&:hover': {
+                        bgcolor: alpha('#7C3AED', 0.1),
+                      },
+                    }}
+                  >
+                    {filter}
+                  </Button>
+                ))}
               </Stack>
             )}
 
@@ -540,7 +622,7 @@ export default function EventInboxList({
             display: 'block',
           }}
         >
-          {showArchivedView ? 'Archived' : 'Upcoming'} Events — {events.length}
+          {eventFilter === 'active' ? 'Upcoming' : eventFilter === 'cancelled' ? 'Cancelled' : 'Archived'} Events — {events.length}
         </Typography>
 
         <Stack spacing={0}>
@@ -550,6 +632,8 @@ export default function EventInboxList({
               : false;
             const canArchive = isAdmin && isPast && !event.archived_at;
             const eventColor = event.type === 'show' ? '#10B981' : '#60A5FA';
+            const unreadCount = unreadCounts[event.id] || 0;
+            const hasUnread = unreadCount > 0;
 
             return (
               <Box key={event.id}>
@@ -558,7 +642,7 @@ export default function EventInboxList({
                     if (event.archived_at) {
                       void openArchivedSummary(event);
                     } else {
-                      onEventOpen(event.id);
+                      onEventOpen(event.id, event.band_id);
                     }
                   }}
                   onMouseEnter={() => setHoveredId(event.id)}
@@ -576,21 +660,37 @@ export default function EventInboxList({
                   })}
                 >
                   <Stack direction="row" spacing={2} alignItems="center">
-                    {/* Event Icon */}
-                    <Box
+                    {/* Event Icon with unread badge */}
+                    <Badge
+                      badgeContent={hasUnread ? unreadCount : 0}
+                      color="error"
+                      max={99}
                       sx={{
-                        width: 48,
-                        height: 48,
-                        borderRadius: '50%',
-                        bgcolor: alpha(eventColor, 0.15),
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        flexShrink: 0,
+                        '& .MuiBadge-badge': {
+                          bgcolor: '#EF4444',
+                          color: 'white',
+                          fontWeight: 700,
+                          fontSize: '0.7rem',
+                          minWidth: 18,
+                          height: 18,
+                        },
                       }}
                     >
-                      <EventIcon sx={{ color: eventColor, fontSize: 24 }} />
-                    </Box>
+                      <Box
+                        sx={{
+                          width: 48,
+                          height: 48,
+                          borderRadius: '50%',
+                          bgcolor: alpha(eventColor, 0.15),
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0,
+                        }}
+                      >
+                        <EventIcon sx={{ color: eventColor, fontSize: 24 }} />
+                      </Box>
+                    </Badge>
 
                     {/* Content */}
                     <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -605,8 +705,26 @@ export default function EventInboxList({
                       <Stack
                         direction="row"
                         spacing={2}
-                        sx={{ flexWrap: 'wrap' }}
+                        sx={{ flexWrap: 'wrap', rowGap: 0.5 }}
                       >
+                        {/* Show band name when viewing all bands (dashboard) */}
+                        {!bandId && event.bands?.name && (
+                          <Stack
+                            direction="row"
+                            spacing={0.5}
+                            alignItems="center"
+                          >
+                            <MusicNoteIcon
+                              sx={{ fontSize: 16, color: '#A78BFA' }}
+                            />
+                            <Typography
+                              variant="body2"
+                              sx={{ color: '#A78BFA', fontWeight: 600 }}
+                            >
+                              {event.bands.name}
+                            </Typography>
+                          </Stack>
+                        )}
                         {event.starts_at && (
                           <Stack
                             direction="row"

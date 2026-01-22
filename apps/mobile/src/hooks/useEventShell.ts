@@ -17,10 +17,10 @@ export function useEventShell(eventId?: string) {
     let alive = true;
 
     // Reset when eventId changes / is missing
+    // Keep loading true to prevent "not found" flash while params are resolving
     if (!eventId) {
       setEvent(null);
       setIsAdmin(false);
-      setLoading(false);
       return () => {
         alive = false;
       };

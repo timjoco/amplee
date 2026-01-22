@@ -76,13 +76,12 @@ export default function DashboardClient() {
     );
   };
 
-  const handleEventOpen = useCallback((eventId: string) => {
-    // Navigate to event - this will trigger the band sheet to open the event
-    // The event URL pattern is /bands/{bandId}/events/{eventId}
-    // Since we don't have bandId here, we'll need to fetch it or use a different approach
-    // For now, let's just log it - you may want to enhance this
-    console.log('Opening event:', eventId);
-  }, []);
+  const handleEventOpen = useCallback(
+    (eventId: string, bandId: string) => {
+      router.push(`/bands/${bandId}/events/${eventId}`);
+    },
+    [router]
+  );
 
   const cardSx = (t: any) => ({
     height: '100%',

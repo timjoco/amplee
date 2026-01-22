@@ -8,6 +8,7 @@ import {
 } from 'react-router-dom';
 
 import MobileBottomNav from './components/Nav/MobileBottomNav';
+import { usePushNotifications } from './hooks/usePushNotifications';
 import { useSession } from './hooks/useSession';
 
 import { App as CapApp } from '@capacitor/app';
@@ -32,6 +33,7 @@ import BandSongSheetRouteMobile from './pages/Bands/BandSongSheetRouteMobile';
 import SetlistTemplateEditorMobile from './pages/Bands/Setlists/SetlistTemplateEditorMobile';
 import EventChatPageMobile from './pages/Events/EventChat/EventChatPageMobile';
 import EventFilesPage from './pages/Events/EventFiles';
+import EventLayoutMobile from './pages/Events/EventLayoutMobile';
 import EventNotesPage from './pages/Events/EventNotes';
 import EventRollCallPageMobile from './pages/Events/EventRollCallPageMobile';
 import EventSetlistPageMobile from './pages/Events/EventSetlistPageMobile';
@@ -55,6 +57,9 @@ export default function App() {
   const { loading, session } = useSession();
   const { pathname } = useLocation();
   const navigate = useNavigate();
+
+  // Initialize push notifications when user is logged in
+  usePushNotifications(session?.user?.id);
 
   useEffect(() => {
     const setupKeyboard = async () => {
@@ -190,11 +195,13 @@ export default function App() {
 
             {/* --- EVENT ROUTES --- */}
 
-            {/* event hub sheet */}
+            {/* New chat-first event layout with sidebar */}
             <Route
               path="/bands/:bandId/events/:eventId"
-              element={<EventSheetMobile />}
+              element={<EventLayoutMobile />}
             />
+
+            {/* Legacy routes - redirect to new layout or keep for direct access */}
             <Route
               path="/bands/:bandId/events/:eventId/rollcall"
               element={<EventRollCallPageMobile />}
@@ -218,6 +225,12 @@ export default function App() {
             <Route
               path="/bands/:bandId/events/:eventId/settings"
               element={<EventSettingsMobile />}
+            />
+
+            {/* Keep old event sheet accessible for reference */}
+            <Route
+              path="/bands/:bandId/events/:eventId/overview"
+              element={<EventSheetMobile />}
             />
 
             <Route path="/support" element={<Support />} />

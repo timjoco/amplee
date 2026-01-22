@@ -14,11 +14,22 @@ import {
 import { supabaseBrowser } from '../../lib/supabaseClient';
 
 import AddReactionIcon from '@mui/icons-material/AddReaction';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import DeleteIcon from '@mui/icons-material/Delete';
+import EditIcon from '@mui/icons-material/Edit';
+import MoreVertIcon from '@mui/icons-material/MoreVert';
 import SendIcon from '@mui/icons-material/Send';
 import {
   Box,
+  Button,
   CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   IconButton,
+  Menu,
+  MenuItem,
   Paper,
   Stack,
   TextField,
@@ -81,6 +92,23 @@ export default function ChatTab({ eventId }: { eventId: string }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const closeReactions = useCallback(() => setSelectedId(null), []);
 
+  // Current user for permission checks
+  const [myUserId, setMyUserId] = useState<string | null>(null);
+
+  // Message menu state
+  const [menuAnchor, setMenuAnchor] = useState<{
+    el: HTMLElement;
+    msgId: string;
+  } | null>(null);
+
+  // Edit state
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState('');
+  const [editOriginal, setEditOriginal] = useState('');
+
+  // Delete confirmation state
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+
   // messageId -> { "👍": 2, "🔥": 1 }
   const [reactions, setReactions] = useState<
     Record<string, Record<string, number>>
@@ -108,6 +136,33 @@ export default function ChatTab({ eventId }: { eventId: string }) {
   );
 
   useEffect(() => setHasMounted(true), []);
+
+  // Fetch current user for permission checks
+  useEffect(() => {
+    sb.auth.getUser().then(({ data }) => {
+      setMyUserId(data.user?.id ?? null);
+    });
+  }, [sb]);
+
+  // Mark messages as read when viewing this chat
+  const markAsRead = useCallback(async () => {
+    try {
+      await sb.rpc('mark_event_messages_read', { p_event_id: eventId });
+    } catch (e) {
+      console.error('[chat] Failed to mark as read:', e);
+    }
+  }, [sb, eventId]);
+
+  // Mark as read when component mounts and when it becomes visible
+  useEffect(() => {
+    // Mark as read on mount
+    void markAsRead();
+
+    // Also mark as read when window gains focus (user returns to tab)
+    const handleFocus = () => void markAsRead();
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [markAsRead]);
 
   useLayoutEffect(() => {
     const measure = () => {
@@ -225,6 +280,38 @@ export default function ChatTab({ eventId }: { eventId: string }) {
             behavior: 'smooth',
             block: 'end',
           });
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'event_messages',
+          filter: `event_id=eq.${eventId}`,
+        },
+        (payload) => {
+          const updated = payload.new as ChatMsg;
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === String(updated.id) ? { ...m, body: updated.body } : m
+            )
+          );
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'event_messages',
+          filter: `event_id=eq.${eventId}`,
+        },
+        (payload) => {
+          const deleted = payload.old as ChatMsg;
+          setMessages((prev) =>
+            prev.filter((m) => m.id !== String(deleted.id))
+          );
         }
       )
       .subscribe();
@@ -439,6 +526,121 @@ export default function ChatTab({ eventId }: { eventId: string }) {
     }
   }, [input, eventId, sb]);
 
+  // Menu handlers
+  const handleMenuOpen = useCallback(
+    (e: React.MouseEvent<HTMLElement>, msgId: string) => {
+      e.stopPropagation();
+      setMenuAnchor({ el: e.currentTarget, msgId });
+    },
+    []
+  );
+
+  const handleMenuClose = useCallback(() => {
+    setMenuAnchor(null);
+  }, []);
+
+  // Edit handlers
+  const handleEditStart = useCallback(
+    (msgId: string, body: string) => {
+      setEditingId(msgId);
+      setEditDraft(body);
+      setEditOriginal(body);
+      handleMenuClose();
+    },
+    [handleMenuClose]
+  );
+
+  const handleEditCancel = useCallback(() => {
+    setEditingId(null);
+    setEditDraft('');
+    setEditOriginal('');
+  }, []);
+
+  const handleEditSave = useCallback(async () => {
+    if (!editingId) return;
+    const trimmed = editDraft.trim();
+    if (!trimmed || trimmed === editOriginal) {
+      handleEditCancel();
+      return;
+    }
+
+    // Optimistic update
+    setMessages((prev) =>
+      prev.map((m) => (m.id === editingId ? { ...m, body: trimmed } : m))
+    );
+    setEditingId(null);
+    setEditDraft('');
+    setEditOriginal('');
+
+    const { error } = await sb
+      .from('event_messages')
+      .update({ body: trimmed })
+      .eq('id', editingId);
+
+    if (error) {
+      console.error('[chat edit error]', error);
+      // Revert on error
+      setMessages((prev) =>
+        prev.map((m) => (m.id === editingId ? { ...m, body: editOriginal } : m))
+      );
+    }
+  }, [editingId, editDraft, editOriginal, sb, handleEditCancel]);
+
+  // Delete handlers
+  const handleDeleteStart = useCallback(
+    (msgId: string) => {
+      setDeleteConfirmId(msgId);
+      handleMenuClose();
+    },
+    [handleMenuClose]
+  );
+
+  const handleDeleteCancel = useCallback(() => {
+    setDeleteConfirmId(null);
+  }, []);
+
+  const handleDeleteConfirm = useCallback(async () => {
+    if (!deleteConfirmId) return;
+    const msgId = deleteConfirmId;
+
+    // Optimistic update
+    const deletedMsg = messages.find((m) => m.id === msgId);
+    setMessages((prev) => prev.filter((m) => m.id !== msgId));
+    setDeleteConfirmId(null);
+
+    const { error } = await sb.from('event_messages').delete().eq('id', msgId);
+
+    if (error) {
+      console.error('[chat delete error]', error);
+      // Revert on error
+      if (deletedMsg) {
+        setMessages((prev) => [...prev, deletedMsg].sort(
+          (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+        ));
+      }
+    }
+  }, [deleteConfirmId, messages, sb]);
+
+  // Copy handler
+  const handleCopy = useCallback(
+    (body: string) => {
+      navigator.clipboard.writeText(body);
+      handleMenuClose();
+    },
+    [handleMenuClose]
+  );
+
+  // Permission helpers
+  const canEditMessage = useCallback(
+    (msg: ChatMsg) => myUserId === msg.user_id,
+    [myUserId]
+  );
+
+  const canDeleteMessage = useCallback(
+    (msg: ChatMsg) => myUserId === msg.user_id,
+    [myUserId]
+  );
+
   const loadReactionsFor = useCallback(
     async (messageIds: string[]) => {
       const numericIds = messageIds.map(Number).filter(Number.isFinite);
@@ -565,12 +767,104 @@ export default function ChatTab({ eventId }: { eventId: string }) {
                 messageReactions={reactions[m.id] || {}}
                 myReactions={myReactions[m.id] || {}}
                 onToggleEmoji={(emoji) => toggleReaction(m.id, emoji)}
+                isEditing={editingId === m.id}
+                editDraft={editingId === m.id ? editDraft : ''}
+                onEditDraftChange={setEditDraft}
+                onEditSave={handleEditSave}
+                onEditCancel={handleEditCancel}
+                canEdit={canEditMessage(m)}
+                canDelete={canDeleteMessage(m)}
+                onMenuOpen={(e) => handleMenuOpen(e, m.id)}
               />
             ))}
             <div ref={bottomRef} />
           </Stack>
         )}
       </Box>
+
+      {/* Message actions menu */}
+      <Menu
+        anchorEl={menuAnchor?.el}
+        open={!!menuAnchor}
+        onClose={handleMenuClose}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+        slotProps={{
+          paper: {
+            sx: {
+              bgcolor: 'rgba(17,19,26,0.95)',
+              border: '1px solid rgba(255,255,255,0.08)',
+              boxShadow: '0 8px 24px rgba(0,0,0,0.45)',
+              minWidth: 160,
+            },
+          },
+        }}
+      >
+        {menuAnchor && canEditMessage(messages.find((m) => m.id === menuAnchor.msgId)!) && (
+          <MenuItem
+            onClick={() => {
+              const msg = messages.find((m) => m.id === menuAnchor.msgId);
+              if (msg) handleEditStart(msg.id, msg.body);
+            }}
+            sx={{ gap: 1.5 }}
+          >
+            <EditIcon fontSize="small" />
+            Edit
+          </MenuItem>
+        )}
+        <MenuItem
+          onClick={() => {
+            const msg = messages.find((m) => m.id === menuAnchor?.msgId);
+            if (msg) handleCopy(msg.body);
+          }}
+          sx={{ gap: 1.5 }}
+        >
+          <ContentCopyIcon fontSize="small" />
+          Copy
+        </MenuItem>
+        {menuAnchor && canDeleteMessage(messages.find((m) => m.id === menuAnchor.msgId)!) && (
+          <MenuItem
+            onClick={() => handleDeleteStart(menuAnchor.msgId)}
+            sx={{ gap: 1.5, color: 'error.main' }}
+          >
+            <DeleteIcon fontSize="small" />
+            Delete
+          </MenuItem>
+        )}
+      </Menu>
+
+      {/* Delete confirmation dialog */}
+      <Dialog
+        open={!!deleteConfirmId}
+        onClose={handleDeleteCancel}
+        PaperProps={{
+          sx: {
+            bgcolor: 'rgba(17,19,26,0.98)',
+            border: '1px solid rgba(255,255,255,0.08)',
+            boxShadow: '0 16px 48px rgba(0,0,0,0.5)',
+            maxWidth: 400,
+          },
+        }}
+      >
+        <DialogTitle sx={{ fontWeight: 700 }}>Delete Message?</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ opacity: 0.8 }}>
+            This will permanently delete this message for everyone in the chat.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={handleDeleteCancel} sx={{ color: 'text.secondary' }}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleDeleteConfirm}
+            color="error"
+            variant="contained"
+          >
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Box
         ref={composerRef}
@@ -695,6 +989,14 @@ function MessageRow({
   messageReactions,
   myReactions,
   onToggleEmoji,
+  isEditing,
+  editDraft,
+  onEditDraftChange,
+  onEditSave,
+  onEditCancel,
+  canEdit,
+  canDelete,
+  onMenuOpen,
 }: {
   message: ChatMsg;
   mdUpSafe: boolean;
@@ -704,12 +1006,23 @@ function MessageRow({
   messageReactions: Record<string, number>;
   myReactions: Record<string, true>;
   onToggleEmoji: (emoji: string) => void;
+  isEditing: boolean;
+  editDraft: string;
+  onEditDraftChange: (value: string) => void;
+  onEditSave: () => void;
+  onEditCancel: () => void;
+  canEdit: boolean;
+  canDelete: boolean;
+  onMenuOpen: (e: React.MouseEvent<HTMLElement>) => void;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const [hovered, setHovered] = useState(false);
   const isSelected = selectedId === m.id;
   const open = () => setSelectedId(m.id);
   const toggleSelect = () => setSelectedId(isSelected ? null : m.id);
   const lp = useLongPress(() => open(), { delay: 450 });
+
+  const showMenuButton = (hovered || !mdUpSafe) && (canEdit || canDelete);
 
   return (
     <Box
@@ -717,17 +1030,26 @@ function MessageRow({
       data-message-container="true"
       role="button"
       tabIndex={0}
-      onClick={() => mdUpSafe && toggleSelect()}
+      onClick={() => mdUpSafe && !isEditing && toggleSelect()}
       onKeyDown={(e) => {
+        if (isEditing) {
+          if (e.key === 'Escape') {
+            e.preventDefault();
+            onEditCancel();
+          }
+          return;
+        }
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
           toggleSelect();
         }
       }}
-      {...(!mdUpSafe ? lp : {})}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      {...(!mdUpSafe && !isEditing ? lp : {})}
       sx={(t) => ({
         display: 'grid',
-        gridTemplateColumns: 'auto 1fr',
+        gridTemplateColumns: 'auto 1fr auto',
         columnGap: 1.25,
         alignItems: 'flex-start',
         px: 1.25,
@@ -739,7 +1061,7 @@ function MessageRow({
         boxShadow: isSelected
           ? '0 0 0 2px rgba(182,255,104,0.18) inset'
           : 'none',
-        cursor: 'pointer',
+        cursor: isEditing ? 'default' : 'pointer',
         outline: 'none',
         '&:hover': mdUpSafe
           ? {
@@ -755,10 +1077,15 @@ function MessageRow({
       })}
     >
       <AvatarImage
-        name={m.profiles?.display_name || 'Member'}
+        name={m.profiles?.display_name || '?'}
         bucket="profile-avatars"
-        srcGuess={m.profiles?.avatar_url ?? undefined}
+        avatarPath={m.profiles?.avatar_url ?? undefined}
         size={32}
+        sx={{
+          background:
+            'radial-gradient(circle at top left, rgba(168,85,247,0.4), rgba(15,23,42,1))',
+          border: '1px solid rgba(148,163,184,0.7)',
+        }}
       />
 
       <Stack sx={{ minWidth: 0 }}>
@@ -785,17 +1112,71 @@ function MessageRow({
           </Typography>
         </Stack>
 
-        <Typography
-          variant="body1"
-          sx={{
-            mt: 0.5,
-            whiteSpace: 'pre-wrap',
-            wordBreak: 'break-word',
-            color: 'rgba(237,235,255,0.92)',
-          }}
-        >
-          {m.body}
-        </Typography>
+        {isEditing ? (
+          <Box sx={{ mt: 0.5 }}>
+            <TextField
+              fullWidth
+              multiline
+              size="small"
+              value={editDraft}
+              onChange={(e) => onEditDraftChange(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  onEditSave();
+                }
+                if (e.key === 'Escape') {
+                  e.preventDefault();
+                  onEditCancel();
+                }
+                e.stopPropagation();
+              }}
+              onClick={(e) => e.stopPropagation()}
+              autoFocus
+              InputProps={{
+                sx: {
+                  bgcolor: 'rgba(255,255,255,0.05)',
+                  fontSize: '0.95rem',
+                },
+              }}
+            />
+            <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+              <Button
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEditCancel();
+                }}
+                sx={{ color: 'text.secondary', textTransform: 'none' }}
+              >
+                Cancel
+              </Button>
+              <Button
+                size="small"
+                variant="contained"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEditSave();
+                }}
+                sx={{ textTransform: 'none' }}
+              >
+                Save
+              </Button>
+            </Stack>
+          </Box>
+        ) : (
+          <Typography
+            variant="body1"
+            sx={{
+              mt: 0.5,
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-word',
+              color: 'rgba(237,235,255,0.92)',
+            }}
+          >
+            {m.body}
+          </Typography>
+        )}
 
         <ReactionBar
           reactions={messageReactions}
@@ -803,6 +1184,29 @@ function MessageRow({
           onToggle={onToggleEmoji}
         />
       </Stack>
+
+      {/* Three-dot menu button */}
+      <Box
+        sx={{
+          opacity: showMenuButton ? 1 : 0,
+          transition: 'opacity 120ms',
+          alignSelf: 'flex-start',
+          mt: 0.25,
+        }}
+      >
+        <IconButton
+          size="small"
+          onClick={onMenuOpen}
+          aria-label="Message options"
+          sx={{
+            width: 28,
+            height: 28,
+            '&:hover': { backgroundColor: 'rgba(255,255,255,0.08)' },
+          }}
+        >
+          <MoreVertIcon fontSize="small" />
+        </IconButton>
+      </Box>
     </Box>
   );
 }

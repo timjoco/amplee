@@ -5,17 +5,35 @@ import {
   flashOutline,
 } from 'ionicons/icons';
 
+type LastMessage = {
+  body: string;
+  sender_name?: string;
+};
+
 type EventChatCTAProps = {
   onPress: () => void;
   isPressed: boolean;
   unreadCount?: number;
+  lastMessage?: LastMessage | null;
 };
 
 export default function EventChatCTA({
   onPress,
   isPressed,
   unreadCount = 0,
+  lastMessage,
 }: EventChatCTAProps) {
+  // Format last message preview - strip song tags and truncate
+  const formatPreview = (msg: LastMessage): string => {
+    let text = msg.body;
+    // Remove song tags like [[song:uuid:Title]]
+    text = text.replace(/\[\[song:[^\]]+\]\]/g, '🎵').trim();
+    // Truncate if too long
+    if (text.length > 50) {
+      text = text.slice(0, 50) + '…';
+    }
+    return msg.sender_name ? `${msg.sender_name}: ${text}` : text;
+  };
   return (
     <button
       type="button"
@@ -105,8 +123,16 @@ export default function EventChatCTA({
             style={{ fontSize: 16, color: '#34d399' }}
           />
         </div>
-        <div style={{ fontSize: 13, color: '#9ca3af' }}>
-          Message your bandmates for this event
+        <div
+          style={{
+            fontSize: 13,
+            color: lastMessage ? 'rgba(148, 163, 184, 0.9)' : '#9ca3af',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {lastMessage ? formatPreview(lastMessage) : 'Message your bandmates for this event'}
         </div>
       </div>
     </button>

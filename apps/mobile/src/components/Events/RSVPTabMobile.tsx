@@ -218,10 +218,9 @@ export default function RSVPTabMobile({
     <>
       <div
         style={{
-          padding: '20px 16px 80px 16px',
+          padding: '16px 16px 80px 16px',
           minHeight: '100%',
           color: '#E5E7EB',
-          background: '#050509',
         }}
       >
         {/* error */}
@@ -247,14 +246,17 @@ export default function RSVPTabMobile({
         {/* STATS HEADER */}
         <div
           style={{
-            background: 'rgba(52, 211, 153, 0.05)',
-            border: '2px solid rgba(52, 211, 153, 0.2)',
-            borderRadius: 16,
+            background:
+              'linear-gradient(135deg, rgba(52, 211, 153, 0.08) 0%, rgba(52, 211, 153, 0.03) 100%)',
+            border: '1px solid rgba(52, 211, 153, 0.2)',
+            borderRadius: 20,
             padding: '24px',
-            marginBottom: 20,
+            marginBottom: 16,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
+            backdropFilter: 'blur(12px)',
+            WebkitBackdropFilter: 'blur(12px)',
           }}
         >
           <div>
@@ -320,19 +322,22 @@ export default function RSVPTabMobile({
         {/* YOUR STATUS CARD */}
         <div
           style={{
-            background: '#0F172A',
-            border: `2px solid ${
+            background:
+              'linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%)',
+            border: `1px solid ${
               hasSubRequested
-                ? 'rgba(59, 130, 246, 0.3)'
+                ? 'rgba(59, 130, 246, 0.25)'
                 : isAccepted
-                ? 'rgba(52, 211, 153, 0.3)'
+                ? 'rgba(52, 211, 153, 0.25)'
                 : isDeclined
-                ? 'rgba(239, 68, 68, 0.3)'
-                : 'rgba(251, 191, 36, 0.3)'
+                ? 'rgba(239, 68, 68, 0.25)'
+                : 'rgba(251, 191, 36, 0.25)'
             }`,
-            borderRadius: 16,
+            borderRadius: 20,
             padding: 20,
-            marginBottom: 20,
+            marginBottom: 16,
+            backdropFilter: 'blur(12px)',
+            WebkitBackdropFilter: 'blur(12px)',
           }}
         >
           <div
@@ -346,26 +351,25 @@ export default function RSVPTabMobile({
               style={{
                 width: 48,
                 height: 48,
-                borderRadius: 12,
+                borderRadius: 14,
                 background: hasSubRequested
-                  ? 'rgba(59, 130, 246, 0.15)'
+                  ? 'linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(59, 130, 246, 0.08) 100%)'
                   : isAccepted
-                  ? 'rgba(52, 211, 153, 0.15)'
+                  ? 'linear-gradient(135deg, rgba(52, 211, 153, 0.15) 0%, rgba(52, 211, 153, 0.08) 100%)'
                   : isDeclined
-                  ? 'rgba(239, 68, 68, 0.15)'
-                  : 'rgba(251, 191, 36, 0.15)',
-                border: `2px solid ${
+                  ? 'linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, rgba(239, 68, 68, 0.08) 100%)'
+                  : 'linear-gradient(135deg, rgba(251, 191, 36, 0.15) 0%, rgba(251, 191, 36, 0.08) 100%)',
+                border: `1px solid ${
                   hasSubRequested
-                    ? 'rgba(59, 130, 246, 0.4)'
+                    ? 'rgba(59, 130, 246, 0.3)'
                     : isAccepted
-                    ? 'rgba(52, 211, 153, 0.4)'
+                    ? 'rgba(52, 211, 153, 0.3)'
                     : isDeclined
-                    ? 'rgba(239, 68, 68, 0.4)'
-                    : 'rgba(251, 191, 36, 0.4)'
+                    ? 'rgba(239, 68, 68, 0.3)'
+                    : 'rgba(251, 191, 36, 0.3)'
                 }`,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
+                display: 'grid',
+                placeItems: 'center',
                 flexShrink: 0,
               }}
             >
@@ -467,11 +471,14 @@ export default function RSVPTabMobile({
         {/* CAN YOU MAKE THE SHOW? */}
         <div
           style={{
-            background: '#0F172A',
-            border: '2px solid rgba(52, 211, 153, 0.2)',
-            borderRadius: 16,
+            background:
+              'linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%)',
+            border: '1px solid rgba(148,163,184,0.12)',
+            borderRadius: 20,
             padding: 20,
-            marginBottom: 20,
+            marginBottom: 16,
+            backdropFilter: 'blur(12px)',
+            WebkitBackdropFilter: 'blur(12px)',
           }}
         >
           <h3
@@ -498,22 +505,25 @@ export default function RSVPTabMobile({
                 style={{
                   flex: 1,
                   padding: '16px',
-                  borderRadius: 12,
-                  fontSize: 15,
-                  fontWeight: 700,
+                  borderRadius: 14,
+                  fontSize: 14,
+                  fontWeight: 600,
                   textAlign: 'center',
                   cursor: 'pointer',
-                  transition: 'all 0.15s ease',
+                  transition: 'all 0.2s ease',
                   border: isAccepted
-                    ? '2px solid #34D399'
-                    : '2px solid rgba(52, 211, 153, 0.2)',
-                  background: isAccepted ? '#34D399' : '#0F172A',
+                    ? '1px solid rgba(52, 211, 153, 0.5)'
+                    : '1px solid rgba(52, 211, 153, 0.2)',
+                  background: isAccepted
+                    ? 'linear-gradient(135deg, rgba(52,211,153,0.9) 0%, rgba(16,185,129,0.9) 100%)'
+                    : 'rgba(255,255,255,0.02)',
                   color: isAccepted ? '#000000' : '#34D399',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: 8,
                   opacity: !hydrated || saving ? 0.5 : 1,
+                  boxShadow: isAccepted ? '0 4px 14px rgba(52,211,153,0.3)' : 'none',
                 }}
               >
                 {saving && isAccepted && (
@@ -536,16 +546,18 @@ export default function RSVPTabMobile({
                 style={{
                   flex: 1,
                   padding: '16px',
-                  borderRadius: 12,
-                  fontSize: 15,
-                  fontWeight: 700,
+                  borderRadius: 14,
+                  fontSize: 14,
+                  fontWeight: 600,
                   textAlign: 'center',
                   cursor: 'pointer',
-                  transition: 'all 0.15s ease',
+                  transition: 'all 0.2s ease',
                   border: isPending
-                    ? '2px solid #FBBf24'
-                    : '2px solid rgba(251, 191, 36, 0.2)',
-                  background: isPending ? 'rgba(251, 191, 36, 0.2)' : '#0F172A',
+                    ? '1px solid rgba(251, 191, 36, 0.4)'
+                    : '1px solid rgba(251, 191, 36, 0.2)',
+                  background: isPending
+                    ? 'linear-gradient(135deg, rgba(251, 191, 36, 0.2) 0%, rgba(251, 191, 36, 0.1) 100%)'
+                    : 'rgba(255,255,255,0.02)',
                   color: isPending ? '#FBBf24' : '#94A3B8',
                   display: 'flex',
                   alignItems: 'center',
@@ -566,30 +578,31 @@ export default function RSVPTabMobile({
             </div>
 
             {/* Second row: Can't Make It - full width */}
-            {/* Second row: Can't Make It - full width */}
             <button
               type="button"
-              disabled={saving || !hydrated || isAdmin} // ADD isAdmin here
+              disabled={saving || !hydrated || isAdmin}
               onClick={() => handleAskConfirm('declined')}
               style={{
                 width: '100%',
                 padding: '16px',
-                borderRadius: 12,
-                fontSize: 15,
-                fontWeight: 700,
+                borderRadius: 14,
+                fontSize: 14,
+                fontWeight: 600,
                 textAlign: 'center',
-                cursor: isAdmin ? 'not-allowed' : 'pointer', // ADD this
-                transition: 'all 0.15s ease',
+                cursor: isAdmin ? 'not-allowed' : 'pointer',
+                transition: 'all 0.2s ease',
                 border: isDeclined
-                  ? '2px solid #EF4444'
-                  : '2px solid rgba(239, 68, 68, 0.2)',
-                background: isDeclined ? 'rgba(239, 68, 68, 0.2)' : '#0F172A',
+                  ? '1px solid rgba(239, 68, 68, 0.4)'
+                  : '1px solid rgba(239, 68, 68, 0.2)',
+                background: isDeclined
+                  ? 'linear-gradient(135deg, rgba(239, 68, 68, 0.2) 0%, rgba(239, 68, 68, 0.1) 100%)'
+                  : 'rgba(255,255,255,0.02)',
                 color: isDeclined ? '#FCA5A5' : '#94A3B8',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: 8,
-                opacity: isAdmin ? 0.4 : !hydrated || saving ? 0.5 : 1, // UPDATE this
+                opacity: isAdmin ? 0.4 : !hydrated || saving ? 0.5 : 1,
               }}
             >
               {saving && isDeclined && (
@@ -620,10 +633,13 @@ export default function RSVPTabMobile({
         {/* DO YOU NEED A SUB? */}
         <div
           style={{
-            background: '#0F172A',
-            border: '2px solid rgba(59, 130, 246, 0.2)',
-            borderRadius: 16,
+            background:
+              'linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%)',
+            border: '1px solid rgba(148,163,184,0.12)',
+            borderRadius: 20,
             padding: 20,
+            backdropFilter: 'blur(12px)',
+            WebkitBackdropFilter: 'blur(12px)',
           }}
         >
           <h3
@@ -647,22 +663,25 @@ export default function RSVPTabMobile({
             style={{
               width: '100%',
               padding: '16px',
-              borderRadius: 12,
-              fontSize: 15,
-              fontWeight: 700,
+              borderRadius: 14,
+              fontSize: 14,
+              fontWeight: 600,
               textAlign: 'center',
               cursor: isDeclined ? 'not-allowed' : 'pointer',
-              transition: 'all 0.15s ease',
+              transition: 'all 0.2s ease',
               opacity: isDeclined ? 0.4 : 1,
               border: needsSub
-                ? '2px solid #3B82F6'
-                : '2px solid rgba(59, 130, 246, 0.2)',
-              background: needsSub ? '#3B82F6' : '#0F172A',
+                ? '1px solid rgba(59, 130, 246, 0.5)'
+                : '1px solid rgba(59, 130, 246, 0.2)',
+              background: needsSub
+                ? 'linear-gradient(135deg, rgba(59, 130, 246, 0.9) 0%, rgba(37, 99, 235, 0.9) 100%)'
+                : 'rgba(255,255,255,0.02)',
               color: needsSub ? '#000000' : '#93C5FD',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               gap: 8,
+              boxShadow: needsSub ? '0 4px 14px rgba(59,130,246,0.3)' : 'none',
             }}
           >
             {savingSub && (
@@ -694,14 +713,14 @@ export default function RSVPTabMobile({
                 width: '100%',
                 marginTop: 12,
                 padding: '14px 16px',
-                borderRadius: 12,
-                border: '2px solid rgba(148, 163, 184, 0.2)',
-                background: '#0F172A',
+                borderRadius: 14,
+                border: '1px solid rgba(148, 163, 184, 0.12)',
+                background: 'rgba(255,255,255,0.02)',
                 color: '#94A3B8',
                 fontSize: 14,
                 fontWeight: 600,
                 cursor: 'pointer',
-                transition: 'all 0.15s ease',
+                transition: 'all 0.2s ease',
               }}
             >
               Clear Sub Request

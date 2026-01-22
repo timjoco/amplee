@@ -84,6 +84,7 @@ export default function SetlistTemplateEditorMobile() {
 
   const {
     loading,
+    hasAttemptedLoad,
     template,
     items,
     links,
@@ -240,7 +241,7 @@ export default function SetlistTemplateEditorMobile() {
           '--background': 'linear-gradient(180deg, #08080e 0%, #04040a 100%)',
         }}
       >
-        {loading ? (
+        {loading || !hasAttemptedLoad ? (
           <EmptyState variant="loading" message="Loading setlist..." />
         ) : !template ? (
           <EmptyState

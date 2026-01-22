@@ -16,12 +16,47 @@ type RouteParams = {
   eventId: string;
 };
 
-export default function EventRollCallPageMobile() {
+type Props = {
+  embedded?: boolean;
+};
+
+export default function EventRollCallPageMobile({ embedded = false }: Props) {
   const nav = useNavigate();
   const { eventId } = useParams<RouteParams>();
   const { event, loading } = useEventShell(eventId);
 
   const title = event?.title ?? 'Roll Call';
+
+  // Embedded mode - just render the content without page wrapper
+  if (embedded) {
+    return (
+      <IonContent
+        fullscreen
+        scrollY={true}
+        style={{
+          '--background': '#050509',
+          '--padding-bottom': 'calc(env(safe-area-inset-bottom) + 24px)',
+        } as React.CSSProperties}
+      >
+        {loading || !eventId ? (
+          <div
+            style={{
+              height: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#9ca3af',
+              padding: 16,
+            }}
+          >
+            Loading roll call...
+          </div>
+        ) : (
+          <RSVPTabMobile eventId={eventId} />
+        )}
+      </IonContent>
+    );
+  }
 
   return (
     <IonPage>

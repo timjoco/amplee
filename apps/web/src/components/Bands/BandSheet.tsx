@@ -286,13 +286,18 @@ export default function BandSheet({ bandId }: Props) {
     };
   }, [sb, bandId, fetchRoster]);
 
-  // Handle event route from URL
+  // Sync URL with state - URL is source of truth for event navigation
   useEffect(() => {
     if (eventIdFromPath) {
+      // URL has event ID - show that event
       setActiveWidget('events');
       setActiveEventId(eventIdFromPath);
-      setEventOpenedFrom('events'); // Assume URL navigation came from events tab
+      setEventOpenedFrom('events');
+    } else {
+      // URL no longer has event ID (e.g., browser back button) - clear event state
+      setActiveEventId(null);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventIdFromPath]);
 
   useEffect(() => {
@@ -342,7 +347,7 @@ export default function BandSheet({ bandId }: Props) {
   }, [sb, bandId, fetchRoster]);
 
   const handleEventOpen = useCallback(
-    (eventId: string) => {
+    (eventId: string, _bandId?: string) => {
       setEventOpenedFrom(activeWidget); // Track where we're opening from
       setActiveEventId(eventId);
       setActiveWidget('events');
@@ -482,8 +487,8 @@ export default function BandSheet({ bandId }: Props) {
     );
   }
 
-  // Determine if content needs its own padding (widgets that have their own header)
-  const widgetsWithOwnLayout = ['overview', 'events', 'proposals'];
+  // All tabs now show the band header with avatar and name
+  const widgetsWithOwnLayout: string[] = [];
   const needsPadding =
     !widgetsWithOwnLayout.includes(activeWidget) ||
     (activeWidget === 'events' && activeEventId);
@@ -613,7 +618,14 @@ export default function BandSheet({ bandId }: Props) {
               return (
                 <Button
                   key={widget.key}
-                  onClick={() => setActiveWidget(widget.key)}
+                  onClick={() => {
+                    setActiveWidget(widget.key);
+                    // Clear event view when clicking Events tab to show the list
+                    if (widget.key === 'events') {
+                      setActiveEventId(null);
+                      router.push(`/bands/${bandId}`);
+                    }
+                  }}
                   startIcon={<Icon />}
                   color="inherit"
                   sx={(t) => ({

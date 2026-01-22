@@ -18,7 +18,11 @@ import { FileUploadButton } from './components/FileUploadButton';
 import { useEventFiles } from './hooks/useEventFiles';
 import type { EventFile } from './types';
 
-export default function EventFilesPage() {
+type Props = {
+  embedded?: boolean;
+};
+
+export default function EventFilesPage({ embedded = false }: Props) {
   const nav = useNavigate();
   const {
     eventId,
@@ -47,6 +51,89 @@ export default function EventFilesPage() {
     setShowActionSheet(false);
     setSelectedFile(null);
   };
+
+  // Render file content (shared between embedded and full page)
+  const renderContent = () => (
+    <>
+      {loading || filesLoading || !eventId ? (
+        <div
+          style={{
+            height: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: '#9ca3af',
+          }}
+        >
+          <IonSpinner name="crescent" style={{ marginRight: 8 }} />
+          Loading files...
+        </div>
+      ) : (
+        <div style={{ padding: 16 }}>
+          {isAdmin && (
+            <FileUploadButton
+              uploading={uploading}
+              fileInputRef={fileInputRef}
+              onUploadClick={handleUploadClick}
+              onFileChange={handleFileChange}
+            />
+          )}
+          {files.length === 0 ? (
+            <EmptyFilesState isAdmin={isAdmin} />
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {files.map((file) => (
+                <FileCard
+                  key={file.id}
+                  file={file}
+                  onOpenActions={openFileActions}
+                />
+              ))}
+              {isAdmin && (
+                <div
+                  style={{
+                    background: 'rgba(255,255,255,0.02)',
+                    border: '1px solid rgba(148,163,184,0.08)',
+                    borderRadius: 12,
+                    padding: 12,
+                    marginTop: 4,
+                  }}
+                >
+                  <p style={{ margin: 0, fontSize: 12, color: '#6b7280' }}>
+                    Only band admins can upload and delete files
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+      <FileActionsModal
+        isOpen={showActionSheet}
+        selectedFile={selectedFile}
+        isAdmin={isAdmin}
+        onDismiss={closeActionSheet}
+        onDownload={handleDownload}
+        onDelete={handleDelete}
+      />
+    </>
+  );
+
+  // Embedded mode - just render the content without page wrapper
+  if (embedded) {
+    return (
+      <IonContent
+        fullscreen
+        scrollY={true}
+        style={{
+          '--background': '#050509',
+          '--padding-bottom': 'calc(env(safe-area-inset-bottom) + 24px)',
+        } as React.CSSProperties}
+      >
+        {renderContent()}
+      </IonContent>
+    );
+  }
 
   return (
     <IonPage>
@@ -141,76 +228,8 @@ export default function EventFilesPage() {
           '--padding-bottom': 'calc(env(safe-area-inset-bottom) + 24px)',
         } as React.CSSProperties}
       >
-        {loading || filesLoading || !eventId ? (
-          <div
-            style={{
-              height: '100%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#9ca3af',
-            }}
-          >
-            <IonSpinner name="crescent" style={{ marginRight: 8 }} />
-            Loading files…
-          </div>
-        ) : (
-          <div style={{ padding: 16 }}>
-            {/* Upload Button (Admin only) */}
-            {isAdmin && (
-              <FileUploadButton
-                uploading={uploading}
-                fileInputRef={fileInputRef}
-                onUploadClick={handleUploadClick}
-                onFileChange={handleFileChange}
-              />
-            )}
-
-            {/* Files List */}
-            {files.length === 0 ? (
-              <EmptyFilesState isAdmin={isAdmin} />
-            ) : (
-              <div
-                style={{ display: 'flex', flexDirection: 'column', gap: 12 }}
-              >
-                {files.map((file) => (
-                  <FileCard
-                    key={file.id}
-                    file={file}
-                    onOpenActions={openFileActions}
-                  />
-                ))}
-
-                {/* Admin hint */}
-                {isAdmin && (
-                  <div
-                    style={{
-                      background: 'rgba(17, 24, 39, 0.4)',
-                      border: '1px solid rgba(55, 65, 81, 0.4)',
-                      borderRadius: 8,
-                      padding: 12,
-                      marginTop: 4,
-                    }}
-                  >
-                    <p style={{ margin: 0, fontSize: 12, color: '#6b7280' }}>
-                      Only band admins can upload and delete files
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
+        {renderContent()}
       </IonContent>
-
-      <FileActionsModal
-        isOpen={showActionSheet}
-        selectedFile={selectedFile}
-        isAdmin={isAdmin}
-        onDismiss={closeActionSheet}
-        onDownload={handleDownload}
-        onDelete={handleDelete}
-      />
     </IonPage>
   );
 }

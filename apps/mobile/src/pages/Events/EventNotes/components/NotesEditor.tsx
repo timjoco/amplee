@@ -20,10 +20,13 @@ export function NotesEditor({
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div
         style={{
-          background: 'rgba(17, 24, 39, 0.6)',
-          border: '1px solid rgba(55, 65, 81, 0.6)',
-          borderRadius: 12,
+          background:
+            'linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%)',
+          border: '1px solid rgba(148,163,184,0.12)',
+          borderRadius: 20,
           overflow: 'hidden',
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
         }}
       >
         <textarea
@@ -36,7 +39,7 @@ export function NotesEditor({
             minHeight: 320,
             background: 'transparent',
             border: 'none',
-            padding: 16,
+            padding: 20,
             color: '#F9FAFB',
             fontSize: 15,
             lineHeight: 1.6,
@@ -48,7 +51,7 @@ export function NotesEditor({
       </div>
 
       {/* Action Buttons */}
-      <div style={{ display: 'flex', gap: 10 }}>
+      <div style={{ display: 'flex', gap: 12 }}>
         <button
           type="button"
           onClick={onSave}
@@ -59,16 +62,18 @@ export function NotesEditor({
             alignItems: 'center',
             justifyContent: 'center',
             gap: 8,
-            background: '#16a34a',
+            background:
+              'linear-gradient(135deg, rgba(52,211,153,0.9) 0%, rgba(16,185,129,0.9) 100%)',
             color: '#fff',
-            border: 'none',
-            borderRadius: 10,
+            border: '1px solid rgba(52,211,153,0.4)',
+            borderRadius: 14,
             padding: '14px 16px',
-            fontSize: 15,
+            fontSize: 14,
             fontWeight: 600,
             cursor: isSaving ? 'not-allowed' : 'pointer',
             opacity: isSaving ? 0.7 : 1,
-            transition: 'all 0.15s ease',
+            transition: 'all 0.2s ease',
+            boxShadow: '0 4px 14px rgba(52,211,153,0.3)',
           }}
         >
           {isSaving ? (
@@ -88,15 +93,16 @@ export function NotesEditor({
             alignItems: 'center',
             justifyContent: 'center',
             gap: 6,
-            background: 'rgba(31, 41, 55, 0.8)',
-            color: '#d1d5db',
-            border: '1px solid rgba(55, 65, 81, 0.6)',
-            borderRadius: 10,
+            background:
+              'linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%)',
+            color: '#e5e7eb',
+            border: '1px solid rgba(148,163,184,0.12)',
+            borderRadius: 14,
             padding: '14px 20px',
-            fontSize: 15,
-            fontWeight: 500,
+            fontSize: 14,
+            fontWeight: 600,
             cursor: isSaving ? 'not-allowed' : 'pointer',
-            transition: 'all 0.15s ease',
+            transition: 'all 0.2s ease',
           }}
         >
           <IonIcon icon={closeOutline} style={{ fontSize: 18 }} />

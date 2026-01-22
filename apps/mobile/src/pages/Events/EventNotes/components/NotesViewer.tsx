@@ -12,10 +12,13 @@ export function NotesViewer({ notes, isAdmin, onEdit }: Props) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div
         style={{
-          background: 'rgba(17, 24, 39, 0.6)',
-          border: '1px solid rgba(55, 65, 81, 0.6)',
-          borderRadius: 12,
-          padding: 16,
+          background:
+            'linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%)',
+          border: '1px solid rgba(148,163,184,0.12)',
+          borderRadius: 20,
+          padding: 20,
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
         }}
       >
         <p
@@ -40,18 +43,19 @@ export function NotesViewer({ notes, isAdmin, onEdit }: Props) {
             alignItems: 'center',
             justifyContent: 'center',
             gap: 8,
-            background: 'rgba(17, 24, 39, 0.6)',
-            color: '#d1d5db',
-            border: '1px solid rgba(55, 65, 81, 0.6)',
-            borderRadius: 10,
+            background:
+              'linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%)',
+            color: '#e5e7eb',
+            border: '1px solid rgba(148,163,184,0.12)',
+            borderRadius: 14,
             padding: '14px 16px',
-            fontSize: 15,
-            fontWeight: 500,
+            fontSize: 14,
+            fontWeight: 600,
             cursor: 'pointer',
-            transition: 'all 0.15s ease',
+            transition: 'all 0.2s ease',
           }}
         >
-          <IonIcon icon={createOutline} style={{ fontSize: 18 }} />
+          <IonIcon icon={createOutline} style={{ fontSize: 18, color: '#34d399' }} />
           Edit Notes
         </button>
       )}
@@ -60,9 +64,9 @@ export function NotesViewer({ notes, isAdmin, onEdit }: Props) {
       {isAdmin && (
         <div
           style={{
-            background: 'rgba(17, 24, 39, 0.4)',
-            border: '1px solid rgba(55, 65, 81, 0.4)',
-            borderRadius: 8,
+            background: 'rgba(255,255,255,0.02)',
+            border: '1px solid rgba(148,163,184,0.08)',
+            borderRadius: 12,
             padding: 12,
           }}
         >

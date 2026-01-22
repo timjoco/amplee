@@ -9,6 +9,7 @@ import { getRelativeTime } from '../utils/format';
 export default function EventInboxRowMobile({
   row: e,
   lastMsg,
+  unreadCount,
   showAvatars,
   avatarSrc,
   renderAvatarInitials,
@@ -27,6 +28,7 @@ export default function EventInboxRowMobile({
 }: {
   row: EventRow;
   lastMsg?: LastMsg;
+  unreadCount?: number;
   showAvatars: boolean;
   avatarSrc?: string;
   renderAvatarInitials: (name?: string | null) => React.ReactNode;
@@ -46,6 +48,7 @@ export default function EventInboxRowMobile({
   onSongNavigate: (songId: string) => void;
 } & React.HTMLAttributes<HTMLDivElement>) {
   const band = e.bands;
+  const hasUnread = (unreadCount ?? 0) > 0;
 
   const getConflictStyles = (): React.CSSProperties => {
     if (!hasConflict || !conflictPosition) return {};
@@ -104,26 +107,48 @@ export default function EventInboxRowMobile({
       }}
     >
       {showAvatars && (
-        <IonAvatar
-          style={{
-            width: 48,
-            height: 48,
-            borderRadius: 12,
-            overflow: 'hidden',
-            flexShrink: 0,
-            alignSelf: 'flex-start',
-          }}
-        >
-          {avatarSrc ? (
-            <img
-              src={avatarSrc}
-              alt={band?.name || 'Band'}
-              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-            />
-          ) : (
-            renderAvatarInitials(band?.name)
+        <div style={{ position: 'relative', flexShrink: 0 }}>
+          <IonAvatar
+            style={{
+              width: 48,
+              height: 48,
+              borderRadius: 12,
+              overflow: 'hidden',
+            }}
+          >
+            {avatarSrc ? (
+              <img
+                src={avatarSrc}
+                alt={band?.name || 'Band'}
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              />
+            ) : (
+              renderAvatarInitials(band?.name)
+            )}
+          </IonAvatar>
+          {hasUnread && (
+            <div
+              style={{
+                position: 'absolute',
+                top: -4,
+                right: -4,
+                minWidth: 18,
+                height: 18,
+                borderRadius: 9,
+                backgroundColor: '#EF4444',
+                color: 'white',
+                fontSize: 11,
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '0 4px',
+              }}
+            >
+              {(unreadCount ?? 0) > 99 ? '99+' : unreadCount}
+            </div>
           )}
-        </IonAvatar>
+        </div>
       )}
 
       <div
@@ -170,7 +195,6 @@ export default function EventInboxRowMobile({
             display: 'flex',
             alignItems: 'center',
             gap: 8,
-            flexWrap: 'wrap',
           }}
         >
           <span
@@ -231,6 +255,30 @@ export default function EventInboxRowMobile({
             </div>
           )}
 
+          {/* Spacer to push unread badge to far right */}
+          <div style={{ flex: 1 }} />
+
+          {/* Unread badge - far right, inline with type/status */}
+          {!showAvatars && hasUnread && (
+            <div
+              style={{
+                minWidth: 18,
+                height: 18,
+                borderRadius: 9,
+                backgroundColor: '#EF4444',
+                color: 'white',
+                fontSize: 11,
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '0 5px',
+              }}
+            >
+              {(unreadCount ?? 0) > 99 ? '99+' : unreadCount}
+            </div>
+          )}
+
           {showDeclined && (
             <span
               style={{
@@ -238,7 +286,6 @@ export default function EventInboxRowMobile({
                 fontWeight: 500,
                 color: 'rgba(148, 163, 184, 0.7)',
                 whiteSpace: 'nowrap',
-                marginLeft: 'auto',
               }}
             >
               {getRelativeTime(e.starts_at)}

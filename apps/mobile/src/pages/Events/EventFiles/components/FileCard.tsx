@@ -13,13 +13,16 @@ export function FileCard({ file, onOpenActions }: Props) {
   return (
     <div
       style={{
-        background: 'rgba(17, 24, 39, 0.6)',
-        border: '1px solid rgba(55, 65, 81, 0.6)',
-        borderRadius: 12,
-        padding: 14,
+        background:
+          'linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%)',
+        border: '1px solid rgba(148,163,184,0.12)',
+        borderRadius: 16,
+        padding: 16,
         display: 'flex',
         alignItems: 'flex-start',
         gap: 12,
+        backdropFilter: 'blur(12px)',
+        WebkitBackdropFilter: 'blur(12px)',
       }}
     >
       {/* File Icon */}
@@ -27,17 +30,18 @@ export function FileCard({ file, onOpenActions }: Props) {
         style={{
           width: 40,
           height: 40,
-          background: 'rgba(22, 163, 74, 0.1)',
-          borderRadius: 8,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
+          background:
+            'linear-gradient(135deg, rgba(52, 211, 153, 0.15) 0%, rgba(52, 211, 153, 0.08) 100%)',
+          border: '1px solid rgba(52, 211, 153, 0.2)',
+          borderRadius: 10,
+          display: 'grid',
+          placeItems: 'center',
           flexShrink: 0,
         }}
       >
         <IonIcon
           icon={getFileIcon(file.mime_type)}
-          style={{ fontSize: 20, color: '#16a34a' }}
+          style={{ fontSize: 20, color: '#6ee7b7' }}
         />
       </div>
 
@@ -47,7 +51,7 @@ export function FileCard({ file, onOpenActions }: Props) {
           style={{
             margin: 0,
             fontSize: 15,
-            fontWeight: 500,
+            fontWeight: 600,
             color: '#F9FAFB',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
@@ -60,7 +64,7 @@ export function FileCard({ file, onOpenActions }: Props) {
           style={{
             margin: '4px 0 0',
             fontSize: 12,
-            color: '#6b7280',
+            color: '#9ca3af',
           }}
         >
           {formatDate(file.created_at)} • {formatFileSize(file.file_size)}

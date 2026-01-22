@@ -31,7 +31,7 @@ export function useSetlistTemplateEditor({
   const sensors = useDndSensors();
   const { pressedButton, triggerHaptic, handleButtonPress } = useHapticsPress();
 
-  const { loading, template, setTemplate, items, setItems, links, setLinks } =
+  const { loading, hasAttemptedLoad, template, setTemplate, items, setItems, links, setLinks } =
     useSetlistTemplateLoad(bandId, setlistId);
 
   const { savingReorder, saveOrder, handleDragEnd } = useSetlistReorder({
@@ -92,6 +92,7 @@ export function useSetlistTemplateEditor({
   return {
     // data
     loading,
+    hasAttemptedLoad,
     template,
     items,
     links,

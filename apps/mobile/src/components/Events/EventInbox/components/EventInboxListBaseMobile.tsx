@@ -51,7 +51,7 @@ export default function EventInboxListBaseMobile({
   const nav = useNavigate();
 
   // data
-  const { rows, displayRows, lastMsgs, loading, removeLocal } =
+  const { rows, displayRows, lastMsgs, unreadCounts, loading, removeLocal } =
     useEventInboxData({
       scope,
       bandId,
@@ -339,6 +339,7 @@ export default function EventInboxListBaseMobile({
               key={e.id}
               row={e}
               lastMsg={lastMsgs[e.id]}
+              unreadCount={unreadCounts[e.id]}
               showAvatars={showAvatars}
               avatarSrc={getAvatarSrc(e)}
               showDeclined={showDeclined}
@@ -414,6 +415,7 @@ export default function EventInboxListBaseMobile({
                 key={e.id}
                 row={e}
                 lastMsg={lastMsgs[e.id]}
+                unreadCount={unreadCounts[e.id]}
                 showAvatars={showAvatars}
                 avatarSrc={getAvatarSrc(e)}
                 showDeclined={showDeclined}

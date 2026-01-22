@@ -13,6 +13,7 @@ import { supabase } from '../../../../lib/supabase';
 
 export type InboxScope = 'home' | 'band';
 export type LastMsg = { event_id: string; body: string; created_at: string };
+export type UnreadCount = { event_id: string; unread_count: number; last_message_at: string | null };
 
 type Params = {
   scope: InboxScope;
@@ -46,6 +47,7 @@ export function useEventInboxData({
   const [lastMsgs, setLastMsgs] = useState<Record<string, LastMsg | undefined>>(
     initial.lastMsgs as any
   );
+  const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
 
   const [loading, setLoading] = useState<boolean>(() => {
     if (scope === 'band') return true;
@@ -60,6 +62,32 @@ export function useEventInboxData({
   useEffect(() => {
     lastMsgsRef.current = lastMsgs;
   }, [lastMsgs]);
+
+  // Fetch unread counts for given event IDs
+  const fetchUnreadCounts = useCallback(async (eventIds: string[]) => {
+    if (eventIds.length === 0) {
+      setUnreadCounts({});
+      return;
+    }
+    try {
+      const { data, error } = await supabase.rpc('get_event_unread_counts', {
+        p_event_ids: eventIds,
+      });
+      if (error) {
+        console.warn('[inbox] unread counts error', error);
+        return;
+      }
+      const counts: Record<string, number> = {};
+      for (const row of (data ?? []) as UnreadCount[]) {
+        if (row.unread_count > 0) {
+          counts[row.event_id] = row.unread_count;
+        }
+      }
+      setUnreadCounts(counts);
+    } catch (e) {
+      console.warn('[inbox] unread counts exception', e);
+    }
+  }, []);
 
   const displayRows = useMemo(() => {
     if (!clientFilterBandId) return rows;
@@ -361,13 +389,34 @@ export function useEventInboxData({
       setLastMsgs({});
       if (scope === 'home') setLastMsgsBulk({});
     }
-  }, [scope, bandId, showArchived, showAvatars, onLoaded, showDeclined]);
+
+    // 4) Fetch unread counts for these events
+    await fetchUnreadCounts(targetIds);
+  }, [scope, bandId, showArchived, showAvatars, onLoaded, showDeclined, fetchUnreadCounts]);
 
   // initial load / reload
   useEffect(() => {
     setLoading(true);
     void refresh().finally(() => setLoading(false));
   }, [refresh]);
+
+  // Get current user ID for filtering own messages from unread
+  const currentUserIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      currentUserIdRef.current = data.user?.id ?? null;
+    });
+  }, []);
+
+  // Clear unread count for a specific event (when user views chat)
+  const clearUnread = useCallback((eventId: string) => {
+    setUnreadCounts((prev) => {
+      if (!prev[eventId]) return prev;
+      const next = { ...prev };
+      delete next[eventId];
+      return next;
+    });
+  }, []);
 
   // realtime (messages → update preview)
   useEffect(() => {
@@ -379,7 +428,7 @@ export function useEventInboxData({
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'event_messages' },
         (payload: any) => {
-          const msg = payload.new as LastMsg;
+          const msg = payload.new as LastMsg & { user_id?: string };
           if (!eventIdsRef.current.includes(msg.event_id)) return;
 
           setLastMsgs((prev) => {
@@ -395,6 +444,14 @@ export function useEventInboxData({
             }
             return prev;
           });
+
+          // Increment unread count if message is from someone else
+          if (msg.user_id && msg.user_id !== currentUserIdRef.current) {
+            setUnreadCounts((prev) => ({
+              ...prev,
+              [msg.event_id]: (prev[msg.event_id] || 0) + 1,
+            }));
+          }
         }
       )
       .on(
@@ -426,9 +483,11 @@ export function useEventInboxData({
     rows,
     displayRows,
     lastMsgs,
+    unreadCounts,
     loading,
     refresh,
     eventIdsRef,
     removeLocal,
+    clearUnread,
   };
 }

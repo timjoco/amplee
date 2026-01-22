@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Capacitor } from '@capacitor/core';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { fetchProfile, getProfileSync } from '../../../../lib/cache/profileCache';
 import { supabase } from '../../../../lib/supabase';
@@ -31,6 +31,26 @@ export function useEventChatMobile({
   isAdmin,
 }: UseEventChatMobileArgs) {
   const navigate = useNavigate();
+
+  // Mark messages as read when viewing this chat
+  const markAsRead = useCallback(async () => {
+    try {
+      await supabase.rpc('mark_event_messages_read', { p_event_id: eventId });
+    } catch (e) {
+      console.error('[chat] Failed to mark as read:', e);
+    }
+  }, [eventId]);
+
+  // Mark as read on mount and when app resumes
+  useEffect(() => {
+    // Mark as read on mount
+    void markAsRead();
+
+    // Also mark as read when app resumes from background
+    const handleResume = () => void markAsRead();
+    document.addEventListener('resume', handleResume);
+    return () => document.removeEventListener('resume', handleResume);
+  }, [markAsRead]);
 
   // Composer state
   const [inputText, setInputText] = useState('');

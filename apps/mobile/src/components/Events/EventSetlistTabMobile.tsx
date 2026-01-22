@@ -30,11 +30,12 @@ const PINK = {
 // ─────────────────────────────────────────────────────────────
 
 const glassCard = {
-  background: 'rgba(255, 255, 255, 0.02)',
+  background:
+    'linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%)',
   backdropFilter: 'blur(12px)',
   WebkitBackdropFilter: 'blur(12px)',
-  border: '1px solid rgba(255, 255, 255, 0.06)',
-  borderRadius: 16,
+  border: '1px solid rgba(148,163,184,0.12)',
+  borderRadius: 20,
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -363,7 +364,7 @@ export default function EventSetlistTabMobile({
               width: 64,
               height: 64,
               borderRadius: 16,
-              background: PINK.subtle,
+              background: `linear-gradient(135deg, ${PINK.subtle} 0%, rgba(236, 72, 153, 0.04) 100%)`,
               border: `1px solid ${PINK.border}`,
               display: 'grid',
               placeItems: 'center',
@@ -414,14 +415,15 @@ export default function EventSetlistTabMobile({
                 gap: 8,
                 width: '100%',
                 padding: '14px 20px',
-                borderRadius: 12,
-                background: PINK.primary,
-                border: 'none',
+                borderRadius: 14,
+                background: `linear-gradient(135deg, ${PINK.primary} 0%, #db2777 100%)`,
+                border: `1px solid ${PINK.border}`,
                 color: '#fff',
-                fontSize: 15,
-                fontWeight: 700,
+                fontSize: 14,
+                fontWeight: 600,
                 cursor: 'pointer',
                 opacity: loadingTemplates || applyingTemplate ? 0.6 : 1,
+                boxShadow: `0 4px 14px ${PINK.glow}`,
               }}
             >
               <IonIcon icon={gridOutline} style={{ fontSize: 18 }} />
@@ -554,8 +556,8 @@ export default function EventSetlistTabMobile({
                 width: '100%',
                 marginTop: 16,
                 padding: '14px 20px',
-                borderRadius: 12,
-                background: PINK.subtle,
+                borderRadius: 14,
+                background: `linear-gradient(135deg, ${PINK.subtle} 0%, rgba(236, 72, 153, 0.04) 100%)`,
                 border: `1px solid ${PINK.border}`,
                 color: PINK.light,
                 fontSize: 14,
@@ -821,10 +823,10 @@ function SetlistRowCard({
       disabled={!isClickable}
       style={{
         width: '100%',
-        padding: '12px 14px',
-        borderRadius: 12,
+        padding: '14px 16px',
+        borderRadius: 14,
         background: 'rgba(255, 255, 255, 0.02)',
-        border: '1px solid rgba(255, 255, 255, 0.06)',
+        border: '1px solid rgba(148,163,184,0.08)',
         display: 'flex',
         alignItems: 'center',
         gap: 12,

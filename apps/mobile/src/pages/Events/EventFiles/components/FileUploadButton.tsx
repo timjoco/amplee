@@ -30,14 +30,17 @@ export function FileUploadButton({
         disabled={uploading}
         style={{
           width: '100%',
-          background: 'rgba(17, 24, 39, 0.6)',
-          border: '2px dashed rgba(55, 65, 81, 0.8)',
-          borderRadius: 12,
+          background:
+            'linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%)',
+          border: '2px dashed rgba(52, 211, 153, 0.3)',
+          borderRadius: 20,
           padding: '32px 24px',
           cursor: uploading ? 'not-allowed' : 'pointer',
           opacity: uploading ? 0.7 : 1,
-          transition: 'all 0.15s ease',
+          transition: 'all 0.2s ease',
           marginBottom: 16,
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
         }}
       >
         <div
@@ -52,22 +55,23 @@ export function FileUploadButton({
             style={{
               width: 48,
               height: 48,
-              background: 'rgba(22, 163, 74, 0.1)',
-              borderRadius: '50%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
+              background:
+                'linear-gradient(135deg, rgba(52, 211, 153, 0.15) 0%, rgba(52, 211, 153, 0.08) 100%)',
+              border: '1px solid rgba(52, 211, 153, 0.2)',
+              borderRadius: 14,
+              display: 'grid',
+              placeItems: 'center',
             }}
           >
             {uploading ? (
               <IonSpinner
                 name="crescent"
-                style={{ width: 24, height: 24, color: '#16a34a' }}
+                style={{ width: 24, height: 24, color: '#34d399' }}
               />
             ) : (
               <IonIcon
                 icon={cloudUploadOutline}
-                style={{ fontSize: 24, color: '#16a34a' }}
+                style={{ fontSize: 24, color: '#6ee7b7' }}
               />
             )}
           </div>
@@ -86,7 +90,7 @@ export function FileUploadButton({
               style={{
                 margin: '4px 0 0',
                 fontSize: 13,
-                color: '#6b7280',
+                color: '#9ca3af',
               }}
             >
               PDF, JPG, PNG, DOC (Max 10MB)

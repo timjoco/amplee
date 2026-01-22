@@ -17,6 +17,7 @@ import type {
  */
 export function useSetlistTemplateLoad(bandId?: string, setlistId?: string) {
   const [loading, setLoading] = useState(true);
+  const [hasAttemptedLoad, setHasAttemptedLoad] = useState(false);
   const [template, setTemplate] = useState<SetlistTemplateRow | null>(null);
   const [items, setItems] = useState<SetlistTemplateItemRow[]>([]);
   const [links, setLinks] = useState<SetlistTemplateLinkRow[]>([]);
@@ -24,10 +25,10 @@ export function useSetlistTemplateLoad(bandId?: string, setlistId?: string) {
   const reload = useCallback(async () => {
     if (!setlistId) {
       // No template selected – ensure local state is empty
+      // Keep loading true until we have valid params to prevent "not found" flash
       setTemplate(null);
       setItems([]);
       setLinks([]);
-      setLoading(false);
       return;
     }
 
@@ -91,18 +92,20 @@ export function useSetlistTemplateLoad(bandId?: string, setlistId?: string) {
       }
     } finally {
       setLoading(false);
+      setHasAttemptedLoad(true);
     }
   }, [bandId, setlistId]);
 
   useEffect(() => {
     let alive = true;
 
-    // If params missing, clear state and exit (prevents stale flash)
+    // If params missing, clear state but keep loading true to prevent "not found" flash
+    // Only show "not found" after we've actually tried to load with valid params
     if (!bandId || !setlistId) {
       setTemplate(null);
       setItems([]);
       setLinks([]);
-      setLoading(false);
+      // Don't set loading to false - keep showing spinner until params are ready
       return;
     }
 
@@ -122,6 +125,7 @@ export function useSetlistTemplateLoad(bandId?: string, setlistId?: string) {
 
   return {
     loading,
+    hasAttemptedLoad,
     template,
     setTemplate,
     items,

@@ -15,7 +15,11 @@ import { NotesEditor } from './components/NotesEditor';
 import { NotesViewer } from './components/NotesViewer';
 import { useEventNotes } from './hooks/useEventNotes';
 
-export default function EventNotesPage() {
+type Props = {
+  embedded?: boolean;
+};
+
+export default function EventNotesPage({ embedded = false }: Props) {
   const nav = useNavigate();
   const {
     eventId,
@@ -31,6 +35,55 @@ export default function EventNotesPage() {
     handleCancelEdit,
     handleSaveNotes,
   } = useEventNotes();
+
+  // Embedded mode - just render the content without page wrapper
+  if (embedded) {
+    return (
+      <IonContent
+        fullscreen
+        scrollY={true}
+        style={{
+          '--background': '#050509',
+          '--padding-bottom': 'calc(env(safe-area-inset-bottom) + 24px)',
+        } as React.CSSProperties}
+      >
+        {loading || !eventId ? (
+          <div
+            style={{
+              height: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#9ca3af',
+            }}
+          >
+            <IonSpinner name="crescent" style={{ marginRight: 8 }} />
+            Loading notes...
+          </div>
+        ) : (
+          <div style={{ padding: 16 }}>
+            {isEditing ? (
+              <NotesEditor
+                editedNotes={editedNotes}
+                isSaving={isSaving}
+                onNotesChange={setEditedNotes}
+                onSave={handleSaveNotes}
+                onCancel={handleCancelEdit}
+              />
+            ) : notes ? (
+              <NotesViewer
+                notes={notes}
+                isAdmin={isAdmin}
+                onEdit={handleStartEdit}
+              />
+            ) : (
+              <EmptyNotesState isAdmin={isAdmin} onEdit={handleStartEdit} />
+            )}
+          </div>
+        )}
+      </IonContent>
+    );
+  }
 
   return (
     <IonPage>

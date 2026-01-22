@@ -259,15 +259,7 @@ export default function EventSettingsMobile() {
           <IonButtons slot="start">
             <IonButton
               fill="clear"
-              onClick={() => {
-                if (bandId && eventId) {
-                  nav(`/bands/${bandId}/events/${eventId}`, {
-                    state: { fromSettings: true },
-                  });
-                } else {
-                  nav(-1);
-                }
-              }}
+              onClick={() => nav(-1)}
               style={{ minWidth: 0, paddingInline: 4 }}
             >
               <IonIcon

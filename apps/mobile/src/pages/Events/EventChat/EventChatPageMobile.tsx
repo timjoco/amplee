@@ -16,12 +16,43 @@ type RouteParams = {
   eventId: string;
 };
 
-export default function EventChatPageMobile() {
+type Props = {
+  embedded?: boolean;
+};
+
+export default function EventChatPageMobile({ embedded = false }: Props) {
   const nav = useNavigate();
   const { eventId } = useParams<RouteParams>();
   const { event, isAdmin, loading } = useEventShell(eventId);
 
   const title = event?.title ?? 'Event Chat';
+
+  // Embedded mode - just render the chat content without page wrapper
+  if (embedded) {
+    return (
+      <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+        {loading || !eventId ? (
+          <div
+            style={{
+              height: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#9ca3af',
+            }}
+          >
+            Loading chat...
+          </div>
+        ) : (
+          <ChatTabMobile
+            eventId={eventId}
+            isAdmin={isAdmin}
+            bandId={event?.band_id}
+          />
+        )}
+      </div>
+    );
+  }
 
   return (
     <IonPage>

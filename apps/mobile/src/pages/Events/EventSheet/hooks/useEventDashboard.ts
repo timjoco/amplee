@@ -22,14 +22,20 @@ type AttendanceStats = {
   total: number; // responders / rows (we set to inviteeTotal for now)
 };
 
+type LastMessage = {
+  body: string;
+  sender_name?: string;
+};
+
+type AccessStatus = 'pending' | 'granted' | 'denied';
+
 type UseEventDashboardReturn = {
   // Core data
   event: EventRow | null;
-  loading: boolean;
+  accessStatus: AccessStatus;
   isAdmin: boolean;
 
-  // Access control
-  canAccess: boolean | null;
+  // Access control (kept for compatibility)
   isBandMember: boolean;
   isInvited: boolean;
 
@@ -40,6 +46,10 @@ type UseEventDashboardReturn = {
   setlistCount: number;
   filesCount: number;
   hasNotes: boolean;
+
+  // Chat
+  lastMessage: LastMessage | null;
+  unreadCount: number;
 
   // Actions
   setEvent: React.Dispatch<React.SetStateAction<EventRow | null>>;
@@ -54,11 +64,10 @@ export function useEventDashboard(
   bandId?: string
 ): UseEventDashboardReturn {
   const [event, setEvent] = useState<EventRow | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [accessStatus, setAccessStatus] = useState<AccessStatus>('pending');
   const [isAdmin, setIsAdmin] = useState(false);
 
-  // Access control state
-  const [canAccess, setCanAccess] = useState<boolean | null>(null);
+  // Access control state (kept for compatibility)
   const [isBandMember, setIsBandMember] = useState(false);
   const [isInvited, setIsInvited] = useState(false);
 
@@ -70,22 +79,22 @@ export function useEventDashboard(
   const [inviteeTotal, setInviteeTotal] = useState(0);
   const [setlistCount, setSetlistCount] = useState(0);
   const [filesCount, setFilesCount] = useState(0);
+  const [lastMessage, setLastMessage] = useState<LastMessage | null>(null);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   // Check access control first, then fetch event data
   useEffect(() => {
     if (!eventId) {
-      setCanAccess(null);
       setIsBandMember(false);
       setIsInvited(false);
-      setLoading(false);
+      // Keep pending to prevent flash while params are resolving
       return;
     }
 
     let alive = true;
 
     const checkAccessAndFetchData = async () => {
-      setLoading(true);
-      setCanAccess(null);
+      setAccessStatus('pending');
 
       try {
         // Get current user
@@ -94,10 +103,9 @@ export function useEventDashboard(
         } = await supabase.auth.getUser();
 
         if (!alive || !user) {
-          setCanAccess(null);
+          setAccessStatus('denied');
           setIsBandMember(false);
           setIsInvited(false);
-          setLoading(false);
           return;
         }
 
@@ -109,11 +117,10 @@ export function useEventDashboard(
           .single();
 
         if (!alive || eventError || !eventData) {
-          setCanAccess(null);
+          setAccessStatus('denied');
           setIsBandMember(false);
           setIsInvited(false);
           setEvent(null);
-          setLoading(false);
           return;
         }
 
@@ -142,18 +149,17 @@ export function useEventDashboard(
 
         if (!alive) return;
 
-        setCanAccess(hasAccess);
         setIsBandMember(isMember);
         setIsInvited(isEventInvitee);
 
         // Only fetch event data if user has access
         if (!hasAccess) {
-          setLoading(false);
+          setAccessStatus('denied');
           return;
         }
 
         // Fetch all event data in parallel
-        const [eventResult, membersResult, setlistResult, filesResult] =
+        const [eventResult, membersResult, setlistResult, filesResult, lastMsgResult, unreadResult] =
           await Promise.all([
             // Event data
             supabase
@@ -182,6 +188,18 @@ export function useEventDashboard(
               .from('event_files')
               .select('id', { count: 'exact', head: true })
               .eq('event_id', eventId),
+
+            // Last message with sender info
+            supabase
+              .from('event_messages')
+              .select('body, user_id, profiles:user_id(display_name)')
+              .eq('event_id', eventId)
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .maybeSingle(),
+
+            // Unread count
+            supabase.rpc('get_event_unread_counts', { p_event_ids: [eventId] }),
           ]);
 
         if (!alive) return;
@@ -229,14 +247,34 @@ export function useEventDashboard(
         // Files count
         if (!filesResult.error) setFilesCount(filesResult.count ?? 0);
 
-        setLoading(false);
+        // Last message
+        if (!lastMsgResult.error && lastMsgResult.data) {
+          const msg = lastMsgResult.data as any;
+          const profile = msg.profiles;
+          setLastMessage({
+            body: String(msg.body ?? ''),
+            sender_name: profile?.display_name ?? undefined,
+          });
+        } else {
+          setLastMessage(null);
+        }
+
+        // Unread count
+        if (!unreadResult.error && unreadResult.data) {
+          const counts = unreadResult.data as Array<{ event_id: string; unread_count: number }>;
+          const count = counts.find((c) => c.event_id === eventId)?.unread_count ?? 0;
+          setUnreadCount(count);
+        } else {
+          setUnreadCount(0);
+        }
+
+        setAccessStatus('granted');
       } catch (err) {
         console.error('[useEventDashboard] error:', err);
         if (alive) {
-          setCanAccess(null);
+          setAccessStatus('denied');
           setIsBandMember(false);
           setIsInvited(false);
-          setLoading(false);
         }
       }
     };
@@ -250,7 +288,7 @@ export function useEventDashboard(
 
   // Check admin status
   useEffect(() => {
-    if (!bandId || canAccess !== true) return;
+    if (!bandId || accessStatus !== 'granted') return;
     let alive = true;
 
     const checkAdmin = async () => {
@@ -277,12 +315,12 @@ export function useEventDashboard(
     return () => {
       alive = false;
     };
-  }, [bandId, canAccess]);
+  }, [bandId, accessStatus]);
 
   //  Real-time: refresh roll call stats when event_members changes
   //  AND update event.is_booked when events table changes
   useEffect(() => {
-    if (!eventId || canAccess !== true) return;
+    if (!eventId || accessStatus !== 'granted') return;
 
     const channel = supabase
       .channel(`event:${eventId}:dashboard`)
@@ -338,12 +376,40 @@ export function useEventDashboard(
           );
         }
       )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'event_messages',
+          filter: `event_id=eq.${eventId}`,
+        },
+        async (payload) => {
+          // Update last message when a new message arrives
+          const msg = payload.new as any;
+
+          // Fetch sender's display name
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('display_name')
+            .eq('id', msg.user_id)
+            .maybeSingle();
+
+          setLastMessage({
+            body: String(msg.body ?? ''),
+            sender_name: profile?.display_name ?? undefined,
+          });
+
+          // Increment unread count (the user will mark as read when they open chat)
+          setUnreadCount((prev) => prev + 1);
+        }
+      )
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [eventId, canAccess]);
+  }, [eventId, accessStatus]);
 
   const attendancePercentage = useMemo(() => {
     if (inviteeTotal === 0) return 0;
@@ -356,7 +422,7 @@ export function useEventDashboard(
 
   // Manual refresh function for attendance + invitees (from event_members)
   const refreshAttendance = async () => {
-    if (!eventId || canAccess !== true) return;
+    if (!eventId || accessStatus !== 'granted') return;
 
     const { data, error } = await supabase
       .from('event_members')
@@ -375,9 +441,8 @@ export function useEventDashboard(
 
   return {
     event,
-    loading,
+    accessStatus,
     isAdmin,
-    canAccess,
     isBandMember,
     isInvited,
     attendanceStats,
@@ -386,6 +451,8 @@ export function useEventDashboard(
     setlistCount,
     filesCount,
     hasNotes,
+    lastMessage,
+    unreadCount,
     setEvent,
     refreshAttendance,
   };
