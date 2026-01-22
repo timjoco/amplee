@@ -11,7 +11,8 @@ import {
   settingsOutline,
 } from 'ionicons/icons';
 import { useCallback, useEffect, useState } from 'react';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
+import { getBackSteps, useNavHistory } from '../../hooks/useNavHistory';
 import { supabase } from '../../lib/supabase';
 
 // Import section components
@@ -40,43 +41,18 @@ const SECTIONS: Array<{ id: Section; icon: string; label: string }> = [
   { id: 'files', icon: folderOutline, label: 'Files' },
 ];
 
-// Simple navigation history tracker using sessionStorage
-const NAV_HISTORY_KEY = 'amplee_nav_history';
-
-const getNavHistory = (): string[] => {
-  try {
-    return JSON.parse(sessionStorage.getItem(NAV_HISTORY_KEY) || '[]');
-  } catch {
-    return [];
-  }
-};
-
-const addToNavHistory = (path: string) => {
-  const history = getNavHistory();
-  // Only add if different from last entry (avoid duplicates from re-renders)
-  if (history[history.length - 1] !== path) {
-    history.push(path);
-    // Keep last 20 entries to prevent unbounded growth
-    if (history.length > 20) history.shift();
-    sessionStorage.setItem(NAV_HISTORY_KEY, JSON.stringify(history));
-  }
-};
-
 export default function EventLayoutMobile() {
   const nav = useNavigate();
-  const location = useLocation();
   const { bandId, eventId } = useParams<{ bandId: string; eventId: string }>();
+
+  // Track navigation history for smart back button behavior
+  useNavHistory();
 
   const [event, setEvent] = useState<EventData | null>(null);
   // Single state for access to avoid race conditions: 'pending' | 'granted' | 'denied'
   const [accessStatus, setAccessStatus] = useState<'pending' | 'granted' | 'denied'>('pending');
   const [isAdmin, setIsAdmin] = useState(false);
   const [selectedSection, setSelectedSection] = useState<Section>('chat');
-
-  // Track navigation history for smart back button behavior
-  useEffect(() => {
-    addToNavHistory(location.pathname);
-  }, [location.pathname]);
 
   // Load event data and check access
   useEffect(() => {
@@ -160,17 +136,8 @@ export default function EventLayoutMobile() {
   }, [eventId, bandId]);
 
   const handleBack = useCallback(() => {
-    const history = getNavHistory();
-
-    // Check if the previous page was a settings page
-    const prevPath = history.length >= 2 ? history[history.length - 2] : null;
-
-    // Only skip settings if the previous page was actually settings
-    if (prevPath?.includes('/settings')) {
-      nav(-2);
-    } else {
-      nav(-1);
-    }
+    // Skip settings pages to avoid infinite back loops
+    nav(-getBackSteps('/settings'));
   }, [nav]);
 
   const handleSettings = useCallback(() => {
@@ -219,17 +186,6 @@ export default function EventLayoutMobile() {
             '--padding-bottom': '0px',
           } as any}
         >
-          <style>
-            {`
-              @keyframes skeleton-pulse {
-                0%, 100% { opacity: 0.4; }
-                50% { opacity: 0.7; }
-              }
-              .skeleton-pulse {
-                animation: skeleton-pulse 1.5s ease-in-out infinite;
-              }
-            `}
-          </style>
           <div
             style={{
               display: 'flex',

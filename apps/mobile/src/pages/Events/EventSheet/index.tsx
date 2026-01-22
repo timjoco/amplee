@@ -12,9 +12,10 @@ import {
   IonToolbar,
 } from '@ionic/react';
 import { chevronBackOutline } from 'ionicons/icons';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 
+import { getBackSteps, useNavHistory } from '../../../hooks/useNavHistory';
 import { supabase } from '../../../lib/supabase';
 import { exportEventToCalendar } from '../../../utils/exportEventToCalendar';
 import EventChatCTA from './components/EventChatCTA';
@@ -23,39 +24,14 @@ import EventQuickTiles from './components/EventQuickTiles';
 import EventSheetModal from './components/EventSheetModal';
 import { useEventDashboard } from './hooks/useEventDashboard';
 
-// Simple navigation history tracker using sessionStorage
-const NAV_HISTORY_KEY = 'amplee_nav_history';
-
-const getNavHistory = (): string[] => {
-  try {
-    return JSON.parse(sessionStorage.getItem(NAV_HISTORY_KEY) || '[]');
-  } catch {
-    return [];
-  }
-};
-
-const addToNavHistory = (path: string) => {
-  const history = getNavHistory();
-  // Only add if different from last entry (avoid duplicates from re-renders)
-  if (history[history.length - 1] !== path) {
-    history.push(path);
-    // Keep last 20 entries to prevent unbounded growth
-    if (history.length > 20) history.shift();
-    sessionStorage.setItem(NAV_HISTORY_KEY, JSON.stringify(history));
-  }
-};
-
 export default function EventSheetMobile() {
   const nav = useNavigate();
-  const location = useLocation();
   const pageRef = useRef<HTMLElement | null>(null);
 
   const { bandId, eventId } = useParams<{ bandId: string; eventId: string }>();
 
   // Track navigation history for smart back button behavior
-  useEffect(() => {
-    addToNavHistory(location.pathname);
-  }, [location.pathname]);
+  useNavHistory();
 
   // Consolidated data hook with access control
   const {
@@ -121,17 +97,8 @@ export default function EventSheetMobile() {
 
   // Actions
   const handleBack = useCallback(() => {
-    const history = getNavHistory();
-
-    // Check if the previous page was a settings page
-    const prevPath = history.length >= 2 ? history[history.length - 2] : null;
-
-    // Only skip settings if the previous page was actually settings
-    if (prevPath?.includes('/settings')) {
-      nav(-2);
-    } else {
-      nav(-1);
-    }
+    // Skip settings pages to avoid infinite back loops
+    nav(-getBackSteps('/settings'));
   }, [nav]);
 
   const handleExportGoogle = useCallback(async () => {
