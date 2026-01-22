@@ -294,7 +294,8 @@ serve(async (req: Request) => {
         console.log(`Result for ${token.substring(0, 20)}...: ${JSON.stringify(result)}`);
 
         return {
-          token: token.substring(0, 20) + '...', // Truncate for logging
+          token, // Keep full token for deactivation
+          token_display: token.substring(0, 20) + '...', // Truncate for logging
           user_id,
           platform,
           ...result,
