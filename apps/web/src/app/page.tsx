@@ -99,50 +99,6 @@ function Hero() {
           {/* Left: Main headline */}
           <Grid size={{ xs: 12, md: 7 }}>
             <Stack spacing={{ xs: 3, sm: 4 }}>
-              {/* Animated badge */}
-              <Box
-                sx={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: { xs: 1, sm: 1.5 },
-                  px: { xs: 1.5, sm: 2 },
-                  py: { xs: 0.75, sm: 1 },
-                  bgcolor: colors.bg.secondary,
-                  borderRadius: '100px',
-                  border: `2px solid ${colors.bg.tertiary}`,
-                  width: 'fit-content',
-                  animation: 'slideDown 0.6s ease-out',
-                  '@keyframes slideDown': {
-                    from: { opacity: 0, transform: 'translateY(-20px)' },
-                    to: { opacity: 1, transform: 'translateY(0)' },
-                  },
-                }}
-              >
-                <Box
-                  sx={{
-                    width: { xs: 6, sm: 8 },
-                    height: { xs: 6, sm: 8 },
-                    bgcolor: colors.accent.green,
-                    borderRadius: '50%',
-                    animation: 'pulse 2s ease-in-out infinite',
-                    '@keyframes pulse': {
-                      '0%, 100%': { opacity: 1, transform: 'scale(1)' },
-                      '50%': { opacity: 0.5, transform: 'scale(1.2)' },
-                    },
-                  }}
-                />
-                <Typography
-                  sx={{
-                    fontSize: { xs: '0.7rem', sm: '0.85rem' },
-                    fontWeight: 700,
-                    color: colors.text.secondary,
-                    letterSpacing: '0.5px',
-                  }}
-                >
-                  NOW IN BETA — JOIN FREE
-                </Typography>
-              </Box>
-
               {/* Main headline with animated reveal */}
               <Box
                 sx={{
@@ -304,37 +260,6 @@ function Hero() {
                   Download for iOS
                 </Button>
                 <Button
-                  href="https://play.google.com/store/apps/details?id=app.amplee"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  variant="contained"
-                  size="large"
-                  sx={{
-                    px: { xs: 3, sm: 4 },
-                    py: { xs: 1.5, sm: 2 },
-                    fontWeight: 700,
-                    borderRadius: '12px',
-                    textTransform: 'none',
-                    fontSize: { xs: '1rem', sm: '1.1rem' },
-                    bgcolor: colors.accent.green,
-                    color: '#FFFFFF',
-                    border: 'none',
-                    boxShadow: 'none',
-                    width: { xs: '100%', sm: 'auto' },
-                    transition: 'all 0.2s ease',
-                    '&:hover': {
-                      bgcolor: '#1ea550',
-                      transform: 'translateY(-2px)',
-                      boxShadow: `0 8px 24px ${colors.accent.green}40`,
-                    },
-                    '&:active': {
-                      transform: 'translateY(0)',
-                    },
-                  }}
-                >
-                  Download for Android
-                </Button>
-                <Button
                   href="#how-it-works"
                   variant="outlined"
                   size="large"
@@ -446,11 +371,14 @@ function AppMockup() {
           p: { xs: 0.5, sm: 0.75, md: 1 },
         }}
       >
-        {/* Screenshot image */}
+        {/* Demo video */}
         <Box
-          component="img"
-          src="/images/app-screenshot.png"
-          alt="Amplee app - Event dashboard showing Roll Call, Setlist, Chat, and more"
+          component="video"
+          src="/images/event-sheet-demo.mp4"
+          autoPlay
+          muted
+          loop
+          playsInline
           sx={{
             width: '100%',
             height: 'auto',
@@ -458,94 +386,6 @@ function AppMockup() {
             display: 'block',
           }}
         />
-      </Box>
-
-      {/* Floating notification - hidden on very small screens */}
-      <Box
-        sx={{
-          position: 'absolute',
-          top: { xs: 60, sm: 70, md: 80 },
-          right: { xs: -12, sm: -18, md: -24 },
-          bgcolor: colors.bg.secondary,
-          borderRadius: { xs: '10px', sm: '12px', md: '14px' },
-          border: `2px solid ${colors.accent.green}`,
-          p: { xs: 1, sm: 1.25, md: 1.5 },
-          display: { xs: 'none', sm: 'flex' },
-          alignItems: 'center',
-          gap: { xs: 1, md: 1.5 },
-          animation:
-            'slideIn 0.5s ease-out 1s both, float 3s ease-in-out infinite 1.5s',
-          '@keyframes slideIn': {
-            from: { opacity: 0, transform: 'translateX(20px)' },
-            to: { opacity: 1, transform: 'translateX(0)' },
-          },
-          '@keyframes float': {
-            '0%, 100%': { transform: 'translateY(0)' },
-            '50%': { transform: 'translateY(-5px)' },
-          },
-        }}
-      >
-        <Box
-          sx={{
-            width: { xs: 26, sm: 28, md: 32 },
-            height: { xs: 26, sm: 28, md: 32 },
-            borderRadius: { xs: '8px', md: '10px' },
-            bgcolor: colors.accent.green,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <CheckCircleIcon
-            sx={{ fontSize: { xs: 14, sm: 16, md: 18 }, color: '#FFF' }}
-          />
-        </Box>
-        <Box>
-          <Typography
-            sx={{
-              fontSize: { xs: '0.65rem', sm: '0.7rem', md: '0.75rem' },
-              fontWeight: 700,
-              color: colors.text.primary,
-            }}
-          >
-            100% Roll Call
-          </Typography>
-          <Typography
-            sx={{
-              fontSize: { xs: '0.55rem', sm: '0.6rem', md: '0.65rem' },
-              color: colors.accent.green,
-            }}
-          >
-            Everyone's in! 🎉
-          </Typography>
-        </Box>
-      </Box>
-
-      {/* Floating badge - bottom left - hidden on very small screens */}
-      <Box
-        sx={{
-          position: 'absolute',
-          bottom: { xs: 80, sm: 90, md: 100 },
-          left: { xs: -8, sm: -12, md: -16 },
-          bgcolor: colors.bg.secondary,
-          borderRadius: { xs: '10px', md: '12px' },
-          border: `2px solid ${colors.purple.main}`,
-          px: { xs: 1.5, md: 2 },
-          py: { xs: 0.75, md: 1 },
-          display: { xs: 'none', sm: 'block' },
-          animation:
-            'slideIn 0.5s ease-out 1.2s both, float 4s ease-in-out infinite 1.7s',
-        }}
-      >
-        <Typography
-          sx={{
-            fontSize: { xs: '0.6rem', sm: '0.65rem', md: '0.7rem' },
-            fontWeight: 700,
-            color: colors.purple.light,
-          }}
-        >
-          🎵 4 songs ready
-        </Typography>
       </Box>
     </Box>
   );
@@ -1228,31 +1068,6 @@ function FinalCTA() {
                 }}
               >
                 Download for iOS
-              </Button>
-              <Button
-                href="https://play.google.com/store/apps/details?id=app.amplee"
-                target="_blank"
-                rel="noopener noreferrer"
-                variant="contained"
-                size="large"
-                sx={{
-                  px: { xs: 4, sm: 5 },
-                  py: { xs: 1.5, sm: 2 },
-                  fontWeight: 700,
-                  borderRadius: '14px',
-                  textTransform: 'none',
-                  fontSize: { xs: '1rem', sm: '1.1rem', md: '1.15rem' },
-                  bgcolor: colors.accent.green,
-                  boxShadow: 'none',
-                  width: { xs: '100%', sm: 'auto' },
-                  '&:hover': {
-                    bgcolor: '#1ea550',
-                    transform: 'translateY(-2px)',
-                    boxShadow: `0 8px 24px ${colors.accent.green}40`,
-                  },
-                }}
-              >
-                Download for Android
               </Button>
             </Stack>
           </Stack>
