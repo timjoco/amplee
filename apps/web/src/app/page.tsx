@@ -273,7 +273,7 @@ function Hero() {
                 }}
               >
                 <Button
-                  href="https://apps.apple.com/app/amplee/id6740000798"
+                  href="https://apps.apple.com/us/app/amplee/id6756085566"
                   target="_blank"
                   rel="noopener noreferrer"
                   variant="contained"
@@ -1205,7 +1205,7 @@ function FinalCTA() {
               sx={{ width: { xs: '100%', sm: 'auto' } }}
             >
               <Button
-                href="https://apps.apple.com/app/amplee/id6740000798"
+                href="https://apps.apple.com/us/app/amplee/id6756085566"
                 target="_blank"
                 rel="noopener noreferrer"
                 variant="contained"
