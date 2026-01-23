@@ -11,6 +11,13 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+function jsonResponse(body: object, status: number): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
+
 interface WebhookPayload {
   type: 'INSERT' | 'UPDATE' | 'DELETE';
   table: string;
@@ -28,6 +35,14 @@ interface WebhookPayload {
 serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
+  }
+
+  // Validate service role key - only database webhooks allowed
+  const authHeader = req.headers.get('Authorization');
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  if (!serviceRoleKey || authHeader !== `Bearer ${serviceRoleKey}`) {
+    console.error('Unauthorized: Invalid or missing service role key');
+    return jsonResponse({ error: 'Unauthorized' }, 401);
   }
 
   try {
@@ -51,7 +66,7 @@ serve(async (req: Request) => {
     // Get event and band info
     const { data: event, error: eventErr } = await supabase
       .from('events')
-      .select('id, title, band_id')
+      .select('id, title, band_id, bands(name)')
       .eq('id', event_id)
       .single();
 
@@ -62,6 +77,8 @@ serve(async (req: Request) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
+
+    const bandName = (event.bands as { name: string } | null)?.name || 'Band';
 
     // Get sender name
     const { data: sender } = await supabase
@@ -90,8 +107,8 @@ serve(async (req: Request) => {
         body: JSON.stringify({
           band_id: event.band_id,
           exclude_user_id: user_id,
-          title: `${senderName} in ${event.title}`,
-          body: messagePreview,
+          title: `${bandName} • ${event.title}`,
+          body: `${senderName}: ${messagePreview}`,
           data: {
             type: 'chat_message',
             event_id: event_id,
@@ -112,8 +129,8 @@ serve(async (req: Request) => {
       band_id: event.band_id,
       event_id: event_id,
       payload: {
-        title: `${senderName} in ${event.title}`,
-        body: messagePreview,
+        title: `${bandName} • ${event.title}`,
+        body: `${senderName}: ${messagePreview}`,
       },
       status: notifyResult.ok ? 'sent' : 'failed',
       error_message: notifyResult.error || null,

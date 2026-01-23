@@ -2,7 +2,6 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import SiteFooter from '@/components/Footers/SiteFooter';
-import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import ChatBubbleIcon from '@mui/icons-material/ChatBubble';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
@@ -274,10 +273,11 @@ function Hero() {
                 }}
               >
                 <Button
-                  href="/login"
+                  href="https://apps.apple.com/app/amplee/id6740000798"
+                  target="_blank"
+                  rel="noopener noreferrer"
                   variant="contained"
                   size="large"
-                  endIcon={<ArrowForwardIcon />}
                   sx={{
                     px: { xs: 3, sm: 4 },
                     py: { xs: 1.5, sm: 2 },
@@ -301,7 +301,38 @@ function Hero() {
                     },
                   }}
                 >
-                  Get started free
+                  Download for iOS
+                </Button>
+                <Button
+                  href="https://play.google.com/store/apps/details?id=app.amplee"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  variant="contained"
+                  size="large"
+                  sx={{
+                    px: { xs: 3, sm: 4 },
+                    py: { xs: 1.5, sm: 2 },
+                    fontWeight: 700,
+                    borderRadius: '12px',
+                    textTransform: 'none',
+                    fontSize: { xs: '1rem', sm: '1.1rem' },
+                    bgcolor: colors.accent.green,
+                    color: '#FFFFFF',
+                    border: 'none',
+                    boxShadow: 'none',
+                    width: { xs: '100%', sm: 'auto' },
+                    transition: 'all 0.2s ease',
+                    '&:hover': {
+                      bgcolor: '#1ea550',
+                      transform: 'translateY(-2px)',
+                      boxShadow: `0 8px 24px ${colors.accent.green}40`,
+                    },
+                    '&:active': {
+                      transform: 'translateY(0)',
+                    },
+                  }}
+                >
+                  Download for Android
                 </Button>
                 <Button
                   href="#how-it-works"
@@ -1174,10 +1205,11 @@ function FinalCTA() {
               sx={{ width: { xs: '100%', sm: 'auto' } }}
             >
               <Button
-                href="/login"
+                href="https://apps.apple.com/app/amplee/id6740000798"
+                target="_blank"
+                rel="noopener noreferrer"
                 variant="contained"
                 size="large"
-                endIcon={<ArrowForwardIcon />}
                 sx={{
                   px: { xs: 4, sm: 5 },
                   py: { xs: 1.5, sm: 2 },
@@ -1195,11 +1227,13 @@ function FinalCTA() {
                   },
                 }}
               >
-                Get started free
+                Download for iOS
               </Button>
               <Button
-                href="/waitlist"
-                variant="outlined"
+                href="https://play.google.com/store/apps/details?id=app.amplee"
+                target="_blank"
+                rel="noopener noreferrer"
+                variant="contained"
                 size="large"
                 sx={{
                   px: { xs: 4, sm: 5 },
@@ -1208,17 +1242,17 @@ function FinalCTA() {
                   borderRadius: '14px',
                   textTransform: 'none',
                   fontSize: { xs: '1rem', sm: '1.1rem', md: '1.15rem' },
-                  borderWidth: '2px',
-                  borderColor: colors.bg.accent,
-                  color: colors.text.secondary,
+                  bgcolor: colors.accent.green,
+                  boxShadow: 'none',
                   width: { xs: '100%', sm: 'auto' },
                   '&:hover': {
-                    borderColor: colors.purple.main,
-                    bgcolor: 'transparent',
+                    bgcolor: '#1ea550',
+                    transform: 'translateY(-2px)',
+                    boxShadow: `0 8px 24px ${colors.accent.green}40`,
                   },
                 }}
               >
-                Join the beta
+                Download for Android
               </Button>
             </Stack>
           </Stack>

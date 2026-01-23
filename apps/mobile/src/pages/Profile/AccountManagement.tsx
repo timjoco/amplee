@@ -1,3 +1,4 @@
+import { Capacitor } from '@capacitor/core';
 import {
   IonAlert,
   IonButton,
@@ -8,6 +9,8 @@ import {
   IonSpinner,
   IonToolbar,
 } from '@ionic/react';
+
+const isAndroid = Capacitor.getPlatform() === 'android';
 import {
   chevronBackOutline,
   mailOutline,
@@ -17,6 +20,7 @@ import {
 } from 'ionicons/icons';
 import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
+import AndroidBottomSafeArea from '../../components/AndroidBottomSafeArea';
 import { supabase } from '../../lib/supabase';
 
 export default function AccountManagement() {
@@ -129,6 +133,7 @@ export default function AccountManagement() {
           style={{
             '--background': 'rgba(8,8,12,0.98)',
             borderBottom: '0.5px solid rgba(255,255,255,0.06)',
+            paddingTop: isAndroid ? 'env(safe-area-inset-top, 24px)' : undefined,
           }}
         >
           <div
@@ -173,7 +178,7 @@ export default function AccountManagement() {
         style={
           {
             '--background': 'linear-gradient(180deg, #050509 0%, #020109 100%)',
-            '--padding-bottom': 'calc(env(safe-area-inset-bottom) + 24px)',
+            '--padding-bottom': isAndroid ? '80px' : 'calc(env(safe-area-inset-bottom) + 24px)',
           } as React.CSSProperties
         }
       >
@@ -476,6 +481,7 @@ export default function AccountManagement() {
           },
         ]}
       />
+      <AndroidBottomSafeArea />
     </IonPage>
   );
 }

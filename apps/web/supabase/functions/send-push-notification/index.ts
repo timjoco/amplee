@@ -195,6 +195,14 @@ serve(async (req: Request) => {
     return new Response('ok', { status: 200, headers: corsHeaders });
   }
 
+  // Validate service role key - only internal calls allowed
+  const authHeader = req.headers.get('Authorization');
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  if (!serviceRoleKey || authHeader !== `Bearer ${serviceRoleKey}`) {
+    console.error('Unauthorized: Invalid or missing service role key');
+    return jsonResponse({ error: 'Unauthorized' }, 401);
+  }
+
   try {
     const payload = await req.json() as PushPayload;
 

@@ -2,7 +2,6 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import SiteFooter from '@/components/Footers/SiteFooter';
-import LegalHeader from '@/components/Legal/LegalHeader';
 import {
   Box,
   Button,
@@ -12,6 +11,7 @@ import {
   Stack,
   Typography,
 } from '@mui/material';
+import Image from 'next/image';
 
 export const metadata = { title: 'Support • Amplee' };
 
@@ -29,12 +29,37 @@ export default function SupportPage() {
       <Box sx={{ flex: 1, py: { xs: 8, md: 10 } }}>
         <Container maxWidth="md">
           <Stack spacing={3} alignItems="center" textAlign="center">
-            <LegalHeader title="Support" />{' '}
+            {/* Logo and Title */}
+            <Box>
+              <Image
+                src="/logo.png"
+                alt="Amplee"
+                width={48}
+                height={48}
+                priority
+                style={{ borderRadius: 12, marginBottom: 12 }}
+              />
+              <Typography
+                variant="h2"
+                sx={{
+                  fontWeight: 900,
+                  letterSpacing: -1,
+                  fontSize: { xs: '2.1rem', md: '2.75rem' },
+                  background:
+                    'linear-gradient(135deg, #FFFFFF 0%, #C4B5FD 100%)',
+                  backgroundClip: 'text',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                }}
+              >
+                Support
+              </Typography>
+            </Box>
             <Typography
               sx={{ color: 'rgba(232, 230, 240, 0.75)', maxWidth: 720 }}
             >
               Need help with invites, login, or something acting weird? Hit us
-              up and we’ll get you back to rehearsal-ready.
+              up and we'll get you back to rehearsal-ready.
             </Typography>
             <Stack
               direction={{ xs: 'column', sm: 'row' }}
@@ -80,6 +105,59 @@ export default function SupportPage() {
                 Privacy Policy
               </Button>
             </Stack>
+
+            {/* App Store Links */}
+            <Stack
+              direction={{ xs: 'column', sm: 'row' }}
+              spacing={2}
+              sx={{ pt: 2 }}
+            >
+              <Button
+                href="https://apps.apple.com/app/amplee/id6740000798"
+                target="_blank"
+                rel="noopener noreferrer"
+                variant="outlined"
+                size="large"
+                sx={{
+                  px: 3,
+                  py: 1.5,
+                  fontWeight: 700,
+                  borderRadius: '12px',
+                  textTransform: 'none',
+                  borderColor: 'rgba(255, 255, 255, 0.2)',
+                  color: '#FFFFFF',
+                  '&:hover': {
+                    borderColor: 'rgba(255, 255, 255, 0.4)',
+                    bgcolor: 'rgba(255, 255, 255, 0.05)',
+                  },
+                }}
+              >
+                Download on App Store
+              </Button>
+
+              <Button
+                href="https://play.google.com/store/apps/details?id=app.amplee"
+                target="_blank"
+                rel="noopener noreferrer"
+                variant="outlined"
+                size="large"
+                sx={{
+                  px: 3,
+                  py: 1.5,
+                  fontWeight: 700,
+                  borderRadius: '12px',
+                  textTransform: 'none',
+                  borderColor: 'rgba(255, 255, 255, 0.2)',
+                  color: '#FFFFFF',
+                  '&:hover': {
+                    borderColor: 'rgba(255, 255, 255, 0.4)',
+                    bgcolor: 'rgba(255, 255, 255, 0.05)',
+                  },
+                }}
+              >
+                Get it on Google Play
+              </Button>
+            </Stack>
           </Stack>
 
           <Stack spacing={2.5} sx={{ mt: { xs: 5, md: 7 } }}>
@@ -122,7 +200,7 @@ export default function SupportPage() {
               items={[
                 {
                   q: 'Email',
-                  a: 'hello.amplee@gmail.app',
+                  a: 'hello.amplee@gmail.com',
                 },
                 {
                   q: 'What to include',
@@ -130,6 +208,26 @@ export default function SupportPage() {
                 },
               ]}
             />
+
+            <Box id="delete-account">
+              <SupportCard
+                title="Delete Account"
+                items={[
+                  {
+                    q: 'How to delete your account',
+                    a: 'Open Amplee → Profile → Account → Delete My Account. Your account and all associated data will be permanently deleted immediately.',
+                  },
+                  {
+                    q: 'What gets deleted',
+                    a: 'Your profile, avatar, email, band memberships, chat messages, uploaded files, notes, availability dates, and all other personal data.',
+                  },
+                  {
+                    q: 'Can I undo this?',
+                    a: 'No. Account deletion is permanent and cannot be undone.',
+                  },
+                ]}
+              />
+            </Box>
           </Stack>
         </Container>
       </Box>

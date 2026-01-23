@@ -2,6 +2,7 @@ import { Capacitor } from '@capacitor/core';
 import { IonAlert, IonContent, IonPage, IonSpinner, IonText } from '@ionic/react';
 import { useNavigate } from 'react-router-dom';
 
+import AndroidBottomSafeArea from '../../components/AndroidBottomSafeArea';
 import { AccountInfoCard } from './components/AccountInfoCard';
 import { AvatarCard } from './components/AvatarCard';
 import { LogoutCard } from './components/LogoutCard';
@@ -80,9 +81,7 @@ export default function Profile() {
               margin: '0 auto',
               padding: '0 16px 32px',
               paddingTop: 16,
-              paddingBottom: isAndroid
-                ? 'calc(32px + env(safe-area-inset-bottom, 24px))'
-                : 32,
+              paddingBottom: isAndroid ? 80 : 32,
             }}
           >
             <AvatarCard
@@ -136,6 +135,7 @@ export default function Profile() {
           ]}
         />
       </IonContent>
+      <AndroidBottomSafeArea />
     </IonPage>
   );
 }

@@ -24,6 +24,7 @@ import {
 } from 'ionicons/icons';
 import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
+import AndroidBottomSafeArea from '../components/AndroidBottomSafeArea';
 import { supabase } from '../lib/supabase';
 
 const WEB_BASE_URL = 'https://amplee.app';
@@ -278,9 +279,7 @@ export default function LegalSupport() {
             margin: '0 auto',
             padding: '0 16px 32px',
             paddingTop: 16,
-            paddingBottom: isAndroid
-              ? 'calc(32px + env(safe-area-inset-bottom, 24px))'
-              : 32,
+            paddingBottom: isAndroid ? 80 : 32,
           }}
         >
           {/* Alpha Feedback Section */}
@@ -531,6 +530,7 @@ export default function LegalSupport() {
           </div>
         </div>
       </IonContent>
+      <AndroidBottomSafeArea />
     </IonPage>
   );
 }

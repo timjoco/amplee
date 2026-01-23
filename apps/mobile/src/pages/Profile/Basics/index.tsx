@@ -1,3 +1,4 @@
+import { Capacitor } from '@capacitor/core';
 import {
   IonActionSheet,
   IonButton,
@@ -11,7 +12,11 @@ import {
   IonToolbar,
 } from '@ionic/react';
 import { chevronBackOutline } from 'ionicons/icons';
+import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
+import AndroidBottomSafeArea from '../../../components/AndroidBottomSafeArea';
+
+const isAndroid = Capacitor.getPlatform() === 'android';
 
 import { AvatarCard } from './components/AvatarCard';
 import { PersonalInfoCard } from './components/PersonalInfoCard';
@@ -67,6 +72,7 @@ export default function ProfileBasicsPage() {
           style={{
             '--background': 'rgba(8,8,12,0.98)',
             borderBottom: '0.5px solid rgba(255,255,255,0.06)',
+            paddingTop: isAndroid ? 'env(safe-area-inset-top, 24px)' : undefined,
           }}
         >
           <div
@@ -124,7 +130,10 @@ export default function ProfileBasicsPage() {
         fullscreen
         style={{
           '--background': 'linear-gradient(180deg, #050509 0%, #020109 100%)',
-        }}
+          '--padding-bottom': isAndroid
+            ? '80px'
+            : 'calc(env(safe-area-inset-bottom) + 24px)',
+        } as React.CSSProperties}
       >
         {/* Loading state */}
         {loading && (
@@ -253,6 +262,7 @@ export default function ProfileBasicsPage() {
         onDidDismiss={() => setToastMessage(null)}
         cssClass="amplee-toast-success"
       />
+      <AndroidBottomSafeArea />
     </IonPage>
   );
 }

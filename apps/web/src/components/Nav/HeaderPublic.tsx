@@ -1,6 +1,6 @@
 'use client';
 
-import { AppBar, Box, Button, Toolbar, Typography } from '@mui/material';
+import { AppBar, Box, Toolbar, Typography } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -47,17 +47,6 @@ export default function HeaderPublic() {
         </Link>
 
         <Box sx={{ flex: 1 }} />
-
-        <Button
-          component={Link}
-          href="/login"
-          variant="contained"
-          color="primary"
-          disableElevation
-          sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 600 }}
-        >
-          LOG IN
-        </Button>
       </Toolbar>
     </AppBar>
   );
