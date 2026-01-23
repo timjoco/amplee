@@ -7,6 +7,7 @@ import {
   personOutline,
 } from 'ionicons/icons';
 import * as React from 'react';
+import { createPortal } from 'react-dom';
 import { useAttendance, type AttStatus } from '../../hooks/useAttendance';
 import { supabase } from '../../lib/supabase';
 
@@ -728,25 +729,29 @@ export default function RSVPTabMobile({
           )}
         </div>
 
-        {/* CONFIRMATION POPUP */}
-        {confirmTarget && (
-          <ConfirmStatusPopup
-            target={confirmTarget}
-            saving={saving}
-            onCancel={() => setConfirmTarget(null)}
-            onConfirm={handleConfirm}
-          />
-        )}
+        {/* CONFIRMATION POPUP - Portal to escape overflow:hidden */}
+        {confirmTarget &&
+          createPortal(
+            <ConfirmStatusPopup
+              target={confirmTarget}
+              saving={saving}
+              onCancel={() => setConfirmTarget(null)}
+              onConfirm={handleConfirm}
+            />,
+            document.body
+          )}
 
-        {/* SUB REQUEST POPUP */}
-        {showSubPopup && (
-          <SubRequestPopup
-            initialReason={subReason}
-            saving={savingSub}
-            onCancel={() => setShowSubPopup(false)}
-            onConfirm={handleConfirmSub}
-          />
-        )}
+        {/* SUB REQUEST POPUP - Portal to escape overflow:hidden */}
+        {showSubPopup &&
+          createPortal(
+            <SubRequestPopup
+              initialReason={subReason}
+              saving={savingSub}
+              onCancel={() => setShowSubPopup(false)}
+              onConfirm={handleConfirmSub}
+            />,
+            document.body
+          )}
       </div>
 
       {/* TOAST */}
@@ -845,10 +850,13 @@ function ConfirmStatusPopup({
       onClick={onCancel}
       style={{
         position: 'fixed',
-        inset: 0,
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
         background: 'rgba(0,0,0,0.7)',
         backdropFilter: 'blur(4px)',
-        zIndex: 50,
+        zIndex: 9999,
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'center',
@@ -998,10 +1006,13 @@ function SubRequestPopup({
       onClick={onCancel}
       style={{
         position: 'fixed',
-        inset: 0,
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
         background: 'rgba(0,0,0,0.7)',
         backdropFilter: 'blur(4px)',
-        zIndex: 60,
+        zIndex: 9999,
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'center',
