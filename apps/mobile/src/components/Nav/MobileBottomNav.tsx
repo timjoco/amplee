@@ -135,7 +135,8 @@ export default function MobileBottomNav() {
     /^\/event\/[^/]+(\/.*)?$/.test(pathname) ||
     /^\/bands\/[^/]+\/songs\/new\/?$/.test(pathname) ||
     /^\/bands\/[^/]+\/songs\/[^/]+\/edit\/?$/.test(pathname) ||
-    /^\/bands\/[^/]+\/songs\/[^/]+\/?$/.test(pathname);
+    /^\/bands\/[^/]+\/songs\/[^/]+\/?$/.test(pathname) ||
+    /^\/bands\/[^/]+\/tours\/[^/]+(\/.*)?$/.test(pathname); // Tour editor + stops + chat
 
   if (hidden) return null;
 
