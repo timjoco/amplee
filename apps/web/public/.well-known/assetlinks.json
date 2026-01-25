@@ -1,0 +1,10 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "app.amplee",
+      "sha256_cert_fingerprints": ["72:7B:B7:33:F1:13:57:41:44:8C:5B:DD:5B:28:75:70:2B:FF:2A:CA:00:F1:5F:05:85:FE:F4:AA:6C:E4:47:7F"]
+    }
+  }
+]
