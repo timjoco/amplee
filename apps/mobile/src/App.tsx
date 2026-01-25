@@ -31,6 +31,10 @@ import BandSongEditRouteMobile from './pages/Bands/BandSongEditRouteMobile';
 import BandSongListRouteMobile from './pages/Bands/BandSongListRouteMobile';
 import BandSongSheetRouteMobile from './pages/Bands/BandSongSheetRouteMobile';
 import SetlistTemplateEditorMobile from './pages/Bands/Setlists/SetlistTemplateEditorMobile';
+import BandToursListPage from './pages/Bands/Tours/BandToursListPage';
+import TourEditorPage from './pages/Bands/Tours/TourEditorPage';
+import TourStopEditorPage from './pages/Bands/Tours/TourStopEditorPage';
+import TourChatPage from './pages/Bands/Tours/TourChatPage';
 import EventChatPageMobile from './pages/Events/EventChat/EventChatPageMobile';
 import EventFilesPage from './pages/Events/EventFiles';
 import EventLayoutMobile from './pages/Events/EventLayoutMobile';
@@ -115,10 +119,11 @@ export default function App() {
 
   if (loading) return null;
 
-  /* HIDE NAV ON EVENT SHEET + event subpages */
+  /* HIDE NAV ON EVENT SHEET + event subpages + tour editor pages */
   const hideChrome =
     /^\/bands\/[^/]+\/events\/[^/]+(\/.*)?$/.test(pathname) ||
-    /^\/event\/[^/]+(\/.*)?$/.test(pathname);
+    /^\/event\/[^/]+(\/.*)?$/.test(pathname) ||
+    /^\/bands\/[^/]+\/tours\/[^/]+(\/.*)?$/.test(pathname); // Tour editor + stops + chat
 
   return (
     <>
@@ -175,6 +180,25 @@ export default function App() {
               path="/bands/:bandId/setlists/:setlistId"
               element={<SetlistTemplateEditorMobile />}
             />
+
+            {/* TOUR ROUTES */}
+            <Route
+              path="/bands/:bandId/tours"
+              element={<BandToursListPage />}
+            />
+            <Route
+              path="/bands/:bandId/tours/:tourId"
+              element={<TourEditorPage />}
+            />
+            <Route
+              path="/bands/:bandId/tours/:tourId/stops/:stopId"
+              element={<TourStopEditorPage />}
+            />
+            <Route
+              path="/bands/:bandId/tours/:tourId/chat"
+              element={<TourChatPage />}
+            />
+
             <Route
               path="/bands/:bandId/songs"
               element={<BandSongListRouteMobile />}
