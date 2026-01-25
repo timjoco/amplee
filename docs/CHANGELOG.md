@@ -11,13 +11,6 @@
   - Address autocomplete using Mapbox Search Box API
   - Financial tracking per stop
 
-### Pending Migrations
-Run `cd apps/web && supabase db push` to apply:
-- `20260125_add_tour_message_reactions.sql` — Reactions table for tour chat
-- `20260125_add_tour_messages_updated_at.sql` — Edit tracking for messages
-- `20260125_enable_tour_messages_realtime.sql` — Realtime for tour chat
-- `20260125_add_tour_messages_profiles_fk.sql` — FK for profile joins
-
 ---
 
 ## 1.1.0 (January 2026)
