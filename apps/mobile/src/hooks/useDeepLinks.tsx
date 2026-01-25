@@ -14,8 +14,8 @@ function routeFromUrl(raw: string): string | null {
   try {
     const url = new URL(raw);
 
-    // Universal link: https://amplee.app/invite/<token>
-    if (url.hostname === 'amplee.app' && url.pathname.startsWith('/invite/')) {
+    // Universal link: https://amplee.app/invite/<token> or https://www.amplee.app/invite/<token>
+    if ((url.hostname === 'amplee.app' || url.hostname === 'www.amplee.app') && url.pathname.startsWith('/invite/')) {
       const token = url.pathname.split('/invite/')[1]?.split('/')[0];
       return token ? `/invite/${encodeURIComponent(token)}` : null;
     }
