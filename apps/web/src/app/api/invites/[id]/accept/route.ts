@@ -10,7 +10,8 @@ const ALLOWED_ORIGINS = [
   PROD_ORIGIN,
   'http://localhost:5173',
   'capacitor://localhost', // iOS Capacitor
-  'http://localhost', // Android WebView
+  'http://localhost', // Android WebView (older)
+  'https://localhost', // Android WebView (Capacitor default)
 ];
 
 function addCorsHeaders(req: NextRequest, res: NextResponse) {
