@@ -31,10 +31,11 @@ import BandSongEditRouteMobile from './pages/Bands/BandSongEditRouteMobile';
 import BandSongListRouteMobile from './pages/Bands/BandSongListRouteMobile';
 import BandSongSheetRouteMobile from './pages/Bands/BandSongSheetRouteMobile';
 import SetlistTemplateEditorMobile from './pages/Bands/Setlists/SetlistTemplateEditorMobile';
-import BandToursListPage from './pages/Bands/Tours/BandToursListPage';
-import TourEditorPage from './pages/Bands/Tours/TourEditorPage';
-import TourStopEditorPage from './pages/Bands/Tours/TourStopEditorPage';
-import TourChatPage from './pages/Bands/Tours/TourChatPage';
+// TOUR PRO - commented out until ready for release
+// import BandToursListPage from './pages/Bands/Tours/BandToursListPage';
+// import TourEditorPage from './pages/Bands/Tours/TourEditorPage';
+// import TourStopEditorPage from './pages/Bands/Tours/TourStopEditorPage';
+// import TourChatPage from './pages/Bands/Tours/TourChatPage';
 import EventChatPageMobile from './pages/Events/EventChat/EventChatPageMobile';
 import EventFilesPage from './pages/Events/EventFiles';
 import EventLayoutMobile from './pages/Events/EventLayoutMobile';
@@ -119,11 +120,11 @@ export default function App() {
 
   if (loading) return null;
 
-  /* HIDE NAV ON EVENT SHEET + event subpages + tour editor pages */
+  /* HIDE NAV ON EVENT SHEET + event subpages */
   const hideChrome =
     /^\/bands\/[^/]+\/events\/[^/]+(\/.*)?$/.test(pathname) ||
-    /^\/event\/[^/]+(\/.*)?$/.test(pathname) ||
-    /^\/bands\/[^/]+\/tours\/[^/]+(\/.*)?$/.test(pathname); // Tour editor + stops + chat
+    /^\/event\/[^/]+(\/.*)?$/.test(pathname);
+    // TOUR PRO: /^\/bands\/[^/]+\/tours\/[^/]+(\/.*)?$/.test(pathname)
 
   return (
     <>
@@ -181,7 +182,7 @@ export default function App() {
               element={<SetlistTemplateEditorMobile />}
             />
 
-            {/* TOUR ROUTES */}
+            {/* TOUR PRO - commented out until ready for release
             <Route
               path="/bands/:bandId/tours"
               element={<BandToursListPage />}
@@ -198,6 +199,7 @@ export default function App() {
               path="/bands/:bandId/tours/:tourId/chat"
               element={<TourChatPage />}
             />
+            */}
 
             <Route
               path="/bands/:bandId/songs"

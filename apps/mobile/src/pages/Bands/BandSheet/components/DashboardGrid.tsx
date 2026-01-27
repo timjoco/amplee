@@ -1,6 +1,5 @@
 import { IonIcon } from '@ionic/react';
 import {
-  airplaneOutline,
   calendarOutline,
   chevronForwardOutline,
   clipboardOutline,
@@ -220,38 +219,6 @@ export function DashboardGrid({
           <span style={labelStyle}>Library</span>
         </div>
         <div style={descriptionStyle}>Songs & Setlists</div>
-      </button>
-
-      {/* TOURS CARD */}
-      <button
-        type="button"
-        onClick={() =>
-          handleButtonPress('tours', () =>
-            navigate(`/bands/${bandId}/tours`)
-          )
-        }
-        style={{
-          ...cardBaseStyle,
-          gap: 10,
-          transform: pressedButton === 'tours' ? 'scale(0.97)' : 'scale(1)',
-        }}
-      >
-        <IonIcon icon={chevronForwardOutline} style={chevronStyle} />
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            marginBottom: 8,
-          }}
-        >
-          <IonIcon
-            icon={airplaneOutline}
-            style={{ fontSize: 20, color: '#d97757' }}
-          />
-          <span style={labelStyle}>Tours</span>
-        </div>
-        <div style={descriptionStyle}>Manage itineraries</div>
       </button>
 
       {/* ROSTER CARD */}
