@@ -12,6 +12,8 @@ export type RosterMember = {
   id: string;
   display_name: string;
   full_name: string;
+  avatar_url: string | null;
+  role: 'admin' | 'member';
 };
 
 export type RouteParams = {

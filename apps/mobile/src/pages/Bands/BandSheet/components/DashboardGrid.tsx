@@ -15,17 +15,18 @@ import type { NextEvent, RosterMember } from '../types';
 import { computeTimeUntilEvent, formatEventDate, formatEventTime } from '../utils';
 
 // Hook to detect screen size for responsive layouts
+// Large = 1026px+ (desktop layout), Medium = 768-1025px, Small = <768px
 function useScreenSize() {
   const [size, setSize] = React.useState<'small' | 'medium' | 'large'>(() => {
     if (typeof window === 'undefined') return 'small';
-    if (window.innerWidth >= 1024) return 'large';
+    if (window.innerWidth >= 1026) return 'large';
     if (window.innerWidth >= 768) return 'medium';
     return 'small';
   });
 
   React.useEffect(() => {
     const handleResize = () => {
-      if (window.innerWidth >= 1024) setSize('large');
+      if (window.innerWidth >= 1026) setSize('large');
       else if (window.innerWidth >= 768) setSize('medium');
       else setSize('small');
     };

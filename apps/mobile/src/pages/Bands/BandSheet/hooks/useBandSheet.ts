@@ -102,11 +102,13 @@ export function useBandSheet() {
           .select(
             `
           user_id,
+          role,
           profile:profiles!inner(
             id,
             display_name,
             first_name,
-            last_name
+            last_name,
+            avatar_url
           )
         `
           )
@@ -125,6 +127,8 @@ export function useBandSheet() {
               id: m.profile?.id,
               display_name: m.profile.display_name,
               full_name: fullName,
+              avatar_url: m.profile.avatar_url ?? null,
+              role: m.role ?? 'member',
             };
           });
           setRosterMembers(formattedMembers);
