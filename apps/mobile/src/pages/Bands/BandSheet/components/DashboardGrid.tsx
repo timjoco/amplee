@@ -6,11 +6,13 @@ import {
   globeOutline,
   musicalNotesOutline,
   peopleOutline,
+  timeOutline,
 } from 'ionicons/icons';
 import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
 import BandAvailabilityWidget from '../../../../components/Bands/BandAvailabilityWidget';
-import type { RosterMember } from '../types';
+import type { NextEvent, RosterMember } from '../types';
+import { computeTimeUntilEvent, formatEventDate, formatEventTime } from '../utils';
 
 // Hook to detect screen size for responsive layouts
 function useScreenSize() {
@@ -41,7 +43,7 @@ type Props = {
   rosterMembers: RosterMember[];
   pressedButton: string | null;
   handleButtonPress: (buttonId: string, action: () => void) => void;
-  hideEvents?: boolean;
+  nextEvent?: NextEvent | null;
 };
 
 const getCardBaseStyle = (isLarge: boolean) => ({
@@ -89,7 +91,7 @@ export function DashboardGrid({
   rosterMembers,
   pressedButton,
   handleButtonPress,
-  hideEvents = false,
+  nextEvent,
 }: Props) {
   const navigate = useNavigate();
   const screenSize = useScreenSize();
@@ -104,6 +106,8 @@ export function DashboardGrid({
   // 3 columns on large, 2 on medium/small
   const gridColumns = isLarge ? 'repeat(3, 1fr)' : 'repeat(2, 1fr)';
 
+  const timeUntil = nextEvent ? computeTimeUntilEvent(nextEvent.starts_at) : null;
+
   return (
     <div
       style={{
@@ -113,9 +117,85 @@ export function DashboardGrid({
         marginBottom: '16px',
       }}
     >
-      {/* EVENTS CARD - hidden on large when shown inline with NextEvent */}
-      {!hideEvents && (
+      {/* NEXT EVENT CARD - shown in grid on large screens */}
+      {nextEvent && (
         <button
+          type="button"
+          onClick={() =>
+            handleButtonPress('nextEvent', () =>
+              navigate(`/bands/${bandId}/events/${nextEvent.id}`)
+            )
+          }
+          style={{
+            ...cardBaseStyle,
+            transform: pressedButton === 'nextEvent' ? 'scale(0.97)' : 'scale(1)',
+          }}
+        >
+          <IonIcon icon={chevronForwardOutline} style={chevronStyle} />
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: isLarge ? 10 : 8,
+              marginBottom: isLarge ? 10 : 8,
+            }}
+          >
+            <IonIcon
+              icon={calendarOutline}
+              style={{ fontSize: isLarge ? 24 : 20, color: '#34d399' }}
+            />
+            <span style={labelStyle}>Next Event</span>
+            {timeUntil && (
+              <div
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 3,
+                  padding: '2px 8px',
+                  borderRadius: 999,
+                  background: 'rgba(15, 118, 110, 0.4)',
+                  marginLeft: 'auto',
+                }}
+              >
+                <IonIcon
+                  icon={timeOutline}
+                  style={{ fontSize: 10, color: '#A7F3D0' }}
+                />
+                <span
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 700,
+                    color: '#ECFDF5',
+                  }}
+                >
+                  {timeUntil}
+                </span>
+              </div>
+            )}
+          </div>
+          <div style={{ marginTop: 'auto' }}>
+            <div
+              style={{
+                fontSize: isLarge ? 18 : 16,
+                fontWeight: 700,
+                color: '#F9FAFB',
+                marginBottom: 4,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {nextEvent.title}
+            </div>
+            <div style={{ fontSize: isLarge ? 13 : 12, color: '#9ca3af' }}>
+              {formatEventDate(nextEvent.starts_at)}
+            </div>
+          </div>
+        </button>
+      )}
+
+      {/* EVENTS CARD */}
+      <button
           type="button"
           onClick={() =>
             handleButtonPress('events', () => navigate(`/bands/${bandId}/events`))
@@ -162,7 +242,6 @@ export function DashboardGrid({
             <div style={descriptionStyle}>Shows & practices</div>
           )}
         </button>
-      )}
 
       {/* PROPOSALS CARD */}
       <button
