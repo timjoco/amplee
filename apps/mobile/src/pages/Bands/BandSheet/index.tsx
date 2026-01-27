@@ -1,12 +1,14 @@
 import {
   IonContent,
   IonHeader,
+  IonIcon,
   IonPage,
   IonSpinner,
   IonText,
   IonTitle,
   IonToolbar,
 } from '@ionic/react';
+import { calendarOutline, chevronForwardOutline } from 'ionicons/icons';
 import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
 
@@ -129,16 +131,128 @@ export default function BandSheetMobile() {
               margin: isLarge ? '0' : '0 auto',
             }}
           >
-            {nextEvent && (
-              <NextEventCard
-                event={nextEvent}
-                isPressed={pressedButton === 'nextEvent'}
-                onPress={() =>
-                  handleButtonPress('nextEvent', () =>
-                    navigate(`/bands/${bandId}/events/${nextEvent.id}`)
-                  )
-                }
-              />
+            {/* Large screen: NextEvent + Events inline */}
+            {isLarge && nextEvent ? (
+              <div
+                style={{
+                  display: 'flex',
+                  gap: 20,
+                  marginBottom: 28,
+                }}
+              >
+                <div style={{ flex: 2 }}>
+                  <NextEventCard
+                    event={nextEvent}
+                    isPressed={pressedButton === 'nextEvent'}
+                    onPress={() =>
+                      handleButtonPress('nextEvent', () =>
+                        navigate(`/bands/${bandId}/events/${nextEvent.id}`)
+                      )
+                    }
+                    inline
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    handleButtonPress('events', () =>
+                      navigate(`/bands/${bandId}/events`)
+                    )
+                  }
+                  style={{
+                    flex: 1,
+                    background:
+                      'linear-gradient(135deg, rgba(30, 41, 59, 0.4) 0%, rgba(15, 23, 42, 0.3) 100%)',
+                    border: '1px solid rgba(71, 85, 105, 0.3)',
+                    borderRadius: 28,
+                    padding: '28px 24px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    position: 'relative',
+                    transition: 'transform 120ms ease-out',
+                    transform:
+                      pressedButton === 'events' ? 'scale(0.97)' : 'scale(1)',
+                  }}
+                >
+                  <IonIcon
+                    icon={chevronForwardOutline}
+                    style={{
+                      position: 'absolute',
+                      top: 28,
+                      right: 24,
+                      fontSize: 22,
+                      color: 'rgba(148, 163, 184, 0.6)',
+                    }}
+                  />
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 10,
+                      marginBottom: 12,
+                    }}
+                  >
+                    <IonIcon
+                      icon={calendarOutline}
+                      style={{ fontSize: 26, color: '#34d399' }}
+                    />
+                    <span
+                      style={{
+                        fontSize: 13,
+                        color: '#9ca3af',
+                        textTransform: 'uppercase',
+                        letterSpacing: 0.5,
+                        fontWeight: 700,
+                      }}
+                    >
+                      Events
+                    </span>
+                  </div>
+                  <div style={{ marginTop: 'auto' }}>
+                    {eventsCount > 0 ? (
+                      <>
+                        <div
+                          style={{
+                            fontSize: 42,
+                            fontWeight: 700,
+                            color: '#34d399',
+                            lineHeight: 1,
+                            marginBottom: 4,
+                          }}
+                        >
+                          {eventsCount}
+                        </div>
+                        <div style={{ fontSize: 15, color: '#9ca3af' }}>
+                          {eventsCount === 1 ? 'upcoming event' : 'upcoming events'}
+                        </div>
+                      </>
+                    ) : (
+                      <div
+                        style={{
+                          fontSize: 15,
+                          color: 'rgba(203, 213, 225, 0.8)',
+                        }}
+                      >
+                        Shows & practices
+                      </div>
+                    )}
+                  </div>
+                </button>
+              </div>
+            ) : (
+              nextEvent && (
+                <NextEventCard
+                  event={nextEvent}
+                  isPressed={pressedButton === 'nextEvent'}
+                  onPress={() =>
+                    handleButtonPress('nextEvent', () =>
+                      navigate(`/bands/${bandId}/events/${nextEvent.id}`)
+                    )
+                  }
+                />
+              )
             )}
 
             <DashboardGrid
@@ -148,6 +262,7 @@ export default function BandSheetMobile() {
               rosterMembers={rosterMembers}
               pressedButton={pressedButton}
               handleButtonPress={handleButtonPress}
+              hideEvents={isLarge && !!nextEvent}
             />
           </div>
         )}

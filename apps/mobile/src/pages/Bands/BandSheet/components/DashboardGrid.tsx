@@ -41,6 +41,7 @@ type Props = {
   rosterMembers: RosterMember[];
   pressedButton: string | null;
   handleButtonPress: (buttonId: string, action: () => void) => void;
+  hideEvents?: boolean;
 };
 
 const getCardBaseStyle = (isLarge: boolean) => ({
@@ -88,6 +89,7 @@ export function DashboardGrid({
   rosterMembers,
   pressedButton,
   handleButtonPress,
+  hideEvents = false,
 }: Props) {
   const navigate = useNavigate();
   const screenSize = useScreenSize();
@@ -111,54 +113,56 @@ export function DashboardGrid({
         marginBottom: '16px',
       }}
     >
-      {/* EVENTS CARD */}
-      <button
-        type="button"
-        onClick={() =>
-          handleButtonPress('events', () => navigate(`/bands/${bandId}/events`))
-        }
-        style={{
-          ...cardBaseStyle,
-          gap: eventsCount > 0 ? undefined : 10,
-          transform: pressedButton === 'events' ? 'scale(0.97)' : 'scale(1)',
-        }}
-      >
-        <IonIcon icon={chevronForwardOutline} style={chevronStyle} />
-        <div
+      {/* EVENTS CARD - hidden on large when shown inline with NextEvent */}
+      {!hideEvents && (
+        <button
+          type="button"
+          onClick={() =>
+            handleButtonPress('events', () => navigate(`/bands/${bandId}/events`))
+          }
           style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: isLarge ? 10 : 8,
-            marginBottom: isLarge ? 10 : 8,
+            ...cardBaseStyle,
+            gap: eventsCount > 0 ? undefined : 10,
+            transform: pressedButton === 'events' ? 'scale(0.97)' : 'scale(1)',
           }}
         >
-          <IonIcon
-            icon={calendarOutline}
-            style={{ fontSize: isLarge ? 24 : 20, color: '#34d399' }}
-          />
-          <span style={labelStyle}>Events</span>
-        </div>
-        {eventsCount > 0 ? (
-          <div style={{ marginTop: 'auto' }}>
-            <div
-              style={{
-                fontSize: isLarge ? 34 : 28,
-                fontWeight: 700,
-                color: '#34d399',
-                lineHeight: 1,
-                marginBottom: 2,
-              }}
-            >
-              {eventsCount}
-            </div>
-            <div style={{ fontSize: isLarge ? 14 : 12, color: '#9ca3af' }}>
-              {eventsCount === 1 ? 'event' : 'events'}
-            </div>
+          <IonIcon icon={chevronForwardOutline} style={chevronStyle} />
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: isLarge ? 10 : 8,
+              marginBottom: isLarge ? 10 : 8,
+            }}
+          >
+            <IonIcon
+              icon={calendarOutline}
+              style={{ fontSize: isLarge ? 24 : 20, color: '#34d399' }}
+            />
+            <span style={labelStyle}>Events</span>
           </div>
-        ) : (
-          <div style={descriptionStyle}>Shows & practices</div>
-        )}
-      </button>
+          {eventsCount > 0 ? (
+            <div style={{ marginTop: 'auto' }}>
+              <div
+                style={{
+                  fontSize: isLarge ? 34 : 28,
+                  fontWeight: 700,
+                  color: '#34d399',
+                  lineHeight: 1,
+                  marginBottom: 2,
+                }}
+              >
+                {eventsCount}
+              </div>
+              <div style={{ fontSize: isLarge ? 14 : 12, color: '#9ca3af' }}>
+                {eventsCount === 1 ? 'event' : 'events'}
+              </div>
+            </div>
+          ) : (
+            <div style={descriptionStyle}>Shows & practices</div>
+          )}
+        </button>
+      )}
 
       {/* PROPOSALS CARD */}
       <button

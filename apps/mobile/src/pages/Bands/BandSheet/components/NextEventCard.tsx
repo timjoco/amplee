@@ -30,9 +30,10 @@ type Props = {
   event: NextEvent;
   isPressed: boolean;
   onPress: () => void;
+  inline?: boolean;
 };
 
-export function NextEventCard({ event, isPressed, onPress }: Props) {
+export function NextEventCard({ event, isPressed, onPress, inline = false }: Props) {
   const timeUntil = computeTimeUntilEvent(event.starts_at);
   const screenSize = useScreenSize();
   const isLarge = screenSize === 'large';
@@ -43,12 +44,13 @@ export function NextEventCard({ event, isPressed, onPress }: Props) {
       onClick={onPress}
       style={{
         width: '100%',
+        height: inline ? '100%' : undefined,
         background:
           'linear-gradient(135deg, rgba(30, 41, 59, 0.4) 0%, rgba(15, 23, 42, 0.3) 100%)',
         border: '1px solid rgba(71, 85, 105, 0.3)',
         borderRadius: isLarge ? 28 : 24,
         padding: isLarge ? '28px' : '20px',
-        marginBottom: isLarge ? 28 : 24,
+        marginBottom: inline ? 0 : isLarge ? 28 : 24,
         display: 'flex',
         flexDirection: 'column',
         gap: isLarge ? 20 : 16,
