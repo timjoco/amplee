@@ -121,12 +121,12 @@ export default function BandSheetMobile() {
           <div
             style={{
               padding: isLarge
-                ? '28px 40px 32px'
+                ? '28px 48px 32px'
                 : isMedium
                 ? '24px 28px 28px'
                 : '20px 16px 24px',
-              maxWidth: isLarge ? '1200px' : isMedium ? '900px' : '600px',
-              margin: '0 auto',
+              maxWidth: isLarge ? 'none' : isMedium ? '900px' : '600px',
+              margin: isLarge ? '0' : '0 auto',
             }}
           >
             {nextEvent && (
