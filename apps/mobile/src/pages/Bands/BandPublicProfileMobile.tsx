@@ -1619,7 +1619,7 @@ export default function BandPublicProfileMobile() {
             <CollapsibleSection
               title="Band Image"
               icon={imageOutline}
-              iconColor="#ec4899"
+              iconColor="#a78bfa"
               defaultOpen={false}
             >
               <div style={{ marginTop: 14 }}>
@@ -1642,8 +1642,8 @@ export default function BandPublicProfileMobile() {
                     width: '100%',
                     padding: 20,
                     borderRadius: 16,
-                    border: '2px dashed rgba(236, 72, 153, 0.3)',
-                    background: 'rgba(236, 72, 153, 0.05)',
+                    border: '2px dashed rgba(167, 139, 250, 0.3)',
+                    background: 'rgba(167, 139, 250, 0.05)',
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
@@ -1660,7 +1660,7 @@ export default function BandPublicProfileMobile() {
                         height: 80,
                         borderRadius: 16,
                         background: `url(${avatarPreviewUrl}) center/cover`,
-                        border: '2px solid rgba(236, 72, 153, 0.3)',
+                        border: '2px solid rgba(167, 139, 250, 0.3)',
                       }}
                     />
                   ) : (
@@ -1669,7 +1669,7 @@ export default function BandPublicProfileMobile() {
                         width: 80,
                         height: 80,
                         borderRadius: 16,
-                        background: 'rgba(236, 72, 153, 0.1)',
+                        background: 'rgba(167, 139, 250, 0.1)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -1678,7 +1678,7 @@ export default function BandPublicProfileMobile() {
                       {uploading ? (
                         <IonSpinner
                           style={{
-                            '--color': '#ec4899',
+                            '--color': '#a78bfa',
                             width: 28,
                             height: 28,
                           }}
@@ -1686,7 +1686,7 @@ export default function BandPublicProfileMobile() {
                       ) : (
                         <IonIcon
                           icon={cloudUploadOutline}
-                          style={{ fontSize: 32, color: '#ec4899' }}
+                          style={{ fontSize: 32, color: '#a78bfa' }}
                         />
                       )}
                     </div>
@@ -1780,7 +1780,7 @@ export default function BandPublicProfileMobile() {
             <CollapsibleSection
               title="Contact & Inquiries"
               icon={mailOutline}
-              iconColor="#22c55e"
+              iconColor="#a78bfa"
               defaultOpen={false}
             >
               <InputField
@@ -1832,7 +1832,7 @@ export default function BandPublicProfileMobile() {
                   disabled={!isAdmin || !contactEmail.trim()}
                   style={{
                     '--handle-background': '#09090b',
-                    '--background-checked': '#22c55e',
+                    '--background-checked': '#a78bfa',
                     '--background': 'rgba(63,63,70,0.8)',
                   }}
                 />
@@ -1855,7 +1855,7 @@ export default function BandPublicProfileMobile() {
             <CollapsibleSection
               title="Music Links"
               icon={musicalNotesOutline}
-              iconColor="#ec4899"
+              iconColor="#a78bfa"
               badge={musicLinks.filter((l) => l.url.trim()).length || undefined}
               defaultOpen={false}
             >
@@ -1936,7 +1936,7 @@ export default function BandPublicProfileMobile() {
             <CollapsibleSection
               title="Band Gallery"
               icon={imageOutline}
-              iconColor="#22c55e"
+              iconColor="#a78bfa"
               badge={
                 galleryImages.length > 0
                   ? `${galleryImages.length}/4`
@@ -1984,7 +1984,7 @@ export default function BandPublicProfileMobile() {
                       aspectRatio: '1',
                       borderRadius: 14,
                       overflow: 'hidden',
-                      border: '1px solid rgba(244, 114, 182, 0.2)',
+                      border: '1px solid rgba(167, 139, 250, 0.2)',
                     }}
                   >
                     <img
@@ -2034,8 +2034,8 @@ export default function BandPublicProfileMobile() {
                     style={{
                       aspectRatio: '1',
                       borderRadius: 14,
-                      border: '2px dashed rgba(244, 114, 182, 0.3)',
-                      background: 'rgba(244, 114, 182, 0.05)',
+                      border: '2px dashed rgba(167, 139, 250, 0.3)',
+                      background: 'rgba(167, 139, 250, 0.05)',
                       display: 'flex',
                       flexDirection: 'column',
                       alignItems: 'center',
@@ -2051,18 +2051,18 @@ export default function BandPublicProfileMobile() {
                   >
                     {uploadingGallery ? (
                       <IonSpinner
-                        style={{ '--color': '#f472b6', width: 24, height: 24 }}
+                        style={{ '--color': '#a78bfa', width: 24, height: 24 }}
                       />
                     ) : (
                       <>
                         <IonIcon
                           icon={cloudUploadOutline}
-                          style={{ fontSize: 24, color: '#f472b6' }}
+                          style={{ fontSize: 24, color: '#a78bfa' }}
                         />
                         <span
                           style={{
                             fontSize: 11,
-                            color: '#f472b6',
+                            color: '#a78bfa',
                             fontWeight: 600,
                           }}
                         >
@@ -2079,7 +2079,7 @@ export default function BandPublicProfileMobile() {
             <CollapsibleSection
               title="Featured Video"
               icon={videocamOutline}
-              iconColor="#ec4899"
+              iconColor="#a78bfa"
               badge={videoEmbedPreview ? '1' : undefined}
               defaultOpen={false}
             >
