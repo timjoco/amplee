@@ -9,7 +9,7 @@ import {
   IonText,
   IonToolbar,
 } from '@ionic/react';
-import { addCircleOutline, calendarOutline, chevronBackOutline } from 'ionicons/icons';
+import { addCircleOutline, chevronBackOutline, clipboardOutline } from 'ionicons/icons';
 import { useState } from 'react';
 
 import EventDateTimePicker from '../../components/ui/EventDateTimePicker';
@@ -252,58 +252,74 @@ export default function ProposedGigSheet() {
 
   return (
     <IonPage>
-      <IonHeader translucent>
+      <IonHeader translucent className="ion-no-border">
         <IonToolbar
           style={{
-            '--background': 'rgba(8,8,12,0.98)',
-            borderBottom: '0.5px solid rgba(255,255,255,0.06)',
+            '--background': 'rgba(8, 8, 14, 0.95)',
+            '--border-width': 0,
           }}
         >
           <div
             style={{
               display: 'flex',
               alignItems: 'center',
-              padding: '8px 16px',
+              padding: '12px 16px',
               gap: 12,
             }}
           >
-            <IonButton
+            {/* Back Button */}
+            <button
               onClick={() => nav(-1)}
-              fill="clear"
-              style={{ minWidth: 0, padding: 6 }}
-            >
-              <IonIcon
-                icon={chevronBackOutline}
-                style={{ color: '#F9FAFB', fontSize: 24 }}
-              />
-            </IonButton>
-            <div
               style={{
-                flex: 1,
-                minWidth: 0,
-                fontSize: 18,
-                fontWeight: 700,
-                color: '#F9FAFB',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
+                width: 40,
+                height: 40,
+                borderRadius: 12,
+                background: 'rgba(255, 255, 255, 0.04)',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                display: 'grid',
+                placeItems: 'center',
+                color: '#9ca3af',
+                flexShrink: 0,
               }}
             >
-              {headerTitle}
+              <IonIcon icon={chevronBackOutline} style={{ fontSize: 20 }} />
+            </button>
+
+            {/* Title Section */}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <IonIcon
+                  icon={clipboardOutline}
+                  style={{ color: '#f59e0b', fontSize: 20, flexShrink: 0 }}
+                />
+                <h1
+                  style={{
+                    fontSize: 22,
+                    fontWeight: 700,
+                    color: '#f9fafb',
+                    margin: 0,
+                    letterSpacing: '-0.5px',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {headerTitle}
+                </h1>
+              </div>
             </div>
 
+            {/* Proposed Badge */}
             <div
               style={{
-                padding: '4px 12px',
-                borderRadius: 999,
-                background:
-                  'linear-gradient(135deg, rgba(251, 191, 36, 0.2), rgba(251, 191, 36, 0.1))',
-                border: '1px solid rgba(251, 191, 36, 0.4)',
-                color: 'rgba(251, 191, 36, 0.95)',
-                fontSize: 11,
-                fontWeight: 700,
-                textTransform: 'uppercase',
-                letterSpacing: 0.5,
+                padding: '6px 10px',
+                borderRadius: 10,
+                background: 'rgba(245, 158, 11, 0.08)',
+                border: '1px solid rgba(245, 158, 11, 0.25)',
+                color: '#f59e0b',
+                fontSize: 12,
+                fontWeight: 600,
+                flexShrink: 0,
               }}
             >
               Proposed

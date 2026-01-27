@@ -740,14 +740,6 @@ export default function BandRosterPage() {
                     gap: 8,
                   }}
                 >
-                  <div
-                    style={{
-                      width: 6,
-                      height: 6,
-                      borderRadius: '50%',
-                      background: BLUE.primary,
-                    }}
-                  />
                   <span
                     style={{
                       fontSize: 13,
@@ -1106,14 +1098,6 @@ export default function BandRosterPage() {
                   marginBottom: 12,
                 }}
               >
-                <div
-                  style={{
-                    width: 6,
-                    height: 6,
-                    borderRadius: '50%',
-                    background: '#22c55e',
-                  }}
-                />
                 <span
                   style={{
                     fontSize: 13,
@@ -2078,6 +2062,37 @@ export default function BandRosterPage() {
                         </div>
                       </div>
                     )}
+
+                  {/* Coming Soon Notice */}
+                  <div
+                    style={{
+                      ...glassCard,
+                      padding: 16,
+                      marginTop: 10,
+                      textAlign: 'center',
+                      background: 'rgba(167, 139, 250, 0.04)',
+                      border: '1px solid rgba(167, 139, 250, 0.15)',
+                    }}
+                  >
+                    <div
+                      style={{
+                        color: '#a78bfa',
+                        fontSize: 13,
+                        fontWeight: 500,
+                      }}
+                    >
+                      More member info coming soon
+                    </div>
+                    <div
+                      style={{
+                        color: '#6b7280',
+                        fontSize: 12,
+                        marginTop: 4,
+                      }}
+                    >
+                      Instruments, bio, and more
+                    </div>
+                  </div>
                 </div>
               </div>
             ) : (

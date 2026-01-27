@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import {
-  IonButton,
   IonContent,
   IonHeader,
   IonIcon,
@@ -8,7 +7,12 @@ import {
   IonSpinner,
   IonToolbar,
 } from '@ionic/react';
-import { chevronBackOutline } from 'ionicons/icons';
+import {
+  chevronBackOutline,
+  personOutline,
+  shieldCheckmarkOutline,
+} from 'ionicons/icons';
+import { MdOutlineEventAvailable } from 'react-icons/md';
 import * as React from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
@@ -287,61 +291,103 @@ export default function BandAvailabilityPage() {
 
   return (
     <IonPage>
-      <IonHeader translucent>
+      <IonHeader translucent className="ion-no-border">
         <IonToolbar
           style={{
-            '--background': 'rgba(8,8,12,0.98)',
-            borderBottom: '0.5px solid rgba(255,255,255,0.06)',
+            '--background': 'rgba(8, 8, 14, 0.95)',
+            '--border-width': 0,
           }}
         >
           <div
             style={{
               display: 'flex',
               alignItems: 'center',
-              padding: '16px',
+              padding: '12px 16px',
               gap: 12,
             }}
           >
-            <IonButton
+            {/* Back Button */}
+            <button
               onClick={() => navigate(`/bands/${bandId}`)}
-              fill="clear"
               style={{
-                minWidth: 0,
-                padding: 6,
-                margin: 0,
+                width: 40,
+                height: 40,
+                borderRadius: 12,
+                background: 'rgba(255, 255, 255, 0.04)',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                display: 'grid',
+                placeItems: 'center',
+                color: '#9ca3af',
                 flexShrink: 0,
               }}
             >
-              <IonIcon
-                icon={chevronBackOutline}
-                style={{ color: '#9ca3af', fontSize: 22 }}
-              />
-            </IonButton>
+              <IonIcon icon={chevronBackOutline} style={{ fontSize: 20 }} />
+            </button>
 
+            {/* Title Section */}
             <div style={{ flex: 1 }}>
-              <h1
-                style={{
-                  fontSize: 28,
-                  fontWeight: 800,
-                  color: '#F9FAFB',
-                  margin: 0,
-                  letterSpacing: '-0.8px',
-                  lineHeight: 1.15,
-                }}
-              >
-                Availability
-              </h1>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <MdOutlineEventAvailable
+                  style={{ color: '#14b8a6', fontSize: 20 }}
+                />
+                <h1
+                  style={{
+                    fontSize: 22,
+                    fontWeight: 700,
+                    color: '#f9fafb',
+                    margin: 0,
+                    letterSpacing: '-0.5px',
+                  }}
+                >
+                  Availability
+                </h1>
+              </div>
               {bandName && (
                 <div
                   style={{
                     fontSize: 13,
-                    color: '#9ca3af',
-                    marginTop: 4,
+                    color: '#6b7280',
+                    marginTop: 2,
+                    marginLeft: 28,
                   }}
                 >
                   {bandName}
                 </div>
               )}
+            </div>
+
+            {/* Role Badge */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '6px 10px',
+                borderRadius: 10,
+                background: isAdmin
+                  ? 'rgba(20, 184, 166, 0.08)'
+                  : 'rgba(255, 255, 255, 0.04)',
+                border: `1px solid ${
+                  isAdmin ? 'rgba(20, 184, 166, 0.25)' : 'rgba(255, 255, 255, 0.08)'
+                }`,
+              }}
+            >
+              <IonIcon
+                icon={isAdmin ? shieldCheckmarkOutline : personOutline}
+                style={{
+                  fontSize: 14,
+                  color: isAdmin ? '#14b8a6' : '#6b7280',
+                }}
+              />
+              <span
+                style={{
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: isAdmin ? '#14b8a6' : '#6b7280',
+                }}
+              >
+                {isAdmin ? 'Admin' : 'Member'}
+              </span>
             </div>
           </div>
         </IonToolbar>

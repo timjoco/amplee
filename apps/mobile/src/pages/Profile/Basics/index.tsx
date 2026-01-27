@@ -1,7 +1,6 @@
 import { Capacitor } from '@capacitor/core';
 import {
   IonActionSheet,
-  IonButton,
   IonContent,
   IonHeader,
   IonIcon,
@@ -11,7 +10,7 @@ import {
   IonToast,
   IonToolbar,
 } from '@ionic/react';
-import { chevronBackOutline } from 'ionicons/icons';
+import { chevronBackOutline, createOutline } from 'ionicons/icons';
 import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
 import AndroidBottomSafeArea from '../../../components/AndroidBottomSafeArea';
@@ -66,57 +65,64 @@ export default function ProfileBasicsPage() {
 
   return (
     <IonPage>
-      {/* Header */}
-      <IonHeader>
+      <IonHeader translucent className="ion-no-border">
         <IonToolbar
           style={{
-            '--background': 'rgba(8,8,12,0.98)',
-            borderBottom: '0.5px solid rgba(255,255,255,0.06)',
-            paddingTop: isAndroid ? 'env(safe-area-inset-top, 24px)' : undefined,
+            '--background': 'rgba(8, 8, 14, 0.95)',
+            '--border-width': 0,
           }}
         >
           <div
             style={{
               display: 'flex',
               alignItems: 'center',
-              padding: '16px',
+              padding: '12px 16px',
               gap: 12,
             }}
           >
-            <IonButton
+            {/* Back Button */}
+            <button
               onClick={() => nav(-1)}
-              fill="clear"
               style={{
-                minWidth: 0,
-                padding: 6,
-                margin: 0,
+                width: 40,
+                height: 40,
+                borderRadius: 12,
+                background: 'rgba(255, 255, 255, 0.04)',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                display: 'grid',
+                placeItems: 'center',
+                color: '#9ca3af',
                 flexShrink: 0,
               }}
             >
-              <IonIcon
-                icon={chevronBackOutline}
-                style={{ color: '#9ca3af', fontSize: 22 }}
-              />
-            </IonButton>
+              <IonIcon icon={chevronBackOutline} style={{ fontSize: 20 }} />
+            </button>
 
+            {/* Title Section */}
             <div style={{ flex: 1 }}>
-              <h1
-                style={{
-                  fontSize: 20,
-                  fontWeight: 800,
-                  color: '#F9FAFB',
-                  margin: 0,
-                  letterSpacing: '-0.8px',
-                  lineHeight: 1.15,
-                }}
-              >
-                Edit Profile
-              </h1>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <IonIcon
+                  icon={createOutline}
+                  style={{ color: '#a78bfa', fontSize: 20 }}
+                />
+                <h1
+                  style={{
+                    fontSize: 22,
+                    fontWeight: 700,
+                    color: '#f9fafb',
+                    margin: 0,
+                    letterSpacing: '-0.5px',
+                  }}
+                >
+                  Edit Profile
+                </h1>
+              </div>
               <div
                 style={{
                   fontSize: 13,
-                  color: '#9ca3af',
-                  marginTop: 4,
+                  color: '#6b7280',
+                  marginTop: 2,
+                  marginLeft: 28,
                 }}
               >
                 Update your information

@@ -250,14 +250,6 @@ export default function BandLibraryTab({ bandId }: BandLibraryTabProps) {
           marginBottom: 14,
         }}
       >
-        <div
-          style={{
-            width: 6,
-            height: 6,
-            borderRadius: '50%',
-            background: PINK.primary,
-          }}
-        />
         <span
           style={{
             fontSize: 13,

@@ -404,9 +404,7 @@ export default function BandProposalsTabMobile({ bandId, isAdmin }: Props) {
                       alignItems: 'center',
                       columnGap: 12,
                       background: 'transparent',
-                      border: p.userHasVoted
-                        ? '1px solid rgba(52, 211, 153, 0.2)'
-                        : '1px solid rgba(71, 85, 105, 0.2)',
+                      border: '1px solid rgba(245, 158, 11, 0.25)',
                       transform: isPressed ? 'scale(0.99)' : 'scale(1)',
                       opacity: isPressed ? 0.7 : 1,
                       transition: 'all 120ms ease-out',

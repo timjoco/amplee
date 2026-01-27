@@ -439,14 +439,6 @@ export default function BandSetlistPageMobile() {
                   gap: 8,
                 }}
               >
-                <div
-                  style={{
-                    width: 6,
-                    height: 6,
-                    borderRadius: '50%',
-                    background: PINK.primary,
-                  }}
-                />
                 <span
                   style={{
                     fontSize: 13,
