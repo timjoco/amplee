@@ -9,8 +9,11 @@ import {
 } from '@ionic/react';
 import {
   chevronBackOutline,
+  chevronDownOutline,
+  chevronUpOutline,
   personOutline,
   shieldCheckmarkOutline,
+  timeOutline,
 } from 'ionicons/icons';
 import { MdOutlineEventAvailable } from 'react-icons/md';
 import * as React from 'react';
@@ -27,6 +30,21 @@ type Member = {
 type UnavailableDate = {
   date: string;
   profileId: string;
+  note: string | null;
+  allDay: boolean;
+  startTime: string | null;
+  endTime: string | null;
+};
+
+type AvailabilityRule = {
+  profileId: string;
+  dayOfWeek: number;
+  allDay: boolean;
+  startTime: string | null;
+  endTime: string | null;
+  note: string | null;
+  startsOn: string;
+  endsOn: string | null;
 };
 
 type MembershipRole = 'admin' | 'member';
@@ -70,29 +88,429 @@ function getInitials(name: string): string {
     .toUpperCase();
 }
 
+// Avatar component with error handling
+function Avatar({
+  src,
+  name,
+  size = 32,
+  variant = 'available',
+}: {
+  src: string | null;
+  name: string;
+  size?: number;
+  variant?: 'available' | 'unavailable';
+}) {
+  const [imgError, setImgError] = React.useState(false);
+
+  const gradients = {
+    available: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)',
+    unavailable: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+  };
+
+  const showImage = src && !imgError;
+
+  return (
+    <div
+      style={{
+        width: size,
+        height: size,
+        borderRadius: '50%',
+        background: gradients[variant],
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: size * 0.34,
+        fontWeight: 700,
+        color: '#fff',
+        overflow: 'hidden',
+        flexShrink: 0,
+      }}
+    >
+      {showImage ? (
+        <img
+          src={src}
+          alt={name}
+          onError={() => setImgError(true)}
+          style={{
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+          }}
+        />
+      ) : (
+        getInitials(name)
+      )}
+    </div>
+  );
+}
+
+// Note modal for viewing full text
+function NoteModal({
+  isOpen,
+  memberName,
+  note,
+  timeRange,
+  onClose,
+}: {
+  isOpen: boolean;
+  memberName: string;
+  note: string;
+  timeRange: string;
+  onClose: () => void;
+}) {
+  if (!isOpen) return null;
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: 'rgba(0,0,0,0.8)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 9999,
+        padding: 16,
+      }}
+      onClick={onClose}
+    >
+      <div
+        style={{
+          background: '#1a1a24',
+          borderRadius: 16,
+          padding: 20,
+          width: '100%',
+          maxWidth: 340,
+          border: '1px solid rgba(255,255,255,0.1)',
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div
+          style={{
+            fontSize: 11,
+            color: '#fca5a5',
+            fontWeight: 600,
+            textTransform: 'uppercase',
+            letterSpacing: '0.5px',
+            marginBottom: 4,
+          }}
+        >
+          Unavailable
+        </div>
+        <div
+          style={{
+            fontSize: 16,
+            fontWeight: 700,
+            color: '#f9fafb',
+            marginBottom: 4,
+          }}
+        >
+          {memberName}
+        </div>
+        <div
+          style={{
+            fontSize: 13,
+            color: '#9ca3af',
+            marginBottom: 16,
+          }}
+        >
+          {timeRange}
+        </div>
+        <div
+          style={{
+            fontSize: 14,
+            color: '#e5e7eb',
+            lineHeight: 1.5,
+            background: 'rgba(255,255,255,0.03)',
+            padding: '12px 14px',
+            borderRadius: 10,
+            border: '1px solid rgba(255,255,255,0.06)',
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-word',
+          }}
+        >
+          {note}
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          style={{
+            width: '100%',
+            marginTop: 16,
+            padding: '12px 16px',
+            borderRadius: 10,
+            border: '1px solid rgba(255,255,255,0.1)',
+            background: 'rgba(255,255,255,0.05)',
+            color: '#9ca3af',
+            fontSize: 14,
+            fontWeight: 600,
+            cursor: 'pointer',
+          }}
+        >
+          Close
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// Truncated note with tap to expand
+const MAX_NOTE_LENGTH = 30;
+
+function TruncatedNote({
+  note,
+  memberName,
+  timeRange,
+}: {
+  note: string;
+  memberName: string;
+  timeRange: string;
+}) {
+  const [showModal, setShowModal] = React.useState(false);
+  const isTruncated = note.length > MAX_NOTE_LENGTH;
+  const displayText = isTruncated
+    ? note.slice(0, MAX_NOTE_LENGTH).trim() + '...'
+    : note;
+
+  return (
+    <>
+      <span
+        onClick={isTruncated ? () => setShowModal(true) : undefined}
+        style={{
+          cursor: isTruncated ? 'pointer' : 'default',
+          textDecoration: isTruncated ? 'underline' : 'none',
+          textDecorationStyle: 'dotted',
+          textUnderlineOffset: 2,
+        }}
+      >
+        {displayText}
+      </span>
+      <NoteModal
+        isOpen={showModal}
+        memberName={memberName}
+        note={note}
+        timeRange={timeRange}
+        onClose={() => setShowModal(false)}
+      />
+    </>
+  );
+}
+
+function formatTime(time: string | null): string {
+  if (!time) return '';
+  const [hours, minutes] = time.split(':');
+  const h = parseInt(hours, 10);
+  const ampm = h >= 12 ? 'pm' : 'am';
+  const h12 = h % 12 || 12;
+  return `${h12}:${minutes}${ampm}`;
+}
+
+function formatTimeRange(
+  allDay: boolean,
+  startTime: string | null,
+  endTime: string | null
+): string {
+  if (allDay) return 'All day';
+  return `${formatTime(startTime)} - ${formatTime(endTime)}`;
+}
+
+type UnavailableMemberInfo = {
+  member: Member;
+  note: string | null;
+  allDay: boolean;
+  startTime: string | null;
+  endTime: string | null;
+};
+
 function getDateStatus(
   dateKey: string,
   members: Member[],
-  unavailableDates: UnavailableDate[]
+  unavailableDates: UnavailableDate[],
+  expandedRules: Map<string, AvailabilityRule>
 ): {
   status: 'all' | 'most' | 'some' | 'none';
   count: number;
-  unavailableMembers: Member[];
+  unavailableMembers: UnavailableMemberInfo[];
+  hasPartialDay: boolean;
 } {
-  const unavailableIds = new Set(
-    unavailableDates.filter((d) => d.date === dateKey).map((d) => d.profileId)
-  );
-  const unavailableMembers = members.filter((m) => unavailableIds.has(m.id));
+  // Get unavailable from explicit dates
+  const dateEntries = unavailableDates.filter((d) => d.date === dateKey);
+  const unavailableMap = new Map<string, UnavailableMemberInfo>();
+
+  for (const entry of dateEntries) {
+    const member = members.find((m) => m.id === entry.profileId);
+    if (member) {
+      unavailableMap.set(entry.profileId, {
+        member,
+        note: entry.note,
+        allDay: entry.allDay,
+        startTime: entry.startTime,
+        endTime: entry.endTime,
+      });
+    }
+  }
+
+  // Add from expanded rules (if not already in explicit dates)
+  for (const [profileId, rule] of expandedRules) {
+    if (!unavailableMap.has(profileId)) {
+      const member = members.find((m) => m.id === profileId);
+      if (member) {
+        unavailableMap.set(profileId, {
+          member,
+          note: rule.note,
+          allDay: rule.allDay,
+          startTime: rule.startTime,
+          endTime: rule.endTime,
+        });
+      }
+    }
+  }
+
+  const unavailableMembers = Array.from(unavailableMap.values());
+  const hasPartialDay = unavailableMembers.some((u) => !u.allDay);
   const availableCount = members.length - unavailableMembers.length;
   const total = members.length;
 
   if (availableCount === total)
-    return { status: 'all', count: availableCount, unavailableMembers: [] };
+    return { status: 'all', count: availableCount, unavailableMembers: [], hasPartialDay: false };
   if (availableCount === 0)
-    return { status: 'none', count: 0, unavailableMembers };
+    return { status: 'none', count: 0, unavailableMembers, hasPartialDay };
   if (availableCount >= total * 0.6)
-    return { status: 'most', count: availableCount, unavailableMembers };
-  return { status: 'some', count: availableCount, unavailableMembers };
+    return { status: 'most', count: availableCount, unavailableMembers, hasPartialDay };
+  return { status: 'some', count: availableCount, unavailableMembers, hasPartialDay };
+}
+
+// Collapsible section component
+function CollapsibleSection({
+  title,
+  count,
+  defaultOpen,
+  children,
+  variant,
+}: {
+  title: string;
+  count: number;
+  defaultOpen: boolean;
+  children: React.ReactNode;
+  variant: 'available' | 'unavailable';
+}) {
+  const [isOpen, setIsOpen] = React.useState(defaultOpen);
+
+  const colors = {
+    available: {
+      bg: 'rgba(34, 197, 94, 0.08)',
+      border: 'rgba(34, 197, 94, 0.15)',
+      text: '#4ade80',
+    },
+    unavailable: {
+      bg: 'rgba(239, 68, 68, 0.08)',
+      border: 'rgba(239, 68, 68, 0.15)',
+      text: '#fca5a5',
+    },
+  };
+
+  const color = colors[variant];
+
+  return (
+    <div
+      style={{
+        background: color.bg,
+        border: `1px solid ${color.border}`,
+        borderRadius: 12,
+        overflow: 'hidden',
+      }}
+    >
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        style={{
+          width: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '12px 14px',
+          background: 'transparent',
+          border: 'none',
+          cursor: 'pointer',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 13, fontWeight: 600, color: color.text }}>
+            {variant === 'available' ? '✓' : '✗'} {title}
+          </span>
+          <span
+            style={{
+              fontSize: 11,
+              color: '#9ca3af',
+              background: 'rgba(255,255,255,0.05)',
+              padding: '2px 8px',
+              borderRadius: 10,
+            }}
+          >
+            {count}
+          </span>
+        </div>
+        <IonIcon
+          icon={isOpen ? chevronUpOutline : chevronDownOutline}
+          style={{ fontSize: 16, color: '#9ca3af' }}
+        />
+      </button>
+      {isOpen && <div style={{ padding: '0 14px 14px' }}>{children}</div>}
+    </div>
+  );
+}
+
+// Avatar stack component for available members
+function AvatarStack({
+  members,
+  maxVisible = 5,
+}: {
+  members: Member[];
+  maxVisible?: number;
+}) {
+  const visibleMembers = members.slice(0, maxVisible);
+  const remaining = members.length - maxVisible;
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center' }}>
+      <div style={{ display: 'flex', marginLeft: 0 }}>
+        {visibleMembers.map((member, idx) => (
+          <div
+            key={member.id}
+            style={{
+              marginLeft: idx === 0 ? 0 : -10,
+              position: 'relative',
+              zIndex: maxVisible - idx,
+              border: '2px solid #1a1a24',
+              borderRadius: '50%',
+            }}
+            title={member.name}
+          >
+            <Avatar
+              src={member.avatarUrl}
+              name={member.name}
+              size={32}
+              variant="available"
+            />
+          </div>
+        ))}
+      </div>
+      {remaining > 0 && (
+        <span
+          style={{
+            fontSize: 12,
+            color: '#9ca3af',
+            marginLeft: 8,
+          }}
+        >
+          +{remaining} more
+        </span>
+      )}
+    </div>
+  );
 }
 
 export default function BandAvailabilityPage() {
@@ -105,10 +523,12 @@ export default function BandAvailabilityPage() {
   const [unavailableDates, setUnavailableDates] = React.useState<
     UnavailableDate[]
   >([]);
+  const [rules, setRules] = React.useState<AvailabilityRule[]>([]);
   const [selectedDate, setSelectedDate] = React.useState<string | null>(null);
   const [myRole, setMyRole] = React.useState<MembershipRole | null>(null);
 
   const isAdmin = myRole === 'admin';
+  const isLargeBand = members.length >= 20;
 
   const today = new Date();
   const [viewYear, setViewYear] = React.useState(today.getFullYear());
@@ -196,20 +616,46 @@ export default function BandAvailabilityPage() {
         setMyRole(null);
       }
 
-      // Get availability (for all members in this band)
+      // Get availability and rules (for all members in this band)
       if (memberList.length > 0) {
         const profileIds = memberList.map((m) => m.id);
-        const { data: availData } = await supabase
-          .from('member_availability_dates')
-          .select('date, profile_id')
-          .in('profile_id', profileIds)
-          .gte('date', todayKey);
+
+        const [availResult, rulesResult] = await Promise.all([
+          supabase
+            .from('member_availability_dates')
+            .select('date, profile_id, note, all_day, start_time, end_time')
+            .in('profile_id', profileIds)
+            .gte('date', todayKey),
+          supabase
+            .from('member_availability_rules')
+            .select(
+              'profile_id, day_of_week, all_day, start_time, end_time, note, starts_on, ends_on'
+            )
+            .in('profile_id', profileIds),
+        ]);
 
         if (alive) {
           setUnavailableDates(
-            (availData ?? []).map((row) => ({
+            (availResult.data ?? []).map((row) => ({
               date: row.date,
               profileId: row.profile_id,
+              note: row.note,
+              allDay: row.all_day ?? true,
+              startTime: row.start_time,
+              endTime: row.end_time,
+            }))
+          );
+
+          setRules(
+            (rulesResult.data ?? []).map((row) => ({
+              profileId: row.profile_id,
+              dayOfWeek: row.day_of_week,
+              allDay: row.all_day ?? true,
+              startTime: row.start_time,
+              endTime: row.end_time,
+              note: row.note,
+              startsOn: row.starts_on,
+              endsOn: row.ends_on,
             }))
           );
         }
@@ -222,6 +668,39 @@ export default function BandAvailabilityPage() {
       alive = false;
     };
   }, [bandId, todayKey]);
+
+  // Expand rules into date-based entries for a given date
+  const getExpandedRulesForDate = React.useCallback(
+    (dateKey: string): Map<string, AvailabilityRule> => {
+      const result = new Map<string, AvailabilityRule>();
+      const date = new Date(dateKey + 'T00:00:00');
+      const dayOfWeek = date.getDay();
+
+      for (const rule of rules) {
+        if (rule.dayOfWeek !== dayOfWeek) continue;
+
+        const startsOn = new Date(rule.startsOn + 'T00:00:00');
+        const endsOn = rule.endsOn
+          ? new Date(rule.endsOn + 'T23:59:59')
+          : null;
+
+        if (date < startsOn) continue;
+        if (endsOn && date > endsOn) continue;
+
+        // Check if there's an explicit entry for this date
+        const hasExplicit = unavailableDates.some(
+          (d) => d.date === dateKey && d.profileId === rule.profileId
+        );
+
+        if (!hasExplicit) {
+          result.set(rule.profileId, rule);
+        }
+      }
+
+      return result;
+    },
+    [rules, unavailableDates]
+  );
 
   const goToPrevMonth = () => {
     if (viewMonth === 0) {
@@ -256,8 +735,19 @@ export default function BandAvailabilityPage() {
   for (let d = 1; d <= daysInMonth; d++) calendarCells.push(d);
 
   const selectedDateInfo = selectedDate
-    ? getDateStatus(selectedDate, members, unavailableDates)
+    ? getDateStatus(
+        selectedDate,
+        members,
+        unavailableDates,
+        getExpandedRulesForDate(selectedDate)
+      )
     : null;
+
+  const availableMembers = selectedDateInfo
+    ? members.filter(
+        (m) => !selectedDateInfo.unavailableMembers.find((u) => u.member.id === m.id)
+      )
+    : [];
 
   // Count stats for month
   let allFreeCount = 0;
@@ -266,7 +756,12 @@ export default function BandAvailabilityPage() {
   for (let d = 1; d <= daysInMonth; d++) {
     const dk = formatDateKey(viewYear, viewMonth, d);
     if (dk < todayKey) continue;
-    const { status } = getDateStatus(dk, members, unavailableDates);
+    const { status } = getDateStatus(
+      dk,
+      members,
+      unavailableDates,
+      getExpandedRulesForDate(dk)
+    );
     if (status === 'all') allFreeCount++;
     else if (status === 'none') noneFreeCount++;
     else partialCount++;
@@ -569,10 +1064,11 @@ export default function BandAvailabilityPage() {
                   if (day === null) return <div key={`empty-${idx}`} />;
 
                   const dateKey = formatDateKey(viewYear, viewMonth, day);
-                  const { status, count } = getDateStatus(
+                  const { status, count, hasPartialDay } = getDateStatus(
                     dateKey,
                     members,
-                    unavailableDates
+                    unavailableDates,
+                    getExpandedRulesForDate(dateKey)
                   );
                   const isSelected = selectedDate === dateKey;
                   const isToday = dateKey === todayKey;
@@ -629,6 +1125,7 @@ export default function BandAvailabilityPage() {
                         cursor: isPast ? 'default' : 'pointer',
                         opacity: isPast ? 0.4 : 1,
                         gap: 2,
+                        position: 'relative',
                       }}
                     >
                       <span
@@ -650,6 +1147,21 @@ export default function BandAvailabilityPage() {
                       >
                         {count}/{members.length}
                       </span>
+                      {/* Partial day indicator */}
+                      {hasPartialDay && !isPast && (
+                        <div
+                          style={{
+                            position: 'absolute',
+                            top: 3,
+                            right: 3,
+                            width: 6,
+                            height: 6,
+                            borderRadius: 3,
+                            background: '#a78bfa',
+                          }}
+                          title="Some members have partial-day unavailability"
+                        />
+                      )}
                     </button>
                   );
                 })}
@@ -667,207 +1179,178 @@ export default function BandAvailabilityPage() {
                   marginTop: 16,
                 }}
               >
+                {/* Summary Bar */}
                 <div
                   style={{
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
                     marginBottom: 16,
+                    paddingBottom: 16,
+                    borderBottom: '1px solid rgba(255,255,255,0.06)',
                   }}
                 >
                   <div>
                     <div
                       style={{
-                        fontSize: 11,
-                        color: '#a78bfa',
-                        fontWeight: 600,
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.5px',
+                        fontSize: 16,
+                        fontWeight: 700,
+                        color: '#f9fafb',
                       }}
-                    >
-                      Selected Date
-                    </div>
-                    <div
-                      style={{ fontSize: 18, fontWeight: 700, marginTop: 4 }}
                     >
                       {new Date(selectedDate + 'T00:00:00').toLocaleDateString(
                         'en-US',
                         { weekday: 'long', month: 'long', day: 'numeric' }
                       )}
                     </div>
-                  </div>
-                  <div
-                    style={{
-                      background:
-                        selectedDateInfo.status === 'all'
-                          ? 'rgba(34, 197, 94, 0.2)'
-                          : selectedDateInfo.status === 'none'
-                          ? 'rgba(239, 68, 68, 0.2)'
-                          : 'rgba(250, 204, 21, 0.2)',
-                      padding: '8px 14px',
-                      borderRadius: 20,
-                      fontSize: 13,
-                      fontWeight: 600,
-                      color:
-                        selectedDateInfo.status === 'all'
-                          ? '#4ade80'
-                          : selectedDateInfo.status === 'none'
-                          ? '#fca5a5'
-                          : '#fde047',
-                    }}
-                  >
-                    {selectedDateInfo.count}/{members.length} available
-                  </div>
-                </div>
-
-                {/* Available */}
-                <div style={{ marginBottom: 16 }}>
-                  <div
-                    style={{
-                      fontSize: 12,
-                      color: '#9ca3af',
-                      marginBottom: 10,
-                      fontWeight: 600,
-                    }}
-                  >
-                    ✓ Available
-                  </div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                    {members
-                      .filter(
-                        (m) =>
-                          !selectedDateInfo.unavailableMembers.find(
-                            (u) => u.id === m.id
-                          )
-                      )
-                      .map((member) => (
-                        <div
-                          key={member.id}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 8,
-                            padding: '8px 12px',
-                            background: 'rgba(34, 197, 94, 0.1)',
-                            border: '1px solid rgba(34, 197, 94, 0.2)',
-                            borderRadius: 10,
-                          }}
-                        >
-                          <div
-                            style={{
-                              width: 28,
-                              height: 28,
-                              borderRadius: '50%',
-                              background:
-                                'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              fontSize: 11,
-                              fontWeight: 700,
-                            }}
-                          >
-                            {getInitials(member.name)}
-                          </div>
-                          <div>
-                            <div
-                              style={{
-                                fontSize: 13,
-                                fontWeight: 600,
-                                color: '#e5e7eb',
-                              }}
-                            >
-                              {member.name}
-                            </div>
-                            {member.role && (
-                              <div style={{ fontSize: 11, color: '#9ca3af' }}>
-                                {member.role}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                  </div>
-                </div>
-
-                {/* Unavailable */}
-                {selectedDateInfo.unavailableMembers.length > 0 && (
-                  <div>
                     <div
                       style={{
-                        fontSize: 12,
+                        fontSize: 13,
                         color: '#9ca3af',
-                        marginBottom: 10,
-                        fontWeight: 600,
+                        marginTop: 4,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 12,
                       }}
                     >
-                      ✗ Unavailable
-                    </div>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                      {selectedDateInfo.unavailableMembers.map((member) => (
-                        <div
-                          key={member.id}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 8,
-                            padding: '8px 12px',
-                            background: 'rgba(239, 68, 68, 0.1)',
-                            border: '1px solid rgba(239, 68, 68, 0.2)',
-                            borderRadius: 10,
-                          }}
-                        >
-                          <div
-                            style={{
-                              width: 28,
-                              height: 28,
-                              borderRadius: '50%',
-                              background:
-                                'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              fontSize: 11,
-                              fontWeight: 700,
-                            }}
-                          >
-                            {getInitials(member.name)}
-                          </div>
-                          <div>
-                            <div
-                              style={{
-                                fontSize: 13,
-                                fontWeight: 600,
-                                color: '#e5e7eb',
-                              }}
-                            >
-                              {member.name}
-                            </div>
-                            {member.role && (
-                              <div style={{ fontSize: 11, color: '#9ca3af' }}>
-                                {member.role}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      ))}
+                      <span style={{ color: '#4ade80' }}>
+                        ✓ {availableMembers.length} available
+                      </span>
+                      <span style={{ color: '#6b7280' }}>•</span>
+                      <span style={{ color: '#fca5a5' }}>
+                        ✗ {selectedDateInfo.unavailableMembers.length} unavailable
+                      </span>
                     </div>
                   </div>
-                )}
+                </div>
+
+                {/* Collapsible Sections */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {/* Available Section */}
+                  <CollapsibleSection
+                    title="Available"
+                    count={availableMembers.length}
+                    defaultOpen={!isLargeBand}
+                    variant="available"
+                  >
+                    {availableMembers.length > 0 ? (
+                      <AvatarStack
+                        members={availableMembers}
+                        maxVisible={isLargeBand ? 8 : 10}
+                      />
+                    ) : (
+                      <p style={{ fontSize: 13, color: '#9ca3af', margin: 0 }}>
+                        No one is available on this date
+                      </p>
+                    )}
+                  </CollapsibleSection>
+
+                  {/* Unavailable Section */}
+                  {selectedDateInfo.unavailableMembers.length > 0 && (
+                    <CollapsibleSection
+                      title="Unavailable"
+                      count={selectedDateInfo.unavailableMembers.length}
+                      defaultOpen={true}
+                      variant="unavailable"
+                    >
+                      <div
+                        style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: 8,
+                        }}
+                      >
+                        {selectedDateInfo.unavailableMembers.map((info) => (
+                          <div
+                            key={info.member.id}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'flex-start',
+                              gap: 10,
+                              padding: '10px 12px',
+                              background: 'rgba(0,0,0,0.2)',
+                              borderRadius: 10,
+                            }}
+                          >
+                            <Avatar
+                              src={info.member.avatarUrl}
+                              name={info.member.name}
+                              size={32}
+                              variant="unavailable"
+                            />
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div
+                                style={{
+                                  fontSize: 14,
+                                  fontWeight: 600,
+                                  color: '#e5e7eb',
+                                }}
+                              >
+                                {info.member.name}
+                              </div>
+                              <div
+                                style={{
+                                  fontSize: 12,
+                                  color: '#9ca3af',
+                                  marginTop: 2,
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: 6,
+                                  flexWrap: 'wrap',
+                                }}
+                              >
+                                {info.note && (
+                                  <>
+                                    <TruncatedNote
+                                      note={info.note}
+                                      memberName={info.member.name}
+                                      timeRange={formatTimeRange(
+                                        info.allDay,
+                                        info.startTime,
+                                        info.endTime
+                                      )}
+                                    />
+                                    <span style={{ color: '#4b5563' }}>•</span>
+                                  </>
+                                )}
+                                <span
+                                  style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 4,
+                                  }}
+                                >
+                                  <IonIcon
+                                    icon={timeOutline}
+                                    style={{ fontSize: 12 }}
+                                  />
+                                  {formatTimeRange(
+                                    info.allDay,
+                                    info.startTime,
+                                    info.endTime
+                                  )}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </CollapsibleSection>
+                  )}
+                </div>
 
                 {/* Actions */}
-                <div
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'flex-end',
-                    gap: 10,
-                    marginTop: 20,
-                    paddingTop: 16,
-                    borderTop: '1px solid rgba(255,255,255,0.06)',
-                  }}
-                >
-                  {/* Only admins can create events */}
-                  {isAdmin && (
+                {isAdmin && (
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'flex-end',
+                      gap: 10,
+                      marginTop: 16,
+                      paddingTop: 16,
+                      borderTop: '1px solid rgba(255,255,255,0.06)',
+                    }}
+                  >
                     <button
                       type="button"
                       onClick={handleCreateEvent}
@@ -885,8 +1368,8 @@ export default function BandAvailabilityPage() {
                     >
                       Create Event
                     </button>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
             )}
 
