@@ -32,7 +32,7 @@ export function AvatarCard({ displayName, avatarUrl, location }: Props) {
               position: 'absolute',
               inset: -12,
               background:
-                'radial-gradient(circle, rgba(167, 139, 250, 0.15) 0%, transparent 70%)',
+                'radial-gradient(circle, rgba(52, 211, 153, 0.1) 0%, transparent 70%)',
               filter: 'blur(16px)',
               borderRadius: '50%',
             }}

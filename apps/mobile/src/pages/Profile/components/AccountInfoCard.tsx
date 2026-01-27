@@ -22,7 +22,7 @@ export function AccountInfoCard() {
       }}
       onMouseEnter={(e) => {
         e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
-        e.currentTarget.style.borderColor = 'rgba(167,139,250,0.3)';
+        e.currentTarget.style.borderColor = 'rgba(52,211,153,0.3)';
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.background = 'rgba(255,255,255,0.02)';
