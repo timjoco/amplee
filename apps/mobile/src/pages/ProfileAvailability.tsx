@@ -26,6 +26,21 @@ import { useNavigate } from 'react-router-dom';
 import AndroidBottomSafeArea from '../components/AndroidBottomSafeArea';
 import { supabase } from '../lib/supabase';
 
+// Hook to detect larger screens (tablets, desktops)
+function useIsLargeScreen(breakpoint = 768) {
+  const [isLarge, setIsLarge] = React.useState(
+    typeof window !== 'undefined' && window.innerWidth >= breakpoint
+  );
+
+  React.useEffect(() => {
+    const handleResize = () => setIsLarge(window.innerWidth >= breakpoint);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [breakpoint]);
+
+  return isLarge;
+}
+
 type UnavailableDate = {
   id: string;
   date: string;
@@ -864,6 +879,7 @@ function RuleModal({
 
 export default function ProfileAvailability() {
   const nav = useNavigate();
+  const isLargeScreen = useIsLargeScreen();
 
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -1364,7 +1380,7 @@ export default function ProfileAvailability() {
 
         {!loading && !error && (
           <div
-            style={{ maxWidth: 600, margin: '0 auto', padding: '0 16px 32px' }}
+            style={{ maxWidth: 900, margin: '0 auto', padding: '0 24px 32px' }}
           >
             {/* Recurring Rules Section */}
             <div
@@ -1596,16 +1612,16 @@ export default function ProfileAvailability() {
               style={{
                 background: 'rgba(255,255,255,0.02)',
                 border: '1px solid rgba(255,255,255,0.06)',
-                borderRadius: 16,
-                padding: '16px',
+                borderRadius: isLargeScreen ? 20 : 16,
+                padding: isLargeScreen ? '24px' : '16px',
               }}
             >
               <div
                 style={{
                   display: 'grid',
                   gridTemplateColumns: 'repeat(7, 1fr)',
-                  gap: 4,
-                  marginBottom: 8,
+                  gap: isLargeScreen ? 8 : 4,
+                  marginBottom: isLargeScreen ? 12 : 8,
                 }}
               >
                 {DAYS.map((day) => (
@@ -1613,10 +1629,10 @@ export default function ProfileAvailability() {
                     key={day}
                     style={{
                       textAlign: 'center',
-                      fontSize: 11,
+                      fontSize: isLargeScreen ? 13 : 11,
                       fontWeight: 600,
                       color: '#6b7280',
-                      padding: '8px 0',
+                      padding: isLargeScreen ? '12px 0' : '8px 0',
                     }}
                   >
                     {day}
@@ -1628,7 +1644,7 @@ export default function ProfileAvailability() {
                 style={{
                   display: 'grid',
                   gridTemplateColumns: 'repeat(7, 1fr)',
-                  gap: 4,
+                  gap: isLargeScreen ? 8 : 4,
                 }}
               >
                 {calendarCells.map((day, idx) => {
@@ -1654,7 +1670,7 @@ export default function ProfileAvailability() {
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        borderRadius: 10,
+                        borderRadius: isLargeScreen ? 12 : 10,
                         border: isToday
                           ? '2px solid rgba(167, 139, 250, 0.5)'
                           : isUnavailable
@@ -1673,7 +1689,7 @@ export default function ProfileAvailability() {
                     >
                       <span
                         style={{
-                          fontSize: 14,
+                          fontSize: isLargeScreen ? 16 : 14,
                           fontWeight: isToday || isUnavailable ? 600 : 400,
                           color: isUnavailable
                             ? '#fca5a5'

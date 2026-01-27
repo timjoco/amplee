@@ -23,12 +23,39 @@ import BandSettingsSheetMobile from '../../components/Bands/BandSheetModal';
 import AvatarImageMobile from '../../components/ui/AvatarImageMobile';
 import { supabase } from '../../lib/supabase';
 
+// Hook to detect screen size for responsive layouts
+function useScreenSize() {
+  const [size, setSize] = React.useState<'small' | 'medium' | 'large'>(() => {
+    if (typeof window === 'undefined') return 'small';
+    if (window.innerWidth >= 1024) return 'large';
+    if (window.innerWidth >= 768) return 'medium';
+    return 'small';
+  });
+
+  React.useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 1024) setSize('large');
+      else if (window.innerWidth >= 768) setSize('medium');
+      else setSize('small');
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  return size;
+}
+
 type MembershipRole = 'admin' | 'member';
 
 export default function BandSheetMobileLight() {
   const params = useParams<{ bandId?: string; id?: string }>();
   const navigate = useNavigate();
+  const screenSize = useScreenSize();
   const bandId = params.bandId ?? params.id ?? null;
+
+  const isLarge = screenSize === 'large';
+  const isMedium = screenSize === 'medium';
+  const isLargeOrMedium = isLarge || isMedium;
 
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -333,8 +360,8 @@ export default function BandSheetMobileLight() {
         ) : (
           <div
             style={{
-              padding: '20px 16px 40px',
-              maxWidth: '600px',
+              padding: isLargeOrMedium ? '28px 32px 40px' : '20px 16px 40px',
+              maxWidth: isLarge ? '1100px' : isMedium ? '900px' : '600px',
               margin: '0 auto',
             }}
           >
@@ -350,12 +377,12 @@ export default function BandSheetMobileLight() {
                   background:
                     'linear-gradient(135deg, #ecfdf5 0%, #f0fdf4 40%, #e0f2fe 100%)',
                   border: '1px solid rgba(148, 163, 184, 0.5)',
-                  borderRadius: 24,
-                  padding: '20px',
-                  marginBottom: 24,
+                  borderRadius: isLargeOrMedium ? 28 : 24,
+                  padding: isLargeOrMedium ? '28px' : '20px',
+                  marginBottom: isLargeOrMedium ? 28 : 24,
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: 16,
+                  gap: isLargeOrMedium ? 20 : 16,
                   cursor: 'pointer',
                   textAlign: 'left',
                   boxShadow: '0 14px 30px rgba(15, 23, 42, 0.12)',
@@ -493,8 +520,12 @@ export default function BandSheetMobileLight() {
             <div
               style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(2, 1fr)',
-                gap: 12,
+                gridTemplateColumns: isLarge
+                  ? 'repeat(4, 1fr)'
+                  : isMedium
+                  ? 'repeat(4, 1fr)'
+                  : 'repeat(2, 1fr)',
+                gap: isLargeOrMedium ? 16 : 12,
                 marginBottom: nextEvent ? 16 : 0,
               }}
             >
@@ -505,23 +536,23 @@ export default function BandSheetMobileLight() {
                 style={{
                   background: '#ffffff',
                   border: '1px solid rgba(148, 163, 184, 0.5)',
-                  borderRadius: 20,
-                  padding: '16px 14px',
+                  borderRadius: isLargeOrMedium ? 24 : 20,
+                  padding: isLargeOrMedium ? '20px 18px' : '16px 14px',
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: 10,
+                  gap: isLargeOrMedium ? 14 : 10,
                   cursor: 'pointer',
                   textAlign: 'left',
-                  minHeight: 130,
+                  minHeight: isLargeOrMedium ? 160 : 130,
                   position: 'relative',
                   boxShadow: '0 10px 20px rgba(15, 23, 42, 0.06)',
                 }}
               >
                 <div
                   style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: 12,
+                    width: isLargeOrMedium ? 48 : 40,
+                    height: isLargeOrMedium ? 48 : 40,
+                    borderRadius: isLargeOrMedium ? 14 : 12,
                     background: '#dcfce7',
                     display: 'flex',
                     alignItems: 'center',
@@ -531,13 +562,13 @@ export default function BandSheetMobileLight() {
                 >
                   <IonIcon
                     icon={calendarOutline}
-                    style={{ fontSize: 22, color: '#16a34a' }}
+                    style={{ fontSize: isLargeOrMedium ? 26 : 22, color: '#16a34a' }}
                   />
                 </div>
                 <div style={{ flex: 1 }}>
                   <div
                     style={{
-                      fontSize: 16,
+                      fontSize: isLargeOrMedium ? 18 : 16,
                       fontWeight: 700,
                       color: '#0f172a',
                       marginBottom: 4,
@@ -547,7 +578,7 @@ export default function BandSheetMobileLight() {
                   </div>
                   <div
                     style={{
-                      fontSize: 12,
+                      fontSize: isLargeOrMedium ? 13 : 12,
                       color: '#4b5563',
                       opacity: 0.9,
                     }}
@@ -559,9 +590,9 @@ export default function BandSheetMobileLight() {
                   icon={chevronForwardOutline}
                   style={{
                     position: 'absolute',
-                    top: 16,
-                    right: 14,
-                    fontSize: 18,
+                    top: isLargeOrMedium ? 20 : 16,
+                    right: isLargeOrMedium ? 18 : 14,
+                    fontSize: isLargeOrMedium ? 20 : 18,
                     color: 'rgba(107, 114, 128, 0.8)',
                   }}
                 />
@@ -574,39 +605,39 @@ export default function BandSheetMobileLight() {
                 style={{
                   background: '#ffffff',
                   border: '1px solid rgba(148, 163, 184, 0.5)',
-                  borderRadius: 20,
-                  padding: '16px 14px',
+                  borderRadius: isLargeOrMedium ? 24 : 20,
+                  padding: isLargeOrMedium ? '20px 18px' : '16px 14px',
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: 10,
+                  gap: isLargeOrMedium ? 14 : 10,
                   cursor: 'pointer',
                   textAlign: 'left',
-                  minHeight: 130,
+                  minHeight: isLargeOrMedium ? 160 : 130,
                   position: 'relative',
                   boxShadow: '0 10px 20px rgba(15, 23, 42, 0.06)',
                 }}
               >
                 <div
                   style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: 12,
-                    background: '#fef3c7', // amber-100
+                    width: isLargeOrMedium ? 48 : 40,
+                    height: isLargeOrMedium ? 48 : 40,
+                    borderRadius: isLargeOrMedium ? 14 : 12,
+                    background: '#fef3c7',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    border: '1px solid #facc15', // amber-400
+                    border: '1px solid #facc15',
                   }}
                 >
                   <IonIcon
                     icon={clipboardOutline}
-                    style={{ fontSize: 22, color: '#d97706' }} // amber-600
+                    style={{ fontSize: isLargeOrMedium ? 26 : 22, color: '#d97706' }}
                   />
                 </div>
                 <div style={{ flex: 1 }}>
                   <div
                     style={{
-                      fontSize: 16,
+                      fontSize: isLargeOrMedium ? 18 : 16,
                       fontWeight: 700,
                       color: '#0f172a',
                       marginBottom: 4,
@@ -616,7 +647,7 @@ export default function BandSheetMobileLight() {
                   </div>
                   <div
                     style={{
-                      fontSize: 12,
+                      fontSize: isLargeOrMedium ? 13 : 12,
                       color: '#4b5563',
                       opacity: 0.9,
                     }}
@@ -628,9 +659,9 @@ export default function BandSheetMobileLight() {
                   icon={chevronForwardOutline}
                   style={{
                     position: 'absolute',
-                    top: 16,
-                    right: 14,
-                    fontSize: 18,
+                    top: isLargeOrMedium ? 20 : 16,
+                    right: isLargeOrMedium ? 18 : 14,
+                    fontSize: isLargeOrMedium ? 20 : 18,
                     color: 'rgba(107, 114, 128, 0.8)',
                   }}
                 />
@@ -643,39 +674,39 @@ export default function BandSheetMobileLight() {
                 style={{
                   background: '#ffffff',
                   border: '1px solid rgba(148, 163, 184, 0.5)',
-                  borderRadius: 20,
-                  padding: '16px 14px',
+                  borderRadius: isLargeOrMedium ? 24 : 20,
+                  padding: isLargeOrMedium ? '20px 18px' : '16px 14px',
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: 10,
+                  gap: isLargeOrMedium ? 14 : 10,
                   cursor: 'pointer',
                   textAlign: 'left',
-                  minHeight: 130,
+                  minHeight: isLargeOrMedium ? 160 : 130,
                   position: 'relative',
                   boxShadow: '0 10px 20px rgba(15, 23, 42, 0.06)',
                 }}
               >
                 <div
                   style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: 12,
-                    background: '#fdf2ff', // pink-50
+                    width: isLargeOrMedium ? 48 : 40,
+                    height: isLargeOrMedium ? 48 : 40,
+                    borderRadius: isLargeOrMedium ? 14 : 12,
+                    background: '#fdf2ff',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    border: '1px solid #f9a8d4', // pink-300
+                    border: '1px solid #f9a8d4',
                   }}
                 >
                   <IonIcon
                     icon={musicalNotesOutline}
-                    style={{ fontSize: 22, color: '#db2777' }} // pink-600
+                    style={{ fontSize: isLargeOrMedium ? 26 : 22, color: '#db2777' }}
                   />
                 </div>
                 <div style={{ flex: 1 }}>
                   <div
                     style={{
-                      fontSize: 16,
+                      fontSize: isLargeOrMedium ? 18 : 16,
                       fontWeight: 700,
                       color: '#0f172a',
                       marginBottom: 4,
@@ -685,7 +716,7 @@ export default function BandSheetMobileLight() {
                   </div>
                   <div
                     style={{
-                      fontSize: 12,
+                      fontSize: isLargeOrMedium ? 13 : 12,
                       color: '#4b5563',
                       opacity: 0.9,
                     }}
@@ -697,9 +728,9 @@ export default function BandSheetMobileLight() {
                   icon={chevronForwardOutline}
                   style={{
                     position: 'absolute',
-                    top: 16,
-                    right: 14,
-                    fontSize: 18,
+                    top: isLargeOrMedium ? 20 : 16,
+                    right: isLargeOrMedium ? 18 : 14,
+                    fontSize: isLargeOrMedium ? 20 : 18,
                     color: 'rgba(107, 114, 128, 0.8)',
                   }}
                 />
@@ -712,39 +743,39 @@ export default function BandSheetMobileLight() {
                 style={{
                   background: '#ffffff',
                   border: '1px solid rgba(148, 163, 184, 0.5)',
-                  borderRadius: 20,
-                  padding: '16px 14px',
+                  borderRadius: isLargeOrMedium ? 24 : 20,
+                  padding: isLargeOrMedium ? '20px 18px' : '16px 14px',
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: 10,
+                  gap: isLargeOrMedium ? 14 : 10,
                   cursor: 'pointer',
                   textAlign: 'left',
-                  minHeight: 130,
+                  minHeight: isLargeOrMedium ? 160 : 130,
                   position: 'relative',
                   boxShadow: '0 10px 20px rgba(15, 23, 42, 0.06)',
                 }}
               >
                 <div
                   style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: 12,
-                    background: '#e0f2fe', // sky-100
+                    width: isLargeOrMedium ? 48 : 40,
+                    height: isLargeOrMedium ? 48 : 40,
+                    borderRadius: isLargeOrMedium ? 14 : 12,
+                    background: '#e0f2fe',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    border: '1px solid #7dd3fc', // sky-300
+                    border: '1px solid #7dd3fc',
                   }}
                 >
                   <IonIcon
                     icon={peopleOutline}
-                    style={{ fontSize: 22, color: '#0284c7' }} // sky-600
+                    style={{ fontSize: isLargeOrMedium ? 26 : 22, color: '#0284c7' }}
                   />
                 </div>
                 <div style={{ flex: 1 }}>
                   <div
                     style={{
-                      fontSize: 16,
+                      fontSize: isLargeOrMedium ? 18 : 16,
                       fontWeight: 700,
                       color: '#0f172a',
                       marginBottom: 4,
@@ -754,7 +785,7 @@ export default function BandSheetMobileLight() {
                   </div>
                   <div
                     style={{
-                      fontSize: 12,
+                      fontSize: isLargeOrMedium ? 13 : 12,
                       color: '#4b5563',
                       opacity: 0.9,
                     }}
@@ -766,9 +797,9 @@ export default function BandSheetMobileLight() {
                   icon={chevronForwardOutline}
                   style={{
                     position: 'absolute',
-                    top: 16,
-                    right: 14,
-                    fontSize: 18,
+                    top: isLargeOrMedium ? 20 : 16,
+                    right: isLargeOrMedium ? 18 : 14,
+                    fontSize: isLargeOrMedium ? 20 : 18,
                     color: 'rgba(107, 114, 128, 0.8)',
                   }}
                 />

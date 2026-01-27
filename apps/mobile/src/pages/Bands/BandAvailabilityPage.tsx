@@ -20,6 +20,21 @@ import * as React from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 
+// Hook to detect larger screens (tablets, desktops)
+function useIsLargeScreen(breakpoint = 768) {
+  const [isLarge, setIsLarge] = React.useState(
+    typeof window !== 'undefined' && window.innerWidth >= breakpoint
+  );
+
+  React.useEffect(() => {
+    const handleResize = () => setIsLarge(window.innerWidth >= breakpoint);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [breakpoint]);
+
+  return isLarge;
+}
+
 type Member = {
   id: string;
   name: string;
@@ -516,6 +531,7 @@ function AvatarStack({
 export default function BandAvailabilityPage() {
   const navigate = useNavigate();
   const { bandId } = useParams<{ bandId: string }>();
+  const isLargeScreen = useIsLargeScreen();
 
   const [loading, setLoading] = React.useState(true);
   const [bandName, setBandName] = React.useState('');
@@ -904,9 +920,9 @@ export default function BandAvailabilityPage() {
         ) : (
           <div
             style={{
-              maxWidth: 600,
+              maxWidth: 900,
               margin: '0 auto',
-              padding: '0 16px 120px', // extra bottom padding so it clears bottom nav
+              padding: isLargeScreen ? '0 24px 120px' : '0 16px 120px',
             }}
           >
             {/* Legend */}
@@ -1025,16 +1041,16 @@ export default function BandAvailabilityPage() {
               style={{
                 background: 'rgba(255,255,255,0.02)',
                 border: '1px solid rgba(255,255,255,0.06)',
-                borderRadius: 16,
-                padding: 16,
+                borderRadius: isLargeScreen ? 20 : 16,
+                padding: isLargeScreen ? 24 : 16,
               }}
             >
               <div
                 style={{
                   display: 'grid',
                   gridTemplateColumns: 'repeat(7, 1fr)',
-                  gap: 4,
-                  marginBottom: 8,
+                  gap: isLargeScreen ? 8 : 4,
+                  marginBottom: isLargeScreen ? 12 : 8,
                 }}
               >
                 {DAYS.map((day) => (
@@ -1042,10 +1058,10 @@ export default function BandAvailabilityPage() {
                     key={day}
                     style={{
                       textAlign: 'center',
-                      fontSize: 11,
+                      fontSize: isLargeScreen ? 13 : 11,
                       fontWeight: 600,
                       color: '#6b7280',
-                      padding: '8px 0',
+                      padding: isLargeScreen ? '12px 0' : '8px 0',
                     }}
                   >
                     {day}
@@ -1057,7 +1073,7 @@ export default function BandAvailabilityPage() {
                 style={{
                   display: 'grid',
                   gridTemplateColumns: 'repeat(7, 1fr)',
-                  gap: 4,
+                  gap: isLargeScreen ? 8 : 4,
                 }}
               >
                 {calendarCells.map((day, idx) => {
@@ -1113,7 +1129,7 @@ export default function BandAvailabilityPage() {
                         flexDirection: 'column',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        borderRadius: 10,
+                        borderRadius: isLargeScreen ? 12 : 10,
                         border: isSelected
                           ? '2px solid #a78bfa'
                           : isToday
@@ -1124,13 +1140,13 @@ export default function BandAvailabilityPage() {
                           : colors.bg,
                         cursor: isPast ? 'default' : 'pointer',
                         opacity: isPast ? 0.4 : 1,
-                        gap: 2,
+                        gap: isLargeScreen ? 4 : 2,
                         position: 'relative',
                       }}
                     >
                       <span
                         style={{
-                          fontSize: 14,
+                          fontSize: isLargeScreen ? 16 : 14,
                           fontWeight: 600,
                           color: isSelected ? '#c4b5fd' : colors.text,
                         }}
@@ -1139,7 +1155,7 @@ export default function BandAvailabilityPage() {
                       </span>
                       <span
                         style={{
-                          fontSize: 9,
+                          fontSize: isLargeScreen ? 11 : 9,
                           color: isSelected
                             ? '#a78bfa'
                             : 'rgba(255,255,255,0.5)',
@@ -1152,11 +1168,11 @@ export default function BandAvailabilityPage() {
                         <div
                           style={{
                             position: 'absolute',
-                            top: 3,
-                            right: 3,
-                            width: 6,
-                            height: 6,
-                            borderRadius: 3,
+                            top: isLargeScreen ? 4 : 3,
+                            right: isLargeScreen ? 4 : 3,
+                            width: isLargeScreen ? 8 : 6,
+                            height: isLargeScreen ? 8 : 6,
+                            borderRadius: isLargeScreen ? 4 : 3,
                             background: '#a78bfa',
                           }}
                           title="Some members have partial-day unavailability"
