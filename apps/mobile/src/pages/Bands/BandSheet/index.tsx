@@ -15,8 +15,33 @@ import { DashboardGrid } from './components/DashboardGrid';
 import { NextEventCard } from './components/NextEventCard';
 import { useBandSheet } from './hooks/useBandSheet';
 
+// Hook to detect screen size for responsive layouts
+function useScreenSize() {
+  const [size, setSize] = React.useState<'small' | 'medium' | 'large'>(() => {
+    if (typeof window === 'undefined') return 'small';
+    if (window.innerWidth >= 1024) return 'large';
+    if (window.innerWidth >= 768) return 'medium';
+    return 'small';
+  });
+
+  React.useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 1024) setSize('large');
+      else if (window.innerWidth >= 768) setSize('medium');
+      else setSize('small');
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  return size;
+}
+
 export default function BandSheetMobile() {
   const navigate = useNavigate();
+  const screenSize = useScreenSize();
+  const isLarge = screenSize === 'large';
+  const isMedium = screenSize === 'medium';
   const {
     bandId,
     loading,
@@ -95,8 +120,12 @@ export default function BandSheetMobile() {
         ) : (
           <div
             style={{
-              padding: '20px 16px 24px',
-              maxWidth: '600px',
+              padding: isLarge
+                ? '28px 40px 32px'
+                : isMedium
+                ? '24px 28px 28px'
+                : '20px 16px 24px',
+              maxWidth: isLarge ? '1200px' : isMedium ? '900px' : '600px',
               margin: '0 auto',
             }}
           >

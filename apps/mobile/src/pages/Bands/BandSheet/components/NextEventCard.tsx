@@ -1,7 +1,30 @@
 import { IonIcon } from '@ionic/react';
 import { calendarOutline, chevronForwardOutline, timeOutline } from 'ionicons/icons';
+import * as React from 'react';
 import type { NextEvent } from '../types';
 import { computeTimeUntilEvent, formatEventDate, formatEventTime } from '../utils';
+
+// Hook to detect screen size for responsive layouts
+function useScreenSize() {
+  const [size, setSize] = React.useState<'small' | 'medium' | 'large'>(() => {
+    if (typeof window === 'undefined') return 'small';
+    if (window.innerWidth >= 1024) return 'large';
+    if (window.innerWidth >= 768) return 'medium';
+    return 'small';
+  });
+
+  React.useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 1024) setSize('large');
+      else if (window.innerWidth >= 768) setSize('medium');
+      else setSize('small');
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  return size;
+}
 
 type Props = {
   event: NextEvent;
@@ -11,6 +34,8 @@ type Props = {
 
 export function NextEventCard({ event, isPressed, onPress }: Props) {
   const timeUntil = computeTimeUntilEvent(event.starts_at);
+  const screenSize = useScreenSize();
+  const isLarge = screenSize === 'large';
 
   return (
     <button
@@ -21,12 +46,12 @@ export function NextEventCard({ event, isPressed, onPress }: Props) {
         background:
           'linear-gradient(135deg, rgba(30, 41, 59, 0.4) 0%, rgba(15, 23, 42, 0.3) 100%)',
         border: '1px solid rgba(71, 85, 105, 0.3)',
-        borderRadius: 24,
-        padding: '20px',
-        marginBottom: 24,
+        borderRadius: isLarge ? 28 : 24,
+        padding: isLarge ? '28px' : '20px',
+        marginBottom: isLarge ? 28 : 24,
         display: 'flex',
         flexDirection: 'column',
-        gap: 16,
+        gap: isLarge ? 20 : 16,
         cursor: 'pointer',
         textAlign: 'left',
         boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
@@ -39,9 +64,9 @@ export function NextEventCard({ event, isPressed, onPress }: Props) {
         icon={chevronForwardOutline}
         style={{
           position: 'absolute',
-          top: 20,
-          right: 20,
-          fontSize: 24,
+          top: isLarge ? 28 : 20,
+          right: isLarge ? 28 : 20,
+          fontSize: isLarge ? 28 : 24,
           color: 'rgba(148, 163, 184, 0.6)',
           opacity: 0.7,
         }}
@@ -51,15 +76,15 @@ export function NextEventCard({ event, isPressed, onPress }: Props) {
         style={{
           display: 'flex',
           alignItems: 'center',
-          gap: 10,
+          gap: isLarge ? 14 : 10,
           paddingRight: 32,
         }}
       >
         <div
           style={{
-            width: 48,
-            height: 48,
-            borderRadius: 14,
+            width: isLarge ? 56 : 48,
+            height: isLarge ? 56 : 48,
+            borderRadius: isLarge ? 16 : 14,
             background: 'rgba(52, 211, 153, 0.15)',
             display: 'flex',
             alignItems: 'center',
@@ -69,13 +94,13 @@ export function NextEventCard({ event, isPressed, onPress }: Props) {
         >
           <IonIcon
             icon={calendarOutline}
-            style={{ fontSize: 26, color: '#34d399' }}
+            style={{ fontSize: isLarge ? 30 : 26, color: '#34d399' }}
           />
         </div>
         <div>
           <div
             style={{
-              fontSize: 11,
+              fontSize: isLarge ? 13 : 11,
               fontWeight: 700,
               color: '#BBF7D0',
               textTransform: 'uppercase',
@@ -91,18 +116,18 @@ export function NextEventCard({ event, isPressed, onPress }: Props) {
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: 4,
-                padding: '4px 10px',
+                padding: isLarge ? '5px 12px' : '4px 10px',
                 borderRadius: 999,
                 background: 'rgba(15, 118, 110, 0.4)',
               }}
             >
               <IonIcon
                 icon={timeOutline}
-                style={{ fontSize: 12, color: '#A7F3D0' }}
+                style={{ fontSize: isLarge ? 14 : 12, color: '#A7F3D0' }}
               />
               <span
                 style={{
-                  fontSize: 12,
+                  fontSize: isLarge ? 14 : 12,
                   fontWeight: 700,
                   color: '#ECFDF5',
                 }}
@@ -117,10 +142,10 @@ export function NextEventCard({ event, isPressed, onPress }: Props) {
       <div>
         <div
           style={{
-            fontSize: 20,
+            fontSize: isLarge ? 26 : 20,
             fontWeight: 800,
             color: '#F9FAFB',
-            marginBottom: 8,
+            marginBottom: isLarge ? 10 : 8,
             letterSpacing: '-0.3px',
           }}
         >
@@ -128,7 +153,7 @@ export function NextEventCard({ event, isPressed, onPress }: Props) {
         </div>
         <div
           style={{
-            fontSize: 14,
+            fontSize: isLarge ? 17 : 14,
             color: '#E5E7EB',
             lineHeight: 1.5,
           }}
@@ -140,9 +165,9 @@ export function NextEventCard({ event, isPressed, onPress }: Props) {
         {event.location && (
           <div
             style={{
-              fontSize: 13,
+              fontSize: isLarge ? 15 : 13,
               color: 'rgba(203, 213, 225, 0.9)',
-              marginTop: 4,
+              marginTop: isLarge ? 6 : 4,
             }}
           >
             {event.location}

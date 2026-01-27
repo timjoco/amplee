@@ -7,9 +7,32 @@ import {
   musicalNotesOutline,
   peopleOutline,
 } from 'ionicons/icons';
+import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
 import BandAvailabilityWidget from '../../../../components/Bands/BandAvailabilityWidget';
 import type { RosterMember } from '../types';
+
+// Hook to detect screen size for responsive layouts
+function useScreenSize() {
+  const [size, setSize] = React.useState<'small' | 'medium' | 'large'>(() => {
+    if (typeof window === 'undefined') return 'small';
+    if (window.innerWidth >= 1024) return 'large';
+    if (window.innerWidth >= 768) return 'medium';
+    return 'small';
+  });
+
+  React.useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 1024) setSize('large');
+      else if (window.innerWidth >= 768) setSize('medium');
+      else setSize('small');
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  return size;
+}
 
 type Props = {
   bandId: string;
@@ -20,43 +43,43 @@ type Props = {
   handleButtonPress: (buttonId: string, action: () => void) => void;
 };
 
-const cardBaseStyle = {
+const getCardBaseStyle = (isLarge: boolean) => ({
   background:
     'linear-gradient(135deg, rgba(30, 41, 59, 0.4) 0%, rgba(15, 23, 42, 0.3) 100%)',
   border: '1px solid rgba(71, 85, 105, 0.3)',
-  borderRadius: 20,
-  padding: '16px 14px',
+  borderRadius: isLarge ? 24 : 20,
+  padding: isLarge ? '22px 20px' : '16px 14px',
   display: 'flex' as const,
   flexDirection: 'column' as const,
   cursor: 'pointer',
   textAlign: 'left' as const,
-  minHeight: 130,
+  minHeight: isLarge ? 160 : 130,
   position: 'relative' as const,
   transition: 'transform 120ms ease-out, box-shadow 120ms ease-out',
-};
+});
 
-const chevronStyle = {
+const getChevronStyle = (isLarge: boolean) => ({
   position: 'absolute' as const,
-  top: 16,
-  right: 14,
-  fontSize: 18,
+  top: isLarge ? 22 : 16,
+  right: isLarge ? 20 : 14,
+  fontSize: isLarge ? 20 : 18,
   color: 'rgba(148, 163, 184, 0.6)',
   opacity: 0.7,
-};
+});
 
-const labelStyle = {
-  fontSize: 11,
+const getLabelStyle = (isLarge: boolean) => ({
+  fontSize: isLarge ? 12 : 11,
   color: '#9ca3af',
   textTransform: 'uppercase' as const,
   letterSpacing: 0.5,
   fontWeight: 700,
-};
+});
 
-const descriptionStyle = {
-  fontSize: 12,
+const getDescriptionStyle = (isLarge: boolean) => ({
+  fontSize: isLarge ? 14 : 12,
   color: 'rgba(203, 213, 225, 0.8)',
   opacity: 0.9,
-};
+});
 
 export function DashboardGrid({
   bandId,
@@ -67,13 +90,24 @@ export function DashboardGrid({
   handleButtonPress,
 }: Props) {
   const navigate = useNavigate();
+  const screenSize = useScreenSize();
+  const isLarge = screenSize === 'large';
+  const isMedium = screenSize === 'medium';
+
+  const cardBaseStyle = getCardBaseStyle(isLarge);
+  const chevronStyle = getChevronStyle(isLarge);
+  const labelStyle = getLabelStyle(isLarge);
+  const descriptionStyle = getDescriptionStyle(isLarge);
+
+  // 3 columns on large, 2 on medium/small
+  const gridColumns = isLarge ? 'repeat(3, 1fr)' : 'repeat(2, 1fr)';
 
   return (
     <div
       style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(2, 1fr)',
-        gap: '12px',
+        gridTemplateColumns: gridColumns,
+        gap: isLarge ? '20px' : isMedium ? '16px' : '12px',
         marginBottom: '16px',
       }}
     >
@@ -94,13 +128,13 @@ export function DashboardGrid({
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: 8,
-            marginBottom: 8,
+            gap: isLarge ? 10 : 8,
+            marginBottom: isLarge ? 10 : 8,
           }}
         >
           <IonIcon
             icon={calendarOutline}
-            style={{ fontSize: 20, color: '#34d399' }}
+            style={{ fontSize: isLarge ? 24 : 20, color: '#34d399' }}
           />
           <span style={labelStyle}>Events</span>
         </div>
@@ -108,7 +142,7 @@ export function DashboardGrid({
           <div style={{ marginTop: 'auto' }}>
             <div
               style={{
-                fontSize: 28,
+                fontSize: isLarge ? 34 : 28,
                 fontWeight: 700,
                 color: '#34d399',
                 lineHeight: 1,
@@ -117,7 +151,7 @@ export function DashboardGrid({
             >
               {eventsCount}
             </div>
-            <div style={{ fontSize: 12, color: '#9ca3af' }}>
+            <div style={{ fontSize: isLarge ? 14 : 12, color: '#9ca3af' }}>
               {eventsCount === 1 ? 'event' : 'events'}
             </div>
           </div>
@@ -145,13 +179,13 @@ export function DashboardGrid({
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: 8,
-            marginBottom: 8,
+            gap: isLarge ? 10 : 8,
+            marginBottom: isLarge ? 10 : 8,
           }}
         >
           <IonIcon
             icon={clipboardOutline}
-            style={{ fontSize: 20, color: '#f59e0b' }}
+            style={{ fontSize: isLarge ? 24 : 20, color: '#f59e0b' }}
           />
           <span style={labelStyle}>Proposals</span>
         </div>
@@ -159,7 +193,7 @@ export function DashboardGrid({
           <div style={{ marginTop: 'auto' }}>
             <div
               style={{
-                fontSize: 28,
+                fontSize: isLarge ? 34 : 28,
                 fontWeight: 700,
                 color: '#f59e0b',
                 lineHeight: 1,
@@ -168,7 +202,7 @@ export function DashboardGrid({
             >
               {proposalsCount}
             </div>
-            <div style={{ fontSize: 12, color: '#9ca3af' }}>
+            <div style={{ fontSize: isLarge ? 14 : 12, color: '#9ca3af' }}>
               {proposalsCount === 1 ? 'proposal' : 'proposals'}
             </div>
           </div>
@@ -208,13 +242,13 @@ export function DashboardGrid({
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: 8,
-            marginBottom: 8,
+            gap: isLarge ? 10 : 8,
+            marginBottom: isLarge ? 10 : 8,
           }}
         >
           <IonIcon
             icon={musicalNotesOutline}
-            style={{ fontSize: 20, color: '#f472b6' }}
+            style={{ fontSize: isLarge ? 24 : 20, color: '#f472b6' }}
           />
           <span style={labelStyle}>Library</span>
         </div>
@@ -238,13 +272,13 @@ export function DashboardGrid({
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: 8,
-            marginBottom: 8,
+            gap: isLarge ? 10 : 8,
+            marginBottom: isLarge ? 10 : 8,
           }}
         >
           <IonIcon
             icon={peopleOutline}
-            style={{ fontSize: 20, color: '#38bdf8' }}
+            style={{ fontSize: isLarge ? 24 : 20, color: '#38bdf8' }}
           />
           <span style={labelStyle}>Roster</span>
         </div>
@@ -270,13 +304,13 @@ export function DashboardGrid({
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: 8,
-            marginBottom: 8,
+            gap: isLarge ? 10 : 8,
+            marginBottom: isLarge ? 10 : 8,
           }}
         >
           <IonIcon
             icon={globeOutline}
-            style={{ fontSize: 20, color: '#a78bfa' }}
+            style={{ fontSize: isLarge ? 24 : 20, color: '#a78bfa' }}
           />
           <span style={labelStyle}>Public Profile</span>
         </div>
