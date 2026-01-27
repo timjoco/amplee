@@ -5,16 +5,14 @@ import {
   IonPage,
   IonSpinner,
   IonText,
-  IonToast,
+  IonTitle,
   IonToolbar,
 } from '@ionic/react';
 import { chevronBackOutline, personAddOutline, shieldOutline } from 'ionicons/icons';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import { EmailInviteCard } from './components/EmailInviteCard';
 import { InviteLinkCard } from './components/InviteLinkCard';
-import { InviteModeSelector } from './components/InviteModeSelector';
 import { SmsInviteCard } from './components/SmsInviteCard';
 import { useInviteBand } from './hooks/useInviteBand';
 
@@ -50,21 +48,10 @@ export default function InviteBandPage() {
     err,
     bandName,
     isAdmin,
-    mode,
-    setMode,
-    emailInput,
-    setEmailInput,
-    emails,
-    sendingInvites,
     inviteLink,
     generatingLink,
     copied,
-    showSentToast,
-    setShowSentToast,
     generateInviteLink,
-    addEmailFromInput,
-    removeEmail,
-    sendEmailInvites,
     openNativeTexting,
     copyInviteLink,
   } = useInviteBand();
@@ -286,42 +273,14 @@ export default function InviteBandPage() {
               onRegenerate={() => generateInviteLink()}
             />
 
-            <InviteModeSelector mode={mode} onModeChange={setMode} />
-
-            {mode === 'email' ? (
-              <EmailInviteCard
-                emailInput={emailInput}
-                emails={emails}
-                sendingInvites={sendingInvites}
-                onEmailInputChange={setEmailInput}
-                onAddEmail={addEmailFromInput}
-                onRemoveEmail={removeEmail}
-                onSendInvites={sendEmailInvites}
-              />
-            ) : (
-              <SmsInviteCard
-                inviteLink={inviteLink}
-                onOpenTexting={openNativeTexting}
-              />
-            )}
+            <SmsInviteCard
+              inviteLink={inviteLink}
+              onOpenTexting={openNativeTexting}
+            />
           </div>
         )}
       </IonContent>
 
-      {/* Invites sent toast */}
-      <IonToast
-        isOpen={showSentToast}
-        onDidDismiss={() => setShowSentToast(false)}
-        message="Invites sent successfully."
-        duration={2000}
-        position="bottom"
-        style={
-          {
-            '--background': 'rgba(5,46,22,0.96)',
-            '--color': '#BBF7D0',
-          } as any
-        }
-      />
     </IonPage>
   );
 }
