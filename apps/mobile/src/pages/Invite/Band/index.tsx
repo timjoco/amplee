@@ -260,7 +260,7 @@ export default function InviteBandPage() {
               display: 'flex',
               flexDirection: 'column',
               gap: 16,
-              maxWidth: screenSize === 'small' ? 'none' : 600,
+              maxWidth: screenSize === 'small' ? 'none' : 800,
               margin: screenSize === 'small' ? undefined : '0 auto',
             }}
           >
