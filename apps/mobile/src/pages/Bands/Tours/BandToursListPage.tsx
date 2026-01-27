@@ -21,6 +21,12 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../../../lib/supabase';
+import { PaywallModal } from '../../Store/components/PaywallModal';
+import { TrialBanner } from '../../Store/components/TrialBanner';
+import { useBandSubscription } from '../../Store/hooks/useBandSubscription';
+import { useProduct } from '../../Store/hooks/useProducts';
+import { useRevenueCat } from '../../Store/hooks/useRevenueCat';
+import { useStartTrial } from '../../Store/hooks/useStartTrial';
 import { glassCard, TEAL } from './lib/styles';
 import { CreateTourModal } from './modals/CreateTourModal';
 import type { TourRow, TourStatus, TourWithStats } from './types/tourTypes';
@@ -38,10 +44,23 @@ export default function BandToursListPage() {
   const [tours, setTours] = useState<TourWithStats[]>([]);
   const [bandName, setBandName] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showPaywall, setShowPaywall] = useState(false);
 
   // User permissions
   const [myUserId, setMyUserId] = useState<string | null>(null);
   const [myRole, setMyRole] = useState<string | null>(null);
+
+  // Subscription check
+  const {
+    hasAccess,
+    isTrialing,
+    trialDaysLeft,
+    loading: subLoading,
+  } = useBandSubscription(bandId, 'tour-pro');
+  const { product } = useProduct('tour-pro');
+  const { starting: startingTrial, error: trialError, startTrial } = useStartTrial();
+  const { presentPaywall, hasAmpleePro } = useRevenueCat();
+  const [purchaseError, setPurchaseError] = useState<string | null>(null);
 
   // Long-press haptic state
   const longPressTimeoutRef = useRef<number | null>(null);
@@ -251,6 +270,34 @@ export default function BandToursListPage() {
     nav(`/bands/${bandId}/tours/${newTour.id}`);
   };
 
+  // Paywall handlers
+  const handleStartTrial = async () => {
+    if (!bandId) return;
+    const result = await startTrial(bandId, 'tour-pro');
+    if (result) {
+      setShowPaywall(false);
+      // Reload page to refresh subscription status
+      window.location.reload();
+    }
+  };
+
+  const handleSubscribe = async () => {
+    if (!bandId || !product) return;
+
+    setPurchaseError(null);
+
+    // Use RevenueCat's native paywall
+    const result = await presentPaywall();
+
+    if (result.purchased || result.restored) {
+      // Reload page to refresh subscription status
+      window.location.reload();
+    } else if (result.error) {
+      setPurchaseError('Unable to show subscription options. Please try again.');
+    }
+    // If cancelled, do nothing
+  };
+
   // ─────────────────────────────────────────────────────────────
   // Helpers
   // ─────────────────────────────────────────────────────────────
@@ -385,7 +432,7 @@ export default function BandToursListPage() {
           '--background': 'linear-gradient(180deg, #08080e 0%, #04040a 100%)',
         }}
       >
-        {loading ? (
+        {(loading || subLoading) ? (
           <div
             style={{
               display: 'grid',
@@ -413,6 +460,18 @@ export default function BandToursListPage() {
               </div>
             </div>
           </div>
+        ) : !hasAccess && product ? (
+          /* Paywall - no access to Tours Pro */
+          <PaywallModal
+            product={product}
+            bandId={bandId!}
+            bandName={bandName}
+            onClose={() => nav(-1)}
+            onStartTrial={handleStartTrial}
+            onSubscribe={handleSubscribe}
+            isStartingTrial={startingTrial}
+            trialError={trialError || purchaseError}
+          />
         ) : (
           <div
             style={{
@@ -470,6 +529,15 @@ export default function BandToursListPage() {
                 </span>
               </div>
             </div>
+
+            {/* Trial Banner */}
+            {isTrialing && trialDaysLeft !== null && (
+              <TrialBanner
+                daysLeft={trialDaysLeft}
+                productName="Tour Pro"
+                bandId={bandId}
+              />
+            )}
 
             {/* Non-admin notice */}
             {!isAdmin && myRole && (

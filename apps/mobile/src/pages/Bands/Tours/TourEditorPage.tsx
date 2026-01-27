@@ -5,7 +5,9 @@ import { IonContent, IonIcon, IonPage, IonSpinner, IonTextarea } from '@ionic/re
 import {
   chatbubblesOutline,
   chevronBackOutline,
+  closeCircle,
   informationCircleOutline,
+  locationOutline,
   mapOutline,
   navigateOutline,
   personOutline,
@@ -16,10 +18,13 @@ import {
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../../../lib/supabase';
+import { useChatKeyboardPadding } from '../../Events/EventChat/hooks/useChatKeyboardPadding';
 import { useLongPressHandlers } from '../../Events/EventChat/hooks/useLongPressHandlers';
 import { EmptyState } from './components/EmptyState';
+import { parseStopTags, serializeStopTags, type StopTagData } from './components/StopTag';
 import { StopsSection } from './components/StopsSection';
 import { TourActionsSection } from './components/TourActionsSection';
+import { TourChatStopPickerModal } from './components/TourChatStopPickerModal';
 import { TourMessageActionSheet } from './components/TourMessageActionSheet';
 import { TourReactionBar } from './components/TourReactionBar';
 import { TourRouteMap } from './components/TourRouteMap';
@@ -35,6 +40,14 @@ import { EditTourModal } from './modals/EditTourModal';
 import type { TourMessageWithUser, TourStatus } from './types/tourTypes';
 import { TOUR_STATUS_COLORS, TOUR_STATUS_LABELS } from './types/tourTypes';
 import AvatarImageMobile from '../../../components/ui/AvatarImageMobile';
+
+// Teal colors for stop tags
+const STOP_TAG = {
+  bg: 'rgba(20, 184, 166, 0.15)',
+  border: 'rgba(20, 184, 166, 0.35)',
+  text: '#2dd4bf',
+  icon: '#14b8a6',
+};
 
 type RouteParams = {
   bandId: string;
@@ -141,6 +154,8 @@ export default function TourEditorPage() {
   // Chat hook
   const chat = useTourChat(tourId);
   const [chatInput, setChatInput] = useState('');
+  const [stopTags, setStopTags] = useState<StopTagData[]>([]);
+  const [stopPickerOpen, setStopPickerOpen] = useState(false);
 
   // Chat action sheet state
   const [activeMessageId, setActiveMessageId] = useState<string | null>(null);
@@ -229,6 +244,9 @@ export default function TourEditorPage() {
     }
   }, [activeTab, chat.loading, chat.bottomRef]);
 
+  // Keyboard padding hook for chat
+  const keyboard = useChatKeyboardPadding();
+
   // Geocoding hook
   const geocode = useTourGeocode();
   const [isCalculatingRoutes, setIsCalculatingRoutes] = useState(false);
@@ -293,9 +311,11 @@ export default function TourEditorPage() {
   }, [stops]);
 
   const handleSendMessage = async () => {
-    if (!chatInput.trim()) return;
-    await chat.sendMessage(chatInput);
+    if (!chatInput.trim() && stopTags.length === 0) return;
+    const messageContent = serializeStopTags(chatInput, stopTags);
+    await chat.sendMessage(messageContent);
     setChatInput('');
+    setStopTags([]);
   };
 
   const handleChatKeyDown = (e: React.KeyboardEvent) => {
@@ -304,6 +324,38 @@ export default function TourEditorPage() {
       handleSendMessage();
     }
   };
+
+  const handleChatInputChange = useCallback((value: string) => {
+    // Check for @stops trigger
+    const triggerPattern = /(^|\s)@stops$/i;
+    if (triggerPattern.test(value)) {
+      // Remove the trigger and open picker
+      const cleanedValue = value.replace(triggerPattern, '$1').replace(/\s+$/, ' ');
+      setChatInput(cleanedValue);
+      setStopPickerOpen(true);
+    } else {
+      setChatInput(value);
+    }
+  }, []);
+
+  const handleStopSelect = useCallback((stop: StopTagData) => {
+    // Don't add duplicates
+    if (!stopTags.some((t) => t.id === stop.id)) {
+      setStopTags((prev) => [...prev, stop]);
+    }
+    setStopPickerOpen(false);
+  }, [stopTags]);
+
+  const handleRemoveStopTag = useCallback((tagId: string) => {
+    setStopTags((prev) => prev.filter((t) => t.id !== tagId));
+  }, []);
+
+  const handleStopNavigate = useCallback(
+    (stopId: string) => {
+      nav(`/bands/${bandId}/tours/${tourId}/stops/${stopId}`);
+    },
+    [nav, bandId, tourId]
+  );
 
   const formatTime = (timestamp: string | null) => {
     if (!timestamp) return '';
@@ -732,7 +784,7 @@ export default function TourEditorPage() {
                               wordBreak: 'break-word',
                             }}
                           >
-                            {msg.content}
+                            {parseStopTags(msg.content, handleStopNavigate)}
                           </p>
                           <div
                             style={{
@@ -797,7 +849,23 @@ export default function TourEditorPage() {
           width: '100%',
           backdropFilter: 'blur(10px)',
           background: '#050509',
-          paddingBottom: 'env(safe-area-inset-bottom)',
+          transition: keyboard.isAndroid
+            ? 'padding-bottom 280ms cubic-bezier(0.17, 0.59, 0.4, 0.77)'
+            : 'none',
+          ...(keyboard.isAndroid &&
+          typeof keyboard.composerPaddingBottom === 'number' &&
+          keyboard.composerPaddingBottom > 20
+            ? {
+                position: 'fixed' as const,
+                bottom: 0,
+                left: 0,
+                right: 0,
+                zIndex: 100,
+                paddingBottom: keyboard.composerPaddingBottom,
+              }
+            : {
+                paddingBottom: keyboard.composerPaddingBottom,
+              }),
         }}
       >
         <div
@@ -832,12 +900,79 @@ export default function TourEditorPage() {
                 '0 4px 24px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
             }}
           >
+            {/* Stop Tags */}
+            {stopTags.length > 0 && (
+              <div
+                style={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: 4,
+                  marginRight: 8,
+                }}
+              >
+                {stopTags.map((tag) => (
+                  <div
+                    key={tag.id}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 4,
+                      paddingLeft: 6,
+                      paddingRight: 4,
+                      paddingBlock: 3,
+                      borderRadius: 10,
+                      background: STOP_TAG.bg,
+                      border: `1px solid ${STOP_TAG.border}`,
+                    }}
+                  >
+                    <IonIcon
+                      icon={locationOutline}
+                      style={{
+                        fontSize: 11,
+                        color: STOP_TAG.icon,
+                        flexShrink: 0,
+                      }}
+                    />
+                    <span
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 600,
+                        color: STOP_TAG.text,
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        maxWidth: 80,
+                      }}
+                    >
+                      {tag.venueName}
+                    </span>
+                    <button
+                      onClick={() => handleRemoveStopTag(tag.id)}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: 0,
+                        margin: 0,
+                        border: 'none',
+                        background: 'transparent',
+                        cursor: 'pointer',
+                        color: STOP_TAG.text,
+                        opacity: 0.7,
+                      }}
+                    >
+                      <IonIcon icon={closeCircle} style={{ fontSize: 14 }} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
             <IonTextarea
               autoGrow={false}
               rows={1}
               value={chatInput}
-              placeholder="Message the tour..."
-              onIonInput={(e) => setChatInput(e.detail.value ?? '')}
+              placeholder={stopTags.length > 0 ? 'Add a message...' : 'Message... (type @stops)'}
+              onIonInput={(e) => handleChatInputChange(e.detail.value ?? '')}
               onKeyDown={handleChatKeyDown}
               enterkeyhint="send"
               inputMode="text"
@@ -863,30 +998,50 @@ export default function TourEditorPage() {
               }
             />
           </div>
+          {/* Stop picker button */}
+          <button
+            type="button"
+            onClick={() => setStopPickerOpen(true)}
+            aria-label="Tag a stop"
+            style={{
+              width: 36,
+              height: 47,
+              borderRadius: 10,
+              border: `1px solid ${STOP_TAG.border}`,
+              background: STOP_TAG.bg,
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: 0,
+              cursor: 'pointer',
+            }}
+          >
+            <IonIcon icon={locationOutline} style={{ fontSize: 18, color: STOP_TAG.icon }} />
+          </button>
           <button
             type="button"
             onClick={handleSendMessage}
             aria-label="Send message"
-            disabled={!chatInput.trim() || chat.sending}
+            disabled={(!chatInput.trim() && stopTags.length === 0) || chat.sending}
             style={{
               width: 44,
               height: 47,
               borderRadius: 12,
-              border: chatInput.trim()
+              border: (chatInput.trim() || stopTags.length > 0)
                 ? '1px solid rgba(217, 119, 87, 0.5)'
                 : '1px solid rgba(148, 163, 184, 0.3)',
-              background: chatInput.trim()
+              background: (chatInput.trim() || stopTags.length > 0)
                 ? 'rgba(217, 119, 87, 0.95)'
                 : 'rgba(15, 23, 42, 0.8)',
               display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
               padding: 0,
-              boxShadow: chatInput.trim() ? '0 4px 16px rgba(217, 119, 87, 0.4)' : 'none',
-              color: chatInput.trim() ? '#000000' : '#9ca3af',
+              boxShadow: (chatInput.trim() || stopTags.length > 0) ? '0 4px 16px rgba(217, 119, 87, 0.4)' : 'none',
+              color: (chatInput.trim() || stopTags.length > 0) ? '#000000' : '#9ca3af',
               cursor: 'pointer',
-              transform: chatInput.trim() ? 'scale(1)' : 'scale(0.95)',
-              opacity: chat.sending ? 0.6 : chatInput.trim() ? 1 : 0.6,
+              transform: (chatInput.trim() || stopTags.length > 0) ? 'scale(1)' : 'scale(0.95)',
+              opacity: chat.sending ? 0.6 : (chatInput.trim() || stopTags.length > 0) ? 1 : 0.6,
               transition: 'all 200ms cubic-bezier(0.4, 0, 0.2, 1)',
             }}
           >
@@ -949,6 +1104,14 @@ export default function TourEditorPage() {
         onDelete={handleDeleteMessage}
         onReact={handleReactToMessage}
         onEdit={handleEditMessage}
+      />
+
+      {/* Stop Picker Modal */}
+      <TourChatStopPickerModal
+        isOpen={stopPickerOpen}
+        tourId={tourId}
+        onClose={() => setStopPickerOpen(false)}
+        onSelect={handleStopSelect}
       />
     </div>
   );

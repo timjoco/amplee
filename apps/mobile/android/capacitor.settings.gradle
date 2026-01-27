@@ -31,3 +31,9 @@ project(':capacitor-share').projectDir = new File('../../../node_modules/.pnpm/@
 
 include ':capacitor-status-bar'
 project(':capacitor-status-bar').projectDir = new File('../../../node_modules/.pnpm/@capacitor+status-bar@7.0.3_@capacitor+core@7.4.4/node_modules/@capacitor/status-bar/android')
+
+include ':revenuecat-purchases-capacitor'
+project(':revenuecat-purchases-capacitor').projectDir = new File('../../../node_modules/.pnpm/@revenuecat+purchases-capacitor@12.0.5_@capacitor+core@7.4.4/node_modules/@revenuecat/purchases-capacitor/android')
+
+include ':revenuecat-purchases-capacitor-ui'
+project(':revenuecat-purchases-capacitor-ui').projectDir = new File('../../../node_modules/.pnpm/@revenuecat+purchases-capacitor-ui@12.0.5_@capacitor+core@7.4.4/node_modules/@revenuecat/purchases-capacitor-ui/android')

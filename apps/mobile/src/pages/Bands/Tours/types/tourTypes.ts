@@ -75,6 +75,9 @@ export type TourStopRow = {
   status: TourStopStatus;
   order_index: number;
 
+  // Setlist
+  setlist_id: string | null;
+
   // Coordinates & Route Planning
   venue_lat: number | null;
   venue_lng: number | null;

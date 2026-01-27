@@ -35,6 +35,8 @@ import BandToursListPage from './pages/Bands/Tours/BandToursListPage';
 import TourEditorPage from './pages/Bands/Tours/TourEditorPage';
 import TourStopEditorPage from './pages/Bands/Tours/TourStopEditorPage';
 import TourChatPage from './pages/Bands/Tours/TourChatPage';
+import StorePage from './pages/Store/StorePage';
+import StoreSuccessPage from './pages/Store/StoreSuccessPage';
 import EventChatPageMobile from './pages/Events/EventChat/EventChatPageMobile';
 import EventFilesPage from './pages/Events/EventFiles';
 import EventLayoutMobile from './pages/Events/EventLayoutMobile';
@@ -145,6 +147,10 @@ export default function App() {
             {/* authed home */}
             <Route path="/home" element={<Home />} />
             <Route path="/onboarding" element={<OnboardingPageMobile />} />
+
+            {/* STORE ROUTES */}
+            <Route path="/store" element={<StorePage />} />
+            <Route path="/store/success" element={<StoreSuccessPage />} />
 
             {/* BAND ROUTES*/}
             <Route path="/bands/:bandId" element={<BandSheetMobile />} />

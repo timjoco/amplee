@@ -76,7 +76,7 @@ export default function BandLibraryPage() {
           >
             {/* Back Button */}
             <button
-              onClick={() => navigate(`/bands/${bandId}`)}
+              onClick={() => navigate(-1)}
               style={{
                 width: 40,
                 height: 40,

@@ -17,8 +17,12 @@ import {
   chevronDownOutline,
   chevronUpOutline,
   closeCircle,
+  createOutline,
+  documentTextOutline,
   fastFoodOutline,
+  listOutline,
   locationOutline,
+  musicalNotesOutline,
   personOutline,
   saveOutline,
   shieldCheckmarkOutline,
@@ -29,6 +33,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../../../lib/supabase';
 import { EmptyState } from './components/EmptyState';
+import { useTourStopSetlist } from './hooks/useTourStopSetlist';
 import { glassCard, TEAL } from './lib/styles';
 import type {
   TourStopRow,
@@ -48,6 +53,7 @@ type RouteParams = {
 
 const inputStyle: React.CSSProperties = {
   width: '100%',
+  maxWidth: '100%',
   padding: '10px 12px',
   borderRadius: 8,
   border: '1px solid rgba(255, 255, 255, 0.1)',
@@ -55,6 +61,10 @@ const inputStyle: React.CSSProperties = {
   color: '#f9fafb',
   fontSize: 14,
   outline: 'none',
+  boxSizing: 'border-box',
+  WebkitAppearance: 'none',
+  MozAppearance: 'none',
+  appearance: 'none',
 };
 
 const labelStyle: React.CSSProperties = {
@@ -85,9 +95,11 @@ const FieldGroup = ({
   <div
     style={{
       display: 'grid',
-      gridTemplateColumns: `repeat(${columns}, 1fr)`,
+      gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
       gap: 12,
       padding: 14,
+      width: '100%',
+      boxSizing: 'border-box',
     }}
   >
     {children}
@@ -101,7 +113,7 @@ const Field = ({
   label: string;
   children: React.ReactNode;
 }) => (
-  <div>
+  <div style={{ minWidth: 0, maxWidth: '100%', overflow: 'hidden' }}>
     <label style={labelStyle}>{label}</label>
     {children}
   </div>
@@ -109,6 +121,7 @@ const Field = ({
 
 type SectionKey =
   | 'schedule'
+  | 'setlist'
   | 'venue'
   | 'contacts'
   | 'lodging'
@@ -172,6 +185,9 @@ export default function TourStopEditorPage() {
   const [stop, setStop] = useState<TourStopRow | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
 
+  // View mode state - admins can toggle between edit and itinerary view
+  const [viewMode, setViewMode] = useState<'edit' | 'itinerary'>('edit');
+
   // Section expansion state
   const [expandedSections, setExpandedSections] = useState<Set<SectionKey>>(
     new Set(['schedule', 'venue'])
@@ -179,6 +195,9 @@ export default function TourStopEditorPage() {
 
   // Form state - we'll store edits separately
   const [form, setForm] = useState<Partial<TourStopRow>>({});
+
+  // Setlist hook
+  const setlistHook = useTourStopSetlist(bandId, form.setlist_id);
 
   // Get current user and role
   useEffect(() => {
@@ -314,6 +333,14 @@ export default function TourStopEditorPage() {
     });
   };
 
+  const formatTime = (timeStr: string | null) => {
+    if (!timeStr) return '';
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    const period = hours >= 12 ? 'PM' : 'AM';
+    const hour12 = hours % 12 || 12;
+    return `${hour12}:${minutes.toString().padStart(2, '0')} ${period}`;
+  };
+
   const statusColor =
     form.status === 'confirmed'
       ? '#10b981'
@@ -411,31 +438,46 @@ export default function TourStopEditorPage() {
               </div>
             )}
 
-            {/* Role Badge */}
-            {myUserId && myRole && (
-              <div
+            {/* View Mode Toggle - only for admins */}
+            {isAdmin && (
+              <button
+                onClick={() =>
+                  setViewMode((prev) => (prev === 'edit' ? 'itinerary' : 'edit'))
+                }
                 style={{
                   display: 'flex',
                   alignItems: 'center',
                   gap: 4,
-                  padding: '6px 8px',
+                  padding: '6px 10px',
                   borderRadius: 8,
-                  background: isAdmin
-                    ? TEAL.subtle
-                    : 'rgba(255, 255, 255, 0.04)',
+                  background:
+                    viewMode === 'itinerary'
+                      ? TEAL.subtle
+                      : 'rgba(255, 255, 255, 0.04)',
                   border: `1px solid ${
-                    isAdmin ? TEAL.border : 'rgba(255, 255, 255, 0.08)'
+                    viewMode === 'itinerary'
+                      ? TEAL.border
+                      : 'rgba(255, 255, 255, 0.08)'
                   }`,
                 }}
               >
                 <IonIcon
-                  icon={isAdmin ? shieldCheckmarkOutline : personOutline}
+                  icon={viewMode === 'edit' ? listOutline : createOutline}
                   style={{
-                    fontSize: 12,
-                    color: isAdmin ? TEAL.light : '#6b7280',
+                    fontSize: 14,
+                    color: viewMode === 'itinerary' ? TEAL.light : '#9ca3af',
                   }}
                 />
-              </div>
+                <span
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 600,
+                    color: viewMode === 'itinerary' ? TEAL.light : '#9ca3af',
+                  }}
+                >
+                  {viewMode === 'edit' ? 'View' : 'Edit'}
+                </span>
+              </button>
             )}
           </div>
         </IonToolbar>
@@ -487,15 +529,470 @@ export default function TourStopEditorPage() {
               </div>
             )}
 
-            {/* Schedule Section */}
-            <div style={{ ...glassCard, marginBottom: 16, overflow: 'hidden' }}>
-              <SectionHeader
-                icon={timeOutline}
-                title="Schedule"
-                section="schedule"
-                expanded={expandedSections.has('schedule')}
-                onToggle={toggleSection}
-              />
+            {/* Stop Overview - shown for members OR admins in itinerary view */}
+            {(!isAdmin || viewMode === 'itinerary') && (
+              <div
+                style={{
+                  ...glassCard,
+                  padding: 16,
+                  marginBottom: 16,
+                  border: `1px solid ${TEAL.border}`,
+                }}
+              >
+              {/* Header with Status */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  marginBottom: 16,
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <IonIcon
+                    icon={locationOutline}
+                    style={{ fontSize: 16, color: TEAL.light }}
+                  />
+                  <span
+                    style={{
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: TEAL.light,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px',
+                    }}
+                  >
+                    Stop Overview
+                  </span>
+                </div>
+                <span
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 600,
+                    color: statusColor,
+                    background: `${statusColor}20`,
+                    padding: '3px 8px',
+                    borderRadius: 4,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.3px',
+                  }}
+                >
+                  {TOUR_STOP_STATUS_LABELS[form.status as TourStopStatus]}
+                </span>
+              </div>
+
+              {/* Date */}
+              {form.date && (
+                <div style={{ marginBottom: 12 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                    <IonIcon icon={timeOutline} style={{ fontSize: 14, color: TEAL.light }} />
+                    <span style={{ fontSize: 12, color: '#6b7280' }}>Date</span>
+                  </div>
+                  <div style={{ fontSize: 15, fontWeight: 600, color: '#f9fafb' }}>
+                    {formatDate(form.date)}
+                  </div>
+                </div>
+              )}
+
+              {/* Venue */}
+              {(form.venue_name || form.venue_address || form.venue_city) && (
+                <div style={{ marginBottom: 12 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                    <IonIcon icon={locationOutline} style={{ fontSize: 14, color: '#3b82f6' }} />
+                    <span style={{ fontSize: 12, color: '#6b7280' }}>Venue</span>
+                  </div>
+                  {form.venue_name && (
+                    <div style={{ fontSize: 15, fontWeight: 600, color: '#f9fafb' }}>
+                      {form.venue_name}
+                    </div>
+                  )}
+                  {(form.venue_address || form.venue_city) && (
+                    <div style={{ fontSize: 13, color: '#9ca3af', marginTop: 2 }}>
+                      {[form.venue_address, form.venue_city, form.venue_state]
+                        .filter(Boolean)
+                        .join(', ')}
+                    </div>
+                  )}
+                  {form.venue_capacity && (
+                    <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>
+                      Capacity: {form.venue_capacity.toLocaleString()}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Times Grid */}
+              {(form.load_in_time || form.sound_check_time || form.doors_time || form.set_time || form.curfew_time) && (
+                <div style={{ marginBottom: 12 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                    <IonIcon icon={timeOutline} style={{ fontSize: 14, color: TEAL.light }} />
+                    <span style={{ fontSize: 12, color: '#6b7280' }}>Schedule</span>
+                  </div>
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(80px, 1fr))',
+                      gap: 8,
+                    }}
+                  >
+                    {form.load_in_time && (
+                      <div
+                        style={{
+                          background: 'rgba(255, 255, 255, 0.04)',
+                          borderRadius: 6,
+                          padding: '6px 8px',
+                        }}
+                      >
+                        <div style={{ fontSize: 10, color: '#6b7280', marginBottom: 2 }}>
+                          Load In
+                        </div>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: '#e5e7eb' }}>
+                          {formatTime(form.load_in_time)}
+                        </div>
+                      </div>
+                    )}
+                    {form.sound_check_time && (
+                      <div
+                        style={{
+                          background: 'rgba(255, 255, 255, 0.04)',
+                          borderRadius: 6,
+                          padding: '6px 8px',
+                        }}
+                      >
+                        <div style={{ fontSize: 10, color: '#6b7280', marginBottom: 2 }}>
+                          Sound Check
+                        </div>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: '#e5e7eb' }}>
+                          {formatTime(form.sound_check_time)}
+                        </div>
+                      </div>
+                    )}
+                    {form.doors_time && (
+                      <div
+                        style={{
+                          background: 'rgba(255, 255, 255, 0.04)',
+                          borderRadius: 6,
+                          padding: '6px 8px',
+                        }}
+                      >
+                        <div style={{ fontSize: 10, color: '#6b7280', marginBottom: 2 }}>
+                          Doors
+                        </div>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: '#e5e7eb' }}>
+                          {formatTime(form.doors_time)}
+                        </div>
+                      </div>
+                    )}
+                    {form.set_time && (
+                      <div
+                        style={{
+                          background: 'rgba(255, 255, 255, 0.04)',
+                          borderRadius: 6,
+                          padding: '6px 8px',
+                        }}
+                      >
+                        <div style={{ fontSize: 10, color: '#6b7280', marginBottom: 2 }}>
+                          Set Time
+                        </div>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: '#e5e7eb' }}>
+                          {formatTime(form.set_time)}
+                        </div>
+                      </div>
+                    )}
+                    {form.curfew_time && (
+                      <div
+                        style={{
+                          background: 'rgba(255, 255, 255, 0.04)',
+                          borderRadius: 6,
+                          padding: '6px 8px',
+                        }}
+                      >
+                        <div style={{ fontSize: 10, color: '#6b7280', marginBottom: 2 }}>
+                          Curfew
+                        </div>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: '#e5e7eb' }}>
+                          {formatTime(form.curfew_time)}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Setlist */}
+              {setlistHook.assignedSetlist && (
+                <div style={{ marginBottom: 12 }}>
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      marginBottom: 6,
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <IonIcon
+                        icon={musicalNotesOutline}
+                        style={{ fontSize: 14, color: '#f472b6' }}
+                      />
+                      <span style={{ fontSize: 12, color: '#6b7280' }}>
+                        Setlist
+                      </span>
+                    </div>
+                    {setlistHook.formatTotalDuration() && (
+                      <span style={{ fontSize: 11, color: '#6b7280' }}>
+                        {setlistHook.formatTotalDuration()}
+                      </span>
+                    )}
+                  </div>
+                  <div
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.04)',
+                      borderRadius: 8,
+                      border: '1px solid rgba(236, 72, 153, 0.2)',
+                      overflow: 'hidden',
+                    }}
+                  >
+                    <div
+                      style={{
+                        padding: '8px 12px',
+                        borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+                        background: 'rgba(236, 72, 153, 0.1)',
+                      }}
+                    >
+                      <span style={{ fontSize: 13, fontWeight: 600, color: '#f472b6' }}>
+                        {setlistHook.assignedSetlist.name}
+                      </span>
+                      <span style={{ fontSize: 12, color: '#6b7280', marginLeft: 8 }}>
+                        {setlistHook.assignedSetlist.items.length} songs
+                      </span>
+                    </div>
+                    <div style={{ maxHeight: 200, overflowY: 'auto' }}>
+                      {setlistHook.assignedSetlist.items.map((item, index) => (
+                        <button
+                          key={item.id}
+                          onClick={() => {
+                            if (item.song_id) {
+                              nav(`/bands/${bandId}/songs/${item.song_id}`);
+                            }
+                          }}
+                          disabled={!item.song_id}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            padding: '8px 12px',
+                            borderBottom:
+                              index < setlistHook.assignedSetlist!.items.length - 1
+                                ? '1px solid rgba(255, 255, 255, 0.04)'
+                                : 'none',
+                            width: '100%',
+                            background: 'transparent',
+                            border: 'none',
+                            textAlign: 'left',
+                            cursor: item.song_id ? 'pointer' : 'default',
+                          }}
+                        >
+                          <span
+                            style={{
+                              width: 20,
+                              fontSize: 11,
+                              color: '#6b7280',
+                              flexShrink: 0,
+                            }}
+                          >
+                            {index + 1}.
+                          </span>
+                          <span
+                            style={{
+                              flex: 1,
+                              fontSize: 13,
+                              color: item.song_id ? '#f472b6' : '#e5e7eb',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {item.title}
+                          </span>
+                          {item.musical_key && (
+                            <span
+                              style={{
+                                fontSize: 11,
+                                color: '#9ca3af',
+                                marginLeft: 8,
+                                flexShrink: 0,
+                              }}
+                            >
+                              {item.musical_key}
+                            </span>
+                          )}
+                          {item.duration_seconds && (
+                            <span
+                              style={{
+                                fontSize: 11,
+                                color: '#6b7280',
+                                marginLeft: 8,
+                                flexShrink: 0,
+                              }}
+                            >
+                              {setlistHook.formatDuration(item.duration_seconds)}
+                            </span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Contacts Row */}
+              {(form.promoter_name || form.production_contact_name) && (
+                <div style={{ marginBottom: 12 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                    <IonIcon icon={callOutline} style={{ fontSize: 14, color: '#8b5cf6' }} />
+                    <span style={{ fontSize: 12, color: '#6b7280' }}>Contacts</span>
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                    {form.promoter_name && (
+                      <div
+                        style={{
+                          background: 'rgba(139, 92, 246, 0.1)',
+                          border: '1px solid rgba(139, 92, 246, 0.2)',
+                          borderRadius: 6,
+                          padding: '6px 10px',
+                        }}
+                      >
+                        <div style={{ fontSize: 10, color: '#a78bfa', marginBottom: 2 }}>
+                          Promoter
+                        </div>
+                        <div style={{ fontSize: 13, fontWeight: 500, color: '#e5e7eb' }}>
+                          {form.promoter_name}
+                        </div>
+                      </div>
+                    )}
+                    {form.production_contact_name && (
+                      <div
+                        style={{
+                          background: 'rgba(139, 92, 246, 0.1)',
+                          border: '1px solid rgba(139, 92, 246, 0.2)',
+                          borderRadius: 6,
+                          padding: '6px 10px',
+                        }}
+                      >
+                        <div style={{ fontSize: 10, color: '#a78bfa', marginBottom: 2 }}>
+                          Production
+                        </div>
+                        <div style={{ fontSize: 13, fontWeight: 500, color: '#e5e7eb' }}>
+                          {form.production_contact_name}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Hotel */}
+              {form.hotel_name && (
+                <div style={{ marginBottom: 12 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                    <IonIcon icon={bedOutline} style={{ fontSize: 14, color: '#f59e0b' }} />
+                    <span style={{ fontSize: 12, color: '#6b7280' }}>Lodging</span>
+                  </div>
+                  <div style={{ fontSize: 14, fontWeight: 500, color: '#e5e7eb' }}>
+                    {form.hotel_name}
+                  </div>
+                  {form.hotel_address && (
+                    <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>
+                      {form.hotel_address}
+                    </div>
+                  )}
+                  {form.hotel_confirmation && (
+                    <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>
+                      Confirmation: {form.hotel_confirmation}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Travel */}
+              {(form.travel_departure_location || form.travel_method) && (
+                <div style={{ marginBottom: 12 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                    <IonIcon icon={carOutline} style={{ fontSize: 14, color: '#ec4899' }} />
+                    <span style={{ fontSize: 12, color: '#6b7280' }}>Travel</span>
+                  </div>
+                  <div style={{ fontSize: 14, color: '#e5e7eb' }}>
+                    {form.travel_method && (
+                      <span style={{ fontWeight: 500 }}>
+                        {TRAVEL_METHOD_LABELS[form.travel_method]}
+                      </span>
+                    )}
+                    {form.travel_departure_location && (
+                      <span>
+                        {form.travel_method ? ' from ' : 'From '}
+                        {form.travel_departure_location}
+                      </span>
+                    )}
+                    {form.travel_departure_time && (
+                      <span> at {formatTime(form.travel_departure_time)}</span>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Notes */}
+              {form.notes && (
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                    <IonIcon icon={documentTextOutline} style={{ fontSize: 14, color: '#6b7280' }} />
+                    <span style={{ fontSize: 12, color: '#6b7280' }}>Notes</span>
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 13,
+                      color: '#d1d5db',
+                      lineHeight: 1.5,
+                      whiteSpace: 'pre-wrap',
+                    }}
+                  >
+                    {form.notes}
+                  </div>
+                </div>
+              )}
+
+              {/* Empty state if nothing filled in */}
+              {!form.date &&
+                !form.venue_name &&
+                !form.load_in_time &&
+                !form.hotel_name &&
+                !form.travel_departure_location &&
+                !form.notes && (
+                  <div
+                    style={{
+                      textAlign: 'center',
+                      padding: '20px 0',
+                      color: '#6b7280',
+                      fontSize: 13,
+                    }}
+                  >
+                      No details have been added to this stop yet.
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Edit Sections - only shown for admins in edit mode */}
+            {isAdmin && viewMode === 'edit' && (
+              <>
+                {/* Schedule Section */}
+                <div style={{ ...glassCard, marginBottom: 16, overflow: 'hidden' }}>
+                  <SectionHeader
+                    icon={timeOutline}
+                    title="Schedule"
+                    section="schedule"
+                    expanded={expandedSections.has('schedule')}
+                    onToggle={toggleSection}
+                  />
               {expandedSections.has('schedule') && (
                 <FieldGroup columns={2}>
                   <Field label="Date">
@@ -572,6 +1069,151 @@ export default function TourStopEditorPage() {
               )}
             </div>
 
+                {/* Setlist Section */}
+                <div style={{ ...glassCard, marginBottom: 16, overflow: 'hidden' }}>
+                  <SectionHeader
+                    icon={musicalNotesOutline}
+                    title="Setlist"
+                    section="setlist"
+                    color="#ec4899"
+                    expanded={expandedSections.has('setlist')}
+                    onToggle={toggleSection}
+                  />
+                  {expandedSections.has('setlist') && (
+                    <div style={{ padding: 14 }}>
+                      <Field label="Assign Setlist">
+                        <select
+                          value={form.setlist_id ?? ''}
+                          onChange={(e) =>
+                            updateField('setlist_id', e.target.value || null)
+                          }
+                          disabled={!isAdmin}
+                          style={selectStyle}
+                        >
+                          <option value="">No setlist assigned</option>
+                          {setlistHook.availableSetlists.map((setlist) => (
+                            <option key={setlist.id} value={setlist.id}>
+                              {setlist.name}
+                            </option>
+                          ))}
+                        </select>
+                      </Field>
+
+                      {/* Preview assigned setlist */}
+                      {setlistHook.assignedSetlist && (
+                        <div style={{ marginTop: 12 }}>
+                          <div
+                            style={{
+                              fontSize: 12,
+                              color: '#6b7280',
+                              marginBottom: 6,
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                            }}
+                          >
+                            <span>
+                              {setlistHook.assignedSetlist.items.length} songs
+                            </span>
+                            {setlistHook.formatTotalDuration() && (
+                              <span>{setlistHook.formatTotalDuration()}</span>
+                            )}
+                          </div>
+                          <div
+                            style={{
+                              background: 'rgba(255, 255, 255, 0.04)',
+                              borderRadius: 8,
+                              maxHeight: 150,
+                              overflowY: 'auto',
+                            }}
+                          >
+                            {setlistHook.assignedSetlist.items.map((item, index) => (
+                              <div
+                                key={item.id}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  padding: '6px 10px',
+                                  borderBottom:
+                                    index < setlistHook.assignedSetlist!.items.length - 1
+                                      ? '1px solid rgba(255, 255, 255, 0.04)'
+                                      : 'none',
+                                  fontSize: 13,
+                                  color: '#d1d5db',
+                                }}
+                              >
+                                <span style={{ width: 20, color: '#6b7280', fontSize: 11 }}>
+                                  {index + 1}.
+                                </span>
+                                <span style={{ flex: 1 }}>{item.title}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {setlistHook.availableSetlists.length === 0 && (
+                        <div
+                          style={{
+                            marginTop: 12,
+                            textAlign: 'center',
+                          }}
+                        >
+                          <p
+                            style={{
+                              margin: '0 0 12px',
+                              fontSize: 13,
+                              color: '#6b7280',
+                            }}
+                          >
+                            No setlists created yet.
+                          </p>
+                          <button
+                            onClick={() => nav(`/bands/${bandId}/library`)}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 6,
+                              padding: '8px 16px',
+                              borderRadius: 8,
+                              background: 'rgba(236, 72, 153, 0.1)',
+                              border: '1px solid rgba(236, 72, 153, 0.3)',
+                              color: '#f472b6',
+                              fontSize: 13,
+                              fontWeight: 600,
+                            }}
+                          >
+                            <IonIcon icon={musicalNotesOutline} style={{ fontSize: 16 }} />
+                            Go to Library
+                          </button>
+                        </div>
+                      )}
+
+                      {setlistHook.availableSetlists.length > 0 && (
+                        <button
+                          onClick={() => nav(`/bands/${bandId}/library`)}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: 6,
+                            marginTop: 12,
+                            padding: '8px 12px',
+                            borderRadius: 6,
+                            background: 'rgba(236, 72, 153, 0.08)',
+                            border: '1px solid rgba(236, 72, 153, 0.2)',
+                            color: '#f472b6',
+                            fontSize: 12,
+                            width: '100%',
+                          }}
+                        >
+                          <IonIcon icon={musicalNotesOutline} style={{ fontSize: 14 }} />
+                          Open Library
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+
             {/* Venue Section */}
             <div style={{ ...glassCard, marginBottom: 16, overflow: 'hidden' }}>
               <SectionHeader
@@ -604,7 +1246,7 @@ export default function TourStopEditorPage() {
                       placeholder="Street address"
                     />
                   </Field>
-                  <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 12 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr)', gap: 12, minWidth: 0 }}>
                     <Field label="City">
                       <input
                         type="text"
@@ -638,7 +1280,7 @@ export default function TourStopEditorPage() {
                       />
                     </Field>
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 12, minWidth: 0 }}>
                     <Field label="Phone">
                       <input
                         type="tel"
@@ -687,7 +1329,7 @@ export default function TourStopEditorPage() {
                   >
                     Promoter
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 12, minWidth: 0 }}>
                     <Field label="Name">
                       <input
                         type="text"
@@ -729,7 +1371,7 @@ export default function TourStopEditorPage() {
                   >
                     Production
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 12, minWidth: 0 }}>
                     <Field label="Name">
                       <input
                         type="text"
@@ -807,7 +1449,7 @@ export default function TourStopEditorPage() {
                       style={inputStyle}
                     />
                   </Field>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 12, minWidth: 0 }}>
                     <Field label="Check In">
                       <input
                         type="time"
@@ -843,7 +1485,7 @@ export default function TourStopEditorPage() {
               />
               {expandedSections.has('travel') && (
                 <FieldGroup>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 12, minWidth: 0 }}>
                     <Field label="Departure Location">
                       <input
                         type="text"
@@ -979,25 +1621,27 @@ export default function TourStopEditorPage() {
               )}
             </div>
 
-            {/* General Notes */}
-            <div style={{ ...glassCard, marginBottom: 16, padding: 14 }}>
-              <Field label="General Notes">
-                <textarea
-                  value={form.notes ?? ''}
-                  onChange={(e) => updateField('notes', e.target.value)}
-                  disabled={!isAdmin}
-                  style={{
-                    ...inputStyle,
-                    minHeight: 80,
-                    resize: 'vertical',
-                  }}
-                  placeholder="Any additional notes for this stop..."
-                />
-              </Field>
-            </div>
+                {/* General Notes */}
+                <div style={{ ...glassCard, marginBottom: 16, padding: 14 }}>
+                  <Field label="General Notes">
+                    <textarea
+                      value={form.notes ?? ''}
+                      onChange={(e) => updateField('notes', e.target.value)}
+                      disabled={!isAdmin}
+                      style={{
+                        ...inputStyle,
+                        minHeight: 80,
+                        resize: 'vertical',
+                      }}
+                      placeholder="Any additional notes for this stop..."
+                    />
+                  </Field>
+                </div>
+              </>
+            )}
 
-            {/* Action Buttons */}
-            {isAdmin && (
+            {/* Action Buttons - only shown for admins in edit mode */}
+            {isAdmin && viewMode === 'edit' && (
               <div style={{ display: 'flex', gap: 12 }}>
                 <button
                   onClick={handleSave}
