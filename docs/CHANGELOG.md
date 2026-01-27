@@ -10,6 +10,24 @@
   - Route map with Mapbox integration
   - Address autocomplete using Mapbox Search Box API
   - Financial tracking per stop
+- **Store / Subscriptions** (feature/tour-pro branch) — Pro tier subscriptions for advanced features
+
+### Improvements
+- **Responsive Desktop Layout** — Band sheet now has two-column layout on large screens with sidebar for stats and members
+- **Tablet Support** — Settings and invite icons now show in header on medium screens (iPad) instead of modal
+- **Invite Page Redesign** — Cleaner single-column layout with max-width constraint, solid purple buttons
+- **Modal Improvements** — Fullscreen modals on iPad with close button, blurred backdrop on desktop
+
+### Bug Fixes
+- Removed email invite feature for App Store privacy compliance (link sharing and SMS still available)
+- Fixed band avatar bucket reference (profile-avatars)
+- Fixed countdown timer overlapping chevron on Next Event card
+- Removed drag-and-drop from public profile links (mobile)
+
+### UI Polish
+- Purple accents for editable items on public profile
+- Unified headers across all pages
+- Better responsive breakpoints (small <768px, medium 768-1025px, large 1026px+)
 
 ---
 
