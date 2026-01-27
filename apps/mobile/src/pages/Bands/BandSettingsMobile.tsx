@@ -17,13 +17,38 @@ import {
   chevronBackOutline,
   musicalNotesOutline,
   peopleOutline,
+  personAddOutline,
   personOutline,
+  settingsOutline,
   shieldOutline,
   trashOutline,
   warningOutline,
 } from 'ionicons/icons';
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+
+// Hook to detect screen size for responsive layouts
+// Large = 1026px+ (desktop layout), Medium = 768-1025px, Small = <768px
+function useScreenSize() {
+  const [size, setSize] = useState<'small' | 'medium' | 'large'>(() => {
+    if (typeof window === 'undefined') return 'small';
+    if (window.innerWidth >= 1026) return 'large';
+    if (window.innerWidth >= 768) return 'medium';
+    return 'small';
+  });
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 1026) setSize('large');
+      else if (window.innerWidth >= 768) setSize('medium');
+      else setSize('small');
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  return size;
+}
 import BandAvatarCardMobile from '../../components/Bands/Settings/BandAvatarCardMobile';
 import BandBasicsCardMobile from '../../components/Bands/Settings/BandBasicsCardMobile';
 import AvatarImageMobile from '../../components/ui/AvatarImageMobile';
@@ -315,6 +340,8 @@ export default function BandSettingsMobile() {
   const params = useParams<{ bandId?: string; id?: string }>();
   const bandId = params.bandId ?? params.id ?? null;
   const nav = useNavigate();
+  const screenSize = useScreenSize();
+  const isLarge = screenSize === 'large';
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -609,46 +636,162 @@ export default function BandSettingsMobile() {
             borderBottom: '0.5px solid rgba(255,255,255,0.06)',
           }}
         >
-          <IonButtons slot="start">
-            <IonButton
-              fill="clear"
-              onClick={() => nav(-1)}
-              style={{ minWidth: 0, paddingInline: 4 }}
+          {isLarge ? (
+            /* Large screen: band avatar + name + action icons */
+            <div
+              style={{
+                width: '100%',
+                padding: '14px 24px 18px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 16,
+              }}
             >
-              <IonIcon
-                icon={chevronBackOutline}
-                style={{ color: '#F9FAFB', fontSize: 22 }}
-              />
-            </IonButton>
-          </IonButtons>
+              <IonButton
+                fill="clear"
+                onClick={() => nav(-1)}
+                style={{ minWidth: 0, paddingInline: 4, margin: 0 }}
+              >
+                <IonIcon
+                  icon={chevronBackOutline}
+                  style={{ color: '#F9FAFB', fontSize: 22 }}
+                />
+              </IonButton>
 
-          <div
-            style={{
-              paddingInline: 12,
-              paddingBlock: 8,
-            }}
-          >
-            <h1
-              style={{
-                margin: 0,
-                fontSize: 24,
-                fontWeight: 800,
-                color: '#F9FAFB',
-                letterSpacing: '-0.5px',
-              }}
-            >
-              Band settings
-            </h1>
-            <p
-              style={{
-                margin: '4px 0 0',
-                fontSize: 13,
-                color: '#9ca3af',
-              }}
-            >
-              Manage band profile and members
-            </p>
-          </div>
+              <AvatarImageMobile
+                name={bandName}
+                bucket="band-avatars"
+                avatarPath={bandAvatarPath || undefined}
+                updatedAt={undefined}
+                size={56}
+              />
+
+              <div
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                  textAlign: 'left',
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: 24,
+                    fontWeight: 800,
+                    color: '#F9FAFB',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    letterSpacing: '-0.5px',
+                    lineHeight: 1.1,
+                  }}
+                >
+                  {bandName || 'Band'}
+                </span>
+                <p
+                  style={{
+                    margin: '4px 0 0',
+                    fontSize: 13,
+                    color: '#9ca3af',
+                  }}
+                >
+                  Band Settings
+                </p>
+              </div>
+
+              {/* Action icons */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                {isAdmin && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      // Scroll to invite section or trigger invite modal
+                      const inviteSection = document.getElementById('invite-section');
+                      if (inviteSection) {
+                        inviteSection.scrollIntoView({ behavior: 'smooth' });
+                      }
+                    }}
+                    style={{
+                      background: 'rgba(139, 92, 246, 0.15)',
+                      border: '1px solid rgba(139, 92, 246, 0.3)',
+                      borderRadius: 12,
+                      padding: 12,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                    title="Invite Members"
+                  >
+                    <IonIcon
+                      icon={personAddOutline}
+                      style={{ fontSize: 22, color: '#a78bfa' }}
+                    />
+                  </button>
+                )}
+                <div
+                  style={{
+                    background: 'rgba(139, 92, 246, 0.2)',
+                    border: '1px solid rgba(139, 92, 246, 0.4)',
+                    borderRadius: 12,
+                    padding: 12,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                  title="Settings (current page)"
+                >
+                  <IonIcon
+                    icon={settingsOutline}
+                    style={{ fontSize: 22, color: '#a78bfa' }}
+                  />
+                </div>
+              </div>
+            </div>
+          ) : (
+            /* Small/medium screen: back button + title */
+            <>
+              <IonButtons slot="start">
+                <IonButton
+                  fill="clear"
+                  onClick={() => nav(-1)}
+                  style={{ minWidth: 0, paddingInline: 4 }}
+                >
+                  <IonIcon
+                    icon={chevronBackOutline}
+                    style={{ color: '#F9FAFB', fontSize: 22 }}
+                  />
+                </IonButton>
+              </IonButtons>
+
+              <div
+                style={{
+                  paddingInline: 12,
+                  paddingBlock: 8,
+                }}
+              >
+                <h1
+                  style={{
+                    margin: 0,
+                    fontSize: 24,
+                    fontWeight: 800,
+                    color: '#F9FAFB',
+                    letterSpacing: '-0.5px',
+                  }}
+                >
+                  Band settings
+                </h1>
+                <p
+                  style={{
+                    margin: '4px 0 0',
+                    fontSize: 13,
+                    color: '#9ca3af',
+                  }}
+                >
+                  Manage band profile and members
+                </p>
+              </div>
+            </>
+          )}
         </IonToolbar>
       </IonHeader>
 
@@ -685,9 +828,9 @@ export default function BandSettingsMobile() {
         {!loading && error && (
           <div
             style={{
-              padding: '16px',
-              maxWidth: '600px',
-              margin: '0 auto',
+              padding: isLarge ? '24px 48px' : '16px',
+              maxWidth: isLarge ? 800 : 600,
+              margin: isLarge ? 0 : '0 auto',
             }}
           >
             <div
@@ -749,10 +892,12 @@ export default function BandSettingsMobile() {
         {!loading && !error && (
           <div
             style={{
-              padding: 16,
-              paddingTop: `calc(16px + ${
-                isAndroid ? 'env(safe-area-inset-top, 0px)' : '0px'
-              })`,
+              padding: isLarge ? '24px 48px' : 16,
+              paddingTop: isLarge
+                ? 24
+                : `calc(16px + ${
+                    isAndroid ? 'env(safe-area-inset-top, 0px)' : '0px'
+                  })`,
               paddingBottom: `calc(24px + env(safe-area-inset-bottom, 0px) + ${
                 isAndroid ? 18 : 0
               }px)`,
@@ -760,6 +905,7 @@ export default function BandSettingsMobile() {
               display: 'flex',
               flexDirection: 'column',
               gap: 16,
+              maxWidth: isLarge ? 800 : 'none',
             }}
           >
             {/* Band Header Card */}
