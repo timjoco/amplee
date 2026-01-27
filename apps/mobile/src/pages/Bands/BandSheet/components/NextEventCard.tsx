@@ -108,29 +108,30 @@ export function NextEventCard({ event, isPressed, onPress, inline = false }: Pro
               color: '#BBF7D0',
               textTransform: 'uppercase',
               letterSpacing: 0.8,
-              marginBottom: 2,
+              marginBottom: screenSize === 'small' ? 2 : 0,
             }}
           >
             Next Event
           </div>
-          {timeUntil && (
+          {/* Countdown inline on small screens only */}
+          {timeUntil && screenSize === 'small' && (
             <div
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: 4,
-                padding: isLarge ? '5px 12px' : '4px 10px',
+                padding: '4px 10px',
                 borderRadius: 999,
                 background: 'rgba(15, 118, 110, 0.4)',
               }}
             >
               <IonIcon
                 icon={timeOutline}
-                style={{ fontSize: isLarge ? 14 : 12, color: '#A7F3D0' }}
+                style={{ fontSize: 12, color: '#A7F3D0' }}
               />
               <span
                 style={{
-                  fontSize: isLarge ? 14 : 12,
+                  fontSize: 12,
                   fontWeight: 700,
                   color: '#ECFDF5',
                 }}
@@ -141,6 +142,35 @@ export function NextEventCard({ event, isPressed, onPress, inline = false }: Pro
           )}
         </div>
       </div>
+
+      {/* Countdown on its own row for medium/large screens */}
+      {timeUntil && screenSize !== 'small' && (
+        <div
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 6,
+            padding: isLarge ? '6px 14px' : '5px 12px',
+            borderRadius: 999,
+            background: 'rgba(15, 118, 110, 0.4)',
+            alignSelf: 'flex-start',
+          }}
+        >
+          <IonIcon
+            icon={timeOutline}
+            style={{ fontSize: isLarge ? 16 : 14, color: '#A7F3D0' }}
+          />
+          <span
+            style={{
+              fontSize: isLarge ? 15 : 14,
+              fontWeight: 700,
+              color: '#ECFDF5',
+            }}
+          >
+            {timeUntil}
+          </span>
+        </div>
+      )}
 
       <div>
         <div

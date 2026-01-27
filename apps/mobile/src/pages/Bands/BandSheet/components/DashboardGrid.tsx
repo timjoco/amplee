@@ -138,7 +138,7 @@ export function DashboardGrid({
               display: 'flex',
               alignItems: 'center',
               gap: isLarge ? 10 : 8,
-              marginBottom: isLarge ? 10 : 8,
+              marginBottom: isLarge ? 6 : 8,
             }}
           >
             <IonIcon
@@ -146,34 +146,36 @@ export function DashboardGrid({
               style={{ fontSize: isLarge ? 24 : 20, color: '#34d399' }}
             />
             <span style={labelStyle}>Next Event</span>
-            {timeUntil && (
-              <div
+          </div>
+          {/* Countdown on its own row */}
+          {timeUntil && (
+            <div
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                alignSelf: 'flex-start',
+                gap: 4,
+                padding: '3px 10px',
+                borderRadius: 999,
+                background: 'rgba(15, 118, 110, 0.4)',
+                marginBottom: isLarge ? 8 : 6,
+              }}
+            >
+              <IonIcon
+                icon={timeOutline}
+                style={{ fontSize: 11, color: '#A7F3D0' }}
+              />
+              <span
                 style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 3,
-                  padding: '2px 8px',
-                  borderRadius: 999,
-                  background: 'rgba(15, 118, 110, 0.4)',
-                  marginLeft: 'auto',
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: '#ECFDF5',
                 }}
               >
-                <IonIcon
-                  icon={timeOutline}
-                  style={{ fontSize: 10, color: '#A7F3D0' }}
-                />
-                <span
-                  style={{
-                    fontSize: 10,
-                    fontWeight: 700,
-                    color: '#ECFDF5',
-                  }}
-                >
-                  {timeUntil}
-                </span>
-              </div>
-            )}
-          </div>
+                {timeUntil}
+              </span>
+            </div>
+          )}
           <div style={{ marginTop: 'auto' }}>
             <div
               style={{

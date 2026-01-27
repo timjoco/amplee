@@ -266,6 +266,58 @@ ion-alert.custom-dark-alert::part(button-confirm):hover {
   display: none;
 }
 
+/* Medium screens (iPad) - make modals fullscreen */
+@media (min-width: 768px) and (max-width: 1025px) {
+  /* Band Sheet Modal - fullscreen on iPad */
+  .event-info-sheet {
+    --width: 100%;
+    --height: 100%;
+    --border-radius: 0;
+    --box-shadow: none;
+  }
+
+  .event-info-sheet::part(content) {
+    border-radius: 0;
+  }
+
+  /* Global Create Modal - fullscreen on iPad */
+  .gc-modal-root {
+    --width: 100%;
+    --height: 100%;
+    --border-radius: 0;
+    --box-shadow: none;
+  }
+
+  .gc-modal-root::part(content) {
+    border-radius: 0;
+  }
+}
+
+/* Large screens (desktop) - centered modal with blurred backdrop */
+@media (min-width: 1026px) {
+  /* Global Create Modal - centered with blur */
+  .gc-modal-root {
+    --width: 520px;
+    --max-width: 90vw;
+    --height: 80vh;
+    --min-height: 400px;
+    --max-height: 85vh;
+    --border-radius: 24px;
+    --box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  }
+
+  .gc-modal-root::part(backdrop) {
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+
+  .gc-modal-root::part(content) {
+    border-radius: 24px;
+    border: 1px solid rgba(147, 51, 234, 0.3);
+  }
+}
+
 ion-alert.custom-dark-alert.delete-event-alert {
   --max-width: 390px;
   --max-height: 60vh;

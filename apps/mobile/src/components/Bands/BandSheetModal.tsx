@@ -11,6 +11,7 @@ import {
 } from '@ionic/react';
 import {
   chevronForwardOutline,
+  closeOutline,
   personAddOutline,
   settingsOutline,
 } from 'ionicons/icons';
@@ -18,6 +19,24 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import AvatarImageMobile from '../ui/AvatarImageMobile';
+
+// Hook to detect if we're on a medium+ screen (iPad)
+function useIsMediumScreen() {
+  const [isMedium, setIsMedium] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return window.innerWidth >= 768;
+  });
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMedium(window.innerWidth >= 768);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  return isMedium;
+}
 
 type MembershipRole = 'admin' | 'member';
 
@@ -48,6 +67,7 @@ export default function BandSheetModal({
   isAdmin,
 }: Props) {
   const nav = useNavigate();
+  const isMediumScreen = useIsMediumScreen();
 
   const [members, setMembers] = useState<MemberRow[]>([]);
   const [membersLoading, setMembersLoading] = useState(false);
@@ -265,13 +285,16 @@ export default function BandSheetModal({
 
   const memberCount = members.length || undefined;
 
+  // On medium+ screens, don't use breakpoints so modal is fullscreen
+  const modalProps = isMediumScreen
+    ? {}
+    : { breakpoints: [0, 0.9], initialBreakpoint: 0.9, handleBehavior: 'cycle' as const };
+
   return (
     <IonModal
       isOpen={isOpen}
       onDidDismiss={onDismiss}
-      breakpoints={[0, 0.9]}
-      initialBreakpoint={0.9}
-      handleBehavior="cycle"
+      {...modalProps}
       className="event-info-sheet"
     >
       <IonContent
@@ -294,24 +317,27 @@ export default function BandSheetModal({
             margin: '0 auto',
           }}
         >
-          {/* Grabber */}
-          <div
-            style={{
-              width: 40,
-              height: 4,
-              borderRadius: 999,
-              margin: '4px auto 16px',
-              background: 'rgba(168,85,247,0.85)',
-            }}
-          />
+          {/* Grabber - hide on medium screens */}
+          {!isMediumScreen && (
+            <div
+              style={{
+                width: 40,
+                height: 4,
+                borderRadius: 999,
+                margin: '4px auto 16px',
+                background: 'rgba(168,85,247,0.85)',
+              }}
+            />
+          )}
 
-          {/* Header row: name + gear */}
+          {/* Header row: name + gear + close (medium screens) */}
           <div
             style={{
               display: 'flex',
               alignItems: 'center',
               gap: 12,
               marginBottom: 20,
+              marginTop: isMediumScreen ? 8 : 0,
             }}
           >
             <div style={{ flex: 1, minWidth: 0 }}>
@@ -369,6 +395,39 @@ export default function BandSheetModal({
                 style={{ fontSize: 18, color: '#a78bfa' }}
               />
             </button>
+
+            {/* Close button - medium screens only */}
+            {isMediumScreen && (
+              <button
+                type="button"
+                onClick={onDismiss}
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 999,
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  backgroundColor: 'rgba(255,255,255,0.08)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.12)';
+                  e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.08)';
+                  e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)';
+                }}
+              >
+                <IonIcon
+                  icon={closeOutline}
+                  style={{ fontSize: 20, color: 'rgba(255,255,255,0.7)' }}
+                />
+              </button>
+            )}
           </div>
 
           {/* Invite button */}

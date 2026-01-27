@@ -262,7 +262,7 @@ export default function BandSheetMobile() {
                     >
                       <AvatarImageMobile
                         name={member.display_name || member.full_name}
-                        bucket="avatars"
+                        bucket="profile-avatars"
                         avatarPath={member.avatar_url || undefined}
                         size={40}
                       />

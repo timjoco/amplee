@@ -9,7 +9,7 @@ import {
   IonText,
   IonToolbar,
 } from '@ionic/react';
-import { addCircleOutline, chevronBackOutline, clipboardOutline } from 'ionicons/icons';
+import { addCircleOutline, calendarOutline, chevronBackOutline, clipboardOutline } from 'ionicons/icons';
 import { useState } from 'react';
 
 import EventDateTimePicker from '../../components/ui/EventDateTimePicker';
