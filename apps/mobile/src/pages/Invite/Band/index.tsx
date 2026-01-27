@@ -255,13 +255,13 @@ export default function InviteBandPage() {
         ) : (
           <div
             style={{
-              padding: isLarge ? '24px 48px' : 16,
+              padding: screenSize === 'small' ? 16 : '24px 48px',
               paddingBottom: 24,
-              display: 'grid',
-              gridTemplateColumns: screenSize === 'small' ? '1fr' : 'repeat(2, 1fr)',
+              display: 'flex',
+              flexDirection: 'column',
               gap: 16,
-              maxWidth: isLarge ? 1100 : 'none',
-              margin: isLarge ? '0 auto' : undefined,
+              maxWidth: screenSize === 'small' ? 'none' : 500,
+              margin: screenSize === 'small' ? undefined : '0 auto',
             }}
           >
             <InviteLinkCard

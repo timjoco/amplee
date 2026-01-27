@@ -118,9 +118,7 @@ export function InviteLinkCard({
         onClick={onCopy}
         disabled={!inviteLink || generatingLink}
         style={{
-          '--background': copied
-            ? 'rgba(34,197,94,0.9)'
-            : 'linear-gradient(135deg, rgba(147,51,234,1), rgba(88,28,135,1))',
+          '--background': copied ? 'rgba(34,197,94,0.9)' : '#9333ea',
           '--border-radius': '14px',
           height: 48,
           fontWeight: 700,

@@ -31,8 +31,7 @@ export function SmsInviteCard({ inviteLink, onOpenTexting }: Props) {
         onClick={onOpenTexting}
         disabled={!inviteLink}
         style={{
-          '--background':
-            'linear-gradient(135deg, rgba(147,51,234,1), rgba(88,28,135,1))',
+          '--background': '#9333ea',
           '--border-radius': '14px',
           height: 48,
           fontWeight: 700,
