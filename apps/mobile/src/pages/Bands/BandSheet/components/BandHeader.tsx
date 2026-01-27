@@ -97,7 +97,7 @@ export function BandHeader({
               {isAdmin && (
                 <button
                   type="button"
-                  onClick={() => navigate(`/bands/${bandId}/settings`, { state: { openInvite: true } })}
+                  onClick={() => navigate(`/invite?band=${bandId}`)}
                   style={{
                     background: 'rgba(139, 92, 246, 0.15)',
                     border: '1px solid rgba(139, 92, 246, 0.3)',
