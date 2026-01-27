@@ -37,7 +37,6 @@ import {
   mailOutline,
   moonOutline,
   musicalNotesOutline,
-  reorderThreeOutline,
   sparklesOutline,
   sunnyOutline,
   terminalOutline,
@@ -554,70 +553,34 @@ const InputField: React.FC<{
   );
 };
 
-// Draggable Link Item Component
-const DraggableLinkItem: React.FC<{
+// Link Item Component
+const LinkItemRow: React.FC<{
   link: LinkItem;
   onUpdate: (url: string) => void;
   onRemove: () => void;
-  onDragStart: () => void;
-  onDragEnd: () => void;
-  onDragOver: () => void;
-  isDragging: boolean;
-  isDragOver: boolean;
   disabled: boolean;
-}> = ({
-  link,
-  onUpdate,
-  onRemove,
-  onDragStart,
-  onDragEnd,
-  onDragOver,
-  isDragging,
-  isDragOver,
-  disabled,
-}) => {
+}> = ({ link, onUpdate, onRemove, disabled }) => {
   const [focused, setFocused] = useState(false);
 
   return (
     <div
-      draggable={!disabled}
-      onDragStart={onDragStart}
-      onDragEnd={onDragEnd}
-      onDragOver={(e) => {
-        e.preventDefault();
-        onDragOver();
-      }}
       style={{
         display: 'flex',
         alignItems: 'center',
         gap: 12,
         padding: '12px 14px',
-        background: isDragOver
-          ? 'rgba(139, 92, 246, 0.15)'
-          : focused
+        background: focused
           ? 'rgba(139, 92, 246, 0.08)'
           : 'rgba(9, 9, 11, 0.5)',
         borderRadius: 14,
         border: `1.5px solid ${
-          isDragOver
-            ? 'rgba(139, 92, 246, 0.5)'
-            : focused
-            ? 'rgba(139, 92, 246, 0.3)'
-            : 'rgba(63, 63, 70, 0.4)'
+          focused ? 'rgba(139, 92, 246, 0.3)' : 'rgba(63, 63, 70, 0.4)'
         }`,
         marginTop: 10,
-        opacity: isDragging ? 0.5 : disabled ? 0.5 : 1,
-        transform: isDragging ? 'scale(1.02)' : 'scale(1)',
+        opacity: disabled ? 0.5 : 1,
         transition: 'all 0.2s ease',
-        cursor: disabled ? 'default' : 'grab',
       }}
     >
-      {!disabled && (
-        <IonIcon
-          icon={reorderThreeOutline}
-          style={{ fontSize: 20, color: '#52525b', flexShrink: 0 }}
-        />
-      )}
       <div
         style={{
           width: 36,
@@ -808,8 +771,6 @@ export default function BandPublicProfileMobile() {
 
   // Links
   const [links, setLinks] = useState<LinkItem[]>([]);
-  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
-  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
   const [embeddedVideoUrl, setEmbeddedVideoUrl] = useState('');
   const [galleryImages, setGalleryImages] = useState<string[]>([]);
@@ -1049,35 +1010,6 @@ export default function BandPublicProfileMobile() {
     setLinks((prev) =>
       prev.map((l, i) => (i === index ? { ...l, url: '' } : l))
     );
-  };
-
-  // Drag and drop handlers
-  const handleDragStart = (index: number) => {
-    triggerHaptic(ImpactStyle.Medium);
-    setDraggedIndex(index);
-  };
-
-  const handleDragEnd = () => {
-    if (
-      draggedIndex !== null &&
-      dragOverIndex !== null &&
-      draggedIndex !== dragOverIndex
-    ) {
-      setLinks((prev) => {
-        const newLinks = [...prev];
-        const [removed] = newLinks.splice(draggedIndex, 1);
-        newLinks.splice(dragOverIndex, 0, removed);
-        return newLinks;
-      });
-    }
-    setDraggedIndex(null);
-    setDragOverIndex(null);
-  };
-
-  const handleDragOver = (index: number) => {
-    if (draggedIndex !== null && index !== draggedIndex) {
-      setDragOverIndex(index);
-    }
   };
 
   // Save
@@ -1867,21 +1799,16 @@ export default function BandPublicProfileMobile() {
                   lineHeight: 1.5,
                 }}
               >
-                Drag to reorder how links appear on your public page
+                Add links to your streaming platforms
               </p>
-              {musicLinks.map((link, index) => {
+              {musicLinks.map((link) => {
                 const globalIndex = links.findIndex((l) => l.id === link.id);
                 return (
-                  <DraggableLinkItem
+                  <LinkItemRow
                     key={link.id}
                     link={link}
                     onUpdate={(url) => handleLinkUpdate(globalIndex, url)}
                     onRemove={() => handleLinkRemove(globalIndex)}
-                    onDragStart={() => handleDragStart(globalIndex)}
-                    onDragEnd={handleDragEnd}
-                    onDragOver={() => handleDragOver(globalIndex)}
-                    isDragging={draggedIndex === globalIndex}
-                    isDragOver={dragOverIndex === globalIndex}
                     disabled={!isAdmin}
                   />
                 );
@@ -1906,21 +1833,16 @@ export default function BandPublicProfileMobile() {
                   lineHeight: 1.5,
                 }}
               >
-                Drag to reorder how links appear on your public page
+                Add links to your social profiles
               </p>
               {socialLinks.map((link) => {
                 const globalIndex = links.findIndex((l) => l.id === link.id);
                 return (
-                  <DraggableLinkItem
+                  <LinkItemRow
                     key={link.id}
                     link={link}
                     onUpdate={(url) => handleLinkUpdate(globalIndex, url)}
                     onRemove={() => handleLinkRemove(globalIndex)}
-                    onDragStart={() => handleDragStart(globalIndex)}
-                    onDragEnd={handleDragEnd}
-                    onDragOver={() => handleDragOver(globalIndex)}
-                    isDragging={draggedIndex === globalIndex}
-                    isDragOver={dragOverIndex === globalIndex}
                     disabled={!isAdmin}
                   />
                 );
