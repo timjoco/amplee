@@ -766,7 +766,7 @@ export default function BandSettingsMobile() {
           <div
             style={{
               padding: isLarge ? '24px 48px' : '16px',
-              maxWidth: isLarge ? 800 : 600,
+              maxWidth: isLarge ? 1000 : 600,
               margin: isLarge ? 0 : '0 auto',
             }}
           >
@@ -842,7 +842,7 @@ export default function BandSettingsMobile() {
               display: 'flex',
               flexDirection: 'column',
               gap: 16,
-              maxWidth: isLarge ? 800 : 'none',
+              maxWidth: isLarge ? 1000 : 'none',
             }}
           >
             {/* Band Header Card */}
