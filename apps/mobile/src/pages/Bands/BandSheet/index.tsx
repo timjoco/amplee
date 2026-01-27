@@ -91,7 +91,7 @@ export default function BandSheetMobile() {
         showSettings={showBandSettings}
         onShowSettings={() => setShowBandSettings(true)}
         onHideSettings={() => setShowBandSettings(false)}
-        isLarge={isLarge}
+        isLarge={screenSize !== 'small'}
       />
 
       <IonContent
