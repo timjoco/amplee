@@ -257,8 +257,8 @@ export default function InviteBandPage() {
             style={{
               padding: isLarge ? '24px 48px' : 16,
               paddingBottom: 24,
-              display: 'flex',
-              flexDirection: 'column',
+              display: 'grid',
+              gridTemplateColumns: screenSize === 'small' ? '1fr' : 'repeat(2, 1fr)',
               gap: 16,
               maxWidth: isLarge ? 1100 : 'none',
               margin: isLarge ? '0 auto' : undefined,
