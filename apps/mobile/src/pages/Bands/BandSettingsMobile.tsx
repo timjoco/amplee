@@ -17,7 +17,6 @@ import {
   chevronBackOutline,
   musicalNotesOutline,
   peopleOutline,
-  personAddOutline,
   personOutline,
   settingsOutline,
   shieldOutline,
@@ -629,169 +628,107 @@ export default function BandSettingsMobile() {
 
   return (
     <IonPage>
-      <IonHeader translucent>
+      <IonHeader translucent className="ion-no-border">
         <IonToolbar
           style={{
-            '--background': 'rgba(8,8,12,0.98)',
-            borderBottom: '0.5px solid rgba(255,255,255,0.06)',
+            '--background': 'rgba(8, 8, 14, 0.95)',
+            '--border-width': 0,
           }}
         >
-          {isLarge ? (
-            /* Large screen: band avatar + name + action icons */
-            <div
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              padding: '12px 16px',
+              gap: 12,
+            }}
+          >
+            {/* Back Button */}
+            <button
+              onClick={() => nav(-1)}
               style={{
-                width: '100%',
-                padding: '14px 24px 18px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 16,
+                width: 40,
+                height: 40,
+                borderRadius: 12,
+                background: 'rgba(255, 255, 255, 0.04)',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                display: 'grid',
+                placeItems: 'center',
+                color: '#9ca3af',
+                flexShrink: 0,
+                cursor: 'pointer',
               }}
             >
-              <IonButton
-                fill="clear"
-                onClick={() => nav(-1)}
-                style={{ minWidth: 0, paddingInline: 4, margin: 0 }}
-              >
+              <IonIcon icon={chevronBackOutline} style={{ fontSize: 20 }} />
+            </button>
+
+            {/* Title Section */}
+            <div style={{ flex: 1 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <IonIcon
-                  icon={chevronBackOutline}
-                  style={{ color: '#F9FAFB', fontSize: 22 }}
+                  icon={settingsOutline}
+                  style={{ color: '#a78bfa', fontSize: 20 }}
                 />
-              </IonButton>
-
-              <AvatarImageMobile
-                name={bandName}
-                bucket="band-avatars"
-                avatarPath={bandAvatarPath || undefined}
-                updatedAt={undefined}
-                size={56}
-              />
-
-              <div
-                style={{
-                  flex: 1,
-                  minWidth: 0,
-                  textAlign: 'left',
-                }}
-              >
-                <span
+                <h1
                   style={{
-                    fontSize: 24,
-                    fontWeight: 800,
-                    color: '#F9FAFB',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
+                    fontSize: 22,
+                    fontWeight: 700,
+                    color: '#f9fafb',
+                    margin: 0,
                     letterSpacing: '-0.5px',
-                    lineHeight: 1.1,
-                  }}
-                >
-                  {bandName || 'Band'}
-                </span>
-                <p
-                  style={{
-                    margin: '4px 0 0',
-                    fontSize: 13,
-                    color: '#9ca3af',
                   }}
                 >
                   Band Settings
-                </p>
+                </h1>
               </div>
-
-              {/* Action icons */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                {isAdmin && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      // Scroll to invite section or trigger invite modal
-                      const inviteSection = document.getElementById('invite-section');
-                      if (inviteSection) {
-                        inviteSection.scrollIntoView({ behavior: 'smooth' });
-                      }
-                    }}
-                    style={{
-                      background: 'rgba(139, 92, 246, 0.15)',
-                      border: '1px solid rgba(139, 92, 246, 0.3)',
-                      borderRadius: 12,
-                      padding: 12,
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                    title="Invite Members"
-                  >
-                    <IonIcon
-                      icon={personAddOutline}
-                      style={{ fontSize: 22, color: '#a78bfa' }}
-                    />
-                  </button>
-                )}
+              {bandName && (
                 <div
                   style={{
-                    background: 'rgba(139, 92, 246, 0.2)',
-                    border: '1px solid rgba(139, 92, 246, 0.4)',
-                    borderRadius: 12,
-                    padding: 12,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
+                    fontSize: 13,
+                    color: '#6b7280',
+                    marginTop: 2,
+                    marginLeft: 28,
                   }}
-                  title="Settings (current page)"
                 >
-                  <IonIcon
-                    icon={settingsOutline}
-                    style={{ fontSize: 22, color: '#a78bfa' }}
-                  />
+                  {bandName}
                 </div>
-              </div>
+              )}
             </div>
-          ) : (
-            /* Small/medium screen: back button + title */
-            <>
-              <IonButtons slot="start">
-                <IonButton
-                  fill="clear"
-                  onClick={() => nav(-1)}
-                  style={{ minWidth: 0, paddingInline: 4 }}
-                >
-                  <IonIcon
-                    icon={chevronBackOutline}
-                    style={{ color: '#F9FAFB', fontSize: 22 }}
-                  />
-                </IonButton>
-              </IonButtons>
 
-              <div
+            {/* Role Badge */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '6px 10px',
+                borderRadius: 10,
+                background: isAdmin
+                  ? 'rgba(167, 139, 250, 0.08)'
+                  : 'rgba(255, 255, 255, 0.04)',
+                border: `1px solid ${
+                  isAdmin ? 'rgba(167, 139, 250, 0.25)' : 'rgba(255, 255, 255, 0.08)'
+                }`,
+              }}
+            >
+              <IonIcon
+                icon={isAdmin ? shieldOutline : personOutline}
                 style={{
-                  paddingInline: 12,
-                  paddingBlock: 8,
+                  fontSize: 14,
+                  color: isAdmin ? '#a78bfa' : '#6b7280',
+                }}
+              />
+              <span
+                style={{
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: isAdmin ? '#a78bfa' : '#6b7280',
                 }}
               >
-                <h1
-                  style={{
-                    margin: 0,
-                    fontSize: 24,
-                    fontWeight: 800,
-                    color: '#F9FAFB',
-                    letterSpacing: '-0.5px',
-                  }}
-                >
-                  Band settings
-                </h1>
-                <p
-                  style={{
-                    margin: '4px 0 0',
-                    fontSize: 13,
-                    color: '#9ca3af',
-                  }}
-                >
-                  Manage band profile and members
-                </p>
-              </div>
-            </>
-          )}
+                {isAdmin ? 'Admin' : 'Member'}
+              </span>
+            </div>
+          </div>
         </IonToolbar>
       </IonHeader>
 
