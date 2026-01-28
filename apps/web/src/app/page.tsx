@@ -2,12 +2,11 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import SiteFooter from '@/components/Footers/SiteFooter';
+import AssignmentIcon from '@mui/icons-material/Assignment';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
-import ChatBubbleIcon from '@mui/icons-material/ChatBubble';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import GroupsIcon from '@mui/icons-material/Groups';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
-import MusicNoteIcon from '@mui/icons-material/MusicNote';
+import LibraryMusicIcon from '@mui/icons-material/LibraryMusic';
+import PeopleIcon from '@mui/icons-material/People';
 import VolumeUpIcon from '@mui/icons-material/VolumeUp';
 import {
   Box,
@@ -43,10 +42,10 @@ const colors = {
     muted: '#6B6880',
   },
   accent: {
-    green: '#22C55E',
-    pink: '#EC4899',
-    cyan: '#06B6D4',
-    yellow: '#F59E0B',
+    green: '#34d399',    // Events
+    pink: '#f472b6',     // Songs/Setlists
+    blue: '#38bdf8',     // Roster/Roll Call
+    yellow: '#f59e0b',   // Proposals
     red: '#EF4444',
   },
 };
@@ -475,28 +474,28 @@ function ChaosMeter() {
 function ShowcaseSection() {
   const solutions = [
     {
-      icon: '🎯',
-      title: 'Every gig gets its own Event Chat',
-      desc: 'Chat, details, and updates in one focused space—not buried in the main thread.',
-      color: colors.purple.main,
-    },
-    {
-      icon: '✋',
-      title: "Roll Call shows who's in at a glance",
-      desc: "See confirmations instantly. Know when you need a sub before it's too late.",
+      icon: <CalendarTodayIcon sx={{ fontSize: { xs: 28, sm: 32 } }} />,
+      title: 'Every gig gets its own space',
+      desc: 'Chat, details, setlist, and files—all organized per event, not buried in the main thread.',
       color: colors.accent.green,
     },
     {
-      icon: '📋',
-      title: 'Setlists that actually stay updated',
-      desc: 'Build it once, share it everywhere. Keys, notes, and special cues included.',
+      icon: <AssignmentIcon sx={{ fontSize: { xs: 28, sm: 32 } }} />,
+      title: 'Proposals let the band decide together',
+      desc: "Float potential gigs, everyone votes. No more \"did you see my text?\" drama.",
       color: colors.accent.yellow,
     },
     {
-      icon: '🔔',
-      title: 'Changes hit everyone instantly',
-      desc: 'Venue changed? Load-in moved? Everyone gets notified. No more excuses.',
+      icon: <LibraryMusicIcon sx={{ fontSize: { xs: 28, sm: 32 } }} />,
+      title: 'Setlists that actually stay updated',
+      desc: 'Build it once, share it everywhere. Keys, notes, and special cues included.',
       color: colors.accent.pink,
+    },
+    {
+      icon: <PeopleIcon sx={{ fontSize: { xs: 28, sm: 32 } }} />,
+      title: "Roll Call shows who's in at a glance",
+      desc: "See confirmations instantly. Know when you need a sub before it's too late.",
+      color: colors.accent.blue,
     },
   ];
 
@@ -585,10 +584,10 @@ function ShowcaseSection() {
                         height: { xs: 48, sm: 56, md: 64 },
                         borderRadius: { xs: '12px', sm: '16px' },
                         bgcolor: `${solution.color}15`,
+                        color: solution.color,
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        fontSize: { xs: '1.5rem', sm: '1.75rem', md: '2rem' },
                         transition: 'transform 0.3s ease',
                       }}
                     >
@@ -628,32 +627,32 @@ function ShowcaseSection() {
 function FeaturesSection() {
   const features = [
     {
-      icon: <ChatBubbleIcon sx={{ fontSize: { xs: 24, sm: 28 } }} />,
-      title: 'Event Chat',
-      tag: 'Per-show chat',
-      desc: 'Every gig gets its own focused chat space. No more scrolling through months of random messages.',
-      color: colors.purple.main,
+      icon: <CalendarTodayIcon sx={{ fontSize: { xs: 24, sm: 28 } }} />,
+      title: 'Events',
+      tag: 'Shows & practices',
+      desc: "All your gigs and rehearsals in one place. Load-in times, venues, and automatic reminders.",
+      color: colors.accent.green,
     },
     {
-      icon: <GroupsIcon sx={{ fontSize: { xs: 24, sm: 28 } }} />,
-      title: 'Roll Call',
-      tag: "Who's in?",
-      desc: "See confirmations at a glance. Know who's coming, who needs a sub, and who's ghosting.",
-      color: colors.accent.cyan,
-    },
-    {
-      icon: <MusicNoteIcon sx={{ fontSize: { xs: 24, sm: 28 } }} />,
-      title: 'Setlists & Songs',
-      tag: 'Always in sync',
-      desc: 'Build your setlist once, share it with everyone. Keys, tempo, notes—all in one place.',
+      icon: <AssignmentIcon sx={{ fontSize: { xs: 24, sm: 28 } }} />,
+      title: 'Proposals',
+      tag: 'Vote on gigs',
+      desc: "Float potential shows to the band. Everyone votes, no one gets left out of the decision.",
       color: colors.accent.yellow,
     },
     {
-      icon: <CalendarTodayIcon sx={{ fontSize: { xs: 24, sm: 28 } }} />,
-      title: 'Show Calendar',
-      tag: 'Never miss a gig',
-      desc: "All your shows in one place with automatic reminders. Your band's schedule, always current.",
+      icon: <LibraryMusicIcon sx={{ fontSize: { xs: 24, sm: 28 } }} />,
+      title: 'Songs & Setlists',
+      tag: 'Your library',
+      desc: 'Build your setlist once, share it with everyone. Keys, tempo, notes—all in one place.',
       color: colors.accent.pink,
+    },
+    {
+      icon: <PeopleIcon sx={{ fontSize: { xs: 24, sm: 28 } }} />,
+      title: 'Roll Call',
+      tag: "Who's in?",
+      desc: "See confirmations at a glance. Know who's coming, who needs a sub, and who's ghosting.",
+      color: colors.accent.blue,
     },
   ];
 
@@ -806,21 +805,21 @@ function HowItWorksSection() {
     },
     {
       step: '02',
-      title: 'Add your shows',
-      desc: 'Drop in gig details. Each show gets its own Event Chat automatically.',
-      color: colors.accent.cyan,
+      title: 'Add your events',
+      desc: 'Drop in gig details. Each show gets its own chat and setlist automatically.',
+      color: colors.accent.green,
     },
     {
       step: '03',
       title: 'Build your setlist',
       desc: 'Create once, share everywhere. Notes, keys, and cues included.',
-      color: colors.accent.yellow,
+      color: colors.accent.pink,
     },
     {
       step: '04',
       title: 'Show up ready',
       desc: 'Everyone knows the plan. No surprises. Just music.',
-      color: colors.accent.green,
+      color: colors.accent.blue,
     },
   ];
 

@@ -284,19 +284,22 @@ export async function POST(req: NextRequest, ctx: { params: any }) {
       }
     }
 
-    // Mark invite accepted
-    const { error: updErr } = await supabaseAdmin
-      .from('band_invitations')
-      .update({ status: 'accepted' })
-      .eq('token', token);
-    if (updErr) {
-      return addCorsHeaders(
-        req,
-        NextResponse.json(
-          { error: `failed to update invite: ${updErr.message}` },
-          { status: 400 }
-        )
-      );
+    // Mark invite accepted - but only for email-specific invites
+    // Link-based invites (email: null) stay pending so multiple people can use them
+    if (invite.email) {
+      const { error: updErr } = await supabaseAdmin
+        .from('band_invitations')
+        .update({ status: 'accepted' })
+        .eq('token', token);
+      if (updErr) {
+        return addCorsHeaders(
+          req,
+          NextResponse.json(
+            { error: `failed to update invite: ${updErr.message}` },
+            { status: 400 }
+          )
+        );
+      }
     }
 
     return addCorsHeaders(
