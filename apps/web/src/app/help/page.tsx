@@ -3,12 +3,15 @@ export const revalidate = 0;
 
 import SiteFooter from '@/components/Footers/SiteFooter';
 import AssignmentIcon from '@mui/icons-material/Assignment';
+import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import GroupsIcon from '@mui/icons-material/Groups';
 import LibraryMusicIcon from '@mui/icons-material/LibraryMusic';
 import LockIcon from '@mui/icons-material/Lock';
 import PeopleIcon from '@mui/icons-material/People';
-import { Box, Container, Stack, Typography } from '@mui/material';
+import PublicIcon from '@mui/icons-material/Public';
+import { Box, Container, Grid, Stack, Typography } from '@mui/material';
+import Image from 'next/image';
 import Link from 'next/link';
 
 export const metadata = {
@@ -18,95 +21,112 @@ export const metadata = {
 
 const colors = {
   bg: {
-    primary: '#0a0a0f',
-    secondary: '#101018',
-    tertiary: '#1a1a25',
+    primary: '#FAFAFA',
+    secondary: '#FFFFFF',
+    tertiary: '#F3F4F6',
   },
   text: {
-    primary: '#E8E6F0',
-    secondary: '#9CA3AF',
-    muted: '#5a5a6a',
+    primary: '#111827',
+    secondary: '#4B5563',
+    muted: '#9CA3AF',
   },
-  // Metroid Fusion inspired
-  pink: {
-    main: '#ff6eb4',
-    light: '#ff9fcf',
-    glow: 'rgba(255, 110, 180, 0.4)',
+  purple: {
+    main: '#8B5CF6',
+    light: '#A78BFA',
+    lighter: '#EDE9FE',
   },
   green: {
-    main: '#39ff85',
-    light: '#7affab',
-    glow: 'rgba(57, 255, 133, 0.4)',
+    main: '#34d399',
+    lighter: '#D1FAE5',
   },
-  accent: {
-    green: '#39ff85',
-    pink: '#ff6eb4',
-    blue: '#38bdf8',
-    yellow: '#f59e0b',
+  yellow: {
+    main: '#f59e0b',
+    lighter: '#FEF3C7',
+  },
+  pink: {
+    main: '#f472b6',
+    lighter: '#FCE7F3',
+  },
+  blue: {
+    main: '#38bdf8',
+    lighter: '#E0F2FE',
+  },
+  teal: {
+    main: '#14b8a6',
+    lighter: '#CCFBF1',
   },
 };
 
-// Map nodes - position them like a metroidvania map
-const nodes = [
+const categories = [
   {
     id: 'bands',
     title: 'Bands',
-    subtitle: 'Start here',
+    description: 'Create your band, invite members, and manage roles',
     href: '/help/bands',
-    icon: <GroupsIcon sx={{ fontSize: 32 }} />,
-    color: colors.pink.main,
+    icon: <GroupsIcon sx={{ fontSize: 36 }} />,
+    color: colors.purple.main,
+    bgColor: colors.purple.lighter,
     available: true,
-    x: 50, // percentage from left
-    y: 25, // percentage from top
-    connections: ['events', 'proposals'],
-  },
-  {
-    id: 'events',
-    title: 'Events',
-    subtitle: 'Shows & practices',
-    href: '/help/events',
-    icon: <CalendarTodayIcon sx={{ fontSize: 32 }} />,
-    color: colors.green.main,
-    available: false,
-    x: 25,
-    y: 50,
-    connections: ['setlists', 'rollcall'],
   },
   {
     id: 'proposals',
     title: 'Proposals',
-    subtitle: 'Vote on gigs',
+    description: 'Float potential gigs and let the band vote',
     href: '/help/proposals',
-    icon: <AssignmentIcon sx={{ fontSize: 32 }} />,
-    color: colors.green.main,
+    icon: <AssignmentIcon sx={{ fontSize: 36 }} />,
+    color: colors.yellow.main,
+    bgColor: colors.yellow.lighter,
     available: true,
-    x: 75,
-    y: 50,
-    connections: [],
   },
   {
-    id: 'setlists',
-    title: 'Setlists',
-    subtitle: 'Songs & order',
-    href: '/help/setlists',
-    icon: <LibraryMusicIcon sx={{ fontSize: 32 }} />,
-    color: colors.pink.main,
-    available: false,
-    x: 15,
-    y: 78,
-    connections: [],
+    id: 'events',
+    title: 'Events',
+    description: 'Manage confirmed shows, practices, and rehearsals',
+    href: '/help/events',
+    icon: <CalendarTodayIcon sx={{ fontSize: 36 }} />,
+    color: colors.green.main,
+    bgColor: colors.green.lighter,
+    available: true,
   },
   {
-    id: 'rollcall',
-    title: 'Roll Call',
-    subtitle: 'Who\'s in?',
-    href: '/help/roll-call',
-    icon: <PeopleIcon sx={{ fontSize: 32 }} />,
+    id: 'library',
+    title: 'Library',
+    description: 'Manage your songs and build setlists for shows',
+    href: '/help/library',
+    icon: <LibraryMusicIcon sx={{ fontSize: 36 }} />,
     color: colors.pink.main,
-    available: false,
-    x: 45,
-    y: 78,
-    connections: [],
+    bgColor: colors.pink.lighter,
+    available: true,
+  },
+  {
+    id: 'roster',
+    title: 'Roster',
+    description: 'Save different lineups and invite the right people to each event',
+    href: '/help/roster',
+    icon: <PeopleIcon sx={{ fontSize: 36 }} />,
+    color: colors.blue.main,
+    bgColor: colors.blue.lighter,
+    available: true,
+  },
+  {
+    id: 'availability',
+    title: 'Availability',
+    description: "Share when you're free so the band can book smarter",
+    href: '/help/availability',
+    icon: <CalendarMonthIcon sx={{ fontSize: 36 }} />,
+    color: colors.teal.main,
+    bgColor: colors.teal.lighter,
+    available: true,
+  },
+  {
+    id: 'public-page',
+    title: 'Public Page',
+    description: "Your band's free landing page with bio, links, photos, and upcoming shows",
+    href: '/help/profile',
+    icon: <PublicIcon sx={{ fontSize: 36 }} />,
+    color: colors.purple.main,
+    bgColor: colors.purple.lighter,
+    available: true,
   },
 ];
 
@@ -121,213 +141,151 @@ export default function HelpCenterPage() {
         flexDirection: 'column',
       }}
     >
-      {/* Map Area */}
+      {/* Header */}
       <Box
         sx={{
-          flex: 1,
-          position: 'relative',
-          overflow: 'hidden',
-          // Grid background - Metroid Fusion style
-          backgroundImage: `
-            linear-gradient(rgba(255, 110, 180, 0.04) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(57, 255, 133, 0.04) 1px, transparent 1px)
-          `,
-          backgroundSize: '32px 32px',
+          bgcolor: colors.bg.secondary,
+          borderBottom: `1px solid ${colors.bg.tertiary}`,
+          py: 2,
         }}
       >
-        {/* Fog/atmosphere effect - Metroid Fusion style */}
-        <Box
-          sx={{
-            position: 'absolute',
-            inset: 0,
-            background: `
-              radial-gradient(ellipse at 50% 20%, rgba(255, 110, 180, 0.12) 0%, transparent 50%),
-              radial-gradient(ellipse at 20% 70%, rgba(57, 255, 133, 0.08) 0%, transparent 45%),
-              radial-gradient(ellipse at 80% 60%, rgba(57, 255, 133, 0.06) 0%, transparent 40%)
-            `,
-            pointerEvents: 'none',
-          }}
-        />
-
-        {/* Title */}
-        <Box
-          sx={{
-            textAlign: 'center',
-            pt: { xs: 4, md: 6 },
-            pb: { xs: 2, md: 3 },
-            position: 'relative',
-            zIndex: 2,
-          }}
-        >
-          <Typography
-            sx={{
-              fontSize: { xs: '0.75rem', md: '0.85rem' },
-              fontWeight: 700,
-              color: colors.pink.main,
-              letterSpacing: '3px',
-              textTransform: 'uppercase',
-              mb: 1,
-            }}
-          >
-            Help Center
-          </Typography>
-          <Typography
-            variant="h1"
-            sx={{
-              fontWeight: 800,
-              fontSize: { xs: '2rem', md: '2.75rem' },
-              color: colors.text.primary,
-              letterSpacing: '-0.02em',
-            }}
-          >
-            Choose Your Path
-          </Typography>
-          <Typography
-            sx={{
-              fontSize: { xs: '1rem', md: '1.1rem' },
-              color: colors.text.secondary,
-              mt: 1,
-            }}
-          >
-            Click a node to explore
-          </Typography>
-        </Box>
-
-        {/* Map Container */}
-        <Container maxWidth="lg" sx={{ position: 'relative', zIndex: 1 }}>
-          <Box
-            sx={{
-              position: 'relative',
-              height: { xs: '500px', md: '550px' },
-              mt: { xs: 2, md: 4 },
-            }}
-          >
-            {/* Connection Lines - SVG */}
-            <svg
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                width: '100%',
-                height: '100%',
-                pointerEvents: 'none',
+        <Container maxWidth="lg">
+          <Stack direction="row" alignItems="center" justifyContent="space-between">
+            <Box
+              component={Link}
+              href="/"
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1.5,
+                textDecoration: 'none',
               }}
             >
-              <defs>
-                <linearGradient id="pinkGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor={colors.pink.main} stopOpacity="0.8" />
-                  <stop offset="100%" stopColor={colors.pink.main} stopOpacity="0.3" />
-                </linearGradient>
-                <linearGradient id="greenGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor={colors.green.main} stopOpacity="0.6" />
-                  <stop offset="100%" stopColor={colors.green.main} stopOpacity="0.2" />
-                </linearGradient>
-                <filter id="glow">
-                  <feGaussianBlur stdDeviation="3" result="coloredBlur" />
-                  <feMerge>
-                    <feMergeNode in="coloredBlur" />
-                    <feMergeNode in="SourceGraphic" />
-                  </feMerge>
-                </filter>
-              </defs>
-              {/* Bands -> Events */}
-              <line
-                x1="50%"
-                y1="25%"
-                x2="25%"
-                y2="50%"
-                stroke="url(#pinkGradient)"
-                strokeWidth="3"
-                strokeDasharray="6 6"
-                filter="url(#glow)"
+              <Image
+                src="/logo.png"
+                alt="Amplee"
+                width={40}
+                height={40}
+                style={{ borderRadius: 10 }}
               />
-              {/* Bands -> Proposals */}
-              <line
-                x1="50%"
-                y1="25%"
-                x2="75%"
-                y2="50%"
-                stroke="url(#pinkGradient)"
-                strokeWidth="3"
-                strokeDasharray="6 6"
-                filter="url(#glow)"
-              />
-              {/* Events -> Setlists */}
-              <line
-                x1="25%"
-                y1="50%"
-                x2="15%"
-                y2="78%"
-                stroke={colors.green.main}
-                strokeWidth="2"
-                strokeDasharray="4 6"
-                opacity="0.25"
-              />
-              {/* Events -> Roll Call */}
-              <line
-                x1="25%"
-                y1="50%"
-                x2="45%"
-                y2="78%"
-                stroke={colors.green.main}
-                strokeWidth="2"
-                strokeDasharray="4 6"
-                opacity="0.25"
-              />
-            </svg>
+              <Typography
+                sx={{
+                  fontWeight: 700,
+                  fontSize: '1.1rem',
+                  color: colors.text.primary,
+                }}
+              >
+                Amplee
+              </Typography>
+            </Box>
+          </Stack>
+        </Container>
+      </Box>
 
-            {/* Nodes */}
-            {nodes.map((node) => (
-              <MapNode key={node.id} {...node} />
+      {/* Main Content */}
+      <Box sx={{ flex: 1, py: { xs: 6, md: 10 } }}>
+        <Container maxWidth="lg">
+          {/* Page Header */}
+          <Box sx={{ textAlign: 'center', mb: { xs: 6, md: 8 } }}>
+            <Typography
+              sx={{
+                fontSize: '0.85rem',
+                fontWeight: 700,
+                color: colors.purple.main,
+                letterSpacing: '2px',
+                textTransform: 'uppercase',
+                mb: 2,
+              }}
+            >
+              Help Center
+            </Typography>
+            <Typography
+              variant="h1"
+              sx={{
+                fontWeight: 800,
+                fontSize: { xs: '2.25rem', md: '3rem' },
+                color: colors.text.primary,
+                letterSpacing: '-0.02em',
+                mb: 2,
+              }}
+            >
+              How can we help?
+            </Typography>
+            <Typography
+              sx={{
+                fontSize: { xs: '1.1rem', md: '1.25rem' },
+                color: colors.text.secondary,
+                maxWidth: 500,
+                mx: 'auto',
+              }}
+            >
+              Choose a topic below to learn how Amplee can help you organize your band.
+            </Typography>
+          </Box>
+
+          {/* Category Grid */}
+          <Grid container spacing={3}>
+            {categories.map((category) => (
+              <Grid size={{ xs: 12, sm: 6, md: 4 }} key={category.id}>
+                <CategoryCard {...category} />
+              </Grid>
             ))}
+          </Grid>
+
+          {/* Still need help */}
+          <Box
+            sx={{
+              mt: { xs: 8, md: 10 },
+              p: { xs: 4, md: 5 },
+              bgcolor: colors.bg.secondary,
+              borderRadius: 4,
+              border: `1px solid ${colors.bg.tertiary}`,
+              textAlign: 'center',
+            }}
+          >
+            <Typography
+              sx={{
+                fontWeight: 700,
+                color: colors.text.primary,
+                mb: 1.5,
+                fontSize: { xs: '1.25rem', md: '1.5rem' },
+              }}
+            >
+              Can't find what you're looking for?
+            </Typography>
+            <Typography
+              sx={{
+                color: colors.text.secondary,
+                mb: 3,
+                fontSize: { xs: '1rem', md: '1.1rem' },
+              }}
+            >
+              Reach out and we'll get back to you as soon as possible.
+            </Typography>
+            <Box
+              component="a"
+              href="mailto:support@amplee.app"
+              sx={{
+                display: 'inline-block',
+                bgcolor: colors.purple.main,
+                color: '#fff',
+                textDecoration: 'none',
+                fontWeight: 700,
+                borderRadius: 2.5,
+                px: 4,
+                py: 1.5,
+                fontSize: '1rem',
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                  bgcolor: colors.purple.light,
+                  transform: 'translateY(-1px)',
+                },
+              }}
+            >
+              Contact Support
+            </Box>
           </Box>
         </Container>
-
-        {/* Legend */}
-        <Box
-          sx={{
-            position: 'absolute',
-            bottom: { xs: 16, md: 24 },
-            left: '50%',
-            transform: 'translateX(-50%)',
-            display: 'flex',
-            gap: 3,
-            bgcolor: 'rgba(10, 10, 15, 0.95)',
-            border: `1px solid ${colors.pink.main}30`,
-            borderRadius: 1,
-            px: 3,
-            py: 1.5,
-          }}
-        >
-          <Stack direction="row" alignItems="center" spacing={1}>
-            <Box
-              sx={{
-                width: 12,
-                height: 12,
-                borderRadius: '2px',
-                bgcolor: colors.pink.main,
-                boxShadow: `0 0 10px ${colors.pink.glow}`,
-              }}
-            />
-            <Typography sx={{ fontSize: '0.8rem', color: colors.text.secondary }}>
-              Unlocked
-            </Typography>
-          </Stack>
-          <Stack direction="row" alignItems="center" spacing={1}>
-            <Box
-              sx={{
-                width: 12,
-                height: 12,
-                borderRadius: '2px',
-                bgcolor: colors.green.main,
-                opacity: 0.4,
-              }}
-            />
-            <Typography sx={{ fontSize: '0.8rem', color: colors.text.secondary }}>
-              Locked
-            </Typography>
-          </Stack>
-        </Box>
       </Box>
 
       <SiteFooter />
@@ -335,121 +293,117 @@ export default function HelpCenterPage() {
   );
 }
 
-function MapNode({
-  id,
+function CategoryCard({
   title,
-  subtitle,
+  description,
   href,
   icon,
   color,
+  bgColor,
   available,
-  x,
-  y,
 }: {
-  id: string;
   title: string;
-  subtitle: string;
+  description: string;
   href: string;
   icon: React.ReactNode;
   color: string;
+  bgColor: string;
   available: boolean;
-  x: number;
-  y: number;
-  connections?: string[];
 }) {
-  const nodeContent = (
+  const content = (
     <Box
       sx={{
-        position: 'absolute',
-        left: `${x}%`,
-        top: `${y}%`,
-        transform: 'translate(-50%, -50%)',
-        textAlign: 'center',
+        p: { xs: 3, md: 4 },
+        bgcolor: available ? colors.bg.secondary : colors.bg.tertiary,
+        borderRadius: 4,
+        border: `1px solid ${colors.bg.tertiary}`,
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
         cursor: available ? 'pointer' : 'default',
-        transition: 'transform 0.2s ease',
-        '&:hover': available
-          ? {
-              transform: 'translate(-50%, -50%) scale(1.08)',
-            }
-          : {},
+        opacity: available ? 1 : 0.6,
+        transition: 'all 0.2s ease',
+        ...(available && {
+          '&:hover': {
+            borderColor: color,
+            transform: 'translateY(-4px)',
+            boxShadow: `0 12px 24px -8px ${color}25`,
+          },
+        }),
       }}
     >
-      {/* Glow ring for available nodes */}
-      {available && (
-        <Box
-          sx={{
-            position: 'absolute',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            width: 100,
-            height: 100,
-            borderRadius: '50%',
-            background: `radial-gradient(circle, ${color}30 0%, transparent 70%)`,
-            animation: 'pulse 2s ease-in-out infinite',
-            '@keyframes pulse': {
-              '0%, 100%': { opacity: 0.5, transform: 'translate(-50%, -50%) scale(1)' },
-              '50%': { opacity: 1, transform: 'translate(-50%, -50%) scale(1.1)' },
-            },
-          }}
-        />
-      )}
-
-      {/* Node circle */}
+      {/* Icon */}
       <Box
         sx={{
-          width: { xs: 70, md: 80 },
-          height: { xs: 70, md: 80 },
-          borderRadius: '50%',
-          bgcolor: available ? colors.bg.secondary : colors.bg.tertiary,
-          border: `3px solid ${available ? color : colors.text.muted}`,
+          width: 72,
+          height: 72,
+          borderRadius: 3,
+          bgcolor: available ? bgColor : colors.bg.tertiary,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          position: 'relative',
-          boxShadow: available
-            ? `0 0 20px ${color}40, inset 0 0 20px ${color}10`
-            : 'none',
-          opacity: available ? 1 : 0.5,
-          mx: 'auto',
+          color: available ? color : colors.text.muted,
+          mb: 3,
         }}
       >
-        <Box sx={{ color: available ? color : colors.text.muted }}>
-          {available ? icon : <LockIcon sx={{ fontSize: 28 }} />}
-        </Box>
+        {available ? icon : <LockIcon sx={{ fontSize: 32 }} />}
       </Box>
 
-      {/* Label */}
-      <Box sx={{ mt: 1.5 }}>
-        <Typography
+      {/* Title */}
+      <Typography
+        sx={{
+          fontWeight: 700,
+          fontSize: { xs: '1.25rem', md: '1.4rem' },
+          color: available ? colors.text.primary : colors.text.muted,
+          mb: 1,
+        }}
+      >
+        {title}
+      </Typography>
+
+      {/* Description */}
+      <Typography
+        sx={{
+          fontSize: { xs: '0.95rem', md: '1rem' },
+          color: available ? colors.text.secondary : colors.text.muted,
+          lineHeight: 1.6,
+          flex: 1,
+        }}
+      >
+        {available ? description : 'Coming soon'}
+      </Typography>
+
+      {/* Coming soon badge for unavailable */}
+      {!available && (
+        <Box
           sx={{
-            fontWeight: 700,
-            fontSize: { xs: '0.95rem', md: '1.05rem' },
-            color: available ? colors.text.primary : colors.text.muted,
+            mt: 2,
+            display: 'inline-flex',
+            alignSelf: 'flex-start',
+            px: 1.5,
+            py: 0.5,
+            bgcolor: colors.bg.primary,
+            borderRadius: 1,
+            fontSize: '0.75rem',
+            fontWeight: 600,
+            color: colors.text.muted,
+            textTransform: 'uppercase',
+            letterSpacing: '0.5px',
           }}
         >
-          {title}
-        </Typography>
-        <Typography
-          sx={{
-            fontSize: { xs: '0.75rem', md: '0.8rem' },
-            color: available ? colors.text.secondary : colors.text.muted,
-            opacity: available ? 1 : 0.7,
-          }}
-        >
-          {subtitle}
-        </Typography>
-      </Box>
+          Coming Soon
+        </Box>
+      )}
     </Box>
   );
 
   if (!available) {
-    return nodeContent;
+    return content;
   }
 
   return (
-    <Link href={href} style={{ textDecoration: 'none' }}>
-      {nodeContent}
+    <Link href={href} style={{ textDecoration: 'none', display: 'block', height: '100%' }}>
+      {content}
     </Link>
   );
 }
