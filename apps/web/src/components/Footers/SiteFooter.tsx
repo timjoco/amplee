@@ -4,10 +4,11 @@ import { Box, Container, Stack, Typography } from '@mui/material';
 import Link from 'next/link';
 
 const footerLinks = [
+  { label: 'Help Center', href: '/help' },
+  { label: 'Support', href: '/support' },
   { label: 'Terms', href: '/terms' },
   { label: 'Privacy', href: '/privacy' },
   { label: 'Guidelines', href: '/community-guidelines' },
-  { label: 'Support', href: '/support' },
 ];
 
 export default function SiteFooter() {
