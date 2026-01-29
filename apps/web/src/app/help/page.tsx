@@ -59,7 +59,7 @@ const colors = {
   },
 };
 
-const categories = [
+const gettingStarted = [
   {
     id: 'account',
     title: 'Account & Login',
@@ -80,6 +80,9 @@ const categories = [
     bgColor: colors.teal.lighter,
     available: true,
   },
+];
+
+const yourBand = [
   {
     id: 'bands',
     title: 'Bands',
@@ -245,14 +248,51 @@ export default function HelpCenterPage() {
             </Typography>
           </Box>
 
-          {/* Category Grid */}
-          <Grid container spacing={3}>
-            {categories.map((category) => (
-              <Grid size={{ xs: 12, sm: 6, md: 4 }} key={category.id}>
-                <CategoryCard {...category} />
-              </Grid>
-            ))}
-          </Grid>
+          {/* Getting Started Section */}
+          <Box sx={{ mb: { xs: 6, md: 8 } }}>
+            <Typography
+              sx={{
+                fontSize: '0.8rem',
+                fontWeight: 700,
+                color: colors.text.muted,
+                letterSpacing: '1.5px',
+                textTransform: 'uppercase',
+                mb: 3,
+              }}
+            >
+              Getting Started
+            </Typography>
+            <Grid container spacing={3}>
+              {gettingStarted.map((category) => (
+                <Grid size={{ xs: 12, sm: 6, md: 4 }} key={category.id}>
+                  <CategoryCard {...category} />
+                </Grid>
+              ))}
+            </Grid>
+          </Box>
+
+          {/* Your Band Section */}
+          <Box>
+            <Typography
+              sx={{
+                fontSize: '0.8rem',
+                fontWeight: 700,
+                color: colors.text.muted,
+                letterSpacing: '1.5px',
+                textTransform: 'uppercase',
+                mb: 3,
+              }}
+            >
+              Your Band
+            </Typography>
+            <Grid container spacing={3}>
+              {yourBand.map((category) => (
+                <Grid size={{ xs: 12, sm: 6, md: 4 }} key={category.id}>
+                  <CategoryCard {...category} />
+                </Grid>
+              ))}
+            </Grid>
+          </Box>
 
           {/* Still need help */}
           <Box
