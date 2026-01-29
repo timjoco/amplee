@@ -177,43 +177,85 @@ export default function RosterHelpPage() {
               icon={<PlaylistAddCheckIcon sx={{ fontSize: 28, color: colors.accent.green }} />}
               title="Creating lineups"
             >
-              <Typography sx={{ color: colors.text.secondary, lineHeight: 1.7, fontSize: { xs: '1rem', md: '1.125rem' } }}>
-                Admins can create and manage lineups for the band:
-              </Typography>
-              <Stack spacing={2} sx={{ mt: 3 }}>
-                <StepItem number={1}>
-                  Go to your band's <strong style={{ color: colors.text.primary }}>Roster</strong> section
-                </StepItem>
-                <StepItem number={2}>
-                  Tap <strong style={{ color: colors.text.primary }}>Create Lineup</strong>
-                </StepItem>
-                <StepItem number={3}>
-                  Give it a name (e.g., "Acoustic Set")
-                </StepItem>
-                <StepItem number={4}>
-                  Select which band members are part of this lineup
-                </StepItem>
-                <StepItem number={5}>
-                  Save — now you can use this lineup when creating events
-                </StepItem>
-              </Stack>
-
-              <Box
-                sx={{
-                  bgcolor: colors.accent.green + '15',
-                  borderLeft: `4px solid ${colors.accent.green}`,
-                  borderRadius: '0 12px 12px 0',
-                  p: 3,
-                  mt: 4,
-                }}
+              <Stack
+                direction={{ xs: 'column', md: 'row' }}
+                spacing={{ xs: 4, md: 6 }}
+                alignItems={{ xs: 'center', md: 'flex-start' }}
               >
-                <Typography sx={{ color: colors.text.primary, fontWeight: 600, fontSize: { xs: '1.05rem', md: '1.15rem' } }}>
-                  Lineups are flexible
-                </Typography>
-                <Typography sx={{ color: colors.text.secondary, fontSize: { xs: '1rem', md: '1.075rem' }, mt: 1, lineHeight: 1.7 }}>
-                  You can always add or remove people from a specific event after creating it. Lineups are just a quick starting point.
-                </Typography>
-              </Box>
+                <Box sx={{ flex: 1 }}>
+                  <Typography sx={{ color: colors.text.secondary, lineHeight: 1.7, fontSize: { xs: '1rem', md: '1.125rem' } }}>
+                    Admins can create and manage lineups for the band:
+                  </Typography>
+                  <Stack spacing={2} sx={{ mt: 3 }}>
+                    <StepItem number={1}>
+                      Go to your band's <strong style={{ color: colors.text.primary }}>Roster</strong> section
+                    </StepItem>
+                    <StepItem number={2}>
+                      Tap <strong style={{ color: colors.text.primary }}>Create Lineup</strong>
+                    </StepItem>
+                    <StepItem number={3}>
+                      Give it a name (e.g., "Acoustic Set")
+                    </StepItem>
+                    <StepItem number={4}>
+                      Select which band members are part of this lineup
+                    </StepItem>
+                    <StepItem number={5}>
+                      Save — now you can use this lineup when creating events
+                    </StepItem>
+                  </Stack>
+
+                  <Box
+                    sx={{
+                      bgcolor: colors.accent.green + '15',
+                      borderLeft: `4px solid ${colors.accent.green}`,
+                      borderRadius: '0 12px 12px 0',
+                      p: 3,
+                      mt: 4,
+                    }}
+                  >
+                    <Typography sx={{ color: colors.text.primary, fontWeight: 600, fontSize: { xs: '1.05rem', md: '1.15rem' } }}>
+                      Lineups are flexible
+                    </Typography>
+                    <Typography sx={{ color: colors.text.secondary, fontSize: { xs: '1rem', md: '1.075rem' }, mt: 1, lineHeight: 1.7 }}>
+                      You can always add or remove people from a specific event after creating it. Lineups are just a quick starting point.
+                    </Typography>
+                  </Box>
+                </Box>
+
+                {/* Video Demo */}
+                <Box
+                  sx={{
+                    width: { xs: 260, md: 280 },
+                    flexShrink: 0,
+                  }}
+                >
+                  <Box
+                    sx={{
+                      position: 'relative',
+                      borderRadius: '32px',
+                      overflow: 'hidden',
+                      bgcolor: '#000',
+                      boxShadow: '0 12px 48px rgba(0, 0, 0, 0.15)',
+                      border: '10px solid #1a1a1a',
+                      aspectRatio: '9 / 19.5',
+                    }}
+                  >
+                    <Box
+                      component="video"
+                      src="/images/support/saving-rosters.mp4"
+                      autoPlay
+                      muted
+                      loop
+                      playsInline
+                      sx={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover',
+                      }}
+                    />
+                  </Box>
+                </Box>
+              </Stack>
             </HelpSection>
 
             <Divider sx={{ borderColor: colors.bg.tertiary }} />
@@ -223,18 +265,60 @@ export default function RosterHelpPage() {
               icon={<PersonAddIcon sx={{ fontSize: 28, color: colors.purple.main }} />}
               title="Inviting people to events"
             >
-              <Typography sx={{ color: colors.text.secondary, lineHeight: 1.7, fontSize: { xs: '1rem', md: '1.125rem' } }}>
-                When you create an event, you choose who to invite:
-              </Typography>
-              <Box component="ul" sx={{ color: colors.text.secondary, pl: 2.5, mt: 2, fontSize: { xs: '1rem', md: '1.125rem' }, lineHeight: 1.8, '& li': { mb: 1 } }}>
-                <li><strong style={{ color: colors.text.primary }}>Pick a saved lineup</strong> — Invite your "Acoustic Trio" or "Full Band" with one tap</li>
-                <li><strong style={{ color: colors.text.primary }}>Select individuals</strong> — Handpick specific people for this event</li>
-                <li><strong style={{ color: colors.text.primary }}>Mix and match</strong> — Start with a lineup and add or remove people</li>
-              </Box>
+              <Stack
+                direction={{ xs: 'column', md: 'row' }}
+                spacing={{ xs: 4, md: 6 }}
+                alignItems={{ xs: 'center', md: 'flex-start' }}
+              >
+                <Box sx={{ flex: 1 }}>
+                  <Typography sx={{ color: colors.text.secondary, lineHeight: 1.7, fontSize: { xs: '1rem', md: '1.125rem' } }}>
+                    When you create an event, you choose who to invite:
+                  </Typography>
+                  <Box component="ul" sx={{ color: colors.text.secondary, pl: 2.5, mt: 2, fontSize: { xs: '1rem', md: '1.125rem' }, lineHeight: 1.8, '& li': { mb: 1 } }}>
+                    <li><strong style={{ color: colors.text.primary }}>Pick a saved lineup</strong> — Invite your "Acoustic Trio" or "Full Band" with one tap</li>
+                    <li><strong style={{ color: colors.text.primary }}>Select individuals</strong> — Handpick specific people for this event</li>
+                    <li><strong style={{ color: colors.text.primary }}>Mix and match</strong> — Start with a lineup and add or remove people</li>
+                  </Box>
 
-              <Typography sx={{ color: colors.text.secondary, lineHeight: 1.7, mt: 4, fontSize: { xs: '1rem', md: '1.125rem' } }}>
-                Only the people you invite will see the event. Everyone else in the band won't be bothered with events that don't involve them.
-              </Typography>
+                  <Typography sx={{ color: colors.text.secondary, lineHeight: 1.7, mt: 4, fontSize: { xs: '1rem', md: '1.125rem' } }}>
+                    Only the people you invite will see the event. Everyone else in the band won't be bothered with events that don't involve them.
+                  </Typography>
+                </Box>
+
+                {/* Video Demo */}
+                <Box
+                  sx={{
+                    width: { xs: 260, md: 280 },
+                    flexShrink: 0,
+                  }}
+                >
+                  <Box
+                    sx={{
+                      position: 'relative',
+                      borderRadius: '32px',
+                      overflow: 'hidden',
+                      bgcolor: '#000',
+                      boxShadow: '0 12px 48px rgba(0, 0, 0, 0.15)',
+                      border: '10px solid #1a1a1a',
+                      aspectRatio: '9 / 19.5',
+                    }}
+                  >
+                    <Box
+                      component="video"
+                      src="/images/support/event-with-roster.mp4"
+                      autoPlay
+                      muted
+                      loop
+                      playsInline
+                      sx={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover',
+                      }}
+                    />
+                  </Box>
+                </Box>
+              </Stack>
             </HelpSection>
 
             <Divider sx={{ borderColor: colors.bg.tertiary }} />
