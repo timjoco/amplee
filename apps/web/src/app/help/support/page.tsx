@@ -12,6 +12,7 @@ import {
   Typography,
 } from '@mui/material';
 import Image from 'next/image';
+import Link from 'next/link';
 
 export const metadata = { title: 'Support • Amplee' };
 
@@ -106,12 +107,8 @@ export default function SupportPage() {
               </Button>
             </Stack>
 
-            {/* App Store Links */}
-            <Stack
-              direction={{ xs: 'column', sm: 'row' }}
-              spacing={2}
-              sx={{ pt: 2 }}
-            >
+            {/* App Store Link */}
+            <Box sx={{ pt: 2 }}>
               <Button
                 href="https://apps.apple.com/us/app/amplee/id6756085566"
                 target="_blank"
@@ -134,30 +131,7 @@ export default function SupportPage() {
               >
                 Download on App Store
               </Button>
-
-              <Button
-                href="https://play.google.com/store/apps/details?id=app.amplee"
-                target="_blank"
-                rel="noopener noreferrer"
-                variant="outlined"
-                size="large"
-                sx={{
-                  px: 3,
-                  py: 1.5,
-                  fontWeight: 700,
-                  borderRadius: '12px',
-                  textTransform: 'none',
-                  borderColor: 'rgba(255, 255, 255, 0.2)',
-                  color: '#FFFFFF',
-                  '&:hover': {
-                    borderColor: 'rgba(255, 255, 255, 0.4)',
-                    bgcolor: 'rgba(255, 255, 255, 0.05)',
-                  },
-                }}
-              >
-                Get it on Google Play
-              </Button>
-            </Stack>
+            </Box>
           </Stack>
 
           <Stack spacing={2.5} sx={{ mt: { xs: 5, md: 7 } }}>
@@ -210,23 +184,63 @@ export default function SupportPage() {
             />
 
             <Box id="delete-account">
-              <SupportCard
-                title="Delete Account"
-                items={[
-                  {
-                    q: 'How to delete your account',
-                    a: 'Open Amplee → Profile → Account → Delete My Account. Your account and all associated data will be permanently deleted immediately.',
-                  },
-                  {
-                    q: 'What gets deleted',
-                    a: 'Your profile, avatar, email, band memberships, chat messages, uploaded files, notes, availability dates, and all other personal data.',
-                  },
-                  {
-                    q: 'Can I undo this?',
-                    a: 'No. Account deletion is permanent and cannot be undone.',
-                  },
-                ]}
-              />
+              <Card
+                elevation={0}
+                sx={{
+                  borderRadius: '18px',
+                  border: '1px solid rgba(139, 92, 246, 0.16)',
+                  background:
+                    'linear-gradient(145deg, rgba(20, 18, 28, 0.85), rgba(10, 8, 15, 0.92))',
+                }}
+              >
+                <CardContent sx={{ p: { xs: 3, md: 4 } }}>
+                  <Typography
+                    variant="h6"
+                    sx={{ fontWeight: 900, mb: 2, color: '#FFFFFF' }}
+                  >
+                    Delete Account
+                  </Typography>
+
+                  <Stack spacing={2}>
+                    <Box>
+                      <Typography sx={{ fontWeight: 800, color: '#C4B5FD' }}>
+                        How to delete your account
+                      </Typography>
+                      <Typography sx={{ color: 'rgba(232, 230, 240, 0.75)', mt: 0.5 }}>
+                        Open Amplee → Profile → Support → Account → Delete My Account. Your account and all associated data will be permanently deleted immediately.
+                      </Typography>
+                    </Box>
+                    <Box>
+                      <Typography sx={{ fontWeight: 800, color: '#C4B5FD' }}>
+                        What gets deleted
+                      </Typography>
+                      <Typography sx={{ color: 'rgba(232, 230, 240, 0.75)', mt: 0.5 }}>
+                        Your profile, avatar, email, band memberships, chat messages, uploaded files, notes, availability dates, and all other personal data.
+                      </Typography>
+                    </Box>
+                    <Box>
+                      <Typography sx={{ fontWeight: 800, color: '#C4B5FD' }}>
+                        Can I undo this?
+                      </Typography>
+                      <Typography sx={{ color: 'rgba(232, 230, 240, 0.75)', mt: 0.5 }}>
+                        No. Account deletion is permanent and cannot be undone.
+                      </Typography>
+                    </Box>
+                    <Box>
+                      <Typography sx={{ fontWeight: 800, color: '#C4B5FD' }}>
+                        Learn more
+                      </Typography>
+                      <Typography sx={{ color: 'rgba(232, 230, 240, 0.75)', mt: 0.5 }}>
+                        See our{' '}
+                        <Link href="/help/profile-settings" style={{ color: '#A78BFA', fontWeight: 600 }}>
+                          Profile & Settings guide
+                        </Link>{' '}
+                        for more details on managing your account.
+                      </Typography>
+                    </Box>
+                  </Stack>
+                </CardContent>
+              </Card>
             </Box>
           </Stack>
         </Container>
