@@ -271,7 +271,7 @@ export default function HelpCenterPage() {
             </Grid>
           </Box>
 
-          {/* Your Band Section */}
+          {/* Your Bands Section */}
           <Box>
             <Typography
               sx={{
@@ -283,7 +283,7 @@ export default function HelpCenterPage() {
                 mb: 3,
               }}
             >
-              Your Band
+              Your Bands
             </Typography>
             <Grid container spacing={3}>
               {yourBand.map((category) => (
