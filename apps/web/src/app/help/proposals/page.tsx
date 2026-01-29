@@ -159,7 +159,7 @@ export default function ProposalsHelpPage() {
                 <li><strong style={{ color: colors.text.primary }}>Date & time</strong> — When the gig would happen</li>
                 <li><strong style={{ color: colors.text.primary }}>Venue/location</strong> — Where it would be</li>
                 <li><strong style={{ color: colors.text.primary }}>Details</strong> — Pay, load-in time, any other info</li>
-                <li><strong style={{ color: colors.text.primary }}>Votes</strong> — Yes, No, or Maybe from each member</li>
+                <li><strong style={{ color: colors.text.primary }}>Votes</strong> — Yes or No from each member</li>
               </Box>
               <Box
                 sx={{
@@ -266,7 +266,7 @@ export default function ProposalsHelpPage() {
                 {/* Content */}
                 <Box sx={{ flex: 1 }}>
                   <Typography sx={{ color: colors.text.secondary, lineHeight: 1.7, fontSize: { xs: '1rem', md: '1.125rem' } }}>
-                    When you open a proposal, you'll see three voting options:
+                    When you open a proposal, you'll see two voting options:
                   </Typography>
                   <Stack spacing={2} sx={{ mt: 3 }}>
                     <VoteOption
@@ -280,12 +280,6 @@ export default function ProposalsHelpPage() {
                       label="No"
                       description="I can't make this one"
                       color="#ef4444"
-                    />
-                    <VoteOption
-                      emoji="🤷"
-                      label="Maybe"
-                      description="Not sure yet, need to check"
-                      color={colors.accent.yellow}
                     />
                   </Stack>
                   <Typography sx={{ color: colors.text.secondary, lineHeight: 1.7, mt: 3, fontSize: { xs: '1rem', md: '1.125rem' } }}>
@@ -337,14 +331,14 @@ export default function ProposalsHelpPage() {
               title="Converting to an event"
             >
               <Typography sx={{ color: colors.text.secondary, lineHeight: 1.7, fontSize: { xs: '1rem', md: '1.125rem' } }}>
-                Once the band has voted and you're ready to commit:
+                Once everyone in the band has voted Yes, you can convert the proposal to an event:
               </Typography>
               <Stack spacing={2.5} sx={{ mt: 3 }}>
                 <StepItem number={1}>
-                  Open the proposal
+                  Wait for <strong style={{ color: colors.text.primary }}>all band members to vote Yes</strong>
                 </StepItem>
                 <StepItem number={2}>
-                  Tap <strong style={{ color: colors.text.primary }}>Convert to Event</strong>
+                  Open the proposal and tap <strong style={{ color: colors.text.primary }}>Convert to Event</strong>
                 </StepItem>
                 <StepItem number={3}>
                   The proposal becomes a full event with chat, setlist, roll call, and everything else
@@ -352,17 +346,18 @@ export default function ProposalsHelpPage() {
               </Stack>
               <Box
                 sx={{
-                  bgcolor: colors.purple.lighter,
-                  borderRadius: 3,
+                  bgcolor: colors.accent.green + '15',
+                  borderLeft: `4px solid ${colors.accent.green}`,
+                  borderRadius: '0 12px 12px 0',
                   p: 3,
                   mt: 4,
                 }}
               >
-                <Typography sx={{ color: colors.purple.dark, fontWeight: 600, fontSize: { xs: '1rem', md: '1.075rem' } }}>
-                  💡 Tip: You don't need unanimous votes
+                <Typography sx={{ color: colors.text.primary, fontWeight: 600, fontSize: { xs: '1rem', md: '1.075rem' } }}>
+                  ✓ Unanimous votes required
                 </Typography>
-                <Typography sx={{ color: colors.purple.main, fontSize: { xs: '0.95rem', md: '1rem' }, mt: 1, lineHeight: 1.6 }}>
-                  It's up to your band how you handle mixed votes. Some bands require everyone to vote yes, others go with majority. The votes are just information — you decide when to convert.
+                <Typography sx={{ color: colors.text.secondary, fontSize: { xs: '0.95rem', md: '1rem' }, mt: 1, lineHeight: 1.6 }}>
+                  A proposal can only be converted to an event when every band member has voted Yes. This ensures the whole band is on board before committing to a gig.
                 </Typography>
               </Box>
             </HelpSection>
