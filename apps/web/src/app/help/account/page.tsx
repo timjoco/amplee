@@ -259,7 +259,7 @@ export default function AccountHelpPage() {
                   Still not working?
                 </Typography>
                 <Typography sx={{ color: colors.text.secondary, fontSize: { xs: '1rem', md: '1.075rem' }, mt: 1, lineHeight: 1.7 }}>
-                  Email us at <a href="mailto:support@amplee.app" style={{ color: colors.purple.main, fontWeight: 600 }}>support@amplee.app</a> with the email address you're trying to use and we'll help you out.
+                  Email us at <a href="mailto:hello.amplee@gmail.com" style={{ color: colors.purple.main, fontWeight: 600 }}>hello.amplee@gmail.com</a> with the email address you're trying to use and we'll help you out.
                 </Typography>
               </Box>
             </HelpSection>
@@ -344,7 +344,7 @@ export default function AccountHelpPage() {
               Email us and we'll help you access your account.
             </Typography>
             <Button
-              href="mailto:support@amplee.app?subject=Help%20Logging%20In"
+              href="mailto:hello.amplee@gmail.com?subject=Help%20Logging%20In"
               variant="contained"
               size="large"
               sx={{

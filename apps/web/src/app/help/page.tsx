@@ -275,7 +275,7 @@ export default function HelpCenterPage() {
             </Typography>
             <Box
               component="a"
-              href="mailto:support@amplee.app"
+              href="mailto:hello.amplee@gmail.com"
               sx={{
                 display: 'inline-block',
                 bgcolor: colors.purple.main,

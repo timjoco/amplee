@@ -425,7 +425,7 @@ export default function BandsHelpPage() {
               We're here to help you get your band up and running.
             </Typography>
             <Button
-              href="mailto:support@amplee.app?subject=Help%20with%20Bands"
+              href="mailto:hello.amplee@gmail.com?subject=Help%20with%20Bands"
               variant="contained"
               size="large"
               sx={{

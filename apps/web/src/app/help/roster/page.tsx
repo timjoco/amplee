@@ -412,7 +412,7 @@ export default function RosterHelpPage() {
               We're here to help you get the most out of your roster.
             </Typography>
             <Button
-              href="mailto:support@amplee.app?subject=Help%20with%20Roster"
+              href="mailto:hello.amplee@gmail.com?subject=Help%20with%20Roster"
               variant="contained"
               size="large"
               sx={{

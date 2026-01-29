@@ -349,7 +349,7 @@ export default function LibraryHelpPage() {
               We're here to help you get the most out of your library.
             </Typography>
             <Button
-              href="mailto:support@amplee.app?subject=Help%20with%20Library"
+              href="mailto:hello.amplee@gmail.com?subject=Help%20with%20Library"
               variant="contained"
               size="large"
               sx={{

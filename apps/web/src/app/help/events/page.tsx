@@ -447,7 +447,7 @@ export default function EventsHelpPage() {
               We're here to help you get the most out of events.
             </Typography>
             <Button
-              href="mailto:support@amplee.app?subject=Help%20with%20Events"
+              href="mailto:hello.amplee@gmail.com?subject=Help%20with%20Events"
               variant="contained"
               size="large"
               sx={{

@@ -363,7 +363,7 @@ export default function AvailabilityHelpPage() {
               We're here to help you coordinate your schedule.
             </Typography>
             <Button
-              href="mailto:support@amplee.app?subject=Help%20with%20Availability"
+              href="mailto:hello.amplee@gmail.com?subject=Help%20with%20Availability"
               variant="contained"
               size="large"
               sx={{

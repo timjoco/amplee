@@ -67,7 +67,7 @@ export default function SupportPage() {
               sx={{ pt: 1 }}
             >
               <Button
-                href="mailto:support@amplee.app?subject=Amplee%20Support%20Request"
+                href="mailto:hello.amplee@gmail.com?subject=Amplee%20Support%20Request"
                 variant="contained"
                 size="large"
                 sx={{

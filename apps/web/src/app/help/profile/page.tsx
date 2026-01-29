@@ -398,7 +398,7 @@ export default function PublicPageHelpPage() {
               We're here to help you set up your public page.
             </Typography>
             <Button
-              href="mailto:support@amplee.app?subject=Help%20with%20Public%20Page"
+              href="mailto:hello.amplee@gmail.com?subject=Help%20with%20Public%20Page"
               variant="contained"
               size="large"
               sx={{
