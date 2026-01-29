@@ -86,7 +86,7 @@ export default function SupportPage() {
               </Button>
 
               <Button
-                href="/privacy"
+                href="/help"
                 variant="outlined"
                 size="large"
                 sx={{
@@ -103,7 +103,7 @@ export default function SupportPage() {
                   },
                 }}
               >
-                Privacy Policy
+                Help Center
               </Button>
             </Stack>
 
