@@ -8,6 +8,7 @@ import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import GroupsIcon from '@mui/icons-material/Groups';
 import LibraryMusicIcon from '@mui/icons-material/LibraryMusic';
 import LockIcon from '@mui/icons-material/Lock';
+import LoginIcon from '@mui/icons-material/Login';
 import PeopleIcon from '@mui/icons-material/People';
 import PublicIcon from '@mui/icons-material/Public';
 import { Box, Container, Grid, Stack, Typography } from '@mui/material';
@@ -58,6 +59,16 @@ const colors = {
 };
 
 const categories = [
+  {
+    id: 'account',
+    title: 'Account & Login',
+    description: 'Create an account, sign in, and manage your profile',
+    href: '/help/account',
+    icon: <LoginIcon sx={{ fontSize: 36 }} />,
+    color: colors.purple.main,
+    bgColor: colors.purple.lighter,
+    available: true,
+  },
   {
     id: 'bands',
     title: 'Bands',
