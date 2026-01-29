@@ -150,40 +150,82 @@ export default function AccountHelpPage() {
               icon={<PersonAddIcon sx={{ fontSize: 28, color: colors.purple.main }} />}
               title="Creating an account"
             >
-              <Typography sx={{ color: colors.text.secondary, lineHeight: 1.7, fontSize: { xs: '1rem', md: '1.125rem' } }}>
-                Amplee uses <strong style={{ color: colors.text.primary }}>passwordless login</strong>—you sign in with a one-time code sent to your email. No password to remember or reset.
-              </Typography>
-              <Stack spacing={2.5} sx={{ mt: 3 }}>
-                <StepItem number={1}>
-                  Download Amplee from the <strong style={{ color: colors.text.primary }}>App Store</strong> or <strong style={{ color: colors.text.primary }}>Google Play</strong>
-                </StepItem>
-                <StepItem number={2}>
-                  Open the app and enter your <strong style={{ color: colors.text.primary }}>email address</strong>
-                </StepItem>
-                <StepItem number={3}>
-                  Check your inbox for a <strong style={{ color: colors.text.primary }}>6-digit code</strong>
-                </StepItem>
-                <StepItem number={4}>
-                  Enter the code in the app—you're in!
-                </StepItem>
-              </Stack>
-
-              <Box
-                sx={{
-                  bgcolor: colors.purple.lighter,
-                  borderLeft: `4px solid ${colors.purple.main}`,
-                  borderRadius: '0 12px 12px 0',
-                  p: 3,
-                  mt: 4,
-                }}
+              <Stack
+                direction={{ xs: 'column', md: 'row' }}
+                spacing={{ xs: 4, md: 6 }}
+                alignItems={{ xs: 'center', md: 'flex-start' }}
               >
-                <Typography sx={{ color: colors.text.primary, fontWeight: 600, fontSize: { xs: '1.05rem', md: '1.15rem' } }}>
-                  First time? You'll set up your profile
-                </Typography>
-                <Typography sx={{ color: colors.text.secondary, fontSize: { xs: '1rem', md: '1.075rem' }, mt: 1, lineHeight: 1.7 }}>
-                  If it's your first time signing in, you'll be asked to add your name and optionally a profile photo. This helps your bandmates recognize you.
-                </Typography>
-              </Box>
+                <Box sx={{ flex: 1 }}>
+                  <Typography sx={{ color: colors.text.secondary, lineHeight: 1.7, fontSize: { xs: '1rem', md: '1.125rem' } }}>
+                    Amplee uses <strong style={{ color: colors.text.primary }}>passwordless login</strong>—you sign in with a one-time code sent to your email. No password to remember or reset.
+                  </Typography>
+                  <Stack spacing={2.5} sx={{ mt: 3 }}>
+                    <StepItem number={1}>
+                      Download Amplee from the <strong style={{ color: colors.text.primary }}>App Store</strong> or <strong style={{ color: colors.text.primary }}>Google Play</strong>
+                    </StepItem>
+                    <StepItem number={2}>
+                      Open the app and enter your <strong style={{ color: colors.text.primary }}>email address</strong>
+                    </StepItem>
+                    <StepItem number={3}>
+                      Check your inbox for a <strong style={{ color: colors.text.primary }}>6-digit code</strong>
+                    </StepItem>
+                    <StepItem number={4}>
+                      Enter the code in the app—you're in!
+                    </StepItem>
+                  </Stack>
+
+                  <Box
+                    sx={{
+                      bgcolor: colors.purple.lighter,
+                      borderLeft: `4px solid ${colors.purple.main}`,
+                      borderRadius: '0 12px 12px 0',
+                      p: 3,
+                      mt: 4,
+                    }}
+                  >
+                    <Typography sx={{ color: colors.text.primary, fontWeight: 600, fontSize: { xs: '1.05rem', md: '1.15rem' } }}>
+                      First time? You'll set up your profile
+                    </Typography>
+                    <Typography sx={{ color: colors.text.secondary, fontSize: { xs: '1rem', md: '1.075rem' }, mt: 1, lineHeight: 1.7 }}>
+                      If it's your first time signing in, you'll be asked to add your name and optionally a profile photo. This helps your bandmates recognize you.
+                    </Typography>
+                  </Box>
+                </Box>
+
+                {/* Video Demo */}
+                <Box
+                  sx={{
+                    width: { xs: 260, md: 280 },
+                    flexShrink: 0,
+                  }}
+                >
+                  <Box
+                    sx={{
+                      position: 'relative',
+                      borderRadius: '32px',
+                      overflow: 'hidden',
+                      bgcolor: '#000',
+                      boxShadow: '0 12px 48px rgba(0, 0, 0, 0.15)',
+                      border: '10px solid #1a1a1a',
+                      aspectRatio: '9 / 19.5',
+                    }}
+                  >
+                    <Box
+                      component="video"
+                      src="/images/support/create-account.mp4"
+                      autoPlay
+                      muted
+                      loop
+                      playsInline
+                      sx={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover',
+                      }}
+                    />
+                  </Box>
+                </Box>
+              </Stack>
             </HelpSection>
 
             <Divider sx={{ borderColor: colors.bg.tertiary }} />
