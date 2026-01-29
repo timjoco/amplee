@@ -10,6 +10,7 @@ import LibraryMusicIcon from '@mui/icons-material/LibraryMusic';
 import LockIcon from '@mui/icons-material/Lock';
 import LoginIcon from '@mui/icons-material/Login';
 import PeopleIcon from '@mui/icons-material/People';
+import PersonIcon from '@mui/icons-material/Person';
 import PublicIcon from '@mui/icons-material/Public';
 import { Box, Container, Grid, Stack, Typography } from '@mui/material';
 import Image from 'next/image';
@@ -67,6 +68,16 @@ const categories = [
     icon: <LoginIcon sx={{ fontSize: 36 }} />,
     color: colors.purple.main,
     bgColor: colors.purple.lighter,
+    available: true,
+  },
+  {
+    id: 'profile-settings',
+    title: 'Profile & Settings',
+    description: 'Edit your profile, set availability, and manage your account',
+    href: '/help/profile-settings',
+    icon: <PersonIcon sx={{ fontSize: 36 }} />,
+    color: colors.teal.main,
+    bgColor: colors.teal.lighter,
     available: true,
   },
   {
