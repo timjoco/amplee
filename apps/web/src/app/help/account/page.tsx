@@ -158,15 +158,12 @@ export default function AccountHelpPage() {
                   Download Amplee from the <strong style={{ color: colors.text.primary }}>App Store</strong> or <strong style={{ color: colors.text.primary }}>Google Play</strong>
                 </StepItem>
                 <StepItem number={2}>
-                  Open the app and tap <strong style={{ color: colors.text.primary }}>Get Started</strong>
+                  Open the app and enter your <strong style={{ color: colors.text.primary }}>email address</strong>
                 </StepItem>
                 <StepItem number={3}>
-                  Enter your <strong style={{ color: colors.text.primary }}>email address</strong>
-                </StepItem>
-                <StepItem number={4}>
                   Check your inbox for a <strong style={{ color: colors.text.primary }}>6-digit code</strong>
                 </StepItem>
-                <StepItem number={5}>
+                <StepItem number={4}>
                   Enter the code in the app—you're in!
                 </StepItem>
               </Stack>
