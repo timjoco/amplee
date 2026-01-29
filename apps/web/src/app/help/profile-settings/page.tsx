@@ -299,58 +299,47 @@ export default function ProfileSettingsHelpPage() {
               <Stack spacing={3} sx={{ mt: 3 }}>
                 <SettingCard
                   title="Log Out"
-                  description="Sign out of Amplee on this device. You'll need to verify your email again to sign back in."
+                  description="Sign out of Amplee on this device. You'll need to verify your email again to sign back in. Found at the bottom of your Profile page."
                   color={colors.text.muted}
                 />
-                <Box
-                  sx={{
-                    p: 3,
-                    bgcolor: colors.accent.red + '08',
-                    border: `1px solid ${colors.accent.red}30`,
-                    borderRadius: 3,
-                  }}
-                >
-                  <Stack direction="row" spacing={2} alignItems="flex-start">
-                    <Box
-                      sx={{
-                        width: 44,
-                        height: 44,
-                        borderRadius: 2,
-                        bgcolor: colors.accent.red + '15',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        flexShrink: 0,
-                      }}
-                    >
-                      <DeleteOutlineIcon sx={{ color: colors.accent.red }} />
-                    </Box>
-                    <Box>
-                      <Typography sx={{ fontWeight: 700, color: colors.accent.red, fontSize: { xs: '1rem', md: '1.1rem' }, mb: 0.5 }}>
-                        Delete Account
-                      </Typography>
-                      <Typography sx={{ color: colors.text.secondary, fontSize: { xs: '0.95rem', md: '1rem' }, lineHeight: 1.6 }}>
-                        Permanently delete your account and all associated data. This removes your profile, band memberships, messages, uploaded files, and everything else. <strong style={{ color: colors.text.primary }}>This cannot be undone.</strong>
-                      </Typography>
-                    </Box>
-                  </Stack>
-                </Box>
               </Stack>
 
               <Box
                 sx={{
-                  bgcolor: colors.bg.tertiary,
-                  borderRadius: 3,
                   p: 3,
-                  mt: 4,
+                  bgcolor: colors.accent.red + '08',
+                  border: `1px solid ${colors.accent.red}30`,
+                  borderRadius: 3,
+                  mt: 3,
                 }}
               >
-                <Typography sx={{ color: colors.text.primary, fontWeight: 600, fontSize: { xs: '1.05rem', md: '1.15rem' } }}>
-                  How to access Account settings
-                </Typography>
-                <Typography sx={{ color: colors.text.secondary, fontSize: { xs: '1rem', md: '1.075rem' }, mt: 1, lineHeight: 1.7 }}>
-                  Go to <strong style={{ color: colors.text.primary }}>Profile</strong> → tap the <strong style={{ color: colors.text.primary }}>settings icon</strong> (gear) in the top right → scroll down to <strong style={{ color: colors.text.primary }}>Account</strong>.
-                </Typography>
+                <Stack direction="row" spacing={2} alignItems="flex-start">
+                  <Box
+                    sx={{
+                      width: 44,
+                      height: 44,
+                      borderRadius: 2,
+                      bgcolor: colors.accent.red + '15',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0,
+                    }}
+                  >
+                    <DeleteOutlineIcon sx={{ color: colors.accent.red }} />
+                  </Box>
+                  <Box>
+                    <Typography sx={{ fontWeight: 700, color: colors.accent.red, fontSize: { xs: '1rem', md: '1.1rem' }, mb: 0.5 }}>
+                      Delete Account
+                    </Typography>
+                    <Typography sx={{ color: colors.text.secondary, fontSize: { xs: '0.95rem', md: '1rem' }, lineHeight: 1.6 }}>
+                      Permanently delete your account and all associated data. This removes your profile, band memberships, messages, uploaded files, and everything else. <strong style={{ color: colors.text.primary }}>This cannot be undone.</strong>
+                    </Typography>
+                    <Typography sx={{ color: colors.text.secondary, fontSize: { xs: '0.95rem', md: '1rem' }, lineHeight: 1.6, mt: 1.5 }}>
+                      Found in <strong style={{ color: colors.text.primary }}>Profile</strong> → <strong style={{ color: colors.text.primary }}>Support</strong> → <strong style={{ color: colors.text.primary }}>Account</strong> → <strong style={{ color: colors.text.primary }}>Delete My Account</strong>.
+                    </Typography>
+                  </Box>
+                </Stack>
               </Box>
             </HelpSection>
           </Stack>
