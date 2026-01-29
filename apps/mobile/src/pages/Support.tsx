@@ -1,3 +1,4 @@
+import { App } from '@capacitor/app';
 import { Browser } from '@capacitor/browser';
 import { Capacitor } from '@capacitor/core';
 import {
@@ -27,7 +28,6 @@ import AndroidBottomSafeArea from '../components/AndroidBottomSafeArea';
 import { supabase } from '../lib/supabase';
 
 const WEB_BASE_URL = 'https://amplee.app';
-const APP_VERSION = '1.0.0-alpha';
 
 const isAndroid = Capacitor.getPlatform() === 'android';
 
@@ -66,13 +66,13 @@ const supportItems = [
     icon: helpCircleOutline,
     label: 'Help Center',
     description: 'FAQs and troubleshooting',
-    path: '/support',
+    path: '/help',
   },
   {
     icon: mailOutline,
     label: 'Contact Us',
     description: 'Get in touch with our team',
-    path: '/support#contact',
+    path: '/help/support#contact',
   },
 ];
 
@@ -91,6 +91,24 @@ export default function LegalSupport() {
   const [feedbackMessage, setFeedbackMessage] = React.useState('');
   const [submitting, setSubmitting] = React.useState(false);
   const [submitted, setSubmitted] = React.useState(false);
+  const [appVersion, setAppVersion] = React.useState('');
+
+  React.useEffect(() => {
+    const loadAppInfo = async () => {
+      if (Capacitor.isNativePlatform()) {
+        try {
+          const info = await App.getInfo();
+          // Format: "1.1.0 (5)" where 5 is the build number
+          setAppVersion(`${info.version} (${info.build})`);
+        } catch {
+          setAppVersion('1.0.0');
+        }
+      } else {
+        setAppVersion('Web');
+      }
+    };
+    loadAppInfo();
+  }, []);
 
   const handleSubmitFeedback = async () => {
     if (!feedbackMessage.trim()) return;
@@ -107,7 +125,7 @@ export default function LegalSupport() {
         user_id: userId,
         feedback_type: feedbackType,
         message: feedbackMessage.trim(),
-        app_version: APP_VERSION,
+        app_version: appVersion,
         platform,
       });
 
@@ -309,22 +327,8 @@ export default function LegalSupport() {
                   letterSpacing: '0.5px',
                 }}
               >
-                Alpha Feedback
+                Feedback
               </h2>
-              <span
-                style={{
-                  background: 'rgba(139,92,246,0.2)',
-                  color: '#A78BFA',
-                  fontSize: 10,
-                  fontWeight: 700,
-                  padding: '2px 8px',
-                  borderRadius: 20,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.5px',
-                }}
-              >
-                Early Access
-              </span>
             </div>
 
             <div
@@ -343,8 +347,7 @@ export default function LegalSupport() {
                   lineHeight: 1.5,
                 }}
               >
-                Thanks for testing Amplee! Your feedback helps us build
-                something great.
+                Your feedback helps us make Amplee better for everyone.
               </p>
 
               {/* Feedback type selector */}
@@ -532,7 +535,7 @@ export default function LegalSupport() {
                 margin: 0,
               }}
             >
-              Amplee {APP_VERSION}
+              Amplee {appVersion}
             </p>
           </div>
         </div>

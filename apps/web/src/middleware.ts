@@ -6,7 +6,7 @@ const ALLOW_PUBLIC = [
   '/download',
   '/privacy',
   '/terms',
-  '/support',
+  '/help/support',
   '/robots.txt',
   '/sitemap.xml',
   '/community-guidelines',

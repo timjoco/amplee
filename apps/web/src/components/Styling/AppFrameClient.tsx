@@ -29,8 +29,8 @@ const isPublicNoPadPath = (p: string) =>
   p.startsWith('/privacy/') ||
   p === '/terms' ||
   p.startsWith('/terms/') ||
-  p === '/support' ||
-  p.startsWith('/support/') ||
+  p === '/help/support' ||
+  p.startsWith('/help/support/') ||
   p === '/community-guidelines' ||
   p.startsWith('/community-guidelines/');
 

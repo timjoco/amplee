@@ -22,7 +22,7 @@ const sections = [
       { href: '/download', label: 'Download Amplee' },
       { href: '/pricing', label: 'Pricing & Plans' },
       { href: '/import', label: 'Import Data' },
-      { href: '/support', label: 'Get Support' },
+      { href: '/help/support', label: 'Get Support' },
     ],
   },
   {

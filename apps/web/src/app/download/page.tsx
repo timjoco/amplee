@@ -212,7 +212,7 @@ export default async function DownloadPage() {
                   },
                 }}
               >
-                Need help? <a href="/support">Get support</a>
+                Need help? <a href="/help/support">Get support</a>
               </Typography>
             </Stack>
           </Box>
