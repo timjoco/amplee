@@ -29,8 +29,8 @@ const isPublicNoPadPath = (p: string) =>
   p.startsWith('/privacy/') ||
   p === '/terms' ||
   p.startsWith('/terms/') ||
-  p === '/help/support' ||
-  p.startsWith('/help/support/') ||
+  p === '/help' ||
+  p.startsWith('/help/') ||
   p === '/community-guidelines' ||
   p.startsWith('/community-guidelines/');
 
@@ -65,8 +65,9 @@ export default function AppFrameClient({ children, initialAuthed }: Props) {
   const showSideNav =
     authed && !isPublicBandPage && (!isBandPage || isStandaloneEvent);
 
+  const isHelpPage = mounted && pathname?.startsWith('/help');
   const showPublicHeader =
-    mounted && !authed && !isWaitlist && !isPublicBandPage;
+    mounted && !authed && !isWaitlist && !isPublicBandPage && !isHelpPage;
 
   const hideBottomNav = useMemo(
     () => isMobile && isBandPage && !isStandaloneEvent,
