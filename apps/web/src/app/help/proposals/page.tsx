@@ -307,7 +307,7 @@ export default function ProposalsHelpPage() {
                   >
                     <Box
                       component="video"
-                      src="/images/support/vote-proposal.mp4"
+                      src="/images/support/proposal-update.mp4"
                       autoPlay
                       muted
                       loop
@@ -330,36 +330,78 @@ export default function ProposalsHelpPage() {
               icon={<CalendarTodayIcon sx={{ fontSize: 28, color: colors.accent.pink }} />}
               title="Converting to an event"
             >
-              <Typography sx={{ color: colors.text.secondary, lineHeight: 1.7, fontSize: { xs: '1rem', md: '1.125rem' } }}>
-                Once everyone in the band has voted Yes, you can convert the proposal to an event:
-              </Typography>
-              <Stack spacing={2.5} sx={{ mt: 3 }}>
-                <StepItem number={1}>
-                  Wait for <strong style={{ color: colors.text.primary }}>all band members to vote Yes</strong>
-                </StepItem>
-                <StepItem number={2}>
-                  Open the proposal and tap <strong style={{ color: colors.text.primary }}>Convert to Event</strong>
-                </StepItem>
-                <StepItem number={3}>
-                  The proposal becomes a full event with chat, setlist, roll call, and everything else
-                </StepItem>
-              </Stack>
-              <Box
-                sx={{
-                  bgcolor: colors.accent.green + '15',
-                  borderLeft: `4px solid ${colors.accent.green}`,
-                  borderRadius: '0 12px 12px 0',
-                  p: 3,
-                  mt: 4,
-                }}
+              <Stack
+                direction={{ xs: 'column', md: 'row' }}
+                spacing={{ xs: 4, md: 6 }}
+                alignItems={{ xs: 'center', md: 'flex-start' }}
               >
-                <Typography sx={{ color: colors.text.primary, fontWeight: 600, fontSize: { xs: '1rem', md: '1.075rem' } }}>
-                  ✓ Unanimous votes required
-                </Typography>
-                <Typography sx={{ color: colors.text.secondary, fontSize: { xs: '0.95rem', md: '1rem' }, mt: 1, lineHeight: 1.6 }}>
-                  A proposal can only be converted to an event when every band member has voted Yes. This ensures the whole band is on board before committing to a gig.
-                </Typography>
-              </Box>
+                <Box sx={{ flex: 1 }}>
+                  <Typography sx={{ color: colors.text.secondary, lineHeight: 1.7, fontSize: { xs: '1rem', md: '1.125rem' } }}>
+                    Once everyone in the band has voted Yes, you can convert the proposal to an event:
+                  </Typography>
+                  <Stack spacing={2.5} sx={{ mt: 3 }}>
+                    <StepItem number={1}>
+                      Wait for <strong style={{ color: colors.text.primary }}>all band members to vote Yes</strong>
+                    </StepItem>
+                    <StepItem number={2}>
+                      Open the proposal and tap <strong style={{ color: colors.text.primary }}>Convert to Event</strong>
+                    </StepItem>
+                    <StepItem number={3}>
+                      The proposal becomes a full event with chat, setlist, roll call, and everything else
+                    </StepItem>
+                  </Stack>
+                  <Box
+                    sx={{
+                      bgcolor: colors.accent.green + '15',
+                      borderLeft: `4px solid ${colors.accent.green}`,
+                      borderRadius: '0 12px 12px 0',
+                      p: 3,
+                      mt: 4,
+                    }}
+                  >
+                    <Typography sx={{ color: colors.text.primary, fontWeight: 600, fontSize: { xs: '1rem', md: '1.075rem' } }}>
+                      ✓ Unanimous votes required
+                    </Typography>
+                    <Typography sx={{ color: colors.text.secondary, fontSize: { xs: '0.95rem', md: '1rem' }, mt: 1, lineHeight: 1.6 }}>
+                      A proposal can only be converted to an event when every band member has voted Yes. This ensures the whole band is on board before committing to a gig.
+                    </Typography>
+                  </Box>
+                </Box>
+
+                {/* Video Demo */}
+                <Box
+                  sx={{
+                    width: { xs: 260, md: 280 },
+                    flexShrink: 0,
+                  }}
+                >
+                  <Box
+                    sx={{
+                      position: 'relative',
+                      borderRadius: '32px',
+                      overflow: 'hidden',
+                      bgcolor: '#000',
+                      boxShadow: '0 12px 48px rgba(0, 0, 0, 0.15)',
+                      border: '10px solid #1a1a1a',
+                      aspectRatio: '9 / 19.5',
+                    }}
+                  >
+                    <Box
+                      component="video"
+                      src="/images/support/convert-proposal.mp4"
+                      autoPlay
+                      muted
+                      loop
+                      playsInline
+                      sx={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover',
+                      }}
+                    />
+                  </Box>
+                </Box>
+              </Stack>
             </HelpSection>
           </Stack>
 
