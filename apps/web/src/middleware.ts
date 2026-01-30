@@ -3,10 +3,11 @@ import { createClient } from '@/utils/supabase/middleware';
 import { NextResponse, type NextRequest } from 'next/server';
 
 const ALLOW_PUBLIC = [
+  '/',
   '/download',
   '/privacy',
   '/terms',
-  '/help/support',
+  '/help',
   '/robots.txt',
   '/sitemap.xml',
   '/community-guidelines',
@@ -57,15 +58,12 @@ export async function middleware(request: NextRequest) {
     return res;
   }
 
-  // Redirect everything else to /download
-  // DISABLED FOR DEVELOPMENT - Uncomment to re-enable download gate
-  // const url = request.nextUrl.clone();
-  // url.pathname = '/download';
-  // url.search = '';
-  // return NextResponse.redirect(url);
-
-  // Allow all routes during development
-  return await createClient(request);
+  // Redirect protected routes (like /bands/*) to home
+  // These are internal app routes not meant for public web access
+  const url = request.nextUrl.clone();
+  url.pathname = '/';
+  url.search = '';
+  return NextResponse.redirect(url);
 }
 
 export const config = {
