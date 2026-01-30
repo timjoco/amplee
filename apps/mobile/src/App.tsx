@@ -31,6 +31,12 @@ import BandSongEditRouteMobile from './pages/Bands/BandSongEditRouteMobile';
 import BandSongListRouteMobile from './pages/Bands/BandSongListRouteMobile';
 import BandSongSheetRouteMobile from './pages/Bands/BandSongSheetRouteMobile';
 import SetlistTemplateEditorMobile from './pages/Bands/Setlists/SetlistTemplateEditorMobile';
+import DiscoverPage from './pages/Discover/DiscoverPage';
+import VendorProfilePage from './pages/Discover/VendorProfilePage';
+import VendorDashboardPage from './pages/Vendor/VendorDashboardPage';
+import VendorProfileEditPage from './pages/Vendor/VendorProfileEditPage';
+import VendorContactPage from './pages/Discover/VendorContactPage';
+import JobChatPage from './pages/Jobs/JobChatPage';
 // TOUR PRO - commented out until ready for release
 // import BandToursListPage from './pages/Bands/Tours/BandToursListPage';
 // import TourEditorPage from './pages/Bands/Tours/TourEditorPage';
@@ -146,6 +152,18 @@ export default function App() {
             {/* authed home */}
             <Route path="/home" element={<Home />} />
             <Route path="/onboarding" element={<OnboardingPageMobile />} />
+
+            {/* DISCOVER ROUTES */}
+            <Route path="/discover" element={<DiscoverPage />} />
+            <Route path="/discover/vendors/:vendorId" element={<VendorProfilePage />} />
+            <Route path="/discover/vendors/:vendorId/contact" element={<VendorContactPage />} />
+
+            {/* JOB ROUTES */}
+            <Route path="/jobs/:jobId" element={<JobChatPage />} />
+
+            {/* VENDOR ROUTES (for users who are vendors) */}
+            <Route path="/vendor/dashboard" element={<VendorDashboardPage />} />
+            <Route path="/vendor/edit" element={<VendorProfileEditPage />} />
 
             {/* BAND ROUTES*/}
             <Route path="/bands/:bandId" element={<BandSheetMobile />} />
