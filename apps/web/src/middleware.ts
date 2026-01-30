@@ -24,7 +24,7 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith('/_next') ||
     pathname.startsWith('/favicon.ico') ||
     pathname.match(
-      /\.(ico|png|jpg|jpeg|svg|css|js|map|txt|xml|webp|woff|woff2)$/
+      /\.(ico|png|jpg|jpeg|svg|css|js|map|txt|xml|webp|woff|woff2|mp4|webm|mov|mp3|wav|ogg|pdf|gif)$/
     );
 
   if (isStatic) return NextResponse.next();
