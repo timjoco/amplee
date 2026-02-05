@@ -11,26 +11,23 @@ const ALLOW_PUBLIC = [
   '/robots.txt',
   '/sitemap.xml',
   '/community-guidelines',
+  '/invite',
 ];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // ✅ Always bypass API routes (preflight + API calls must not redirect)
   if (pathname.startsWith('/api')) return NextResponse.next();
 
-  // Allow Next internals & common static assets
   const isStatic =
     pathname.startsWith('/_next') ||
     pathname.startsWith('/favicon.ico') ||
     pathname.match(
-      /\.(ico|png|jpg|jpeg|svg|css|js|map|txt|xml|webp|woff|woff2|mp4|webm|mov|mp3|wav|ogg|pdf|gif)$/
+      /\.(ico|png|jpg|jpeg|svg|css|js|map|txt|xml|webp|woff|woff2|mp4|webm|mov|mp3|wav|ogg|pdf|gif)$/,
     );
 
   if (isStatic) return NextResponse.next();
 
-  // ✅ Allow public band pages
-  // This covers: /b/teem-and-tiger-6ynr
   if (pathname === '/b' || pathname.startsWith('/b/')) {
     return NextResponse.next();
   }
@@ -67,6 +64,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  // ✅ Exclude /api from middleware entirely
   matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
 };

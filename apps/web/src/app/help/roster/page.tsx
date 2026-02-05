@@ -204,22 +204,6 @@ export default function RosterHelpPage() {
                     </StepItem>
                   </Stack>
 
-                  <Box
-                    sx={{
-                      bgcolor: colors.accent.green + '15',
-                      borderLeft: `4px solid ${colors.accent.green}`,
-                      borderRadius: '0 12px 12px 0',
-                      p: 3,
-                      mt: 4,
-                    }}
-                  >
-                    <Typography sx={{ color: colors.text.primary, fontWeight: 600, fontSize: { xs: '1.05rem', md: '1.15rem' } }}>
-                      Lineups are flexible
-                    </Typography>
-                    <Typography sx={{ color: colors.text.secondary, fontSize: { xs: '1rem', md: '1.075rem' }, mt: 1, lineHeight: 1.7 }}>
-                      You can always add or remove people from a specific event after creating it. Lineups are just a quick starting point.
-                    </Typography>
-                  </Box>
                 </Box>
 
                 {/* Video Demo */}
@@ -272,16 +256,25 @@ export default function RosterHelpPage() {
               >
                 <Box sx={{ flex: 1 }}>
                   <Typography sx={{ color: colors.text.secondary, lineHeight: 1.7, fontSize: { xs: '1rem', md: '1.125rem' } }}>
-                    When you create an event, you choose who to invite:
+                    When you create an event, select a saved lineup to invite the right people:
                   </Typography>
-                  <Box component="ul" sx={{ color: colors.text.secondary, pl: 2.5, mt: 2, fontSize: { xs: '1rem', md: '1.125rem' }, lineHeight: 1.8, '& li': { mb: 1 } }}>
-                    <li><strong style={{ color: colors.text.primary }}>Pick a saved lineup</strong> — Invite your "Acoustic Trio" or "Full Band" with one tap</li>
-                    <li><strong style={{ color: colors.text.primary }}>Select individuals</strong> — Handpick specific people for this event</li>
-                    <li><strong style={{ color: colors.text.primary }}>Mix and match</strong> — Start with a lineup and add or remove people</li>
-                  </Box>
+                  <Stack spacing={2} sx={{ mt: 3 }}>
+                    <StepItem number={1}>
+                      Tap <strong style={{ color: colors.text.primary }}>Create Event</strong>
+                    </StepItem>
+                    <StepItem number={2}>
+                      Fill in the event details (name, date, venue, etc.)
+                    </StepItem>
+                    <StepItem number={3}>
+                      Select a <strong style={{ color: colors.text.primary }}>saved lineup</strong> from the dropdown
+                    </StepItem>
+                    <StepItem number={4}>
+                      Save — everyone in that lineup gets invited automatically
+                    </StepItem>
+                  </Stack>
 
                   <Typography sx={{ color: colors.text.secondary, lineHeight: 1.7, mt: 4, fontSize: { xs: '1rem', md: '1.125rem' } }}>
-                    Only the people you invite will see the event. Everyone else in the band won't be bothered with events that don't involve them.
+                    Only the people in the selected lineup will see the event. Everyone else in the band won't be bothered with events that don't involve them.
                   </Typography>
                 </Box>
 
