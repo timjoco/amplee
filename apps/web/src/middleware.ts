@@ -19,11 +19,14 @@ export async function middleware(request: NextRequest) {
 
   if (pathname.startsWith('/api')) return NextResponse.next();
 
+  // Allow .well-known for Android App Links verification (assetlinks.json)
+  if (pathname.startsWith('/.well-known')) return NextResponse.next();
+
   const isStatic =
     pathname.startsWith('/_next') ||
     pathname.startsWith('/favicon.ico') ||
     pathname.match(
-      /\.(ico|png|jpg|jpeg|svg|css|js|map|txt|xml|webp|woff|woff2|mp4|webm|mov|mp3|wav|ogg|pdf|gif)$/,
+      /\.(ico|png|jpg|jpeg|svg|css|js|json|map|txt|xml|webp|woff|woff2|mp4|webm|mov|mp3|wav|ogg|pdf|gif)$/,
     );
 
   if (isStatic) return NextResponse.next();
