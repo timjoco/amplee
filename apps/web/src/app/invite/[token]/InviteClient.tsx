@@ -47,9 +47,9 @@ export default function InviteClient({ token }: { token: string }) {
         }
         return;
       }
-      const data = await res.json();
+      const data = (await res.json()) as InvitePreview;
       if (mounted) {
-        setInvite(data.invite as InvitePreview);
+        setInvite(data);
         setLoading(false);
       }
     })();
