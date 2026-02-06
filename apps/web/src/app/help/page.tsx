@@ -5,13 +5,21 @@ import SiteFooter from '@/components/Footers/SiteFooter';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
+import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
+import DownloadIcon from '@mui/icons-material/Download';
+import FolderOutlinedIcon from '@mui/icons-material/FolderOutlined';
+import ForumOutlinedIcon from '@mui/icons-material/ForumOutlined';
 import GroupsIcon from '@mui/icons-material/Groups';
+import HowToRegIcon from '@mui/icons-material/HowToReg';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import LibraryMusicIcon from '@mui/icons-material/LibraryMusic';
 import LockIcon from '@mui/icons-material/Lock';
 import LoginIcon from '@mui/icons-material/Login';
 import PeopleIcon from '@mui/icons-material/People';
 import PersonIcon from '@mui/icons-material/Person';
 import PublicIcon from '@mui/icons-material/Public';
+import QueueMusicIcon from '@mui/icons-material/QueueMusic';
+import SettingsIcon from '@mui/icons-material/Settings';
 import { Box, Container, Grid, Stack, Typography } from '@mui/material';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -61,6 +69,16 @@ const colors = {
 
 const gettingStarted = [
   {
+    id: 'download',
+    title: 'Download Amplee',
+    description: 'Get the app on iPhone, iPad, Android, or tablet',
+    href: '/help/download',
+    icon: <DownloadIcon sx={{ fontSize: 36 }} />,
+    color: colors.purple.main,
+    bgColor: colors.purple.lighter,
+    available: true,
+  },
+  {
     id: 'account',
     title: 'Account & Login',
     description: 'Create an account, sign in, and manage your profile',
@@ -76,8 +94,81 @@ const gettingStarted = [
     description: 'Edit your profile, set availability, and manage your account',
     href: '/help/profile-settings',
     icon: <PersonIcon sx={{ fontSize: 36 }} />,
-    color: colors.teal.main,
-    bgColor: colors.teal.lighter,
+    color: colors.purple.main,
+    bgColor: colors.purple.lighter,
+    available: true,
+  },
+];
+
+const yourEvents = [
+  {
+    id: 'event-chat',
+    title: 'Chat',
+    description: 'Message your band about a specific event with emoji reactions and song tagging',
+    href: '/help/events/chat',
+    icon: <ForumOutlinedIcon sx={{ fontSize: 36 }} />,
+    color: colors.green.main,
+    bgColor: colors.green.lighter,
+    available: true,
+  },
+  {
+    id: 'event-details',
+    title: 'Details',
+    description: 'Event info, Google Calendar sync, and attendance status at a glance',
+    href: '/help/events/details',
+    icon: <InfoOutlinedIcon sx={{ fontSize: 36 }} />,
+    color: colors.green.main,
+    bgColor: colors.green.lighter,
+    available: true,
+  },
+  {
+    id: 'event-rollcall',
+    title: 'Roll Call',
+    description: "Mark your availability and see who's confirmed for the event",
+    href: '/help/events/rollcall',
+    icon: <HowToRegIcon sx={{ fontSize: 36 }} />,
+    color: colors.green.main,
+    bgColor: colors.green.lighter,
+    available: true,
+  },
+  {
+    id: 'event-setlist',
+    title: 'Setlist',
+    description: 'Build and share the song order for your show',
+    href: '/help/events/setlist',
+    icon: <QueueMusicIcon sx={{ fontSize: 36 }} />,
+    color: colors.pink.main,
+    bgColor: colors.pink.lighter,
+    available: true,
+  },
+  {
+    id: 'event-notes',
+    title: 'Notes',
+    description: 'Add load-in times, parking info, and other need-to-know details',
+    href: '/help/events/notes',
+    icon: <DescriptionOutlinedIcon sx={{ fontSize: 36 }} />,
+    color: colors.green.main,
+    bgColor: colors.green.lighter,
+    available: true,
+  },
+  {
+    id: 'event-files',
+    title: 'Files',
+    description: 'Attach flyers, contracts, stage plots, and more',
+    href: '/help/events/files',
+    icon: <FolderOutlinedIcon sx={{ fontSize: 36 }} />,
+    color: colors.green.main,
+    bgColor: colors.green.lighter,
+    available: true,
+  },
+  {
+    id: 'event-settings',
+    title: 'Settings',
+    description: 'Add or remove members, edit details, or delete the event',
+    href: '/help/events/settings',
+    icon: <SettingsIcon sx={{ fontSize: 36 }} />,
+    color: colors.green.main,
+    bgColor: colors.green.lighter,
     available: true,
   },
 ];
@@ -272,7 +363,7 @@ export default function HelpCenterPage() {
           </Box>
 
           {/* Your Bands Section */}
-          <Box>
+          <Box sx={{ mb: { xs: 6, md: 8 } }}>
             <Typography
               sx={{
                 fontSize: '0.8rem',
@@ -287,6 +378,29 @@ export default function HelpCenterPage() {
             </Typography>
             <Grid container spacing={3}>
               {yourBand.map((category) => (
+                <Grid size={{ xs: 12, sm: 6, md: 4 }} key={category.id}>
+                  <CategoryCard {...category} />
+                </Grid>
+              ))}
+            </Grid>
+          </Box>
+
+          {/* Your Events Section */}
+          <Box>
+            <Typography
+              sx={{
+                fontSize: '0.8rem',
+                fontWeight: 700,
+                color: colors.text.muted,
+                letterSpacing: '1.5px',
+                textTransform: 'uppercase',
+                mb: 3,
+              }}
+            >
+              Your Events
+            </Typography>
+            <Grid container spacing={3}>
+              {yourEvents.map((category) => (
                 <Grid size={{ xs: 12, sm: 6, md: 4 }} key={category.id}>
                   <CategoryCard {...category} />
                 </Grid>
