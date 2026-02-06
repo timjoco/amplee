@@ -4,6 +4,7 @@ import {
   chevronForwardOutline,
   clipboardOutline,
   globeOutline,
+  mapOutline,
   musicalNotesOutline,
   peopleOutline,
   timeOutline,
@@ -11,6 +12,7 @@ import {
 import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
 import BandAvailabilityWidget from '../../../../components/Bands/BandAvailabilityWidget';
+import { useBandSubscription } from '../../../Store/hooks/useBandSubscription';
 import type { NextEvent, RosterMember } from '../types';
 import { computeTimeUntilEvent, formatEventDate, formatEventTime } from '../utils';
 
@@ -98,6 +100,9 @@ export function DashboardGrid({
   const screenSize = useScreenSize();
   const isLarge = screenSize === 'large';
   const isMedium = screenSize === 'medium';
+
+  // Check if band has Tour Pro access (trial or subscription)
+  const { hasAccess: hasTourPro, isTrialing: isTourProTrial, trialDaysLeft } = useBandSubscription(bandId, 'tour-pro');
 
   const cardBaseStyle = getCardBaseStyle(isLarge);
   const chevronStyle = getChevronStyle(isLarge);
@@ -402,6 +407,55 @@ export function DashboardGrid({
         </div>
         <div style={descriptionStyle}>Bio, socials & links</div>
       </button>
+
+      {/* TOURS CARD - Only shown if band has Tour Pro access */}
+      {hasTourPro && (
+        <button
+          type="button"
+          onClick={() =>
+            handleButtonPress('tours', () =>
+              navigate(`/bands/${bandId}/tours`)
+            )
+          }
+          style={{
+            ...cardBaseStyle,
+            gap: 10,
+            transform: pressedButton === 'tours' ? 'scale(0.97)' : 'scale(1)',
+          }}
+        >
+          <IonIcon icon={chevronForwardOutline} style={chevronStyle} />
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: isLarge ? 10 : 8,
+              marginBottom: isLarge ? 10 : 8,
+            }}
+          >
+            <IonIcon
+              icon={mapOutline}
+              style={{ fontSize: isLarge ? 24 : 20, color: '#c084fc' }}
+            />
+            <span style={labelStyle}>Tours</span>
+            {isTourProTrial && trialDaysLeft !== null && (
+              <span
+                style={{
+                  fontSize: 10,
+                  fontWeight: 700,
+                  color: '#c084fc',
+                  background: 'rgba(192, 132, 252, 0.2)',
+                  padding: '2px 8px',
+                  borderRadius: 999,
+                  marginLeft: 4,
+                }}
+              >
+                {trialDaysLeft}d left
+              </span>
+            )}
+          </div>
+          <div style={descriptionStyle}>Plan your tour dates</div>
+        </button>
+      )}
     </div>
   );
 }
