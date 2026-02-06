@@ -29,7 +29,8 @@
     "qrcode": "^1.5.4",
     "react": "19.1.2",
     "react-dom": "19.1.2",
-    "resend": "^6.5.2"
+    "resend": "^6.5.2",
+    "stripe": "^20.2.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",

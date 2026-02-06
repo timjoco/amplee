@@ -78,6 +78,20 @@ PODS:
   - nanopb/decode (3.30910.0)
   - nanopb/encode (3.30910.0)
   - PromisesObjC (2.4.0)
+  - PurchasesHybridCommon (17.28.1):
+    - RevenueCat (= 5.55.2)
+  - PurchasesHybridCommonUI (17.28.1):
+    - PurchasesHybridCommon (= 17.28.1)
+    - RevenueCatUI (= 5.55.2)
+  - RevenueCat (5.55.2)
+  - RevenuecatPurchasesCapacitor (12.0.5):
+    - Capacitor
+    - PurchasesHybridCommon (= 17.28.1)
+  - RevenuecatPurchasesCapacitorUi (12.0.5):
+    - Capacitor
+    - PurchasesHybridCommonUI (= 17.28.1)
+  - RevenueCatUI (5.55.2):
+    - RevenueCat (= 5.55.2)
 
 DEPENDENCIES:
   - "Capacitor (from `../../../../node_modules/.pnpm/@capacitor+ios@7.4.4_@capacitor+core@7.4.4/node_modules/@capacitor/ios`)"
@@ -92,6 +106,8 @@ DEPENDENCIES:
   - "CapacitorPushNotifications (from `../../../../node_modules/.pnpm/@capacitor+push-notifications@7.0.4_@capacitor+core@7.4.4/node_modules/@capacitor/push-notifications`)"
   - "CapacitorShare (from `../../../../node_modules/.pnpm/@capacitor+share@7.0.2_@capacitor+core@7.4.4/node_modules/@capacitor/share`)"
   - "CapacitorStatusBar (from `../../../../node_modules/.pnpm/@capacitor+status-bar@7.0.3_@capacitor+core@7.4.4/node_modules/@capacitor/status-bar`)"
+  - "RevenuecatPurchasesCapacitor (from `../../../../node_modules/.pnpm/@revenuecat+purchases-capacitor@12.0.5_@capacitor+core@7.4.4/node_modules/@revenuecat/purchases-capacitor`)"
+  - "RevenuecatPurchasesCapacitorUi (from `../../../../node_modules/.pnpm/@revenuecat+purchases-capacitor-ui@12.0.5_@capacitor+core@7.4.4/node_modules/@revenuecat/purchases-capacitor-ui`)"
 
 SPEC REPOS:
   trunk:
@@ -104,6 +120,10 @@ SPEC REPOS:
     - IONFilesystemLib
     - nanopb
     - PromisesObjC
+    - PurchasesHybridCommon
+    - PurchasesHybridCommonUI
+    - RevenueCat
+    - RevenueCatUI
 
 EXTERNAL SOURCES:
   Capacitor:
@@ -130,6 +150,10 @@ EXTERNAL SOURCES:
     :path: "../../../../node_modules/.pnpm/@capacitor+share@7.0.2_@capacitor+core@7.4.4/node_modules/@capacitor/share"
   CapacitorStatusBar:
     :path: "../../../../node_modules/.pnpm/@capacitor+status-bar@7.0.3_@capacitor+core@7.4.4/node_modules/@capacitor/status-bar"
+  RevenuecatPurchasesCapacitor:
+    :path: "../../../../node_modules/.pnpm/@revenuecat+purchases-capacitor@12.0.5_@capacitor+core@7.4.4/node_modules/@revenuecat/purchases-capacitor"
+  RevenuecatPurchasesCapacitorUi:
+    :path: "../../../../node_modules/.pnpm/@revenuecat+purchases-capacitor-ui@12.0.5_@capacitor+core@7.4.4/node_modules/@revenuecat/purchases-capacitor-ui"
 
 SPEC CHECKSUMS:
   Capacitor: 358dd1c3fdd71d969547b17e159fd8a7736cb45f
@@ -153,7 +177,13 @@ SPEC CHECKSUMS:
   IONFilesystemLib: 89258b8e3e85465da93127d25d7ce37f977e8a6f
   nanopb: fad817b59e0457d11a5dfbde799381cd727c1275
   PromisesObjC: f5707f49cb48b9636751c5b2e7d227e43fba9f47
+  PurchasesHybridCommon: 57e9e2fd474a726c41f61d5359f1bc05d89d9be8
+  PurchasesHybridCommonUI: ad685a661cc19fb45f1d7448f5890b399e177e14
+  RevenueCat: b5605778017c179315e60b8921ed158b3428688c
+  RevenuecatPurchasesCapacitor: 175dd55bdd04b2f6ac477a105a1de8822b4c5fd4
+  RevenuecatPurchasesCapacitorUi: 16c9d4cfaf6c3fcd7e0015aea4169a74e866d2cf
+  RevenueCatUI: ee8109669a5abf52df099788a0f961abdd2b5b09
 
-PODFILE CHECKSUM: 80ee358b76dc4b36af8e357a19c0896823cbba6f
+PODFILE CHECKSUM: b27018396270e634a0b11f2810a7a3cb7872116d
 
 COCOAPODS: 1.16.2

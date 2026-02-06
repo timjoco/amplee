@@ -10,15 +10,27 @@ import {
 import {
   chatbubblesOutline,
   chevronBackOutline,
+  closeCircle,
+  locationOutline,
   sendOutline,
 } from 'ionicons/icons';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import AvatarImageMobile from '../../../components/ui/AvatarImageMobile';
 import { supabase } from '../../../lib/supabase';
+import { parseStopTags, serializeStopTags, type StopTagData } from './components/StopTag';
+import { TourChatStopPickerModal } from './components/TourChatStopPickerModal';
 import { useTourChat } from './hooks/useTourChat';
 import { RUST } from './lib/styles';
 import type { TourMessageWithUser, TourRow } from './types/tourTypes';
+
+// Teal colors for stop tags
+const STOP_TAG = {
+  bg: 'rgba(20, 184, 166, 0.15)',
+  border: 'rgba(20, 184, 166, 0.35)',
+  text: '#2dd4bf',
+  icon: '#14b8a6',
+};
 
 type RouteParams = {
   bandId: string;
@@ -31,6 +43,8 @@ export default function TourChatPage() {
 
   const [tour, setTour] = useState<TourRow | null>(null);
   const [inputText, setInputText] = useState('');
+  const [stopTags, setStopTags] = useState<StopTagData[]>([]);
+  const [stopPickerOpen, setStopPickerOpen] = useState(false);
 
   const {
     messages,
@@ -58,9 +72,11 @@ export default function TourChatPage() {
   }, [tourId]);
 
   const handleSend = async () => {
-    if (!inputText.trim()) return;
-    await sendMessage(inputText);
+    if (!inputText.trim() && stopTags.length === 0) return;
+    const messageContent = serializeStopTags(inputText, stopTags);
+    await sendMessage(messageContent);
     setInputText('');
+    setStopTags([]);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -69,6 +85,38 @@ export default function TourChatPage() {
       handleSend();
     }
   };
+
+  const handleInputChange = useCallback((value: string) => {
+    // Check for @stops trigger
+    const triggerPattern = /(^|\s)@stops$/i;
+    if (triggerPattern.test(value)) {
+      // Remove the trigger and open picker
+      const cleanedValue = value.replace(triggerPattern, '$1').replace(/\s+$/, ' ');
+      setInputText(cleanedValue);
+      setStopPickerOpen(true);
+    } else {
+      setInputText(value);
+    }
+  }, []);
+
+  const handleStopSelect = useCallback((stop: StopTagData) => {
+    // Don't add duplicates
+    if (!stopTags.some((t) => t.id === stop.id)) {
+      setStopTags((prev) => [...prev, stop]);
+    }
+    setStopPickerOpen(false);
+  }, [stopTags]);
+
+  const handleRemoveStopTag = useCallback((tagId: string) => {
+    setStopTags((prev) => prev.filter((t) => t.id !== tagId));
+  }, []);
+
+  const handleStopNavigate = useCallback(
+    (stopId: string) => {
+      nav(`/bands/${bandId}/tours/${tourId}/stops/${stopId}`);
+    },
+    [nav, bandId, tourId]
+  );
 
   const formatTime = (timestamp: string | null) => {
     if (!timestamp) return '';
@@ -379,7 +427,7 @@ export default function TourChatPage() {
                                 wordBreak: 'break-word',
                               }}
                             >
-                              {msg.content}
+                              {parseStopTags(msg.content, handleStopNavigate)}
                             </p>
                             <div
                               style={{
@@ -412,62 +460,154 @@ export default function TourChatPage() {
               background: 'rgba(8, 8, 14, 0.95)',
               borderTop: '1px solid rgba(255, 255, 255, 0.06)',
               display: 'flex',
-              alignItems: 'flex-end',
-              gap: 10,
+              flexDirection: 'column',
+              gap: 8,
             }}
           >
-            <textarea
-              value={inputText}
-              onChange={(e) => setInputText(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Message the tour..."
-              rows={1}
+            {/* Stop Tags */}
+            {stopTags.length > 0 && (
+              <div
+                style={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: 6,
+                }}
+              >
+                {stopTags.map((tag) => (
+                  <div
+                    key={tag.id}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      paddingLeft: 10,
+                      paddingRight: 6,
+                      paddingBlock: 5,
+                      borderRadius: 14,
+                      background: STOP_TAG.bg,
+                      border: `1px solid ${STOP_TAG.border}`,
+                      backdropFilter: 'blur(8px)',
+                      WebkitBackdropFilter: 'blur(8px)',
+                      maxWidth: '100%',
+                    }}
+                  >
+                    <IonIcon
+                      icon={locationOutline}
+                      style={{
+                        fontSize: 13,
+                        color: STOP_TAG.icon,
+                        flexShrink: 0,
+                      }}
+                    />
+                    <span
+                      style={{
+                        fontSize: 13,
+                        fontWeight: 600,
+                        color: STOP_TAG.text,
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        maxWidth: 150,
+                      }}
+                    >
+                      {tag.venueName}
+                    </span>
+                    <button
+                      onClick={() => handleRemoveStopTag(tag.id)}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: 2,
+                        margin: 0,
+                        border: 'none',
+                        background: 'transparent',
+                        cursor: 'pointer',
+                        color: STOP_TAG.text,
+                        opacity: 0.7,
+                      }}
+                    >
+                      <IonIcon icon={closeCircle} style={{ fontSize: 17 }} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Input Row */}
+            <div
               style={{
-                flex: 1,
-                padding: '10px 14px',
-                borderRadius: 20,
-                border: '1px solid rgba(255, 255, 255, 0.1)',
-                background: 'rgba(255, 255, 255, 0.04)',
-                color: '#f9fafb',
-                fontSize: 15,
-                resize: 'none',
-                outline: 'none',
-                maxHeight: 120,
-                lineHeight: 1.4,
-              }}
-            />
-            <button
-              onClick={handleSend}
-              disabled={!inputText.trim() || sending}
-              style={{
-                width: 44,
-                height: 44,
-                borderRadius: 22,
-                background: inputText.trim() ? RUST.primary : 'rgba(255, 255, 255, 0.06)',
-                border: 'none',
-                display: 'grid',
-                placeItems: 'center',
-                opacity: sending ? 0.6 : 1,
-                transition: 'all 0.2s',
+                display: 'flex',
+                alignItems: 'flex-end',
+                gap: 10,
               }}
             >
-              {sending ? (
-                <IonSpinner
-                  style={{ '--color': '#fff', width: 20, height: 20 }}
-                />
-              ) : (
-                <IonIcon
-                  icon={sendOutline}
-                  style={{
-                    fontSize: 20,
-                    color: inputText.trim() ? '#fff' : '#6b7280',
-                  }}
-                />
-              )}
-            </button>
+              <textarea
+                value={inputText}
+                onChange={(e) => handleInputChange(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Message the tour... (type @stops to tag)"
+                rows={1}
+                style={{
+                  flex: 1,
+                  padding: '10px 14px',
+                  borderRadius: 20,
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  background: 'rgba(255, 255, 255, 0.04)',
+                  color: '#f9fafb',
+                  fontSize: 15,
+                  resize: 'none',
+                  outline: 'none',
+                  maxHeight: 120,
+                  lineHeight: 1.4,
+                }}
+              />
+              <button
+                onClick={handleSend}
+                disabled={(!inputText.trim() && stopTags.length === 0) || sending}
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 22,
+                  background:
+                    inputText.trim() || stopTags.length > 0
+                      ? RUST.primary
+                      : 'rgba(255, 255, 255, 0.06)',
+                  border: 'none',
+                  display: 'grid',
+                  placeItems: 'center',
+                  opacity: sending ? 0.6 : 1,
+                  transition: 'all 0.2s',
+                }}
+              >
+                {sending ? (
+                  <IonSpinner
+                    style={{ '--color': '#fff', width: 20, height: 20 }}
+                  />
+                ) : (
+                  <IonIcon
+                    icon={sendOutline}
+                    style={{
+                      fontSize: 20,
+                      color:
+                        inputText.trim() || stopTags.length > 0 ? '#fff' : '#6b7280',
+                    }}
+                  />
+                )}
+              </button>
+            </div>
           </div>
+
         </div>
       </IonContent>
+
+      {/* Stop Picker Modal */}
+      <TourChatStopPickerModal
+        isOpen={stopPickerOpen}
+        tourId={tourId}
+        onClose={() => setStopPickerOpen(false)}
+        onSelect={handleStopSelect}
+      />
     </IonPage>
   );
 }

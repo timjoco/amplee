@@ -37,11 +37,12 @@ import VendorDashboardPage from './pages/Vendor/VendorDashboardPage';
 import VendorProfileEditPage from './pages/Vendor/VendorProfileEditPage';
 import VendorContactPage from './pages/Discover/VendorContactPage';
 import JobChatPage from './pages/Jobs/JobChatPage';
-// TOUR PRO - commented out until ready for release
-// import BandToursListPage from './pages/Bands/Tours/BandToursListPage';
-// import TourEditorPage from './pages/Bands/Tours/TourEditorPage';
-// import TourStopEditorPage from './pages/Bands/Tours/TourStopEditorPage';
-// import TourChatPage from './pages/Bands/Tours/TourChatPage';
+import BandToursListPage from './pages/Bands/Tours/BandToursListPage';
+import TourEditorPage from './pages/Bands/Tours/TourEditorPage';
+import TourStopEditorPage from './pages/Bands/Tours/TourStopEditorPage';
+import TourChatPage from './pages/Bands/Tours/TourChatPage';
+import StorePage from './pages/Store/StorePage';
+import StoreSuccessPage from './pages/Store/StoreSuccessPage';
 import EventChatPageMobile from './pages/Events/EventChat/EventChatPageMobile';
 import EventFilesPage from './pages/Events/EventFiles';
 import EventLayoutMobile from './pages/Events/EventLayoutMobile';
@@ -126,11 +127,11 @@ export default function App() {
 
   if (loading) return null;
 
-  /* HIDE NAV ON EVENT SHEET + event subpages */
+  /* HIDE NAV ON EVENT SHEET + event subpages + tour subpages */
   const hideChrome =
     /^\/bands\/[^/]+\/events\/[^/]+(\/.*)?$/.test(pathname) ||
-    /^\/event\/[^/]+(\/.*)?$/.test(pathname);
-    // TOUR PRO: /^\/bands\/[^/]+\/tours\/[^/]+(\/.*)?$/.test(pathname)
+    /^\/event\/[^/]+(\/.*)?$/.test(pathname) ||
+    /^\/bands\/[^/]+\/tours\/[^/]+(\/.*)?$/.test(pathname);
 
   return (
     <>
@@ -164,6 +165,10 @@ export default function App() {
             {/* VENDOR ROUTES (for users who are vendors) */}
             <Route path="/vendor/dashboard" element={<VendorDashboardPage />} />
             <Route path="/vendor/edit" element={<VendorProfileEditPage />} />
+
+            {/* STORE ROUTES */}
+            <Route path="/store" element={<StorePage />} />
+            <Route path="/store/success" element={<StoreSuccessPage />} />
 
             {/* BAND ROUTES*/}
             <Route path="/bands/:bandId" element={<BandSheetMobile />} />
@@ -200,7 +205,7 @@ export default function App() {
               element={<SetlistTemplateEditorMobile />}
             />
 
-            {/* TOUR PRO - commented out until ready for release
+            {/* TOUR PRO ROUTES */}
             <Route
               path="/bands/:bandId/tours"
               element={<BandToursListPage />}
@@ -217,7 +222,6 @@ export default function App() {
               path="/bands/:bandId/tours/:tourId/chat"
               element={<TourChatPage />}
             />
-            */}
 
             <Route
               path="/bands/:bandId/songs"
