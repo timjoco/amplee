@@ -1,6 +1,6 @@
 import { Capacitor } from '@capacitor/core';
 import { IonIcon } from '@ionic/react';
-import { add, person } from 'ionicons/icons';
+import { add, compassOutline, person } from 'ionicons/icons';
 
 import * as React from 'react';
 import { FiHome } from 'react-icons/fi';
@@ -136,14 +136,20 @@ export default function MobileBottomNav() {
     /^\/bands\/[^/]+\/songs\/new\/?$/.test(pathname) ||
     /^\/bands\/[^/]+\/songs\/[^/]+\/edit\/?$/.test(pathname) ||
     /^\/bands\/[^/]+\/songs\/[^/]+\/?$/.test(pathname) ||
-    /^\/bands\/[^/]+\/tours\/[^/]+(\/.*)?$/.test(pathname); // Tour editor + stops + chat
+    /^\/bands\/[^/]+\/tours\/[^/]+(\/.*)?$/.test(pathname) || // Tour editor + stops + chat
+    /^\/discover\/vendors\/[^/]+/.test(pathname) || // Vendor profile page (public)
+    /^\/vendor\/(dashboard|edit|subscribe|jobs)/.test(pathname) || // Vendor management pages
+    /^\/jobs\/[^/]+/.test(pathname); // Job chat pages
 
   if (hidden) return null;
 
   const HOME_INDEX = 0;
-  const ACCOUNT_INDEX = 2;
+  const DISCOVER_INDEX = 1;
+  const ACCOUNT_INDEX = 3;
   const selectedIndex: number = pathname.startsWith('/profile')
     ? ACCOUNT_INDEX
+    : pathname.startsWith('/discover')
+    ? DISCOVER_INDEX
     : HOME_INDEX;
 
   return (
@@ -170,7 +176,7 @@ export default function MobileBottomNav() {
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: '1fr 1fr 1fr',
+          gridTemplateColumns: '1fr 1fr 1fr 1fr',
           alignItems: 'center',
           height: 60,
           maxWidth: 640,
@@ -185,6 +191,16 @@ export default function MobileBottomNav() {
           }}
         >
           <FiHome size={ICON_SIZE} />
+        </NavBtn>
+
+        <NavBtn
+          ariaLabel="Discover"
+          selected={selectedIndex === DISCOVER_INDEX}
+          onClick={() => {
+            if (!pathname.startsWith('/discover')) nav('/discover');
+          }}
+        >
+          <IonIcon icon={compassOutline} style={{ fontSize: ICON_SIZE }} />
         </NavBtn>
 
         <NavBtn

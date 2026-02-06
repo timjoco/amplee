@@ -3,6 +3,7 @@ import { IonAlert, IonContent, IonPage, IonSpinner, IonText } from '@ionic/react
 import { useNavigate } from 'react-router-dom';
 
 import AndroidBottomSafeArea from '../../components/AndroidBottomSafeArea';
+import { useUserVendor } from '../../hooks/useUserVendor';
 import { AccountInfoCard } from './components/AccountInfoCard';
 import { AvatarCard } from './components/AvatarCard';
 import { LogoutCard } from './components/LogoutCard';
@@ -24,6 +25,7 @@ export default function Profile() {
     setLogoutAlertOpen,
     handleConfirmLogout,
   } = useProfile();
+  const { vendor, hasVendor } = useUserVendor();
 
   const displayName = computeDisplayName(profile, authUser);
   const location = profile?.location || 'Add your location';
@@ -107,6 +109,36 @@ export default function Profile() {
               subtitle="Terms, privacy & help"
               onClick={() => nav('/support')}
             />
+
+            {/* Vendor Section */}
+            <div style={{ marginTop: 8, marginBottom: 8 }}>
+              <p
+                style={{
+                  fontSize: 11,
+                  fontWeight: 600,
+                  color: 'rgba(255,255,255,0.4)',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                  marginBottom: 8,
+                  paddingLeft: 4,
+                }}
+              >
+                Vendor
+              </p>
+              <NavCard
+                title={hasVendor ? 'My Vendor Profile' : 'Become a Vendor'}
+                subtitle={
+                  hasVendor
+                    ? vendor?.is_public
+                      ? 'Visible on Discover'
+                      : 'Draft - not visible yet'
+                    : 'Get discovered by bands'
+                }
+                onClick={() =>
+                  nav(hasVendor ? '/vendor/dashboard' : '/vendor/edit')
+                }
+              />
+            </div>
 
             <AccountInfoCard />
 
