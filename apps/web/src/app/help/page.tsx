@@ -244,6 +244,16 @@ const yourBand = [
     bgColor: colors.purple.lighter,
     available: true,
   },
+  {
+    id: 'band-settings',
+    title: 'Band Settings',
+    description: 'Set your role, update the band profile, manage admins, or delete the band',
+    href: '/help/bands/settings',
+    icon: <SettingsIcon sx={{ fontSize: 36 }} />,
+    color: colors.purple.main,
+    bgColor: colors.purple.lighter,
+    available: true,
+  },
 ];
 
 export default function HelpCenterPage() {

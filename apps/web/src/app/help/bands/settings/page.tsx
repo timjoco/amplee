@@ -19,8 +19,8 @@ import Image from 'next/image';
 import Link from 'next/link';
 
 export const metadata = {
-  title: 'Event Settings • Amplee Help Center',
-  description: 'Learn how to manage event settings, members, and delete events in Amplee',
+  title: 'Band Settings • Amplee Help Center',
+  description: 'Learn how to manage band settings, roles, and profiles in Amplee',
 };
 
 const colors = {
@@ -40,10 +40,6 @@ const colors = {
     lighter: '#EDE9FE',
     dark: '#7C3AED',
   },
-  green: {
-    main: '#34d399',
-    lighter: '#D1FAE5',
-  },
   accent: {
     green: '#34d399',
     pink: '#f472b6',
@@ -52,7 +48,7 @@ const colors = {
   },
 };
 
-export default function EventSettingsHelpPage() {
+export default function BandSettingsHelpPage() {
   return (
     <Box
       sx={{
@@ -109,10 +105,10 @@ export default function EventSettingsHelpPage() {
           {/* Page Header */}
           <Stack spacing={2.5} sx={{ mb: { xs: 5, md: 7 } }}>
             <Chip
-              label="YOUR EVENTS"
+              label="YOUR BANDS"
               sx={{
-                bgcolor: colors.green.lighter,
-                color: colors.green.main,
+                bgcolor: colors.purple.lighter,
+                color: colors.purple.main,
                 fontWeight: 700,
                 fontSize: '0.8rem',
                 letterSpacing: '1px',
@@ -129,7 +125,7 @@ export default function EventSettingsHelpPage() {
                 color: colors.text.primary,
               }}
             >
-              Settings
+              Band Settings
             </Typography>
             <Typography
               sx={{
@@ -139,91 +135,128 @@ export default function EventSettingsHelpPage() {
                 lineHeight: 1.6,
               }}
             >
-              Manage who's invited to an event, update event details, or delete events you no longer need.
+              Set your role in the band, update the band profile, manage member roles, or delete the band.
             </Typography>
           </Stack>
 
           {/* Content Sections */}
           <Stack spacing={6}>
-            {/* Editing Event Details */}
+            {/* My Role in Band */}
             <HelpSection
-              icon={<SettingsIcon sx={{ fontSize: 28, color: colors.green.main }} />}
-              title="Changing event details"
+              icon={<SettingsIcon sx={{ fontSize: 28, color: colors.purple.main }} />}
+              title="My role in band"
             >
               <Typography sx={{ color: colors.text.secondary, lineHeight: 1.7, fontSize: { xs: '1rem', md: '1.125rem' } }}>
-                Plans change—update the event info when they do.
+                Let your bandmates know what you do. Set tags for your role in the band.
               </Typography>
               <Stack spacing={2} sx={{ mt: 3 }}>
                 <StepItem number={1}>
-                  Open the event and go to <strong style={{ color: colors.text.primary }}>Settings</strong>
+                  Open the band and go to <strong style={{ color: colors.text.primary }}>Settings</strong>
                 </StepItem>
                 <StepItem number={2}>
-                  Tap <strong style={{ color: colors.text.primary }}>Edit Event</strong>
+                  Tap <strong style={{ color: colors.text.primary }}>My Role in Band</strong>
                 </StepItem>
                 <StepItem number={3}>
-                  Update the name, date, time, venue, or event type
+                  Select tags like your instrument, vocalist, photographer, roadie, or manager
+                </StepItem>
+              </Stack>
+              <Typography sx={{ color: colors.text.secondary, lineHeight: 1.7, mt: 3, fontSize: { xs: '1rem', md: '1.125rem' } }}>
+                Your role tags appear on your profile within the band so everyone knows who does what.
+              </Typography>
+            </HelpSection>
+
+            <Divider sx={{ borderColor: colors.bg.tertiary }} />
+
+            {/* Band Profile */}
+            <HelpSection
+              icon={<SettingsIcon sx={{ fontSize: 28, color: colors.purple.main }} />}
+              title="Band profile"
+            >
+              <Typography sx={{ color: colors.text.secondary, lineHeight: 1.7, fontSize: { xs: '1rem', md: '1.125rem' } }}>
+                Update your band's name or avatar.
+              </Typography>
+              <Stack spacing={2} sx={{ mt: 3 }}>
+                <StepItem number={1}>
+                  Open the band and go to <strong style={{ color: colors.text.primary }}>Settings</strong>
+                </StepItem>
+                <StepItem number={2}>
+                  Scroll down to <strong style={{ color: colors.text.primary }}>Band Profile</strong>
+                </StepItem>
+                <StepItem number={3}>
+                  Update the band name or tap the avatar to upload a new image
                 </StepItem>
                 <StepItem number={4}>
                   Save your changes
                 </StepItem>
               </Stack>
-              <Typography sx={{ color: colors.text.secondary, lineHeight: 1.7, mt: 3, fontSize: { xs: '1rem', md: '1.125rem' } }}>
-                Everyone in the event will see the updated details right away.
-              </Typography>
             </HelpSection>
 
             <Divider sx={{ borderColor: colors.bg.tertiary }} />
 
-            {/* Managing Members */}
+            {/* Manage Roles */}
             <HelpSection
-              icon={<SettingsIcon sx={{ fontSize: 28, color: colors.green.main }} />}
-              title="Adding and removing members"
+              icon={<SettingsIcon sx={{ fontSize: 28, color: colors.purple.main }} />}
+              title="Manage roles"
             >
               <Typography sx={{ color: colors.text.secondary, lineHeight: 1.7, fontSize: { xs: '1rem', md: '1.125rem' } }}>
-                Control who's invited to a specific event without affecting the rest of your band.
+                Promote members to admin so they can help manage the band.
               </Typography>
               <Stack spacing={2} sx={{ mt: 3 }}>
                 <StepItem number={1}>
-                  Open the event and go to <strong style={{ color: colors.text.primary }}>Settings</strong>
+                  Open the band and go to <strong style={{ color: colors.text.primary }}>Settings</strong>
                 </StepItem>
                 <StepItem number={2}>
-                  Scroll down to <strong style={{ color: colors.text.primary }}>Manage Attendees</strong>
+                  Scroll down to <strong style={{ color: colors.text.primary }}>Manage Roles</strong>
                 </StepItem>
                 <StepItem number={3}>
-                  Add or remove people from this event
-                </StepItem>
-              </Stack>
-              <Typography sx={{ color: colors.text.secondary, lineHeight: 1.7, mt: 3, fontSize: { xs: '1rem', md: '1.125rem' } }}>
-                This is useful when you have a rotating lineup or need to bring in a sub for a specific gig. Changes only affect this event—your band roster stays the same.
-              </Typography>
-            </HelpSection>
-
-            <Divider sx={{ borderColor: colors.bg.tertiary }} />
-
-            {/* Deleting Events */}
-            <HelpSection
-              icon={<SettingsIcon sx={{ fontSize: 28, color: colors.green.main }} />}
-              title="Deleting an event"
-            >
-              <Typography sx={{ color: colors.text.secondary, lineHeight: 1.7, fontSize: { xs: '1rem', md: '1.125rem' } }}>
-                If an event is cancelled or no longer needed, you can delete it entirely.
-              </Typography>
-              <Stack spacing={2} sx={{ mt: 3 }}>
-                <StepItem number={1}>
-                  Open the event and go to <strong style={{ color: colors.text.primary }}>Settings</strong>
-                </StepItem>
-                <StepItem number={2}>
-                  Scroll down to <strong style={{ color: colors.text.primary }}>Delete Event</strong>
-                </StepItem>
-                <StepItem number={3}>
-                  Confirm the deletion
+                  Tap on a member to promote or demote them
                 </StepItem>
               </Stack>
 
               <Box
                 sx={{
-                  bgcolor: colors.green.lighter,
-                  borderLeft: `4px solid ${colors.green.main}`,
+                  bgcolor: colors.purple.lighter,
+                  borderLeft: `4px solid ${colors.purple.main}`,
+                  borderRadius: '0 12px 12px 0',
+                  p: 3,
+                  mt: 4,
+                }}
+              >
+                <Typography sx={{ color: colors.text.primary, fontWeight: 600, fontSize: { xs: '1.05rem', md: '1.15rem' } }}>
+                  What admins can do
+                </Typography>
+                <Typography sx={{ color: colors.text.secondary, fontSize: { xs: '1rem', md: '1.075rem' }, mt: 1, lineHeight: 1.7 }}>
+                  Admins can create and edit events, manage the setlist and library, invite new members, and access band settings. Only the band owner can delete the band.
+                </Typography>
+              </Box>
+            </HelpSection>
+
+            <Divider sx={{ borderColor: colors.bg.tertiary }} />
+
+            {/* Danger Zone */}
+            <HelpSection
+              icon={<SettingsIcon sx={{ fontSize: 28, color: colors.purple.main }} />}
+              title="Danger zone"
+            >
+              <Typography sx={{ color: colors.text.secondary, lineHeight: 1.7, fontSize: { xs: '1rem', md: '1.125rem' } }}>
+                Permanently delete the band and all its data.
+              </Typography>
+              <Stack spacing={2} sx={{ mt: 3 }}>
+                <StepItem number={1}>
+                  Open the band and go to <strong style={{ color: colors.text.primary }}>Settings</strong>
+                </StepItem>
+                <StepItem number={2}>
+                  Scroll down to <strong style={{ color: colors.text.primary }}>Danger Zone</strong>
+                </StepItem>
+                <StepItem number={3}>
+                  Tap <strong style={{ color: colors.text.primary }}>Delete Band</strong> and confirm
+                </StepItem>
+              </Stack>
+
+              <Box
+                sx={{
+                  bgcolor: colors.accent.pink + '20',
+                  borderLeft: `4px solid ${colors.accent.pink}`,
                   borderRadius: '0 12px 12px 0',
                   p: 3,
                   mt: 4,
@@ -233,7 +266,7 @@ export default function EventSettingsHelpPage() {
                   This can't be undone
                 </Typography>
                 <Typography sx={{ color: colors.text.secondary, fontSize: { xs: '1rem', md: '1.075rem' }, mt: 1, lineHeight: 1.7 }}>
-                  Deleting an event removes it permanently, including all chat messages, setlists, notes, and files. If you might need the info later, consider marking it as cancelled instead.
+                  Deleting a band removes it permanently for everyone, including all events, chat history, library, and files. Only the band owner can delete the band.
                 </Typography>
               </Box>
             </HelpSection>
@@ -255,10 +288,10 @@ export default function EventSettingsHelpPage() {
             </Typography>
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={3}>
               <RelatedCard
-                title="Events"
-                description="Managing your shows"
-                href="/help/events"
-                color={colors.accent.green}
+                title="Bands"
+                description="Create and manage bands"
+                href="/help/bands"
+                color={colors.purple.main}
               />
               <RelatedCard
                 title="Roster"
@@ -287,7 +320,7 @@ export default function EventSettingsHelpPage() {
               We're here to help.
             </Typography>
             <Button
-              href="mailto:hello.amplee@gmail.com?subject=Help%20with%20Event%20Settings"
+              href="mailto:hello.amplee@gmail.com?subject=Help%20with%20Band%20Settings"
               variant="contained"
               size="large"
               sx={{
@@ -361,8 +394,8 @@ function StepItem({ number, children }: { number: number; children: React.ReactN
           width: 36,
           height: 36,
           borderRadius: '50%',
-          bgcolor: colors.green.lighter,
-          color: colors.green.main,
+          bgcolor: colors.purple.lighter,
+          color: colors.purple.main,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
